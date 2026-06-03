@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative Report · Shesha Ayurveda · Shiprocket Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;
+  --card:rgba(255,255,255,.04);
+  --card2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);
+  --border2:rgba(255,255,255,.14);
+  --t1:#fff;
+  --t2:rgba(255,255,255,.55);
+  --t3:rgba(255,255,255,.28);
+  --purple:#AF46FD;
+  --pink:#F4349D;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --green:#22C55E;
+  --amber:#FB923C;
+  --red:#F43F5E;
+}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;width:100%;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sb{
+  width:64px;flex-shrink:0;background:#0d0d1a;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;gap:2px;
+}
+.sb-logo{
+  width:36px;height:36px;border-radius:10px;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;
+}
+.sb-logo svg{width:15px;height:15px}
+.sb-item{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;transition:background .15s;color:var(--t3);
+}
+.sb-item:hover{background:var(--card2);color:var(--t2)}
+.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.sb-item svg{width:17px;height:17px}
+.sb-item span{font-size:9px;font-weight:600}
+.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0}
+.sb-avatar{
+  margin-top:auto;width:32px;height:32px;border-radius:50%;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;cursor:pointer;
+}
+.sb-ws-bubble{
+  margin-top:auto;width:32px;height:32px;border-radius:50%;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);
+  flex-shrink:0;
+}
+.ws-switcher-popover{
+  position:fixed;left:68px;bottom:20px;z-index:300;width:240px;
+  background:#0d0c1a;border:1px solid rgba(255,255,255,.1);border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);display:none;flex-direction:column;overflow:hidden;
+}
+.ws-switcher-popover.open{display:flex}
+.ws-sw-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,.07)}
+.ws-sw-title{font-size:12px;font-weight:700;color:rgba(255,255,255,.7)}
+.ws-sw-close{background:none;border:none;color:rgba(255,255,255,.35);font-size:18px;cursor:pointer;line-height:1;padding:0;font-family:inherit}
+.ws-sw-close:hover{color:#fff}
+.ws-sw-list{padding:8px 0}
+.ws-sw-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .12s}
+.ws-sw-item:hover{background:rgba(255,255,255,.04)}
+.ws-sw-bubble{width:30px;height:30px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.ws-sw-info{flex:1;min-width:0}
+.ws-sw-name{font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-sw-url{font-size:10px;color:rgba(255,255,255,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-sw-check{color:var(--purple);font-size:14px;flex-shrink:0}
+.ws-sw-logo{width:30px;height:30px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid rgba(255,255,255,.1)}
+.ws-sw-logo img{width:100%;height:100%;object-fit:cover}
+.ws-switching-overlay{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .2s}
+.ws-switching-overlay.show{opacity:1;pointer-events:all}
+@keyframes swSpin{to{transform:rotate(360deg)}}
+.ws-switching-spinner{width:32px;height:32px;border-radius:50%;border:3px solid rgba(175,70,253,.2);border-top-color:#AF46FD;animation:swSpin .6s linear infinite}
+.ws-switch-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);background:#1a1530;border:1px solid rgba(175,70,253,.3);border-radius:100px;padding:9px 20px;font-size:12px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:400;white-space:nowrap}
+.ws-switch-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.ws-sw-footer{padding:8px 10px 10px;border-top:1px solid rgba(255,255,255,.07)}
+.ws-sw-add{width:100%;padding:9px;border-radius:8px;background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:var(--purple);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .12s}
+.ws-sw-add:hover{background:rgba(175,70,253,.18)}
+
+/* ── MAIN SHELL ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;height:60px;padding:0 28px;
+  display:flex;align-items:center;gap:12px;
+  border-bottom:1px solid var(--border);
+  background:rgba(11,11,20,.98);backdrop-filter:blur(16px);
+  z-index:10;
+}
+.tb-brand{display:flex;align-items:center;gap:10px;flex:1}
+.tb-icon{
+  width:34px;height:34px;border-radius:8px;
+  background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.25);
+  display:flex;align-items:center;justify-content:center;font-size:15px;
+}
+.tb-title{font-size:15px;font-weight:700}
+.tb-sub{font-size:11px;color:var(--t3);margin-top:1px}
+.tb-pill{
+  display:flex;align-items:center;gap:6px;padding:6px 14px;
+  border-radius:8px;background:var(--card);border:1px solid var(--border2);
+  font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap;
+}
+.tb-pill:hover{border-color:rgba(255,255,255,.22);color:#fff}
+.tb-cta{
+  padding:8px 18px;border-radius:8px;background:var(--grad);
+  color:#fff;border:none;font-size:13px;font-weight:700;
+  font-family:inherit;cursor:pointer;transition:opacity .15s;white-space:nowrap;
+}
+.tb-cta:hover{opacity:.85}
+.tb-logout{
+  background:none;border:none;color:rgba(255,255,255,.35);
+  font-family:inherit;font-size:12px;font-weight:600;
+  cursor:pointer;white-space:nowrap;padding:4px 2px;
+  transition:color .15s;flex-shrink:0;
+}
+.tb-logout:hover{color:rgba(255,255,255,.7)}
+
+/* ── MOBILE HAMBURGER DRAWER ── */
+.mob-hamburger{
+  display:none;flex-direction:column;justify-content:center;gap:5px;
+  width:36px;height:36px;background:none;border:none;cursor:pointer;
+  flex-shrink:0;padding:4px;
+}
+.mob-hamburger span{display:block;width:18px;height:2px;background:rgba(255,255,255,.6);border-radius:2px;transition:all .2s}
+.mob-drawer-backdrop{
+  display:none;position:fixed;inset:0;z-index:800;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+}
+.mob-drawer-backdrop.show{display:block}
+.mob-drawer{
+  position:fixed;top:0;left:0;bottom:0;width:260px;z-index:801;
+  background:#0d0c1a;border-right:1px solid rgba(255,255,255,.07);
+  display:flex;flex-direction:column;
+  transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.mob-drawer.open{transform:translateX(0)}
+.mob-drawer-header{
+  display:flex;align-items:center;gap:10px;padding:18px 16px 14px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.mob-drawer-logo{
+  width:32px;height:32px;border-radius:8px;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.mob-drawer-logo svg{width:14px;height:14px}
+.mob-drawer-title{font-size:13px;font-weight:700;color:#fff}
+.mob-drawer-sub{font-size:11px;color:var(--t3)}
+.mob-drawer-close{
+  margin-left:auto;background:none;border:none;color:rgba(255,255,255,.4);
+  font-size:18px;cursor:pointer;padding:4px;line-height:1;
+}
+.mob-drawer-nav{flex:1;display:flex;flex-direction:column;padding:10px 10px;gap:2px;overflow-y:auto}
+.mob-drawer-item{
+  display:flex;align-items:center;gap:12px;padding:10px 12px;
+  border-radius:10px;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);
+  cursor:pointer;transition:all .15s;border:none;background:none;font-family:inherit;text-align:left;
+}
+.mob-drawer-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.mob-drawer-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.mob-drawer-item svg{width:16px;height:16px;flex-shrink:0}
+.mob-drawer-div{height:1px;background:rgba(255,255,255,.06);margin:6px 10px}
+.mob-drawer-logout{
+  margin:8px 10px 20px;padding:10px 12px;border-radius:10px;
+  background:none;border:1px solid rgba(255,255,255,.08);
+  color:rgba(255,255,255,.3);font-family:inherit;font-size:13px;font-weight:500;
+  cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .15s;
+}
+.mob-drawer-logout:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.2)}
+.mob-drawer-logout svg{width:16px;height:16px;flex-shrink:0}
+
+@media(max-width:640px){
+  .topbar{padding:0 16px;height:56px;gap:0;display:flex;align-items:center}
+  .mob-hamburger{display:flex}
+  .tb-brand{flex:1;justify-content:center}
+  .tb-icon{display:none}
+  .tb-sub{display:none}
+  .tb-title{font-size:14px}
+  .tb-pill{display:none}
+  .tb-logout{display:none}
+  .tb-cta{font-size:12px;padding:7px 12px;white-space:nowrap}
+  .sb{display:none}
+}
+
+/* ── BODY ── */
+.body{display:flex;flex:1;overflow:hidden}
+.scroll{flex:1;overflow-y:auto;padding:28px 32px 60px}
+.scroll::-webkit-scrollbar{width:4px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:4px}
+
+/* ── HERO ── */
+.hero{
+  border-radius:16px;padding:28px 32px;margin-bottom:20px;
+  background:linear-gradient(135deg,rgba(175,70,253,.1) 0%,rgba(244,52,157,.06) 100%);
+  border:1px solid rgba(175,70,253,.18);
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.hero-left{}
+.hero-label{
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--purple);margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}
+.hero-label::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--purple);display:inline-block}
+.hero-headline{
+  font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(22px,2.5vw,32px);line-height:1.2;color:#fff;margin-bottom:10px;
+}
+.hero-headline strong{
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  font-style:normal;
+}
+.hero-sub{font-size:13px;color:var(--t2);line-height:1.6;max-width:460px}
+.hero-stats{display:flex;gap:24px;flex-shrink:0}
+.hero-stat{text-align:center}
+.hero-stat-val{font-size:28px;font-weight:800;color:#fff;line-height:1}
+.hero-stat-val.up{color:#22C55E}
+.hero-stat-val.down{color:#F43F5E}
+.hero-stat-lbl{font-size:11px;color:var(--t3);margin-top:4px}
+.hero-divider{width:1px;background:var(--border2);align-self:stretch}
+
+/* ── SECTION ── */
+.section{margin-bottom:28px}
+.section-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px}
+.section-title{font-size:16px;font-weight:800;color:#fff}
+.section-sub{font-size:12.5px;color:var(--t3);margin-top:3px}
+.section-action{
+  padding:7px 16px;border-radius:8px;
+  background:var(--card);border:1px solid var(--border2);
+  font-size:12px;font-weight:700;color:var(--t2);
+  font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;
+}
+.section-action:hover{background:var(--card2);color:#fff}
+
+/* ── 2-COL SPLIT ── */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+
+/* ── WINNER CARDS ── */
+.winner-list{display:flex;flex-direction:column;gap:10px}
+.winner-card{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:14px;border-radius:12px;
+  background:var(--card);border:1px solid var(--border);
+  cursor:pointer;transition:all .18s;
+}
+.winner-card:hover{background:var(--card2);border-color:var(--border2);transform:translateX(3px)}
+.winner-card.selected{border-color:rgba(175,70,253,.4);background:rgba(175,70,253,.06)}
+.winner-rank{
+  width:24px;height:24px;border-radius:8px;flex-shrink:0;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:#fff;margin-top:1px;
+}
+.winner-thumb{
+  width:56px;height:64px;border-radius:8px;object-fit:cover;
+  flex-shrink:0;background:#1a1726;
+}
+.winner-body{flex:1;min-width:0}
+.winner-name{font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.winner-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
+.wtag{
+  padding:2px 8px;border-radius:100px;font-size:10px;font-weight:600;
+  background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.18);color:#C084FC;
+}
+.winner-metrics{display:flex;gap:14px}
+.wm-item{font-size:11.5px;color:var(--t3)}
+.wm-item strong{color:#fff;font-weight:700}
+.winner-roas{
+  flex-shrink:0;text-align:right;
+}
+.winner-roas-val{font-size:20px;font-weight:800;color:#fff}
+.winner-roas-lbl{font-size:10px;color:var(--t3)}
+.winner-action-row{display:flex;gap:6px;margin-top:8px}
+.wbtn{
+  padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;
+  font-family:inherit;cursor:pointer;border:none;transition:all .15s;
+}
+.wbtn.scale{background:rgba(34,197,94,.12);color:#22C55E}
+.wbtn.scale:hover{background:rgba(34,197,94,.22)}
+.wbtn.brief{background:rgba(175,70,253,.12);color:var(--purple)}
+.wbtn.brief:hover{background:rgba(175,70,253,.22)}
+
+/* ── PAUSE CARDS ── */
+.pause-list{display:flex;flex-direction:column;gap:10px}
+.pause-card{
+  display:flex;gap:12px;align-items:center;
+  padding:12px 14px;border-radius:12px;
+  background:var(--card);border:1px solid var(--border);
+  transition:all .18s;
+}
+.pause-card:hover{background:rgba(244,63,94,.04);border-color:rgba(244,63,94,.2)}
+.pause-thumb{
+  width:44px;height:50px;border-radius:7px;object-fit:cover;
+  flex-shrink:0;background:#1a1726;opacity:.7;
+}
+.pause-body{flex:1;min-width:0}
+.pause-name{font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.pause-reason{font-size:11px;color:rgba(244,63,94,.7)}
+.pause-metrics{display:flex;gap:10px;margin-top:4px}
+.pm-item{font-size:11px;color:var(--t3)}
+.pm-item strong{color:var(--t2);font-weight:600}
+.pause-btn{
+  flex-shrink:0;padding:5px 12px;border-radius:7px;
+  background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);
+  color:#F43F5E;font-size:11.5px;font-weight:700;
+  font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.pause-btn:hover{background:rgba(244,63,94,.2)}
+
+/* ── STRATEGY SECTION ── */
+.strategy-card{
+  border-radius:16px;padding:22px 24px 24px;
+  background:linear-gradient(135deg,rgba(175,70,253,.07),rgba(244,52,157,.04));
+  border:1px solid rgba(175,70,253,.15);
+  margin-bottom:28px;
+}
+.strategy-header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:20px;flex-wrap:wrap;
+}
+.strategy-header-left{}
+.strategy-eyebrow{
+  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--purple);margin-bottom:4px;
+}
+.strategy-title{font-size:17px;font-weight:800;color:#fff}
+.brief-cta{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 18px;border-radius:10px;
+  background:var(--grad);color:#fff;
+  cursor:pointer;border:none;font-family:inherit;
+  font-size:13px;font-weight:700;white-space:nowrap;
+  transition:opacity .15s;flex-shrink:0;
+}
+.brief-cta:hover{opacity:.88}
+/* playbook steps */
+.playbook{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:4px}
+.playbook::-webkit-scrollbar{height:3px}
+.playbook::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.playbook-step{
+  flex:1;min-width:120px;
+  padding:16px 14px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-right:none;
+  position:relative;
+  display:flex;flex-direction:column;gap:6px;
+}
+.playbook-step:first-child{border-radius:12px 0 0 12px}
+.playbook-step:last-child{border-right:1px solid rgba(255,255,255,.08);border-radius:0 12px 12px 0}
+.playbook-step-icon{
+  width:36px;height:36px;border-radius:10px;
+  background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.2);
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  margin-bottom:2px;flex-shrink:0;
+}
+.playbook-step-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--t3)}
+.playbook-step-value{font-size:13px;font-weight:700;color:#fff;line-height:1.3}
+.playbook-step-stat{
+  display:inline-flex;align-items:center;gap:4px;margin-top:2px;
+  padding:2px 7px;border-radius:100px;
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.18);
+  font-size:10px;font-weight:700;color:#22C55E;width:fit-content;
+}
+/* connector arrow between steps */
+.playbook-arrow{
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  color:rgba(175,70,253,.5);font-size:14px;padding:0 2px;
+  margin-top:18px;
+}
+@media(max-width:640px){
+  .playbook{flex-wrap:nowrap}
+  .playbook-step{min-width:130px}
+}
+
+/* ── INSIGHTS ROW ── */
+.insights-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+.insight-card{
+  padding:18px;border-radius:12px;
+  background:var(--card);border:1px solid var(--border);
+}
+.insight-icon{font-size:22px;margin-bottom:10px}
+.insight-finding{font-size:13px;font-weight:700;color:#fff;line-height:1.4;margin-bottom:6px}
+.insight-detail{font-size:12px;color:var(--t2);line-height:1.6}
+.insight-stat{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--purple);font-weight:600;
+}
+
+/* ── ALL ADS ── */
+.ad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.ad-card{
+  border-radius:12px;overflow:hidden;
+  background:var(--card);border:1px solid var(--border);
+  cursor:pointer;transition:all .18s;
+}
+.ad-card:hover{border-color:rgba(175,70,253,.3);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.ad-card.sel{border-color:var(--purple);box-shadow:0 0 0 2px rgba(175,70,253,.2)}
+.ad-thumb{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;background:#1a1726}
+.ad-body{padding:10px 12px}
+.ad-name{font-size:11px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.ad-tags{display:flex;gap:4px;margin-bottom:6px}
+.atag{padding:1px 6px;border-radius:100px;font-size:9.5px;font-weight:700;background:var(--card2);color:var(--t3)}
+.atag.live{background:rgba(34,197,94,.1);color:#22C55E}
+.atag.paused{background:rgba(244,63,94,.08);color:#F43F5E}
+.atag.video{background:rgba(175,70,253,.1);color:var(--purple)}
+.atag.image{background:rgba(251,146,60,.1);color:#FB923C}
+.ad-roas{font-size:15px;font-weight:800;color:#fff}
+.ad-roas span{font-size:10px;font-weight:500;color:var(--t3)}
+
+/* ── FILTER TABS ── */
+.tabs{display:flex;gap:6px;margin-bottom:16px}
+.tab{
+  display:flex;align-items:center;gap:5px;
+  padding:6px 13px;border-radius:8px;
+  background:var(--card);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--t2);
+  cursor:pointer;transition:all .15s;font-family:inherit;
+}
+.tab:hover{background:var(--card2);color:#fff}
+.tab.active{background:rgba(175,70,253,.12);border-color:rgba(175,70,253,.3);color:var(--purple)}
+.tab .cnt{padding:1px 6px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:var(--t3)}
+.tab.active .cnt{background:rgba(175,70,253,.2);color:var(--purple)}
+
+/* ── DETAIL DRAWER ── */
+.drawer{
+  width:0;flex-shrink:0;overflow:hidden;
+  transition:width .25s cubic-bezier(.4,0,.2,1);
+  background:#0d0d1a;border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+}
+.drawer.open{width:360px}
+.drawer-inner{width:360px;overflow-y:auto;height:100%;padding:20px}
+.drawer-inner::-webkit-scrollbar{width:4px}
+.drawer-inner::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07)}
+.d-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.d-close{
+  background:var(--card);border:1px solid var(--border);
+  color:var(--t2);width:28px;height:28px;border-radius:8px;
+  cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;
+  font-family:inherit;
+}
+.d-thumb{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:10px;margin-bottom:14px;display:block;background:#1a1726}
+.d-name{font-size:12px;font-weight:600;color:var(--t2);word-break:break-all;margin-bottom:8px}
+.d-tags{display:flex;gap:5px;margin-bottom:16px}
+.d-kpis{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:20px}
+.d-kpi{padding:10px 12px;border-radius:9px;background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.12)}
+.d-kpi-label{font-size:10px;color:var(--t3);margin-bottom:2px}
+.d-kpi-val{font-size:15px;font-weight:800;color:#fff}
+.d-section{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);margin-bottom:10px}
+.ci-row{margin-bottom:10px}
+.ci-label{font-size:11px;color:var(--t3);margin-bottom:2px}
+.ci-val{font-size:13px;font-weight:600;color:#fff}
+.d-actions{display:flex;gap:8px;margin-top:16px}
+.d-btn{
+  flex:1;padding:10px;border-radius:9px;font-size:12.5px;font-weight:700;
+  font-family:inherit;cursor:pointer;border:none;text-align:center;transition:all .15s;
+}
+.d-btn.scale{background:rgba(34,197,94,.15);color:#22C55E;border:1px solid rgba(34,197,94,.2)}
+.d-btn.scale:hover{background:rgba(34,197,94,.25)}
+.d-btn.pause{background:rgba(244,63,94,.1);color:#F43F5E;border:1px solid rgba(244,63,94,.2)}
+.d-btn.pause:hover{background:rgba(244,63,94,.2)}
+
+/* ── BRIEF MODAL ── */
+.modal-bg{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;
+}
+.modal-bg.show{display:flex}
+.modal{
+  width:560px;max-width:90vw;max-height:85vh;overflow-y:auto;
+  background:#13121f;border:1px solid var(--border2);border-radius:20px;
+  padding:32px;
+}
+.modal::-webkit-scrollbar{width:4px}
+.modal::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08)}
+.modal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.modal-title{font-size:18px;font-weight:800;color:#fff}
+.modal-close{background:var(--card);border:1px solid var(--border);color:var(--t2);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.modal-sub{font-size:13px;color:var(--t2);margin-bottom:24px;line-height:1.5}
+.brief-block{margin-bottom:18px}
+.brief-block-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--purple);margin-bottom:8px}
+.brief-block-body{
+  padding:14px 16px;border-radius:10px;
+  background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.12);
+  font-size:13px;color:#fff;line-height:1.7;
+}
+.brief-copy-btn{
+  width:100%;margin-top:20px;padding:13px;border-radius:10px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:opacity .15s;
+}
+.brief-copy-btn:hover{opacity:.88}
+
+/* ── STRATEGY CTAs ── */
+.strategy-ctas{display:flex;gap:8px;flex-wrap:wrap}
+.scta{
+  padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;
+  font-family:inherit;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;
+}
+.scta-comp{
+  background:var(--grad);color:#fff;
+}
+.scta-comp:hover{opacity:.88}
+.scta-brief{
+  background:rgba(255,255,255,.06);color:#fff;
+  border:1px solid rgba(255,255,255,.12);
+}
+.scta-brief:hover{background:rgba(255,255,255,.1)}
+
+/* ── AI CHAT OVERLAY ── */
+.ai-chat-overlay{
+  display:none;position:fixed;top:0;right:0;bottom:0;left:64px;z-index:400;
+  background:#0B0B14;
+}
+.ai-chat-overlay.show{display:flex}
+@media(max-width:640px){
+  .ai-chat-overlay{left:0}
+}
+.ai-chat-sidebar{
+  width:260px;flex-shrink:0;
+  background:#0d0c1a;border-right:1px solid rgba(255,255,255,.06);
+  display:flex;flex-direction:column;
+}
+.ai-sb-header{
+  display:flex;align-items:center;gap:10px;
+  padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.06);
+}
+.ai-sb-header-icon{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.2);
+  display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;
+}
+.ai-sb-header-title{font-size:14px;font-weight:700;color:#fff}
+.ai-sb-newchat{
+  margin:12px 14px;padding:10px 14px;border-radius:10px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;gap:7px;transition:opacity .15s;
+}
+.ai-sb-newchat:hover{opacity:.88}
+.ai-sb-history{flex:1;overflow-y:auto;padding:8px 0}
+.ai-sb-history::-webkit-scrollbar{width:3px}
+.ai-sb-history::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07)}
+.ai-sb-group{margin-bottom:6px}
+.ai-sb-group-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.25);padding:8px 16px 4px}
+.ai-sb-item{
+  padding:8px 16px;font-size:12.5px;color:rgba(255,255,255,.45);
+  cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  transition:background .12s;
+}
+.ai-sb-item:hover{background:rgba(255,255,255,.04);color:rgba(255,255,255,.7)}
+.ai-sb-item.active{background:rgba(175,70,253,.1);color:rgba(255,255,255,.85)}
+
+.ai-chat-main{
+  flex:1;display:flex;flex-direction:column;min-width:0;
+}
+.ai-topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:60px;border-bottom:1px solid rgba(255,255,255,.06);
+  flex-shrink:0;
+}
+.ai-topbar-left{font-size:15px;font-weight:700;color:#fff}
+.ai-topbar-right{display:flex;align-items:center;gap:10px}
+.ai-acct-pill{
+  padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  color:rgba(255,255,255,.5);cursor:pointer;
+}
+.ai-close-btn{
+  width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+  color:rgba(255,255,255,.5);cursor:pointer;font-size:16px;font-family:inherit;
+  transition:all .12s;
+}
+.ai-close-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+
+.ai-messages{
+  flex:1;overflow-y:auto;padding:24px;
+  display:flex;flex-direction:column;gap:20px;
+}
+.ai-messages::-webkit-scrollbar{width:4px}
+.ai-messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07)}
+
+/* empty state */
+.ai-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;padding:40px 24px;
+}
+.ai-orb{
+  width:140px;height:140px;margin-bottom:16px;position:relative;
+}
+.ai-orb-ring{
+  position:absolute;border-radius:50%;
+  border:1.5px solid transparent;
+}
+.ai-orb-ring:nth-child(1){
+  inset:0;
+  background:linear-gradient(#0B0B14,#0B0B14) padding-box,
+             linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D) border-box;
+  animation:orb-spin 4s linear infinite;
+}
+.ai-orb-ring:nth-child(2){
+  inset:12px;
+  background:linear-gradient(#0B0B14,#0B0B14) padding-box,
+             linear-gradient(225deg,#AF46FD66,#F4349D66) border-box;
+  animation:orb-spin 6s linear infinite reverse;
+}
+.ai-orb-ring:nth-child(3){
+  inset:26px;
+  background:rgba(175,70,253,.08);
+  border:none;box-shadow:0 0 30px rgba(175,70,253,.25),inset 0 0 20px rgba(218,59,194,.15);
+}
+.ai-orb-core{
+  position:absolute;inset:40px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#AF46FD,#DA3BC2 50%,#F4349D);
+  box-shadow:0 0 20px rgba(175,70,253,.6);
+  animation:orb-pulse 3s ease-in-out infinite;
+}
+@keyframes orb-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes orb-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.92);opacity:.8}}
+.ai-empty-title{font-size:22px;font-weight:800;color:#fff;text-align:center}
+.ai-empty-title span{background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ai-empty-sub{font-size:13px;color:rgba(255,255,255,.4);text-align:center;margin-bottom:8px}
+.ai-prompts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:620px}
+.ai-prompt-card{
+  padding:12px 14px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  font-size:12px;color:rgba(255,255,255,.6);cursor:pointer;
+  text-align:center;line-height:1.5;transition:all .15s;
+}
+.ai-prompt-card:hover{background:rgba(175,70,253,.08);border-color:rgba(175,70,253,.25);color:#fff}
+
+/* message bubbles */
+.ai-msg{display:flex;gap:10px;align-items:flex-start}
+.ai-msg.user{flex-direction:row-reverse;justify-content:flex-start}
+.ai-msg-avatar{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:2px;
+}
+/* user message: right-aligned, hug content, max 60% width */
+.ai-msg.user > div{display:flex;flex-direction:column;align-items:flex-end}
+.ai-msg-bubble{
+  display:inline-block;
+  max-width:60%;padding:11px 15px;border-radius:18px;
+  font-size:13.5px;line-height:1.6;color:#fff;word-break:break-word;
+}
+.ai-msg.user .ai-msg-bubble{
+  background:var(--grad);border-bottom-right-radius:5px;
+  max-width:60%;
+}
+.ai-msg.ai .ai-msg-bubble{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+  border-bottom-left-radius:5px;max-width:100%;display:block;
+}
+.ai-msg-time{font-size:10px;color:rgba(255,255,255,.25);margin-top:4px;padding:0 4px}
+.ai-msg.user .ai-msg-time{text-align:right}
+.ai-msg-actions{display:flex;gap:8px;margin-top:6px;padding:0 4px}
+.ai-msg-action{
+  background:none;border:none;color:rgba(255,255,255,.25);font-size:13px;
+  cursor:pointer;font-family:inherit;padding:2px;transition:color .12s;
+}
+.ai-msg-action:hover{color:rgba(255,255,255,.6)}
+.ai-typing{display:flex;align-items:center;gap:10px}
+.ai-typing .ai-msg-bubble{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+  border-bottom-left-radius:4px;padding:14px 18px;
+  display:flex;align-items:center;gap:4px;
+}
+.ai-typing-dot{
+  width:6px;height:6px;border-radius:50%;background:rgba(175,70,253,.6);
+  animation:typing-bounce .9s ease-in-out infinite;
+}
+.ai-typing-dot:nth-child(2){animation-delay:.2s}
+.ai-typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes typing-bounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-5px);opacity:1}}
+
+/* inline account picker widget */
+.ai-widget{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;padding:16px;max-width:500px;
+}
+.ai-widget-title{font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;line-height:1.4}
+.ai-widget-badge{float:right;font-size:10px;background:rgba(175,70,253,.2);color:var(--purple);padding:2px 8px;border-radius:100px}
+.ai-check-row{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+  cursor:pointer;transition:background .12s;margin-bottom:4px;
+}
+.ai-check-row:hover{background:rgba(255,255,255,.04)}
+.ai-check-row.sel{background:rgba(175,70,253,.06)}
+.ai-checkbox{
+  width:18px;height:18px;border-radius:4px;border:1.5px solid rgba(255,255,255,.2);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  background:transparent;transition:all .12s;
+}
+.ai-check-row.sel .ai-checkbox{background:var(--purple);border-color:var(--purple)}
+.ai-checkbox-tick{color:#fff;font-size:10px;font-weight:900}
+.ai-check-label{font-size:13px;color:rgba(255,255,255,.7)}
+.ai-widget-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+.ai-wbtn{padding:8px 18px;border-radius:8px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;border:none}
+.ai-wbtn.skip{background:rgba(255,255,255,.06);color:rgba(255,255,255,.5)}
+.ai-wbtn.next{background:var(--grad);color:#fff}
+
+.ai-input-bar{
+  padding:14px 24px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;
+}
+.ai-input-bar-inner{
+  position:relative;
+  border-radius:30px;
+  padding:2px;
+  background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D,#AF46FD);
+  background-size:300% 300%;
+  animation:input-grad-spin 3s linear infinite;
+  opacity:.4;
+  transition:opacity .2s;
+  z-index:0;
+}
+.ai-input-bar-inner:focus-within{opacity:1}
+.ai-input-wrap{
+  display:flex;align-items:flex-end;gap:10px;
+  border-radius:28px;padding:10px 16px;
+  position:relative;
+  background:#0e0d1c;
+  border:none;
+  z-index:1;
+}
+@keyframes input-grad-spin{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+.ai-input{
+  flex:1;background:none;border:none;outline:none;resize:none;
+  font-size:14px;color:#fff;font-family:inherit;
+  padding:4px 0;line-height:1.55;
+  max-height:120px;overflow-y:auto;
+  scrollbar-width:none;
+}
+.ai-input::-webkit-scrollbar{display:none}
+.ai-input::placeholder{color:rgba(255,255,255,.25)}
+.ai-input-icon{margin-bottom:4px}
+.ai-send-btn{margin-bottom:1px;flex-shrink:0}
+.ai-input-icon{color:rgba(255,255,255,.3);font-size:16px;cursor:pointer;flex-shrink:0}
+.ai-input-icon:hover{color:rgba(255,255,255,.6)}
+.ai-send-btn{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(175,70,253,.15);color:rgba(175,70,253,.7);
+  border:1px solid rgba(175,70,253,.2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;
+}
+.ai-send-btn:hover{background:var(--grad);color:#fff;border-color:transparent}
+
+/* ── SEARCH STEPS (shown before typing) ── */
+.ai-search-steps{display:flex;flex-direction:column;gap:6px;padding:0 0 4px}
+.ai-search-step{
+  display:flex;align-items:center;gap:8px;
+  font-size:12.5px;color:rgba(255,255,255,.5);
+}
+.ai-search-step svg{flex-shrink:0;animation:spin-gear .8s linear infinite}
+@keyframes spin-gear{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.ai-search-step strong{color:rgba(255,255,255,.85)}
+
+/* ── MOBILE CHAT DRAWER ── */
+.ai-history-drawer{
+  display:none;position:fixed;inset:0;z-index:600;
+}
+.ai-history-drawer.open{display:block}
+.ai-history-drawer-bg{
+  position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+}
+.ai-history-drawer-panel{
+  position:absolute;left:0;top:0;bottom:0;width:280px;
+  background:#0d0c1a;border-right:1px solid rgba(255,255,255,.07);
+  display:flex;flex-direction:column;
+  transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+.ai-history-drawer.open .ai-history-drawer-panel{transform:translateX(0)}
+.ai-history-drawer-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.06);
+}
+.ai-history-drawer-title{font-size:14px;font-weight:700;color:#fff}
+.ai-history-drawer-close{
+  background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;
+  cursor:pointer;font-family:inherit;line-height:1;padding:0;
+}
+.ai-history-drawer-body{flex:1;overflow-y:auto;padding:8px 0}
+.ai-history-drawer-body::-webkit-scrollbar{width:3px}
+.ai-history-drawer-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07)}
+
+@media(max-width:640px){
+  /* sidebar completely hidden, replaced by drawer */
+  .ai-chat-sidebar{display:none}
+  /* topbar: hamburger | centered title | close */
+  .ai-topbar{
+    padding:0 16px;height:56px;
+    display:grid;grid-template-columns:40px 1fr 40px;align-items:center;
+  }
+  .ai-topbar-left{display:none}
+  .ai-topbar-center{
+    display:flex!important;flex-direction:column;align-items:center;gap:0;
+  }
+  .ai-topbar-center-name{font-size:15px;font-weight:700;color:#fff}
+  .ai-topbar-center-sub{font-size:11px;color:rgba(255,255,255,.4)}
+  .ai-topbar-right{justify-content:flex-end}
+  .ai-acct-pill{display:none}
+  .ai-chat-logout{display:none}
+  .ai-hamburger{
+    display:flex!important;
+    width:36px;height:36px;align-items:center;justify-content:center;
+    background:none;border:none;cursor:pointer;color:rgba(255,255,255,.6);
+    flex-direction:column;gap:4px;padding:6px;
+  }
+  .ai-hamburger span{display:block;width:18px;height:2px;background:currentColor;border-radius:2px}
+  /* background glow */
+  .ai-chat-main{
+    background:radial-gradient(ellipse 80% 50% at 50% 100%, rgba(175,70,253,.12) 0%, transparent 70%),#0B0B14;
+  }
+  /* messages */
+  .ai-messages{padding:16px 14px;gap:16px}
+  /* user bubble */
+  .ai-msg.user .ai-msg-bubble{max-width:75%}
+  /* AI message: hide avatar on mobile, tighter */
+  .ai-msg.ai .ai-msg-avatar{display:none}
+  .ai-msg.ai .ai-msg-bubble{max-width:90%;font-size:13px}
+  /* prompts */
+  .ai-prompts{grid-template-columns:1fr 1fr}
+  /* input bar: pill on mobile */
+  .ai-input-bar{padding:10px 14px 16px}
+  .ai-input-bar-inner{border-radius:30px}
+  .ai-input-wrap{border-radius:28px;padding:10px 16px}
+  .ai-send-btn{border-radius:50%}
+  .ai-msg.user .ai-msg-bubble{max-width:72%}
+  /* strategy ctas */
+  .strategy-ctas{flex-direction:column}
+  .scta{width:100%;text-align:center}
+  /* history drawer shown via JS */
+  .ai-history-drawer-body .ai-sb-group-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.25);padding:8px 16px 4px;display:block}
+  .ai-history-drawer-body .ai-sb-item{padding:10px 16px;font-size:13px;color:rgba(255,255,255,.5);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+  .ai-history-drawer-body .ai-sb-item.active{background:rgba(175,70,253,.1);color:rgba(255,255,255,.85)}
+}
+
+/* ── REPORT LOADING OVERLAY ── */
+.report-loader{
+  position:fixed;inset:0;z-index:500;
+  background:#0B0B14;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:0;
+  transition:opacity .5s ease;
+}
+.report-loader.fade-out{opacity:0;pointer-events:none}
+.rl-brand{display:flex;align-items:center;gap:10px;margin-bottom:36px}
+.rl-brand-icon{
+  width:38px;height:38px;border-radius:10px;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+}
+.rl-brand-name{font-size:16px;font-weight:700;color:#fff}
+.rl-brand-name span{background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.rl-headline{font-size:22px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px}
+.rl-sub{font-size:13px;color:rgba(255,255,255,.4);text-align:center;margin-bottom:40px}
+.rl-steps{width:360px;display:flex;flex-direction:column;gap:0;margin-bottom:32px}
+.rl-step{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:14px 0;border-bottom:1px solid rgba(255,255,255,.05);
+  opacity:0;transform:translateY(6px);
+  transition:opacity .3s ease, transform .3s ease;
+}
+.rl-step:last-child{border-bottom:none}
+.rl-step.visible{opacity:1;transform:translateY(0)}
+.rl-step-dot{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;font-size:13px;
+  transition:background .3s, border-color .3s;
+}
+.rl-step.done .rl-step-dot{
+  background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);
+}
+.rl-step.active .rl-step-dot{
+  background:rgba(175,70,253,.15);border-color:rgba(175,70,253,.35);
+  animation:rl-pulse .8s ease-in-out infinite;
+}
+@keyframes rl-pulse{0%,100%{box-shadow:0 0 0 0 rgba(175,70,253,.3)}50%{box-shadow:0 0 0 6px rgba(175,70,253,0)}}
+.rl-step-text{flex:1}
+.rl-step-label{font-size:13px;font-weight:600;color:rgba(255,255,255,.7);line-height:1.3}
+.rl-step.active .rl-step-label{color:#fff}
+.rl-step.done .rl-step-label{color:rgba(255,255,255,.45)}
+.rl-step-detail{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+.rl-step.active .rl-step-detail{color:rgba(175,70,253,.7)}
+.rl-step-tick{font-size:12px;color:#22C55E;margin-left:auto;opacity:0;transition:opacity .2s}
+.rl-step.done .rl-step-tick{opacity:1}
+.rl-progress{width:360px;height:3px;border-radius:100px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:14px}
+.rl-progress-bar{height:100%;border-radius:100px;background:var(--grad);width:0%;transition:width .4s ease}
+.rl-progress-label{font-size:11px;color:rgba(255,255,255,.3);text-align:center}
+@media(max-width:640px){
+  .rl-steps,.rl-progress{width:calc(100vw - 48px)}
+  .rl-headline{font-size:18px}
+}
+
+@media(max-width:900px){
+  .split{grid-template-columns:1fr}
+  .insights-row{grid-template-columns:1fr 1fr}
+  .drawer.open{position:fixed;right:0;top:0;bottom:0;width:min(360px,100vw);z-index:100}
+}
+@media(max-width:640px){
+  /* hide sidebar on mobile, show bottom nav */
+  .sb{display:none}
+  .app{flex-direction:column}
+  .main{height:100vh}
+  /* topbar */
+  .topbar{padding:0 16px;height:56px}
+  .tb-pill{display:none}
+  .tb-cta{font-size:12px;padding:7px 12px}
+  .tb-title{font-size:13px}
+  /* scroll */
+  .scroll{padding:16px 16px 80px}
+  /* hero */
+  .hero{flex-direction:column;gap:16px;padding:20px}
+  .hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+  .hero-divider{display:none}
+  .hero-stat{
+    padding:12px;border-radius:10px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+    text-align:center;
+  }
+  .hero-stat-val{font-size:22px}
+  /* split */
+  .split{grid-template-columns:1fr;gap:12px}
+  /* insights */
+  .insights-row{grid-template-columns:1fr}
+  /* strategy header */
+  .strategy-header{flex-direction:column;align-items:flex-start;gap:10px}
+  .brief-cta{width:100%;justify-content:center}
+  /* ad grid */
+  .ad-grid{grid-template-columns:repeat(2,1fr)}
+  /* drawer full screen */
+  .drawer.open{position:fixed;inset:0;width:100%;z-index:100;border-left:none}
+  .drawer-inner{width:100%}
+  /* tabs scroll */
+  .tabs{overflow-x:auto;padding-bottom:4px;flex-wrap:nowrap}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{white-space:nowrap;flex-shrink:0}
+  /* bottom nav */
+  .bottom-nav{display:flex}
+}
+/* bottom nav for mobile */
+.bottom-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;z-index:50;
+  background:#0d0d1a;border-top:1px solid var(--border);
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  justify-content:space-around;
+}
+.bn-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--t3);cursor:pointer;padding:4px 12px;
+}
+.bn-item.active{color:var(--purple)}
+.bn-item svg{width:20px;height:20px}
+.bn-item span{font-size:9px;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- Report Loading Overlay -->
+<div class="report-loader" id="report-loader">
+  <div class="rl-brand">
+    <div class="rl-brand-icon">📊</div>
+    <div class="rl-brand-name">Shiprocket <span>Studio</span></div>
+  </div>
+  <div class="rl-headline">Building your Creative Report</div>
+  <div class="rl-sub">Analysing 34 active ads for Shesha Ayurveda</div>
+  <div class="rl-steps" id="rl-steps">
+    <div class="rl-step" id="rl-s1">
+      <div class="rl-step-dot">📥</div>
+      <div class="rl-step-text">
+        <div class="rl-step-label">Fetching ad performance data</div>
+        <div class="rl-step-detail">Meta Ads + Google Ads · Last 30 days</div>
+      </div>
+      <div class="rl-step-tick">✓</div>
+    </div>
+    <div class="rl-step" id="rl-s2">
+      <div class="rl-step-dot">🎨</div>
+      <div class="rl-step-text">
+        <div class="rl-step-label">Scoring creatives with AI</div>
+        <div class="rl-step-detail">Hook type · Story arc · Format · Duration</div>
+      </div>
+      <div class="rl-step-tick">✓</div>
+    </div>
+    <div class="rl-step" id="rl-s3">
+      <div class="rl-step-dot">📊</div>
+      <div class="rl-step-text">
+        <div class="rl-step-label">Calculating ROAS by creative pattern</div>
+        <div class="rl-step-detail">Identifying winners vs wasted spend</div>
+      </div>
+      <div class="rl-step-tick">✓</div>
+    </div>
+    <div class="rl-step" id="rl-s4">
+      <div class="rl-step-dot">🔍</div>
+      <div class="rl-step-text">
+        <div class="rl-step-label">Scanning competitor ad library</div>
+        <div class="rl-step-detail">Kama Ayurveda · Forest Essentials · Biotique</div>
+      </div>
+      <div class="rl-step-tick">✓</div>
+    </div>
+    <div class="rl-step" id="rl-s5">
+      <div class="rl-step-dot">✦</div>
+      <div class="rl-step-text">
+        <div class="rl-step-label">Generating creative strategy playbook</div>
+        <div class="rl-step-detail">What to scale · What to pause · Brief for creators</div>
+      </div>
+      <div class="rl-step-tick">✓</div>
+    </div>
+  </div>
+  <div class="rl-progress"><div class="rl-progress-bar" id="rl-bar"></div></div>
+  <div class="rl-progress-label" id="rl-label">Starting analysis...</div>
+</div>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sb">
+    <div class="sb-logo">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="sb-item active" title="Dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="sb-item" title="Ads">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <span>Ads</span>
+    </div>
+    <div class="sb-item" title="My">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      <span>My</span>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item" title="Audit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>Audit</span>
+    </div>
+    <div class="sb-item" title="Generated">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span>Generated</span>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item" title="Chat" onclick="window.location.href='chat.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>Chat</span>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item" title="Workspaces" onclick="window.location.href='workspace.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      <span>Spaces</span>
+    </div>
+    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;"><img src="shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/></div>
+  </div>
+  <!-- Workspace Switcher Popover -->
+  <div class="ws-switcher-popover" id="ws-switcher-popover">
+    <div class="ws-sw-header"><span class="ws-sw-title">Switch Workspace</span><button class="ws-sw-close" onclick="toggleWsSwitcher()">×</button></div>
+    <div class="ws-sw-list" id="ws-sw-list"></div>
+    <div class="ws-sw-footer"><button class="ws-sw-add" onclick="toggleWsSwitcher();sessionStorage.setItem('open_add_ws','1');window.location.href='workspace.html'">+ Add Workspace</button></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Mobile Drawer -->
+    <div class="mob-drawer-backdrop" id="mob-drawer-backdrop" onclick="closeMobDrawer()"></div>
+    <div class="mob-drawer" id="mob-drawer">
+      <div class="mob-drawer-header">
+        <div class="mob-drawer-logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div><div class="mob-drawer-title">Shiprocket Studio</div><div class="mob-drawer-sub">Shesha Ayurveda</div></div>
+        <button class="mob-drawer-close" onclick="closeMobDrawer()">✕</button>
+      </div>
+      <div class="mob-drawer-nav">
+        <button class="mob-drawer-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</button>
+        <button class="mob-drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Ads</button>
+        <button class="mob-drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Audit</button>
+        <button class="mob-drawer-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Generated</button>
+        <div class="mob-drawer-div"></div>
+        <button class="mob-drawer-item" onclick="window.location.href='chat.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat</button>
+      </div>
+      <button class="mob-drawer-logout" onclick="window.location.href='shiprocket_hero_carousel.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </button>
+    </div>
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="mob-hamburger" id="mob-hamburger" onclick="openMobDrawer()">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="tb-brand">
+        <div class="tb-icon">📊</div>
+        <div>
+          <div class="tb-title">Creative Report</div>
+          <div class="tb-sub">Shesha Ayurveda · Last 30 days</div>
+        </div>
+      </div>
+      <div class="tb-pill">Shesha Ayurveda ▾</div>
+      <button class="tb-cta" onclick="openAIChat('competitor')">👁 See Competitor Playbooks</button>
+      <button class="tb-logout" onclick="window.location.href='shiprocket_hero_carousel.html'">Logout</button>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+      <div class="scroll" id="main-scroll">
+
+        <!-- Hero -->
+        <div class="hero">
+          <div class="hero-left">
+            <div class="hero-label">May 2026 · Creative Health</div>
+            <div class="hero-headline">
+              Your top 3 ads are driving<br><strong>71% of your total revenue.</strong>
+            </div>
+            <div class="hero-sub">Problem statement hooks + before/after storytelling is your winning formula. 2 underperforming ads are burning ₹51K — pause them today.</div>
+          </div>
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <div class="hero-stat-val">₹8.4L</div>
+              <div class="hero-stat-lbl">Total Spend</div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-stat">
+              <div class="hero-stat-val up">3.2x</div>
+              <div class="hero-stat-lbl">Avg ROAS</div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-stat">
+              <div class="hero-stat-val">34</div>
+              <div class="hero-stat-lbl">Live Ads</div>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="hero-stat">
+              <div class="hero-stat-val down">2</div>
+              <div class="hero-stat-lbl">Pause Now</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- What's working + What to pause -->
+        <div class="split">
+
+          <!-- Winners -->
+          <div>
+            <div class="section-head">
+              <div>
+                <div class="section-title">🏆 Scale These</div>
+                <div class="section-sub">Your top performers this month</div>
+              </div>
+            </div>
+            <div class="winner-list" id="winner-list"></div>
+          </div>
+
+          <!-- Pause -->
+          <div>
+            <div class="section-head">
+              <div>
+                <div class="section-title">⚠️ Pause These</div>
+                <div class="section-sub">Low ROAS, wasting budget daily</div>
+              </div>
+            </div>
+            <div class="pause-list" id="pause-list"></div>
+          </div>
+
+        </div>
+
+        <!-- Creative Strategy -->
+        <div class="strategy-card">
+          <div class="strategy-header">
+            <div class="strategy-header-left">
+              <div class="strategy-eyebrow">What's working for your brand</div>
+              <div class="strategy-title">Your Winning Creative Playbook</div>
+            </div>
+            <div class="strategy-ctas">
+              <button class="scta scta-comp" onclick="openAIChat('competitor')">👁 See Competitor Playbooks</button>
+              <button class="scta scta-brief" onclick="openAIChat('brief')">✦ Generate Creative Brief</button>
+            </div>
+          </div>
+          <div class="playbook">
+            <div class="playbook-step">
+              <div class="playbook-step-icon">🎣</div>
+              <div class="playbook-step-label">Hook</div>
+              <div class="playbook-step-value">Problem Statement</div>
+              <div class="playbook-step-stat">3.8x ROAS</div>
+            </div>
+            <div class="playbook-arrow">›</div>
+            <div class="playbook-step">
+              <div class="playbook-step-icon">🎬</div>
+              <div class="playbook-step-label">Story</div>
+              <div class="playbook-step-value">Before / After</div>
+              <div class="playbook-step-stat">2.4x conversions</div>
+            </div>
+            <div class="playbook-arrow">›</div>
+            <div class="playbook-step">
+              <div class="playbook-step-icon">📱</div>
+              <div class="playbook-step-label">Format</div>
+              <div class="playbook-step-value">Raw UGC · 9:16 · 20–35s</div>
+              <div class="playbook-step-stat">Best CTR</div>
+            </div>
+            <div class="playbook-arrow">›</div>
+            <div class="playbook-step">
+              <div class="playbook-step-icon">👤</div>
+              <div class="playbook-step-label">Creator</div>
+              <div class="playbook-step-value">Female · 24–34</div>
+              <div class="playbook-step-stat">Top 3 ads</div>
+            </div>
+            <div class="playbook-arrow">›</div>
+            <div class="playbook-step">
+              <div class="playbook-step-icon">🎯</div>
+              <div class="playbook-step-label">Offer</div>
+              <div class="playbook-step-value">Price in first 5s</div>
+              <div class="playbook-step-stat">+22% CTR</div>
+            </div>
+            <div class="playbook-arrow">›</div>
+            <div class="playbook-step">
+              <div class="playbook-step-icon">🔊</div>
+              <div class="playbook-step-label">Audio</div>
+              <div class="playbook-step-value">Voiceover + soft BGM</div>
+              <div class="playbook-step-stat">+38% watch time</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 Key Insights -->
+        <div class="section-head" style="margin-bottom:14px">
+          <div>
+            <div class="section-title">💡 Key Insights</div>
+            <div class="section-sub">Patterns found across your 34 active ads</div>
+          </div>
+        </div>
+        <div class="insights-row">
+          <div class="insight-card">
+            <div class="insight-icon">🎣</div>
+            <div class="insight-finding">Problem Statement hooks outperform Question hooks by 4.3x</div>
+            <div class="insight-detail">24 of your 34 ads use a problem-led hook. The 4 ads with question hooks average only 1.4x ROAS.</div>
+            <div class="insight-stat">↑ Switch question hooks → +estimated ₹1.2L/mo revenue</div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-icon">🎬</div>
+            <div class="insight-finding">Video ads deliver 2.8x the ROAS of image ads</div>
+            <div class="insight-detail">Your 6 image ads average 1.9x ROAS while video ads average 5.3x. Image spend is ₹74K that could work harder.</div>
+            <div class="insight-stat">↑ Shift 40% of image budget to video → +est. ₹89K/mo</div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-icon">⏱️</div>
+            <div class="insight-finding">20–35 second videos convert 61% better than long-form</div>
+            <div class="insight-detail">3 ads over 40 seconds average 1.8x ROAS. Your 20–35s sweet spot ads average 4.9x ROAS consistently.</div>
+            <div class="insight-stat">↑ Cap new creatives at 35s → highest projected impact</div>
+          </div>
+        </div>
+
+        <!-- All Ads Library -->
+        <div class="section" style="margin-top:8px">
+          <div class="section-head">
+            <div>
+              <div class="section-title">All Ads</div>
+              <div class="section-sub">Click any ad to see its creative intelligence breakdown</div>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab active" onclick="setTab(this,'all')">All Ads <span class="cnt">10</span></button>
+            <button class="tab" onclick="setTab(this,'best')">⭐ Best Performing <span class="cnt">5</span></button>
+            <button class="tab" onclick="setTab(this,'scaling')">📈 Scaling <span class="cnt">3</span></button>
+            <button class="tab" onclick="setTab(this,'pause')">⚠️ Pause <span class="cnt">2</span></button>
+          </div>
+          <div class="ad-grid" id="ad-grid"></div>
+        </div>
+
+      </div>
+
+      <!-- Detail Drawer -->
+      <div class="drawer" id="drawer">
+        <div class="drawer-inner">
+          <div class="d-top">
+            <div style="font-size:12px;font-weight:700;color:var(--t2)">Creative Detail</div>
+            <button class="d-close" onclick="closeDrawer()">×</button>
+          </div>
+          <div id="drawer-content"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Nav (mobile only) -->
+<div class="bottom-nav">
+  <div class="bn-item active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    <span>Dashboard</span>
+  </div>
+  <div class="bn-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    <span>Ads</span>
+  </div>
+  <div class="bn-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <span>Audit</span>
+  </div>
+  <div class="bn-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+    <span>Generated</span>
+  </div>
+</div>
+
+<!-- AI Chat Overlay -->
+<div class="ai-chat-overlay" id="ai-chat-overlay">
+
+  <!-- Sidebar -->
+  <div class="ai-chat-sidebar">
+    <div class="ai-sb-header">
+      <div class="ai-sb-header-icon" style="background:none;border:none;padding:0"><img src="chat-logo.gif" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover"></div>
+      <div class="ai-sb-header-title">Ai assistant</div>
+    </div>
+    <button class="ai-sb-newchat" onclick="startNewChat()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New chat
+    </button>
+    <div class="ai-sb-history">
+      <div class="ai-sb-group">
+        <div class="ai-sb-group-label">Today</div>
+        <div class="ai-sb-item active" id="sb-current">Loading...</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      </div>
+      <div class="ai-sb-group">
+        <div class="ai-sb-group-label">Previous 7 Days</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      </div>
+      <div class="ai-sb-group">
+        <div class="ai-sb-group-label">Previous 30 Days</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+        <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main chat area -->
+  <div class="ai-chat-main">
+    <div class="ai-topbar">
+      <button class="ai-hamburger" id="ai-hamburger" onclick="openHistoryDrawer()" style="display:none">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="ai-topbar-left">Hi! Welcome, Nector</div>
+      <div class="ai-topbar-center" style="display:none;flex-direction:column;align-items:center;gap:1px">
+        <div class="ai-topbar-center-name">Siya</div>
+        <div class="ai-topbar-center-sub">AI Assistant</div>
+      </div>
+      <div class="ai-topbar-right">
+        <div class="ai-acct-pill">Account(s) : 12344545... +(2) ▾</div>
+        <button class="ai-chat-logout" onclick="window.location.href='shiprocket_hero_carousel.html'" style="padding:6px 14px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.color='#fff';this.style.borderColor='rgba(255,255,255,.25)'" onmouseout="this.style.color='rgba(255,255,255,.5)';this.style.borderColor='rgba(255,255,255,.1)'">Logout</button>
+        <button class="ai-close-btn" onclick="closeAIChat()">×</button>
+      </div>
+    </div>
+
+    <!-- Messages container -->
+    <div class="ai-messages" id="ai-messages">
+      <!-- empty state shown by default -->
+      <div class="ai-empty" id="ai-empty-state">
+        <img src="chat-logo.gif" alt="" style="width:140px;height:140px;border-radius:50%;object-fit:cover;margin-bottom:16px">
+        <div class="ai-empty-title">Your <span>AI Assistant</span></div>
+        <div class="ai-empty-sub">Get instant answers to your ad-related questions</div>
+        <div class="ai-prompts">
+          <div class="ai-prompt-card" onclick="sendPrompt('Analyze last 7 days performance and suggest next steps')">Analyze last 7 days performance and suggest next steps →</div>
+          <div class="ai-prompt-card" onclick="sendPrompt('Generate a creative brief based on my top performing ads')">Generate a creative brief based on my top performing ads →</div>
+          <div class="ai-prompt-card" onclick="sendPrompt('Which products should I promote more?')">Which products should I promote more? →</div>
+          <div class="ai-prompt-card" onclick="sendPrompt('Compare this campaign with the previous one')">Compare this campaign with the previous one →</div>
+          <div class="ai-prompt-card" onclick="sendPrompt('What are my competitors running right now?')">What are my competitors running right now? →</div>
+          <div class="ai-prompt-card" onclick="sendPrompt('Which of my ads should I pause today?')">Which of my ads should I pause today? →</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="ai-input-bar">
+      <div class="ai-input-bar-inner">
+        <div class="ai-input-wrap">
+          <span class="ai-input-icon">📎</span>
+          <textarea class="ai-input" id="ai-input" placeholder="Type message" rows="1"></textarea>
+          <span class="ai-input-icon">🎤</span>
+          <button class="ai-send-btn" onclick="sendChatMsg()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Mobile History Drawer -->
+<div class="ai-history-drawer" id="ai-history-drawer">
+  <div class="ai-history-drawer-bg" onclick="closeHistoryDrawer()"></div>
+  <div class="ai-history-drawer-panel">
+    <div class="ai-history-drawer-header">
+      <div class="ai-history-drawer-title">Chat History</div>
+      <button class="ai-history-drawer-close" onclick="closeHistoryDrawer()">×</button>
+    </div>
+    <div class="ai-history-drawer-body">
+      <div class="ai-sb-group-label">Today</div>
+      <div class="ai-sb-item active">Generate a creative brief for Shesha ...</div>
+      <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      <div class="ai-sb-group-label">Previous 7 Days</div>
+      <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      <div class="ai-sb-group-label">Previous 30 Days</div>
+      <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+      <div class="ai-sb-item">Share breakdown of active ads in ...</div>
+    </div>
+    <button onclick="window.location.href='shiprocket_hero_carousel.html'" style="margin:8px 12px 20px;padding:10px 14px;border-radius:10px;background:none;border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.3);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .15s;width:calc(100% - 24px)" onmouseover="this.style.color='rgba(255,255,255,.7)';this.style.borderColor='rgba(255,255,255,.2)'" onmouseout="this.style.color='rgba(255,255,255,.3)';this.style.borderColor='rgba(255,255,255,.08)'">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Logout
+    </button>
+  </div>
+</div>
+
+<!-- Creator Brief Modal -->
+<div class="modal-bg" id="brief-modal">
+  <div class="modal">
+    <div class="modal-top">
+      <div class="modal-title">✦ Creator Brief</div>
+      <button class="modal-close" onclick="closeBriefModal()">×</button>
+    </div>
+    <div class="modal-sub">Based on your top-performing ads this month. Share this directly with your creator or agency.</div>
+    <div class="brief-block">
+      <div class="brief-block-title">Brand & Objective</div>
+      <div class="brief-block-body">Brand: Shesha Ayurveda — Ayurvedic skincare for modern Indian women.<br>Objective: Drive purchase conversions. Target ROAS: 4x+<br>Product focus: Nilini Hair Colour, Red Sandalwood Night Cream, Kumkumadi Day Cream</div>
+    </div>
+    <div class="brief-block">
+      <div class="brief-block-title">Hook (First 3 Seconds)</div>
+      <div class="brief-block-body">Open with a relatable skin/hair problem — "Tired of chemical dyes that damage your hair?" or show a before state visually. Do NOT open with the brand name or a question. Show the problem, not the product.</div>
+    </div>
+    <div class="brief-block">
+      <div class="brief-block-title">Story Structure</div>
+      <div class="brief-block-body">Problem → Agitate → Solution → Transformation → Offer<br>Show a clear before/after transformation. The product should appear by second 8–10. End with a strong CTA + price anchor.</div>
+    </div>
+    <div class="brief-block">
+      <div class="brief-block-title">Format & Style</div>
+      <div class="brief-block-body">Format: Vertical video (9:16), 20–35 seconds<br>Style: Raw UGC, hand-held camera, natural indoor/bathroom lighting<br>NO studio setup, NO heavy editing, NO trending audio<br>Audio: Creator voiceover + soft background music</div>
+    </div>
+    <div class="brief-block">
+      <div class="brief-block-title">Creator Profile</div>
+      <div class="brief-block-body">Female creator, 24–34 years old, Indian skin tone, speaks naturally about beauty/skincare. Must feel authentic — not an influencer read. Audience should feel like a friend is recommending it.</div>
+    </div>
+    <div class="brief-block">
+      <div class="brief-block-title">Offer Visibility</div>
+      <div class="brief-block-body">Show the price or offer within the first 5 seconds. Use text overlay + verbal mention. E.g. "3 for ₹1299" or "₹299 only — no chemicals." Price anchoring significantly improves CTR.</div>
+    </div>
+    <button class="brief-copy-btn" onclick="copyBrief()">Copy Brief to Clipboard</button>
+  </div>
+</div>
+
+<script>
+var ADS = [
+  {id:1,img:'creative_1.jpg',name:'Nilini_HairColour_offer_3for1299',type:'VIDEO',status:'Live',roas:'6.2x',spend:'₹1.21L',revenue:'₹7.5L',conversion:'9.4%',cpr:'₹184',impressions:'68,420',hook:'Problem Statement',storytelling:'Before/After + Offer driven',visual:'Raw UGC, bathroom setting',audio:'Voiceover + soft BGM',duration:'28s',aspect:'9:16',creator:'Female, 26-30',lifecycle:'Consideration',tier:'best'},
+  {id:2,img:'creative_2.jpg',name:'RedSandalwood_NightCream_befaft',type:'VIDEO',status:'Live',roas:'5.8x',spend:'₹89K',revenue:'₹5.1L',conversion:'8.2%',cpr:'₹201',impressions:'52,100',hook:'Before After Reveal',storytelling:'Before/After + Problem solution',visual:'Studio close-up, skin focus',audio:'Voiceover only',duration:'34s',aspect:'9:16',creator:'Female, 28-35',lifecycle:'Awareness',tier:'best'},
+  {id:3,img:'creative_3.jpg',name:'Kumkumadi_DayCream_productdemo',type:'IMAGE',status:'Live',roas:'4.9x',spend:'₹74K',revenue:'₹3.6L',conversion:'7.1%',cpr:'₹224',impressions:'44,800',hook:'Product In First Frame',storytelling:'Product demo',visual:'Flat lay, lifestyle shot',audio:'N/A',duration:'N/A',aspect:'1:1',creator:'No creator',lifecycle:'Consideration',tier:'best'},
+  {id:4,img:'creative_4.jpg',name:'FaceWash_problemstatement_ugc',type:'VIDEO',status:'Live',roas:'4.2x',spend:'₹62K',revenue:'₹2.6L',conversion:'6.4%',cpr:'₹238',impressions:'38,200',hook:'Problem Statement',storytelling:'Problem solution + Tutorial',visual:'Raw UGC, bathroom',audio:'Creator voice + ambient',duration:'22s',aspect:'9:16',creator:'Female, 22-28',lifecycle:'Awareness',tier:'best'},
+  {id:5,img:'creative_5.jpg',name:'NargisBodyMist_ugc_lifestyle',type:'VIDEO',status:'Live',roas:'3.8x',spend:'₹58K',revenue:'₹2.2L',conversion:'5.9%',cpr:'₹251',impressions:'34,600',hook:'Creator Talking To Camera',storytelling:'UGC narrative + Lifestyle',visual:'Outdoor, natural light',audio:'Creator voice + music',duration:'31s',aspect:'9:16',creator:'Female, 24-30',lifecycle:'Consideration',tier:'best'},
+  {id:6,img:'creative_1.jpg',name:'Nilini_HairColour_tutorial_howto',type:'VIDEO',status:'Live',roas:'3.4x',spend:'₹51K',revenue:'₹1.7L',conversion:'5.2%',cpr:'₹274',impressions:'28,900',hook:'Product In First Frame',storytelling:'Tutorial / how to',visual:'Step-by-step application',audio:'Voiceover + BGM',duration:'45s',aspect:'9:16',creator:'Female, 30-40',lifecycle:'Purchase',tier:'scaling'},
+  {id:7,img:'creative_2.jpg',name:'RedSandalwood_emotional_skin',type:'VIDEO',status:'Live',roas:'3.1x',spend:'₹44K',revenue:'₹1.4L',conversion:'4.8%',cpr:'₹295',impressions:'24,100',hook:'Emotional Statement',storytelling:'Before/After + Emotional',visual:'Soft lighting, intimate',audio:'Music + voiceover',duration:'27s',aspect:'9:16',creator:'Female, 28-36',lifecycle:'Awareness',tier:'scaling'},
+  {id:8,img:'creative_3.jpg',name:'Kumkumadi_offer_buy2get1',type:'IMAGE',status:'Live',roas:'2.9x',spend:'₹38K',revenue:'₹1.1L',conversion:'4.2%',cpr:'₹312',impressions:'21,400',hook:'Offer First',storytelling:'Offer driven',visual:'Offer banner, bold text',audio:'N/A',duration:'N/A',aspect:'4:5',creator:'No creator',lifecycle:'Purchase',tier:'scaling'},
+  {id:9,img:'creative_4.jpg',name:'FaceWash_question_hook_v2',type:'VIDEO',status:'Live',roas:'1.8x',spend:'₹29K',revenue:'₹52K',conversion:'2.9%',cpr:'₹421',impressions:'16,800',hook:'Question Hook',storytelling:'Problem solution',visual:'Direct to camera',audio:'Talking head',duration:'19s',aspect:'9:16',creator:'Female, 22-30',lifecycle:'Awareness',tier:'pause'},
+  {id:10,img:'creative_5.jpg',name:'BodyMist_generic_brand_visual',type:'IMAGE',status:'Live',roas:'1.4x',spend:'₹22K',revenue:'₹31K',conversion:'1.8%',cpr:'₹512',impressions:'12,200',hook:'Product In Frame',storytelling:'Feature showcase',visual:'Studio white bg, product only',audio:'N/A',duration:'N/A',aspect:'1:1',creator:'No creator',lifecycle:'Consideration',tier:'pause'}
+];
+
+var currentTab = 'all';
+var currentAdId = null;
+
+// Render winner list
+function renderWinners(){
+  var list = document.getElementById('winner-list');
+  var winners = ADS.filter(function(a){ return a.tier === 'best'; }).slice(0,3);
+  list.innerHTML = '';
+  winners.forEach(function(ad, i){
+    var div = document.createElement('div');
+    div.className = 'winner-card' + (currentAdId===ad.id?' selected':'');
+    div.innerHTML =
+      '<div class="winner-rank">'+(i+1)+'</div>' +
+      '<img class="winner-thumb" src="'+ad.img+'" alt="" onerror="this.style.background=\'#1a1726\'">' +
+      '<div class="winner-body">' +
+        '<div class="winner-name">'+ad.name+'</div>' +
+        '<div class="winner-tags">' +
+          '<span class="wtag">'+ad.hook+'</span>' +
+          '<span class="wtag">'+ad.type+'</span>' +
+        '</div>' +
+        '<div class="winner-metrics">' +
+          '<div class="wm-item">Revenue <strong>'+ad.revenue+'</strong></div>' +
+          '<div class="wm-item">Spend <strong>'+ad.spend+'</strong></div>' +
+        '</div>' +
+        '<div class="winner-action-row">' +
+          '<button class="wbtn scale">↑ Scale</button>' +
+          '<button class="wbtn brief" onclick="openBriefModal()">Brief Creator</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="winner-roas"><div class="winner-roas-val">'+ad.roas+'</div><div class="winner-roas-lbl">ROAS</div></div>';
+    div.onclick = function(){ openDrawer(ad.id); };
+    list.appendChild(div);
+  });
+}
+
+// Render pause list
+function renderPause(){
+  var list = document.getElementById('pause-list');
+  var pauses = ADS.filter(function(a){ return a.tier === 'pause'; });
+  list.innerHTML = '';
+  pauses.forEach(function(ad){
+    var div = document.createElement('div');
+    div.className = 'pause-card';
+    div.innerHTML =
+      '<img class="pause-thumb" src="'+ad.img+'" alt="" onerror="this.style.background=\'#1a1726\'">' +
+      '<div class="pause-body">' +
+        '<div class="pause-name">'+ad.name+'</div>' +
+        '<div class="pause-reason">Low ROAS · Below break-even threshold</div>' +
+        '<div class="pause-metrics">' +
+          '<div class="pm-item">ROAS <strong>'+ad.roas+'</strong></div>' +
+          '<div class="pm-item">Wasted <strong>'+ad.spend+'</strong></div>' +
+        '</div>' +
+      '</div>' +
+      '<button class="pause-btn">Pause Ad</button>';
+    list.appendChild(div);
+  });
+}
+
+// Render ad grid
+function renderGrid(){
+  var grid = document.getElementById('ad-grid');
+  var ads = currentTab === 'all' ? ADS : ADS.filter(function(a){ return a.tier === currentTab; });
+  grid.innerHTML = '';
+  ads.forEach(function(ad){
+    var div = document.createElement('div');
+    div.className = 'ad-card' + (currentAdId===ad.id?' sel':'');
+    div.innerHTML =
+      '<img class="ad-thumb" src="'+ad.img+'" alt="" onerror="this.style.background=\'#1a1726\'">' +
+      '<div class="ad-body">' +
+        '<div class="ad-name">'+ad.name+'</div>' +
+        '<div class="ad-tags">' +
+          '<span class="atag '+(ad.type==='VIDEO'?'video':'image')+'">'+ad.type+'</span>' +
+          '<span class="atag live">● Live</span>' +
+        '</div>' +
+        '<div class="ad-roas">'+ad.roas+'<span> ROAS</span></div>' +
+      '</div>';
+    div.onclick = function(){ openDrawer(ad.id); };
+    grid.appendChild(div);
+  });
+}
+
+function setTab(btn, tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  btn.classList.add('active');
+  renderGrid();
+}
+
+function openDrawer(id){
+  currentAdId = id;
+  var ad = ADS.filter(function(a){ return a.id===id; })[0];
+  if(!ad) return;
+  var html =
+    '<img class="d-thumb" src="'+ad.img+'" alt="" onerror="this.style.background=\'#1a1726\'">' +
+    '<div class="d-name">'+ad.name+'</div>' +
+    '<div class="d-tags">' +
+      '<span class="atag '+(ad.type==='VIDEO'?'video':'image')+'">'+ad.type+'</span>' +
+      '<span class="atag live">● Live</span>' +
+    '</div>' +
+    '<div class="d-kpis">' +
+      '<div class="d-kpi"><div class="d-kpi-label">Revenue</div><div class="d-kpi-val">'+ad.revenue+'</div></div>' +
+      '<div class="d-kpi"><div class="d-kpi-label">ROAS</div><div class="d-kpi-val">'+ad.roas+'</div></div>' +
+      '<div class="d-kpi"><div class="d-kpi-label">Spend</div><div class="d-kpi-val">'+ad.spend+'</div></div>' +
+      '<div class="d-kpi"><div class="d-kpi-label">Conversion</div><div class="d-kpi-val">'+ad.conversion+'</div></div>' +
+      '<div class="d-kpi"><div class="d-kpi-label">CPR</div><div class="d-kpi-val">'+ad.cpr+'</div></div>' +
+      '<div class="d-kpi"><div class="d-kpi-label">Impressions</div><div class="d-kpi-val">'+ad.impressions+'</div></div>' +
+    '</div>' +
+    '<div class="d-section">Creative Intelligence</div>' +
+    '<div class="ci-row"><div class="ci-label">Hook Type</div><div class="ci-val">'+ad.hook+'</div></div>' +
+    '<div class="ci-row"><div class="ci-label">Storytelling Style</div><div class="ci-val">'+ad.storytelling+'</div></div>' +
+    '<div class="ci-row"><div class="ci-label">Visual Style</div><div class="ci-val">'+ad.visual+'</div></div>' +
+    (ad.type==='VIDEO'?'<div class="ci-row"><div class="ci-label">Audio</div><div class="ci-val">'+ad.audio+'</div></div><div class="ci-row"><div class="ci-label">Duration</div><div class="ci-val">'+ad.duration+'</div></div>':'') +
+    '<div class="ci-row"><div class="ci-label">Aspect Ratio</div><div class="ci-val">'+ad.aspect+'</div></div>' +
+    '<div class="ci-row"><div class="ci-label">Creator</div><div class="ci-val">'+ad.creator+'</div></div>' +
+    '<div class="ci-row"><div class="ci-label">Customer Lifecycle</div><div class="ci-val">'+ad.lifecycle+'</div></div>' +
+    '<div class="d-actions">' +
+      '<button class="d-btn scale">↑ Scale</button>' +
+      '<button class="d-btn pause">Pause</button>' +
+    '</div>';
+  document.getElementById('drawer-content').innerHTML = html;
+  document.getElementById('drawer').classList.add('open');
+  renderWinners(); renderGrid();
+}
+
+function closeDrawer(){
+  currentAdId = null;
+  document.getElementById('drawer').classList.remove('open');
+  renderWinners(); renderGrid();
+}
+
+function openBriefModal(){
+  document.getElementById('brief-modal').classList.add('show');
+}
+
+function closeBriefModal(){
+  document.getElementById('brief-modal').classList.remove('show');
+}
+
+function copyBrief(){
+  var text = 'CREATOR BRIEF — SHESHA AYURVEDA\n\nBrand: Shesha Ayurveda — Ayurvedic skincare for modern Indian women.\nObjective: Drive purchase conversions. Target ROAS: 4x+\n\nHOOK (First 3 seconds): Open with a skin/hair problem. Do NOT open with brand or a question.\n\nSTORY: Problem → Agitate → Solution → Transformation → Offer\n\nFORMAT: Vertical video 9:16, 20–35 seconds, raw UGC style, no studio\n\nCREATOR: Female, 24–34, natural look, authentic voice\n\nOFFER: Show price in first 5 seconds with text overlay + verbal mention.';
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){
+      var btn = document.querySelector('.brief-copy-btn');
+      btn.textContent = '✓ Copied to clipboard!';
+      setTimeout(function(){ btn.textContent = 'Copy Brief to Clipboard'; }, 2000);
+    });
+  }
+}
+
+document.getElementById('brief-modal').addEventListener('click', function(e){
+  if(e.target === this) closeBriefModal();
+});
+
+/* ── AI CHAT ── */
+var AI_RESPONSES = {
+  brief: {
+    label: 'Generate a creative brief for Shesha Ayurveda',
+    msg: 'Generate a creative brief for Shesha Ayurveda based on my top performing ads this month',
+    response: '<strong>Here\'s your Creative Brief based on this month\'s winning ads:</strong><br><br>' +
+      '<strong>Brand:</strong> Shesha Ayurveda — Ayurvedic skincare for modern Indian women.<br>' +
+      '<strong>Objective:</strong> Drive purchase conversions. Target ROAS: 4x+<br><br>' +
+      '<strong>Hook (First 3s):</strong> Open with a relatable skin/hair problem. Do NOT open with your brand name or a question — your problem-statement hooks average 3.8x ROAS vs 1.4x for question hooks.<br><br>' +
+      '<strong>Story Structure:</strong> Problem → Agitate → Solution → Transformation → Offer (Before/After format delivers 2.4x more conversions)<br><br>' +
+      '<strong>Format:</strong> Vertical video 9:16, 20–35 seconds, raw UGC style. No studio lighting. Your 20–35s videos average 4.9x ROAS vs 1.8x for 40s+ ads.<br><br>' +
+      '<strong>Creator Profile:</strong> Female, 24–34, natural look, authentic voice. Your top 3 ads all feature this profile.<br><br>' +
+      '<strong>Offer Visibility:</strong> Show price in first 5 seconds with text overlay + verbal mention (+22% CTR).<br><br>' +
+      '<strong>Audio:</strong> Voiceover + soft background music. This combination drives +38% watch time vs music-only ads.<br><br>' +
+      '<em>Products to feature: Nilini Hair Colour ₹299, Red Sandalwood Night Cream ₹599, Kumkumadi Day Cream ₹549</em>'
+  },
+  competitor: {
+    label: 'What are my competitors doing?',
+    msg: 'What are my competitors doing? Compare Shesha Ayurveda\'s ads with Kama Ayurveda and Forest Essentials',
+    response: '<strong>Competitor Ad Intelligence — May 2026</strong><br><br>' +
+      '<strong>Kama Ayurveda</strong> (24 live ads)<br>' +
+      '• Hook style: Lifestyle/aspirational (68% of ads) — opposite of your problem-first approach<br>' +
+      '• Format: Mostly 45–60s videos + carousel images<br>' +
+      '• Messaging: Premium positioning, Ayurveda heritage, no price in first frame<br>' +
+      '• Your edge: Your problem-statement hooks outperform their lifestyle hooks by 3.1x on CTR<br><br>' +
+      '<strong>Forest Essentials</strong> (18 live ads)<br>' +
+      '• Hook style: Ingredient-led (show the herb/extract) — strong emotional pull<br>' +
+      '• Format: Short-form 15–20s reels, studio-quality<br>' +
+      '• Messaging: Luxury, science-backed, heritage rituals<br>' +
+      '• Your edge: Their studio aesthetic drives fewer saves but more brand recall; your UGC drives 2.3x more direct conversions<br><br>' +
+      '<strong>Opportunity gap:</strong> Neither competitor runs Before/After storytelling effectively. This is your dominant format with 5.8x ROAS — scale it aggressively before they copy it.<br><br>' +
+      '<em>Suggested next creative: Before/After video for Kumkumadi Day Cream with price-in-first-5s overlay</em>'
+  }
+};
+
+function openMobDrawer() {
+  document.getElementById('mob-drawer').classList.add('open');
+  document.getElementById('mob-drawer-backdrop').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeMobDrawer() {
+  document.getElementById('mob-drawer').classList.remove('open');
+  document.getElementById('mob-drawer-backdrop').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+var chatActive = false;
+
+function openAIChat(type) {
+  var overlay = document.getElementById('ai-chat-overlay');
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  chatActive = true;
+
+  var resp = AI_RESPONSES[type];
+  if (resp) {
+    document.getElementById('sb-current').textContent = resp.label;
+    setTimeout(function() {
+      sendPrompt(resp.msg);
+    }, 200);
+  }
+}
+
+function closeAIChat() {
+  document.getElementById('ai-chat-overlay').classList.remove('show');
+  document.body.style.overflow = '';
+  chatActive = false;
+}
+
+function startNewChat() {
+  var msgs = document.getElementById('ai-messages');
+  // remove all non-empty-state children
+  var children = msgs.children;
+  var toRemove = [];
+  for (var i = 0; i < children.length; i++) {
+    if (children[i].id !== 'ai-empty-state') toRemove.push(children[i]);
+  }
+  for (var j = 0; j < toRemove.length; j++) msgs.removeChild(toRemove[j]);
+  document.getElementById('ai-empty-state').style.display = 'flex';
+}
+
+function sendChatMsg() {
+  var inp = document.getElementById('ai-input');
+  var text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+  sendPrompt(text);
+}
+
+function aiInputAutoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var inp = document.getElementById('ai-input');
+  if (!inp) return;
+  inp.addEventListener('input', function(){ aiInputAutoResize(this); });
+  inp.addEventListener('keydown', function(e){
+    if(e.keyCode === 13 && !e.shiftKey){
+      e.preventDefault();
+      sendChatMsg();
+    }
+    // Shift+Enter inserts newline naturally (default textarea behavior)
+  });
+});
+
+function sendPrompt(text) {
+  var msgs = document.getElementById('ai-messages');
+  // hide empty state
+  document.getElementById('ai-empty-state').style.display = 'none';
+
+  // user bubble
+  var userMsg = document.createElement('div');
+  userMsg.className = 'ai-msg user';
+  userMsg.innerHTML = '<div>' +
+    '<div class="ai-msg-bubble">' + escapeHtml(text) + '</div>' +
+    '<div class="ai-msg-time">Just now</div>' +
+    '</div>';
+  msgs.appendChild(userMsg);
+
+  // search steps shown first
+  var searchEl = document.createElement('div');
+  searchEl.className = 'ai-msg ai';
+  var searchQuery = text.length > 30 ? text.substring(0, 30) + '...' : text;
+  searchEl.innerHTML = '<div class="ai-msg-avatar" style="background:none;border:none;padding:0"><img src="chat-logo.gif" style="width:30px;height:30px;border-radius:50%;object-fit:cover"></div>' +
+    '<div>' +
+      '<div class="ai-search-steps">' +
+        '<div class="ai-search-step">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(175,70,253,.7)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>' +
+          'Searching for: analysing <strong>' + searchQuery + '</strong>' +
+        '</div>' +
+        '<div class="ai-search-step">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(175,70,253,.7)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>' +
+          'Generating answers for you...' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  msgs.appendChild(searchEl);
+
+  // typing indicator
+  var typingEl = document.createElement('div');
+  typingEl.className = 'ai-msg ai typing-wrapper';
+  typingEl.innerHTML = '<div class="ai-msg-avatar" style="background:none;border:none;padding:0"><img src="chat-logo.gif" style="width:30px;height:30px;border-radius:50%;object-fit:cover"></div>' +
+    '<div>' +
+      '<div style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:6px">Typing ...</div>' +
+      '<div class="ai-typing">' +
+        '<div class="ai-msg-bubble">' +
+          '<div class="ai-typing-dot"></div>' +
+          '<div class="ai-typing-dot"></div>' +
+          '<div class="ai-typing-dot"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  msgs.appendChild(typingEl);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // find response
+  var responseHTML = null;
+  var keys = Object.keys(AI_RESPONSES);
+  for (var k = 0; k < keys.length; k++) {
+    if (AI_RESPONSES[keys[k]].msg === text || text.toLowerCase().indexOf(keys[k]) !== -1) {
+      responseHTML = AI_RESPONSES[keys[k]].response;
+      break;
+    }
+  }
+  if (!responseHTML) {
+    responseHTML = 'Great question! Based on your Shesha Ayurveda ad data, I\'m analysing your campaigns. Your top-performing ads this month are delivering 3.2x average ROAS, significantly above the category benchmark of 2.1x. Would you like me to dig deeper into a specific aspect?';
+  }
+
+  setTimeout(function() {
+    msgs.removeChild(typingEl);
+    if(searchEl.parentNode) msgs.removeChild(searchEl);
+    var aiMsg = document.createElement('div');
+    aiMsg.className = 'ai-msg ai';
+    aiMsg.innerHTML = '<div class="ai-msg-avatar" style="background:none;border:none;padding:0"><img src="chat-logo.gif" style="width:30px;height:30px;border-radius:50%;object-fit:cover"></div>' +
+      '<div>' +
+        '<div class="ai-msg-bubble">' + responseHTML + '</div>' +
+        '<div class="ai-msg-time">Just now</div>' +
+        '<div class="ai-msg-actions">' +
+          '<button class="ai-msg-action" title="Copy">⧉</button>' +
+          '<button class="ai-msg-action" title="Helpful">👍</button>' +
+          '<button class="ai-msg-action" title="Not helpful">👎</button>' +
+          '<button class="ai-msg-action" title="Regenerate">↺</button>' +
+        '</div>' +
+      '</div>';
+    msgs.appendChild(aiMsg);
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 1500);
+}
+
+function openHistoryDrawer(){
+  document.getElementById('ai-history-drawer').classList.add('open');
+}
+function closeHistoryDrawer(){
+  document.getElementById('ai-history-drawer').classList.remove('open');
+}
+
+// show hamburger + centered title on mobile
+function updateChatMobileLayout(){
+  var isMobile = window.innerWidth <= 640;
+  var hamburger = document.getElementById('ai-hamburger');
+  var topLeft = document.querySelector('.ai-topbar-left');
+  var topCenter = document.querySelector('.ai-topbar-center');
+  if(hamburger) hamburger.style.display = isMobile ? 'flex' : 'none';
+  if(topLeft) topLeft.style.display = isMobile ? 'none' : 'block';
+  if(topCenter) topCenter.style.display = isMobile ? 'flex' : 'none';
+}
+window.addEventListener('resize', updateChatMobileLayout);
+document.addEventListener('DOMContentLoaded', updateChatMobileLayout);
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── REPORT LOADER ── */
+(function(){
+  var steps = [
+    {id:'rl-s1', label:'Fetching ad performance data...', pct:18, dur:900},
+    {id:'rl-s2', label:'Scoring creatives with AI...', pct:40, dur:1200},
+    {id:'rl-s3', label:'Calculating ROAS by pattern...', pct:62, dur:1000},
+    {id:'rl-s4', label:'Scanning competitor library...', pct:82, dur:1100},
+    {id:'rl-s5', label:'Building your playbook...', pct:96, dur:900}
+  ];
+  var bar = document.getElementById('rl-bar');
+  var lbl = document.getElementById('rl-label');
+  var elapsed = 0;
+
+  function runStep(i) {
+    if(i >= steps.length) {
+      bar.style.width = '100%';
+      lbl.textContent = 'Report ready!';
+      setTimeout(function(){
+        var loader = document.getElementById('report-loader');
+        loader.classList.add('fade-out');
+        setTimeout(function(){ loader.style.display = 'none'; }, 500);
+      }, 400);
+      return;
+    }
+    var s = steps[i];
+    // mark previous as done
+    if(i > 0) {
+      var prev = document.getElementById(steps[i-1].id);
+      prev.classList.remove('active');
+      prev.classList.add('done');
+    }
+    // show current
+    var cur = document.getElementById(s.id);
+    cur.classList.add('visible', 'active');
+    bar.style.width = s.pct + '%';
+    lbl.textContent = s.label;
+    elapsed += s.dur;
+    setTimeout(function(){ runStep(i+1); }, s.dur);
+  }
+
+  // slight delay then start
+  setTimeout(function(){ runStep(0); }, 300);
+})();
+
+document.addEventListener('DOMContentLoaded', function(){
+  renderWinners();
+  renderPause();
+  renderGrid();
+});
+
+/* ── WORKSPACE SWITCHER (creative_report.html) ── */
+var wsSwitcherData = [
+  {name:'Shesha Ayurveda',url:'sheshaayurveda.com',initial:'S',logo:'shesha-logo.svg',active:true},
+  {name:'Nykaa Private Label',url:'nykaa.com',initial:'N',logo:'nykaa-logo.svg',active:false}
+];
+function renderWsSwitcher() {
+  var list = document.getElementById('ws-sw-list');
+  if (!list) return;
+  var html = '';
+  for (var i = 0; i < wsSwitcherData.length; i++) {
+    var ws = wsSwitcherData[i];
+    html += '<div class="ws-sw-item" onclick="switchWs(' + i + ')">';
+    if (ws.logo) {
+      html += '<div class="ws-sw-logo"><img src="' + ws.logo + '" alt="' + ws.initial + '"/></div>';
+    } else {
+      html += '<div class="ws-sw-bubble">' + ws.initial + '</div>';
+    }
+    html += '<div class="ws-sw-info"><div class="ws-sw-name">' + ws.name + '</div><div class="ws-sw-url">' + ws.url + '</div></div>';
+    if (ws.active) html += '<span class="ws-sw-check">&#10003;</span>';
+    html += '</div>';
+  }
+  list.innerHTML = html;
+}
+function switchWs(idx) {
+  if (wsSwitcherData[idx].active) { toggleWsSwitcher(); return; }
+  toggleWsSwitcher();
+  var ov = document.getElementById('ws-switching-overlay');
+  if (ov) ov.classList.add('show');
+  setTimeout(function() {
+    for (var i = 0; i < wsSwitcherData.length; i++) wsSwitcherData[i].active = (i === idx);
+    var bubble = document.getElementById('sb-ws-bubble');
+    if (bubble) {
+      if (wsSwitcherData[idx].logo) {
+        bubble.style.background = '#fff';
+        bubble.style.overflow = 'hidden';
+        bubble.innerHTML = '<img src="' + wsSwitcherData[idx].logo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent=\'' + wsSwitcherData[idx].initial + '\';this.parentNode.style.background=\'\'"/>';
+      } else {
+        bubble.style.background = '';
+        bubble.innerHTML = wsSwitcherData[idx].initial;
+      }
+    }
+    renderWsSwitcher();
+    if (ov) ov.classList.remove('show');
+    var toast = document.getElementById('ws-switch-toast');
+    var msg = document.getElementById('ws-switch-toast-msg');
+    if (toast) {
+      if (msg) msg.textContent = 'Switched to ' + wsSwitcherData[idx].name;
+      toast.classList.add('show');
+      setTimeout(function(){ toast.classList.remove('show'); }, 2200);
+    }
+  }, 500);
+}
+function toggleWsSwitcher() {
+  var pop = document.getElementById('ws-switcher-popover');
+  if (!pop) return;
+  pop.classList.toggle('open');
+  if (pop.classList.contains('open')) renderWsSwitcher();
+}
+function openAddWsModal() {
+  var m = document.getElementById('add-ws-modal-cr');
+  if (m) m.style.display = 'flex';
+}
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('ws-switcher-popover');
+  var bubble = document.getElementById('sb-ws-bubble');
+  if (!pop || !pop.classList.contains('open')) return;
+  if (!pop.contains(e.target) && !bubble.contains(e.target)) pop.classList.remove('open');
+});
+</script>
+<div class="ws-switching-overlay" id="ws-switching-overlay"><div class="ws-switching-spinner"></div></div>
+<div class="ws-switch-toast" id="ws-switch-toast"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="ws-switch-toast-msg">Switched workspace</span></div>
+</body>
+</html>

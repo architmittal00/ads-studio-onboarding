@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace Management · Shiprocket Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F5F5FA;
+  --card:#fff;
+  --card2:rgba(0,0,0,.04);
+  --border:rgba(0,0,0,.08);
+  --border2:rgba(0,0,0,.12);
+  --t1:#111827;
+  --t2:rgba(0,0,0,.55);
+  --t3:rgba(0,0,0,.38);
+  --purple:#AF46FD;
+  --pink:#F4349D;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --green:#16A34A;
+}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
+a{color:inherit;text-decoration:none}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;width:100%}
+
+/* ── SIDEBAR 64px ── */
+.sb{
+  width:64px;flex-shrink:0;background:#fff;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;gap:2px;position:relative;
+}
+.sb-logo{
+  width:36px;height:36px;border-radius:10px;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;flex-shrink:0;
+}
+.sb-logo svg{width:15px;height:15px}
+.sb-item{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;transition:background .15s;color:var(--t3);
+  border:none;background:transparent;
+}
+.sb-item:hover{background:var(--card2);color:var(--t2)}
+.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.sb-item svg{width:17px;height:17px}
+.sb-item span{font-size:9px;font-weight:600}
+.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0;flex-shrink:0}
+.sb-ws-bubble{
+  margin-top:auto;width:32px;height:32px;border-radius:50%;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);
+  flex-shrink:0;
+}
+
+/* ── WORKSPACE SWITCHER POPOVER ── */
+.ws-switcher-popover{
+  position:fixed;left:68px;bottom:20px;z-index:300;width:240px;
+  background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.12);display:none;flex-direction:column;overflow:hidden;
+}
+.ws-switcher-popover.open{display:flex}
+.ws-sw-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid rgba(0,0,0,.08)}
+.ws-sw-title{font-size:12px;font-weight:700;color:rgba(0,0,0,.55)}
+.ws-sw-close{background:none;border:none;color:rgba(0,0,0,.38);font-size:18px;cursor:pointer;line-height:1;padding:0;font-family:inherit}
+.ws-sw-close:hover{color:#111827}
+.ws-sw-list{padding:8px 0}
+.ws-sw-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .12s}
+.ws-sw-item:hover{background:rgba(0,0,0,.04)}
+.ws-sw-bubble{width:30px;height:30px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.ws-sw-info{flex:1;min-width:0}
+.ws-sw-name{font-size:12px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-sw-url{font-size:10px;color:rgba(0,0,0,.38);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-sw-check{color:var(--purple);font-size:14px;flex-shrink:0}
+.ws-sw-logo{width:30px;height:30px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid rgba(0,0,0,.08)}
+.ws-sw-logo img{width:100%;height:100%;object-fit:cover}
+.ws-sw-footer{padding:8px 10px 10px;border-top:1px solid rgba(0,0,0,.08)}
+.ws-sw-add-btn{width:100%;padding:9px;border-radius:8px;background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:var(--purple);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .12s}
+.ws-sw-add-btn:hover{background:rgba(175,70,253,.18)}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;height:60px;padding:0 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.96);
+  z-index:10;
+}
+.topbar-title{font-size:16px;font-weight:800;color:var(--t1)}
+.tb-add-btn{
+  padding:9px 20px;border-radius:9px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:opacity .15s;white-space:nowrap;
+}
+.tb-add-btn:hover{opacity:.85}
+.tb-add-btn .tb-add-text{display:inline}
+
+/* ── BODY COLUMNS ── */
+.ws-body{display:flex;flex:1;overflow:hidden}
+
+/* ── LEFT PANEL ── */
+.left-panel{
+  width:320px;flex-shrink:0;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.lp-header{
+  padding:20px 20px 14px;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.lp-title{font-size:14px;font-weight:800;color:var(--t1)}
+.lp-count{
+  padding:2px 8px;border-radius:20px;
+  background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.25);
+  font-size:11px;font-weight:700;color:var(--purple);
+}
+.lp-list{flex:1;overflow-y:auto;padding:12px}
+.lp-list::-webkit-scrollbar{width:3px}
+.lp-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12)}
+
+/* workspace card */
+.ws-card{
+  padding:14px;border-radius:12px;
+  background:#fff;border:1px solid var(--border);
+  box-shadow:0 1px 4px rgba(0,0,0,.04);
+  cursor:pointer;transition:all .15s;margin-bottom:8px;
+}
+.ws-card:hover{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.12)}
+.ws-card.selected{
+  background:rgba(175,70,253,.06);
+  border-color:rgba(175,70,253,.4);
+}
+.ws-card-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.ws-card-info{flex:1;min-width:0}
+.ws-card-name{font-size:13px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ws-card-url{font-size:11px;color:var(--t3);margin-top:2px}
+.ws-card-active-badge{
+  font-size:10px;font-weight:700;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.ws-card-chips{display:flex;gap:6px;flex-wrap:wrap}
+.ws-chip{
+  padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;
+  border:1px solid;
+}
+.ws-chip.connected{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.3);color:var(--green)}
+.ws-chip.disconnected{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.08);color:var(--t3)}
+
+/* add new card */
+.ws-add-card{
+  padding:18px 14px;border-radius:12px;
+  border:1.5px dashed rgba(175,70,253,.3);
+  background:rgba(175,70,253,.03);
+  cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  color:rgba(175,70,253,.7);font-size:13px;font-weight:600;
+  margin-bottom:8px;
+}
+.ws-add-card:hover{background:rgba(175,70,253,.07);border-color:rgba(175,70,253,.5);color:var(--purple)}
+
+/* ── RIGHT PANEL ── */
+.right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.rp-content{flex:1;overflow-y:auto;padding:24px 28px}
+.rp-content::-webkit-scrollbar{width:3px}
+.rp-content::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12)}
+
+/* right panel header */
+.rp-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+.rp-info{flex:1;min-width:0}
+.rp-ws-name{font-size:20px;font-weight:800;color:var(--t1);margin-bottom:3px}
+.rp-ws-url{font-size:13px;color:var(--t3);margin-bottom:8px}
+.rp-active-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;
+  background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.2);
+  font-size:11px;font-weight:600;color:var(--green);
+}
+.rp-active-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
+.rp-header-actions{display:flex;gap:8px;margin-left:auto;align-items:flex-start}
+.rp-set-active-btn{
+  padding:8px 16px;border-radius:8px;
+  background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.25);
+  color:var(--purple);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:all .15s;white-space:nowrap;
+}
+.rp-set-active-btn:hover{background:rgba(175,70,253,.22)}
+.rp-inactive-btn{
+  padding:8px 16px;border-radius:8px;
+  background:transparent;border:1px solid rgba(0,0,0,.12);
+  color:var(--t3);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:all .15s;white-space:nowrap;
+}
+.rp-inactive-btn:hover{border-color:rgba(255,80,80,.3);color:rgba(200,60,60,.7)}
+
+/* name edit */
+.rp-name-wrap{display:flex;align-items:center;gap:8px}
+.rp-edit-btn{
+  background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 4px;
+  border-radius:5px;transition:all .15s;line-height:1;
+}
+.rp-edit-btn:hover{color:var(--t1);background:rgba(0,0,0,.06)}
+.rp-name-input{
+  font-size:20px;font-weight:800;color:var(--t1);
+  background:rgba(0,0,0,.04);border:1.5px solid rgba(175,70,253,.5);
+  border-radius:8px;padding:3px 10px;outline:none;font-family:'Plus Jakarta Sans',sans-serif;
+  width:100%;max-width:320px;
+}
+
+/* inactive badge */
+.rp-inactive-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;
+  background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.1);
+  font-size:11px;font-weight:600;color:var(--t3);
+}
+
+/* switch loader overlay */
+.rp-switch-loader{
+  position:absolute;inset:0;
+  background:rgba(245,245,250,.7);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;
+  border-radius:0;z-index:50;opacity:0;pointer-events:none;
+  transition:opacity .2s;
+}
+.rp-switch-loader.show{opacity:1;pointer-events:all}
+.rp-content{position:relative}
+.switch-spinner{
+  width:28px;height:28px;border-radius:50%;
+  border:3px solid rgba(175,70,253,.2);border-top-color:var(--purple);
+  animation:spin .6s linear infinite;
+}
+
+/* switch toast */
+.ws-switch-toast{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(12px);
+  background:#fff;border:1px solid rgba(175,70,253,.3);
+  border-radius:100px;padding:9px 20px;
+  font-size:12px;font-weight:600;color:#111827;
+  display:flex;align-items:center;gap:8px;
+  opacity:0;transition:opacity .25s, transform .25s;
+  pointer-events:none;z-index:400;white-space:nowrap;
+  box-shadow:0 4px 16px rgba(0,0,0,.1);
+}
+.ws-switch-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* mobile back */
+.mob-back-btn{
+  display:none;padding:10px 20px;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.96);align-items:center;gap:8px;
+  font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;
+  flex-shrink:0;
+}
+.mob-back-btn:hover{color:var(--t1)}
+
+/* platform section */
+.platform-section{
+  background:#fff;border:1px solid var(--border);
+  box-shadow:0 1px 4px rgba(0,0,0,.04);
+  border-radius:12px;margin-bottom:14px;
+}
+.platform-header{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  border-radius:12px 12px 0 0;
+}
+.platform-icon{font-size:18px;flex-shrink:0}
+.platform-name{font-size:14px;font-weight:700;color:var(--t1);flex:1}
+.platform-count{font-size:12px;font-weight:600;color:var(--t3)}
+.platform-status{
+  display:flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:600;
+}
+.platform-status.connected{color:var(--green)}
+.platform-status.disconnected{color:var(--t3)}
+.plat-status-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.plat-status-dot.connected{background:var(--green)}
+.plat-status-dot.disconnected{background:var(--t3)}
+.platform-body{padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* workspace logo */
+.ws-card-logo{
+  width:40px;height:40px;border-radius:50%;overflow:hidden;
+  flex-shrink:0;border:1.5px solid rgba(0,0,0,.08);
+  display:flex;align-items:center;justify-content:center;
+  background:#fff;
+}
+.ws-card-logo img{width:100%;height:100%;object-fit:cover}
+.ws-card-bubble{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:800;flex-shrink:0;
+}
+.rp-logo{
+  width:56px;height:56px;border-radius:50%;overflow:hidden;
+  flex-shrink:0;border:2px solid rgba(0,0,0,.12);
+  background:#fff;display:flex;align-items:center;justify-content:center;
+}
+.rp-logo img{width:100%;height:100%;object-fit:cover}
+.rp-bubble{
+  width:56px;height:56px;border-radius:50%;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:800;flex-shrink:0;
+}
+
+/* platform icon */
+.platform-icon{display:flex;align-items:center;flex-shrink:0}
+
+/* account chip */
+.account-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:8px;
+  background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);
+  font-size:12px;font-weight:500;color:var(--t1);
+}
+.chip-remove{
+  background:none;border:none;color:rgba(0,0,0,.3);
+  font-size:14px;cursor:pointer;line-height:1;padding:0;
+  font-family:inherit;transition:color .1s;
+}
+.chip-remove:hover{color:rgba(200,60,60,.8)}
+.add-account-btn{
+  padding:7px 14px;border-radius:8px;
+  background:transparent;border:1px solid rgba(175,70,253,.3);
+  color:var(--purple);font-size:12px;font-weight:600;
+  font-family:inherit;cursor:pointer;transition:all .15s;position:relative;
+}
+.add-account-btn:hover{background:rgba(175,70,253,.1)}
+.add-account-btn:disabled{opacity:.3;cursor:not-allowed}
+.add-account-btn:disabled:hover{background:transparent}
+
+/* add account dropdown */
+.add-acct-wrap{position:relative;display:inline-block}
+.add-acct-dropdown{
+  position:absolute;top:calc(100% + 6px);left:0;z-index:200;
+  min-width:200px;background:#fff;
+  border:1px solid rgba(175,70,253,.25);border-radius:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.12);
+  display:none;flex-direction:column;overflow:hidden;
+}
+.add-acct-dropdown.open{display:flex}
+.add-acct-option{
+  padding:10px 14px;font-size:12px;font-weight:500;color:var(--t2);
+  cursor:pointer;transition:background .1s;
+  border-bottom:1px solid rgba(0,0,0,.05);
+}
+.add-acct-option:last-child{border-bottom:none}
+.add-acct-option:hover{background:rgba(175,70,253,.1);color:#111827}
+
+/* ── MODALS ── */
+.modal-overlay{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.4);backdrop-filter:blur(12px);
+  display:none;opacity:0;transition:opacity .3s ease;
+  align-items:center;justify-content:center;padding:20px;
+}
+.modal-overlay.open{display:flex}
+.modal-overlay.visible{opacity:1}
+.modal-box{
+  background:#fff;border:1px solid rgba(175,70,253,.25);
+  border-radius:20px;padding:32px 28px;width:100%;max-width:460px;
+  position:relative;
+  box-shadow:0 0 60px rgba(175,70,253,.1),0 24px 80px rgba(0,0,0,.12);
+  transform:translateY(16px);transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+.modal-overlay.visible .modal-box{transform:translateY(0)}
+.modal-box::before{
+  content:'';position:absolute;inset:0;border-radius:20px;pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(175,70,253,.05),transparent 65%);
+}
+.modal-close{
+  position:absolute;top:14px;right:14px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);
+  color:rgba(0,0,0,.4);font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-family:inherit;transition:all .2s;
+}
+.modal-close:hover{background:rgba(0,0,0,.08);color:#111827}
+.modal-kicker{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:100px;
+  font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--purple);background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);
+  margin-bottom:16px;position:relative;
+}
+.modal-h{
+  font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(22px,3vw,28px);line-height:1.15;
+  color:#111827;margin-bottom:8px;position:relative;
+}
+.modal-sub{font-size:13.5px;color:var(--t2);line-height:1.65;margin-bottom:22px;position:relative}
+.modal-input{
+  width:100%;padding:14px 16px;
+  background:rgba(0,0,0,.04);border:1.5px solid rgba(0,0,0,.12);
+  border-radius:12px;font-size:15px;color:#111827;
+  outline:none;font-family:'Plus Jakarta Sans',sans-serif;
+  transition:all .25s;position:relative;
+}
+.modal-input:focus{border-color:rgba(175,70,253,.6);background:rgba(0,0,0,.03);box-shadow:0 0 0 3px rgba(175,70,253,.13)}
+.modal-input::placeholder{color:var(--t3)}
+.modal-btn{
+  width:100%;margin-top:10px;padding:14px;border-radius:12px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:opacity .2s,transform .15s;position:relative;overflow:hidden;
+}
+.modal-btn:hover{opacity:.9;transform:translateY(-1px)}
+.modal-fine{
+  text-align:center;font-size:11.5px;color:var(--t3);
+  margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;position:relative;
+}
+
+/* connect accounts modal */
+.connect-platform{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-radius:10px;
+  background:rgba(0,0,0,.03);border:1px solid var(--border);
+  margin-bottom:10px;
+}
+.connect-platform-left{display:flex;align-items:center;gap:10px}
+.connect-platform-icon{font-size:20px}
+.connect-platform-name{font-size:14px;font-weight:600;color:var(--t1)}
+.connect-btn{
+  padding:7px 16px;border-radius:8px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:opacity .15s;
+}
+.connect-btn:hover{opacity:.85}
+.connect-btn.connected-btn{
+  background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.25);
+  color:var(--green);cursor:default;
+}
+.modal-skip-btn{
+  width:100%;margin-top:8px;padding:11px;border-radius:10px;
+  background:transparent;border:1px solid rgba(0,0,0,.12);
+  color:var(--t2);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:all .15s;
+}
+.modal-skip-btn:hover{border-color:rgba(0,0,0,.25);color:var(--t1)}
+
+/* extraction overlay */
+.extraction-overlay{
+  position:fixed;inset:0;z-index:600;
+  background:rgba(0,0,0,.4);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+}
+.extraction-overlay.open{display:flex}
+.extraction-box{
+  background:#fff;border:1px solid rgba(0,0,0,.08);
+  border-radius:18px;padding:36px 40px;width:100%;max-width:420px;
+  text-align:center;
+}
+.ext-title{font-size:18px;font-weight:800;color:var(--t1);margin-bottom:6px}
+.ext-sub{font-size:13px;color:var(--t2);margin-bottom:28px}
+.ext-steps{text-align:left;display:flex;flex-direction:column;gap:10px}
+.ext-step{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-radius:10px;
+  background:rgba(0,0,0,.03);border:1px solid var(--border);
+  font-size:13px;font-weight:500;color:var(--t2);
+  transition:all .3s;
+}
+.ext-step.active{background:rgba(175,70,253,.08);border-color:rgba(175,70,253,.25);color:var(--t1)}
+.ext-step.done{background:rgba(22,163,74,.05);border-color:rgba(22,163,74,.2);color:var(--green)}
+.ext-step-icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.ext-spinner{
+  width:16px;height:16px;border-radius:50%;
+  border:2px solid rgba(175,70,253,.2);border-top-color:var(--purple);
+  animation:spin .7s linear infinite;flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* empty state */
+.rp-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;text-align:center;color:var(--t3);
+}
+.rp-empty-icon{font-size:40px;margin-bottom:12px;opacity:.5}
+.rp-empty-title{font-size:15px;font-weight:700;color:var(--t2);margin-bottom:6px}
+.rp-empty-sub{font-size:13px;color:var(--t3);line-height:1.5}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .left-panel{display:none}
+  .left-panel.mob-show{display:flex;width:100%;border-right:none}
+  .mob-back-btn{display:flex}
+  .tb-add-btn .tb-add-text{display:none}
+  .right-panel{display:flex}
+  .right-panel.mob-hide{display:none}
+}
+@media(max-width:480px){
+  .rp-content{padding:16px}
+  .topbar{padding:0 16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── 64px SIDEBAR ── -->
+  <div class="sb">
+    <div class="sb-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+
+    <div class="sb-item" title="Dashboard" onclick="window.location.href='creative_report.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="sb-item" title="Ads">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <span>Ads</span>
+    </div>
+    <div class="sb-item" title="My">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      <span>My</span>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item" title="Audit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>Audit</span>
+    </div>
+    <div class="sb-item" title="Generated">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span>Generated</span>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item" title="Chat" onclick="window.location.href='chat.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>Chat</span>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item active" title="Workspaces" onclick="window.location.href='workspace.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      <span>Spaces</span>
+    </div>
+    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/></div>
+  </div>
+
+  <!-- Workspace Switcher Popover -->
+  <div class="ws-switcher-popover" id="ws-switcher-popover">
+    <div class="ws-sw-header">
+      <span class="ws-sw-title">Switch Workspace</span>
+      <button class="ws-sw-close" onclick="toggleWsSwitcher()">&#215;</button>
+    </div>
+    <div class="ws-sw-list" id="ws-sw-popover-list"></div>
+    <div class="ws-sw-footer">
+      <button class="ws-sw-add-btn" onclick="toggleWsSwitcher();openAddWsModal()">+ Add Workspace</button>
+    </div>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-title">Workspace Management</div>
+      <button class="tb-add-btn" onclick="openAddWsModal()">
+        + <span class="tb-add-text">Add Workspace</span>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="ws-body">
+
+      <!-- Left Panel -->
+      <div class="left-panel" id="left-panel">
+        <div class="lp-header">
+          <span class="lp-title">Your Workspaces</span>
+          <span class="lp-count" id="lp-count">2</span>
+        </div>
+        <div class="lp-list" id="ws-list"></div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="right-panel" id="right-panel">
+        <div class="mob-back-btn" id="mob-back-btn" onclick="showMobList()">&#9664; All Workspaces</div>
+        <div class="rp-content" id="rp-content"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD WORKSPACE MODAL ── -->
+<div class="modal-overlay" id="add-ws-modal" onclick="handleAddWsBackdrop(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeAddWsModal()">&#215;</button>
+    <div class="modal-kicker">&#10022; New Workspace</div>
+    <h2 class="modal-h">Enter your store URL<br>to get started.</h2>
+    <p class="modal-sub">We'll extract your brand identity automatically — colors, tone, audience, category. Takes under 60 seconds.</p>
+    <input class="modal-input" id="ws-url-input" type="text" placeholder="yourstore.com" autocomplete="off" onkeydown="if(event.key==='Enter')submitAddWs()">
+    <button class="modal-btn" onclick="submitAddWs()">Analyse my brand &#8594;</button>
+    <div class="modal-fine">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Read-only scan &nbsp;&#183;&nbsp; No credit card needed
+    </div>
+  </div>
+</div>
+
+<!-- ── SWITCH TOAST ── -->
+<div class="ws-switch-toast" id="ws-switch-toast">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="ws-switch-toast-msg">Switched workspace</span>
+</div>
+
+<!-- ── EXTRACTION OVERLAY ── -->
+<div class="extraction-overlay" id="extraction-overlay">
+  <div class="extraction-box">
+    <div class="ext-title">Analysing Your Brand</div>
+    <div class="ext-sub" id="ext-domain-label">Loading brand data...</div>
+    <div class="ext-steps" id="ext-steps"></div>
+  </div>
+</div>
+
+<!-- ── CONNECT ACCOUNTS MODAL ── -->
+<div class="modal-overlay" id="connect-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeConnectModal()">&#215;</button>
+    <div class="modal-title">Connect Ad Accounts</div>
+    <div class="modal-sub">Connect your advertising accounts for this workspace. You can skip and connect later.</div>
+    <div id="connect-platforms"></div>
+    <button class="modal-skip-btn" onclick="finalizeNewWorkspace()">Skip for now &#8594;</button>
+  </div>
+</div>
+
+<script>
+/* ── PLATFORM ICONS (inline SVG) ── */
+var platformIcons = {
+  meta: '<div style="width:38px;height:38px;border-radius:10px;background:#1877F2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>',
+  google: '<div style="width:38px;height:38px;border-radius:10px;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg></div>',
+  shopify: '<div style="width:38px;height:38px;border-radius:10px;background:rgba(149,191,71,.08);border:1px solid rgba(149,191,71,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="#95BF47"><path d="M15.337 23.979l7.216-1.561s-2.597-17.566-2.617-17.7c-.019-.133-.133-.218-.256-.218-.124 0-2.345-.047-2.345-.047s-1.542-1.495-1.713-1.656v21.182zm-2.489.521l-6.477-1.8v-1.333h-1.09v-15.498l1.5-.408S8.3 4.2 8.357 4.017c.057-.189.208-.256.35-.218.133.038 2.86.883 2.86.883L15.337 24l-2.489.5zM9.75 4.463l-1.165.322s-.18-1.165-.854-1.75c.673.067 1.154.711 1.154 1.154l.865-.246V4.463zm-.865 0l-.5.133v-.133s0-.865-.5-1.363c.5.133.979.597 1 1.363zm-.5.133l-1 .284s.067-.5.067-1.1c.394.246.755.559.933.816z"/></svg></div>'
+};
+
+/* ── MOCK ACCOUNT POOLS ── */
+var mockAccountPools = {
+  meta: ['Meta Ads Main', 'Instagram Shopping', 'Facebook Catalog', 'Meta Retargeting', 'Lookalike Audience'],
+  google: ['Google Search', 'Performance Max', 'Google Shopping', 'YouTube Ads', 'Display Network'],
+  shopify: ['Primary Store', 'Wholesale Store', 'B2B Portal', 'International Store', 'Pop-up Store']
+};
+
+/* ── STATE ── */
+var workspaces = [
+  {
+    id:1, name:'Shesha Ayurveda', url:'sheshaayurveda.com', initial:'S',
+    logo:'../images/shesha-logo.svg',
+    active:true,
+    accounts:{
+      meta:['Shesha_Main_IN','Shesha_D2C_2024'],
+      google:['Shesha-Google-Ads'],
+      shopify:['shesha-store.myshopify.com']
+    }
+  },
+  {
+    id:2, name:'Nykaa Private Label', url:'nykaa.com', initial:'N',
+    logo:'../images/nykaa-logo.svg',
+    active:true,
+    accounts:{
+      meta:['Nykaa_Meta_Main'],
+      google:[],
+      shopify:['nykaa.myshopify.com']
+    }
+  }
+];
+var selectedWs = 0;
+var pendingDomain = '';
+var connectState = {meta:false,google:false,shopify:false};
+
+/* ── RENDER WORKSPACE LIST ── */
+function renderWorkspaceList() {
+  var container = document.getElementById('ws-list');
+  if (!container) return;
+  var html = '';
+  for (var i = 0; i < workspaces.length; i++) {
+    var ws = workspaces[i];
+    var selectedClass = (i === selectedWs) ? ' selected' : '';
+    var metaConnected = ws.accounts.meta.length > 0;
+    var googleConnected = ws.accounts.google.length > 0;
+    var shopifyConnected = ws.accounts.shopify.length > 0;
+    html += '<div class="ws-card' + selectedClass + '" onclick="selectWorkspace(' + i + ')">';
+    html += '<div class="ws-card-top">';
+    if (ws.logo) {
+      html += '<div class="ws-card-logo"><img src="' + ws.logo + '" alt="' + ws.initial + '"/></div>';
+    } else {
+      html += '<div class="ws-card-bubble">' + ws.initial + '</div>';
+    }
+    html += '<div class="ws-card-info">';
+    html += '<div class="ws-card-name">' + ws.name;
+    if (ws.active) html += '<span class="ws-card-active-badge">Active</span>';
+    html += '</div>';
+    html += '<div class="ws-card-url">' + ws.url + '</div>';
+    html += '</div></div>';
+    html += '<div class="ws-card-chips">';
+    html += '<span class="ws-chip ' + (metaConnected ? 'connected' : 'disconnected') + '">Meta</span>';
+    html += '<span class="ws-chip ' + (googleConnected ? 'connected' : 'disconnected') + '">Google</span>';
+    html += '<span class="ws-chip ' + (shopifyConnected ? 'connected' : 'disconnected') + '">Shopify</span>';
+    html += '</div>';
+    html += '</div>';
+  }
+  html += '<div class="ws-add-card" onclick="openAddWsModal()"><span>+</span><span>Add New Workspace</span></div>';
+  container.innerHTML = html;
+  var countEl = document.getElementById('lp-count');
+  if (countEl) countEl.textContent = workspaces.length;
+}
+
+/* ── SELECT WORKSPACE ── */
+function selectWorkspace(idx) {
+  if (idx === selectedWs) return;
+  // show loader
+  var content = document.getElementById('rp-content');
+  if (content) {
+    var loader = document.createElement('div');
+    loader.className = 'rp-switch-loader';
+    loader.innerHTML = '<div class="switch-spinner"></div>';
+    content.appendChild(loader);
+    requestAnimationFrame(function(){ loader.classList.add('show'); });
+  }
+  setTimeout(function(){
+    selectedWs = idx;
+    renderWorkspaceList();
+    renderDetailPanel();
+    if (window.innerWidth <= 640) showMobDetail();
+    showSwitchToast(workspaces[idx].name);
+  }, 400);
+}
+
+function showSwitchToast(name) {
+  var toast = document.getElementById('ws-switch-toast');
+  var msg = document.getElementById('ws-switch-toast-msg');
+  if (!toast) return;
+  if (msg) msg.textContent = 'Switched to ' + name;
+  toast.classList.add('show');
+  setTimeout(function(){ toast.classList.remove('show'); }, 2200);
+}
+
+/* ── SET ACTIVE / INACTIVE WORKSPACE ── */
+function setActiveWorkspace(idx) {
+  workspaces[idx].active = true;
+  selectedWs = idx;
+  var bubble = document.getElementById('sb-ws-bubble');
+  if (bubble) {
+    if (workspaces[idx].logo) {
+      bubble.style.background = '#fff';
+      bubble.style.overflow = 'hidden';
+      bubble.innerHTML = '<img src="' + workspaces[idx].logo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent=\'' + workspaces[idx].initial + '\';this.parentNode.style.background=\'\'"/>';
+    } else {
+      bubble.style.background = '';
+      bubble.style.overflow = '';
+      bubble.innerHTML = workspaces[idx].initial;
+    }
+  }
+  renderWorkspaceList();
+  renderDetailPanel();
+  renderWsPopover();
+}
+function markInactive(idx) {
+  workspaces[idx].active = false;
+  renderWorkspaceList();
+  renderDetailPanel();
+  renderWsPopover();
+}
+
+/* ── EDIT WORKSPACE NAME ── */
+function startEditName(idx) {
+  var nameEl = document.getElementById('rp-ws-name-' + idx);
+  if (!nameEl) return;
+  var current = workspaces[idx].name;
+  var input = document.createElement('input');
+  input.className = 'rp-name-input';
+  input.value = current;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  function save() {
+    var val = input.value.trim();
+    if (val) {
+      workspaces[idx].name = val;
+      if (!workspaces[idx].logo) workspaces[idx].initial = val.charAt(0).toUpperCase();
+    }
+    renderWorkspaceList();
+    renderDetailPanel();
+  }
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { input.blur(); }
+    if (e.key === 'Escape') { input.value = current; input.blur(); }
+  });
+}
+
+/* ── REMOVE ACCOUNT ── */
+function removeAccount(wsIdx, platform, accountIdx) {
+  workspaces[wsIdx].accounts[platform].splice(accountIdx, 1);
+  renderDetailPanel();
+  renderWorkspaceList();
+}
+
+/* ── ADD WORKSPACE ── */
+function addWorkspace(domain) {
+  var cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  var initial = cleanDomain.charAt(0).toUpperCase();
+  var newWs = {
+    id: workspaces.length + 1,
+    name: cleanDomain,
+    url: cleanDomain,
+    initial: initial,
+    active: false,
+    accounts:{meta:[],google:[],shopify:[]}
+  };
+  workspaces.push(newWs);
+  selectedWs = workspaces.length - 1;
+  renderWorkspaceList();
+  renderDetailPanel();
+  renderWsPopover();
+}
+
+/* ── RENDER DETAIL PANEL ── */
+function renderDetailPanel() {
+  var container = document.getElementById('rp-content');
+  if (!container) return;
+  if (workspaces.length === 0) {
+    container.innerHTML = '<div class="rp-empty"><div class="rp-empty-icon">&#9645;</div><div class="rp-empty-title">No workspaces yet</div><div class="rp-empty-sub">Add your first workspace to get started.</div></div>';
+    return;
+  }
+  var ws = workspaces[selectedWs];
+  var html = '';
+
+  // Header
+  html += '<div class="rp-header">';
+  if (ws.logo) {
+    html += '<div class="rp-logo"><img src="' + ws.logo + '" alt="' + ws.initial + '"/></div>';
+  } else {
+    html += '<div class="rp-bubble">' + ws.initial + '</div>';
+  }
+  html += '<div class="rp-info">';
+  html += '<div class="rp-name-wrap">';
+  html += '<div class="rp-ws-name" id="rp-ws-name-' + selectedWs + '">' + ws.name + '</div>';
+  html += '<button class="rp-edit-btn" onclick="startEditName(' + selectedWs + ')" title="Edit name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+  html += '</div>';
+  html += '<div class="rp-ws-url">' + ws.url + '</div>';
+  if (ws.active) {
+    html += '<div class="rp-active-pill"><span class="rp-active-dot"></span>Active</div>';
+  } else {
+    html += '<div class="rp-inactive-pill">Inactive</div>';
+  }
+  html += '</div>';
+  html += '<div class="rp-header-actions">';
+  if (!ws.active) {
+    html += '<button class="rp-set-active-btn" onclick="setActiveWorkspace(' + selectedWs + ')">Set Active</button>';
+  } else {
+    html += '<button class="rp-inactive-btn" onclick="markInactive(' + selectedWs + ')">Mark Inactive</button>';
+  }
+  html += '</div>';
+  html += '</div>';
+
+  // Platforms
+  var platforms = [
+    {key:'meta',   label:'Meta Ads'},
+    {key:'google', label:'Google Ads'},
+    {key:'shopify',label:'Shopify'}
+  ];
+
+  for (var p = 0; p < platforms.length; p++) {
+    var plat = platforms[p];
+    var accs = ws.accounts[plat.key];
+    var isConn = accs.length > 0;
+    html += '<div class="platform-section">';
+    html += '<div class="platform-header">';
+    html += '<span class="platform-icon">' + (platformIcons[plat.key] || '') + '</span>';
+    html += '<span class="platform-name">' + plat.label + '</span>';
+    html += '<span class="platform-count">' + accs.length + '/3</span>';
+    html += '<div class="platform-status ' + (isConn ? 'connected' : 'disconnected') + '">';
+    html += '<span class="plat-status-dot ' + (isConn ? 'connected' : 'disconnected') + '"></span>';
+    html += isConn ? 'Connected' : 'Not connected';
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="platform-body">';
+    for (var a = 0; a < accs.length; a++) {
+      html += '<div class="account-chip">';
+      html += '<span>' + accs[a] + '</span>';
+      html += '<button class="chip-remove" onclick="removeAccount(' + selectedWs + ',\'' + plat.key + '\',' + a + ')" title="Remove">&#215;</button>';
+      html += '</div>';
+    }
+    if (accs.length < 3) {
+      var dropId = 'dd-' + plat.key;
+      // build available options (not already added)
+      var pool = mockAccountPools[plat.key] || [];
+      html += '<div class="add-acct-wrap">';
+      html += '<button class="add-account-btn" onclick="toggleAcctDropdown(event,\'' + dropId + '\',\'' + plat.key + '\',' + selectedWs + ')">+ Add Account</button>';
+      html += '<div class="add-acct-dropdown" id="' + dropId + '">';
+      for (var o = 0; o < pool.length; o++) {
+        if (accs.indexOf(pool[o]) === -1) {
+          html += '<div class="add-acct-option" onclick="pickAccount(\'' + dropId + '\',\'' + plat.key + '\',' + selectedWs + ',' + o + ')">' + pool[o] + '</div>';
+        }
+      }
+      html += '</div></div>';
+    }
+    html += '</div>';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+/* ── WS SWITCHER POPOVER ── */
+function renderWsPopover() {
+  var list = document.getElementById('ws-sw-popover-list');
+  if (!list) return;
+  var html = '';
+  for (var i = 0; i < workspaces.length; i++) {
+    var ws = workspaces[i];
+    html += '<div class="ws-sw-item" onclick="switchWsFromPopover(' + i + ')">';
+    if (ws.logo) {
+      html += '<div class="ws-sw-logo"><img src="' + ws.logo + '" alt="' + ws.initial + '"/></div>';
+    } else {
+      html += '<div class="ws-sw-bubble">' + ws.initial + '</div>';
+    }
+    html += '<div class="ws-sw-info"><div class="ws-sw-name">' + ws.name + '</div><div class="ws-sw-url">' + ws.url + '</div></div>';
+    if (ws.active) html += '<span class="ws-sw-check">&#10003;</span>';
+    html += '</div>';
+  }
+  list.innerHTML = html;
+}
+function switchWsFromPopover(idx) {
+  setActiveWorkspace(idx);
+  toggleWsSwitcher();
+}
+function toggleWsSwitcher() {
+  var pop = document.getElementById('ws-switcher-popover');
+  if (!pop) return;
+  pop.classList.toggle('open');
+  if (pop.classList.contains('open')) renderWsPopover();
+}
+
+/* ── MODAL: ADD WORKSPACE ── */
+function openAddWsModal() {
+  var m = document.getElementById('add-ws-modal');
+  if (!m) return;
+  m.classList.add('open');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    m.classList.add('visible');
+    var inp = document.getElementById('ws-url-input');
+    if (inp) { inp.value = ''; setTimeout(function(){ inp.focus(); }, 120); }
+  }); });
+}
+function closeAddWsModal() {
+  var m = document.getElementById('add-ws-modal');
+  if (!m) return;
+  m.classList.remove('visible');
+  setTimeout(function(){ m.classList.remove('open'); }, 300);
+}
+function handleAddWsBackdrop(e) {
+  if (e.target === document.getElementById('add-ws-modal')) closeAddWsModal();
+}
+function submitAddWs() {
+  var inp = document.getElementById('ws-url-input');
+  if (!inp) return;
+  var val = inp.value.trim();
+  if (!val) { inp.focus(); return; }
+  var domain = val.replace('https://','').replace('http://','').split('/')[0].replace('www.','').trim();
+  var initial = domain.charAt(0).toUpperCase();
+  var wsName = domain.split('.')[0];
+  wsName = wsName.charAt(0).toUpperCase() + wsName.slice(1);
+  try {
+    localStorage.setItem('ws_pending', JSON.stringify({name: wsName, url: domain, initial: initial, timestamp: Date.now()}));
+  } catch(e) {}
+  sessionStorage.setItem('ws_add_flow', '1');
+  sessionStorage.setItem('ws_add_url', domain);
+  sessionStorage.setItem('authed', '1');
+  closeAddWsModal();
+  setTimeout(function(){ window.location.href = 'shiprocket_hero_carousel.html'; }, 320);
+}
+
+/* ── EXTRACTION ANIMATION ── */
+var extractionSteps = [
+  {label:'Fetching website content',icon:'&#127758;'},
+  {label:'Extracting brand identity',icon:'&#127775;'},
+  {label:'Analysing brand colours & tone',icon:'&#127912;'},
+  {label:'Identifying target audience',icon:'&#128100;'},
+  {label:'Finalising brand profile',icon:'&#10004;'}
+];
+function runExtraction(domain) {
+  var overlay = document.getElementById('extraction-overlay');
+  var stepsEl = document.getElementById('ext-steps');
+  var domainLabel = document.getElementById('ext-domain-label');
+  if (!overlay || !stepsEl) return;
+  if (domainLabel) domainLabel.textContent = 'Analysing ' + domain + '...';
+  var html = '';
+  for (var i = 0; i < extractionSteps.length; i++) {
+    html += '<div class="ext-step" id="ext-step-' + i + '">';
+    html += '<span class="ext-step-icon">' + extractionSteps[i].icon + '</span>';
+    html += '<span>' + extractionSteps[i].label + '</span>';
+    html += '</div>';
+  }
+  stepsEl.innerHTML = html;
+  overlay.classList.add('open');
+  var currentStep = 0;
+  function activateStep(idx) {
+    if (idx >= extractionSteps.length) {
+      overlay.classList.remove('open');
+      // Redirect to brand_report.html where the connect accounts screen lives
+      window.location.href = 'brand_report.html';
+      return;
+    }
+    var stepEl = document.getElementById('ext-step-' + idx);
+    if (stepEl) stepEl.classList.add('active');
+    setTimeout(function() {
+      if (stepEl) { stepEl.classList.remove('active'); stepEl.classList.add('done'); }
+      activateStep(idx + 1);
+    }, 900);
+  }
+  activateStep(0);
+}
+
+/* ── CONNECT MODAL ── */
+connectState = {meta:false,google:false,shopify:false};
+function showConnectModal() {
+  connectState = {meta:false,google:false,shopify:false};
+  renderConnectPlatforms();
+  var m = document.getElementById('connect-modal');
+  if (m) m.classList.add('open');
+}
+function closeConnectModal() {
+  var m = document.getElementById('connect-modal');
+  if (m) m.classList.remove('open');
+  finalizeNewWorkspace();
+}
+function renderConnectPlatforms() {
+  var container = document.getElementById('connect-platforms');
+  if (!container) return;
+  var platforms = [
+    {key:'meta',   label:'Meta Ads',  icon:'&#128152;'},
+    {key:'google', label:'Google Ads',icon:'&#128269;'},
+    {key:'shopify',label:'Shopify',   icon:'&#128722;'}
+  ];
+  var html = '';
+  for (var i = 0; i < platforms.length; i++) {
+    var p = platforms[i];
+    var connected = connectState[p.key];
+    html += '<div class="connect-platform" id="cp-' + p.key + '">';
+    html += '<div class="connect-platform-left"><span class="connect-platform-icon">' + p.icon + '</span><span class="connect-platform-name">' + p.label + '</span></div>';
+    if (connected) {
+      html += '<button class="connect-btn connected-btn">&#10003; Connected</button>';
+    } else {
+      html += '<button class="connect-btn" onclick="connectPlatform(\'' + p.key + '\')">Connect</button>';
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+function connectPlatform(key) {
+  connectState[key] = true;
+  renderConnectPlatforms();
+}
+function finalizeNewWorkspace() {
+  var m = document.getElementById('connect-modal');
+  if (m) m.classList.remove('open');
+  addWorkspace(pendingDomain);
+}
+
+/* ── MOBILE HELPERS ── */
+function showMobList() {
+  var lp = document.getElementById('left-panel');
+  var rp = document.getElementById('right-panel');
+  if (lp) lp.classList.add('mob-show');
+  if (rp) rp.classList.add('mob-hide');
+}
+function showMobDetail() {
+  var lp = document.getElementById('left-panel');
+  var rp = document.getElementById('right-panel');
+  if (lp) lp.classList.remove('mob-show');
+  if (rp) rp.classList.remove('mob-hide');
+}
+
+/* ── ADD ACCOUNT DROPDOWN ── */
+var activeDropdown = null;
+function toggleAcctDropdown(e, dropId, platform, wsIdx) {
+  e.stopPropagation();
+  var dd = document.getElementById(dropId);
+  if (!dd) return;
+  if (activeDropdown && activeDropdown !== dd) {
+    activeDropdown.classList.remove('open');
+  }
+  dd.classList.toggle('open');
+  activeDropdown = dd.classList.contains('open') ? dd : null;
+}
+function pickAccount(dropId, platform, wsIdx, poolIdx) {
+  var pool = mockAccountPools[platform] || [];
+  var existing = workspaces[wsIdx].accounts[platform];
+  var acct = pool[poolIdx];
+  if (acct && existing.indexOf(acct) === -1 && existing.length < 3) {
+    workspaces[wsIdx].accounts[platform].push(acct);
+    activeDropdown = null;
+    renderDetailPanel();
+    renderWorkspaceList();
+  }
+}
+
+/* ── CLOSE POPOVER ON OUTSIDE CLICK ── */
+document.addEventListener('click', function(e) {
+  // close workspace switcher
+  var pop = document.getElementById('ws-switcher-popover');
+  var bubble = document.getElementById('sb-ws-bubble');
+  if (pop && pop.classList.contains('open') && !pop.contains(e.target) && !bubble.contains(e.target)) {
+    pop.classList.remove('open');
+  }
+  // close account dropdown
+  if (activeDropdown && !activeDropdown.closest('.add-acct-wrap').contains(e.target)) {
+    activeDropdown.classList.remove('open');
+    activeDropdown = null;
+  }
+});
+
+/* ── KEYBOARD: ESC TO CLOSE MODALS ── */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeAddWsModal();
+    closeConnectModal();
+    var extOv = document.getElementById('extraction-overlay');
+    if (extOv) extOv.classList.remove('open');
+  }
+});
+
+/* ── ENTER KEY IN URL INPUT ── */
+document.addEventListener('DOMContentLoaded', function() {
+  // Load any pending workspace from localStorage (added via Add Workspace flow)
+  try {
+    var pending = localStorage.getItem('ws_pending');
+    if (pending) {
+      var p = JSON.parse(pending);
+      if (p && p.timestamp && (Date.now() - p.timestamp < 120000)) {
+        workspaces.push({
+          id: workspaces.length + 1,
+          name: p.name,
+          url: p.url,
+          initial: p.initial,
+          active: false,
+          accounts: { meta: [], google: [], shopify: [] }
+        });
+      }
+      localStorage.removeItem('ws_pending');
+    }
+  } catch(e) {}
+
+  var inp = document.getElementById('ws-url-input');
+  if (inp) {
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') submitAddWs();
+    });
+  }
+  renderWorkspaceList();
+  renderDetailPanel();
+  // Auto-open Add Workspace modal if redirected here from another page
+  if (sessionStorage.getItem('open_add_ws') === '1') {
+    sessionStorage.removeItem('open_add_ws');
+    setTimeout(function(){ openAddWsModal(); }, 400);
+  }
+});
+</script>
+</body>
+</html>

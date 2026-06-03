@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shiprocket Studio — Brand Report · Shesha Ayurveda</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;--bg2:rgba(255,255,255,.04);
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);
+  --text:#F0F0F5;--text2:rgba(255,255,255,.5);--text3:rgba(255,255,255,.25);
+  --purple:#AF46FD;--pink:#F4349D;--mid:#DA3BC2;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --grad-text:linear-gradient(135deg,#C084FC,#F472B6);
+  --green:#22C55E;--amber:#FB923C;--cyan:#22D3EE;--blue:#60A5FA;
+}
+html,body{width:100%;height:100%;background:var(--bg);font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);overflow:hidden}
+
+/* ─ BG glow ─ */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 40% 50% at 75% 20%,rgba(175,70,253,.07),transparent 65%),
+             radial-gradient(ellipse 30% 40% at 10% 80%,rgba(244,52,157,.05),transparent 65%)}
+
+/* ─ HEADER ─ */
+.hdr{height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;border-bottom:1px solid var(--border);
+  background:rgba(11,11,20,.96);backdrop-filter:blur(20px);
+  position:relative;z-index:100;flex-shrink:0}
+@media(max-width:600px){.hdr{padding:0 16px}}
+.hdr-logo{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:#fff}
+.hdr-logo-icon{width:27px;height:27px;border-radius:7px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hdr-logo-icon svg{width:13px;height:13px}
+.hdr-logo-studio{color:var(--purple)}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.hdr-domain{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.hdr-domain-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+.hdr-btn{padding:8px 18px;border-radius:9px;background:var(--grad);color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;border:none;cursor:pointer;transition:opacity .2s}
+.hdr-btn:hover{opacity:.88}
+
+/* ─ LAYOUT ─ */
+.page{display:flex;height:calc(100vh - 56px);overflow:hidden;position:relative;z-index:1}
+
+/* ─ SIDEBAR ─ */
+.sidebar{width:224px;flex-shrink:0;border-right:1px solid var(--border);
+  background:rgba(11,11,20,.7);display:flex;flex-direction:column;
+  overflow-y:auto;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+@media(max-width:760px){.sidebar{display:none}}
+
+/* brand block */
+.sb-top{padding:20px 18px 18px;border-bottom:1px solid var(--border)}
+.sb-logo{width:52px;height:52px;border-radius:12px;overflow:hidden;
+  border:1px solid rgba(201,168,76,.25);margin-bottom:12px;background:#0a1a0f}
+.sb-logo img{width:100%;height:100%;object-fit:contain}
+.sb-name{font-size:15px;font-weight:700;color:#fff;margin-bottom:2px}
+.sb-domain{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;margin-bottom:14px}
+.sb-live{width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
+/* confidence */
+.sb-conf-row{display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:10px;background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.15)}
+.sb-conf-num{font-size:22px;font-weight:800;line-height:1;
+  background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb-conf-info{}
+.sb-conf-label{font-size:11px;font-weight:700;color:#fff}
+.sb-conf-sub{font-size:10px;color:var(--text3);margin-top:1px}
+
+/* swatches */
+.sb-swatches{display:flex;gap:5px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.sb-swatch{flex:1;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,.08);cursor:default;transition:transform .2s}
+.sb-swatch:hover{transform:scaleY(1.15)}
+
+/* nav */
+.sb-nav{display:flex;flex-direction:column;gap:2px;padding:12px 10px;flex:1}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);
+  cursor:pointer;transition:all .2s;border:none;background:transparent;
+  font-family:inherit;text-align:left;width:100%;position:relative}
+.sb-item:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.sb-item.active{background:rgba(175,70,253,.1);color:#fff;font-weight:600}
+.sb-item.active::before{content:'';position:absolute;left:0;top:7px;bottom:7px;
+  width:2.5px;border-radius:0 2px 2px 0;background:var(--grad)}
+.sb-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center}
+.sb-lock{margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;
+  border-radius:100px;background:rgba(251,146,60,.1);color:var(--amber);
+  border:1px solid rgba(251,146,60,.2)}
+
+/* sidebar CTA */
+.sb-cta{margin:8px 10px 16px;padding:14px;border-radius:12px;
+  background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.18)}
+.sb-cta-eyebrow{font-size:9.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.6px;color:var(--purple);margin-bottom:6px}
+.sb-cta-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.4}
+.sb-cta-sub{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+.sb-cta-btn{width:100%;padding:9px;border-radius:8px;background:var(--grad);
+  color:#fff;font-size:12px;font-weight:700;font-family:inherit;border:none;
+  cursor:pointer;transition:opacity .2s}
+.sb-cta-btn:hover{opacity:.9}
+
+/* ─ MOBILE TABS ─ */
+.mob-tabs{display:none;overflow-x:auto;scrollbar-width:none;
+  border-bottom:1px solid var(--border);background:rgba(11,11,20,.97);
+  padding:0 16px;position:absolute;top:0;left:0;right:0;z-index:50;flex-shrink:0}
+.mob-tabs::-webkit-scrollbar{display:none}
+@media(max-width:760px){.mob-tabs{display:flex}}
+.mob-tab{padding:11px 14px;font-size:12.5px;font-weight:600;font-family:inherit;
+  color:var(--text3);background:transparent;border:none;
+  border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;white-space:nowrap}
+.mob-tab.active{color:#fff;border-bottom-color:var(--purple)}
+
+/* ─ CONTENT ─ */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+@media(max-width:760px){.content{padding-top:42px}}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-track{background:transparent}
+.content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+.panel{display:none;padding:36px 40px 80px;animation:fadeUp .3s ease both}
+.panel.active{display:block}
+@media(max-width:760px){.panel{padding:20px 16px 80px}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─ PANEL HEADING ─ */
+.panel-h{font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(24px,3vw,36px);color:#fff;letter-spacing:-.3px;
+  margin-bottom:4px;line-height:1.1}
+.panel-sub{font-size:13.5px;color:var(--text2);margin-bottom:28px;line-height:1.6}
+@media(max-width:600px){.panel-sub{margin-bottom:20px}}
+
+/* ─ GRID ─ */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.g5{display:flex;gap:8px;margin-bottom:12px}
+@media(max-width:700px){.g2,.g3{grid-template-columns:1fr}}
+
+/* ─ CARD ─ */
+.card{background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:14px;padding:18px 20px;transition:border-color .25s;margin-bottom:12px}
+.card:hover{border-color:rgba(255,255,255,.12)}
+.card-label{font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.7px;color:var(--text3);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px}
+.card-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.05)}
+
+/* ─ COLOUR BARS ─ */
+.color-bars{display:flex;height:60px;border-radius:10px;overflow:hidden;margin-bottom:10px;gap:2px}
+.cbar{flex:1;position:relative;cursor:default;transition:flex .35s cubic-bezier(.4,0,.2,1)}
+.cbar:hover{flex:1.8}
+.cbar-name{position:absolute;bottom:7px;left:0;right:0;text-align:center;
+  font-size:9px;font-weight:600;opacity:0;transition:opacity .2s;white-space:nowrap;overflow:hidden}
+.color-hexes{display:flex;gap:16px;flex-wrap:wrap}
+.chex{font-size:10.5px;color:var(--text3);font-weight:500;display:flex;align-items:center;gap:5px}
+.chex-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
+
+/* ─ STAT ─ */
+.stat{text-align:center;padding:20px 14px}
+.stat-val{font-size:32px;font-weight:800;line-height:1;
+  background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;margin-bottom:4px}
+.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+.stat-sub{font-size:11.5px;color:var(--text2);margin-top:3px}
+
+/* ─ PRODUCT STRIP ─ */
+.prod-strip{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.prod-strip::-webkit-scrollbar{display:none}
+.prod-card{flex-shrink:0;width:100px;border-radius:12px;overflow:hidden;
+  border:1px solid var(--border);background:rgba(255,255,255,.03);
+  transition:border-color .2s,transform .2s;cursor:default}
+.prod-card:hover{border-color:rgba(255,255,255,.15);transform:translateY(-2px)}
+.prod-card img{width:100%;height:80px;object-fit:cover;display:block}
+.prod-card-info{padding:7px 8px}
+.prod-card-name{font-size:10px;font-weight:600;color:rgba(255,255,255,.7);line-height:1.3;margin-bottom:3px}
+.prod-card-price{font-size:10px;color:var(--text3)}
+
+/* ─ CHIP ─ */
+.chip{display:inline-flex;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:500;border:1px solid;margin:2px 2px 2px 0}
+.cg{background:rgba(34,197,94,.1); border-color:rgba(34,197,94,.25); color:rgba(34,197,94,.9)}
+.cp{background:rgba(175,70,253,.1);border-color:rgba(175,70,253,.25);color:rgba(175,70,253,.9)}
+.ca{background:rgba(251,146,60,.1);border-color:rgba(251,146,60,.25);color:rgba(251,146,60,.9)}
+.ck{background:rgba(244,52,157,.1);border-color:rgba(244,52,157,.25);color:rgba(244,52,157,.9)}
+.cb{background:rgba(96,165,250,.1);border-color:rgba(96,165,250,.25);color:rgba(96,165,250,.9)}
+.co{background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.25);color:rgba(201,168,76,.9)}
+.cr{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.2); color:rgba(248,113,113,.9)}
+
+/* ─ DATA ROW ─ */
+.dr{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.dr:last-child{border-bottom:none}
+.dr-k{font-size:12px;color:var(--text3);flex-shrink:0;padding-top:1px;min-width:80px}
+.dr-v{font-size:13px;color:rgba(255,255,255,.72);text-align:right;line-height:1.5}
+
+/* ─ BAR ─ */
+.bar-r{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-r:last-child{margin-bottom:0}
+.bar-l{font-size:12.5px;color:var(--text2);width:100px;flex-shrink:0}
+.bar-t{flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
+.bar-f{height:100%;border-radius:3px;background:var(--grad);transition:width 1s ease .3s}
+.bar-v{font-size:12px;font-weight:700;width:32px;text-align:right;flex-shrink:0;color:rgba(255,255,255,.5)}
+
+/* ─ QUOTE ─ */
+.quote{padding:14px 16px 14px 18px;border-radius:11px;
+  background:rgba(255,255,255,.03);border-left:2.5px solid var(--purple);margin-bottom:8px}
+.quote:last-child{margin-bottom:0}
+.quote-t{font-size:14px;font-family:'Instrument Serif',serif;font-style:italic;
+  color:rgba(255,255,255,.8);line-height:1.65;margin-bottom:5px}
+.quote-s{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.quote-badge{padding:1px 7px;border-radius:100px;font-size:9.5px;font-weight:600}
+
+/* ─ PRODUCT ROW ─ */
+.pr{display:flex;align-items:center;gap:12px;padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.pr:last-child{border-bottom:none}
+.pr-img{width:38px;height:38px;border-radius:8px;overflow:hidden;flex-shrink:0;
+  border:1px solid var(--border);background:#0a1208}
+.pr-img img{width:100%;height:100%;object-fit:cover}
+.pr-name{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+.pr-price{font-size:11.5px;color:var(--text3)}
+
+/* ─ COMPETITOR ROW ─ */
+.comp{display:flex;align-items:center;gap:12px;padding:11px 0;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.comp:last-child{border-bottom:none}
+.comp-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+.comp-name{font-size:13px;font-weight:600;color:rgba(255,255,255,.85)}
+.comp-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ─ STICKY CTA BAR ─ */
+.sticky-cta{
+  position:fixed;bottom:0;left:220px;right:0;z-index:200;
+  background:rgba(11,11,20,.96);
+  backdrop-filter:blur(20px);
+  border-top:1px solid rgba(175,70,253,.25);
+  padding:14px 40px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;
+}
+@media(max-width:760px){
+  .sticky-cta{left:0;padding:10px 16px;flex-direction:row;align-items:center;gap:10px}
+  .sticky-cta-msg{display:none}
+  .sticky-cta-pct{margin-bottom:0;font-size:11px}
+}
+/* progress bar on top of sticky */
+.sticky-cta::before{
+  content:'';
+  position:absolute;top:-1px;left:0;
+  width:30%;height:2px;
+  background:var(--grad);
+}
+.sticky-cta-left{flex:1}
+.sticky-cta-pct{
+  font-size:12px;font-weight:700;
+  background:var(--grad-text);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  letter-spacing:0;margin-bottom:3px;
+}
+.sticky-cta-msg{font-size:13.5px;color:rgba(255,255,255,.7);line-height:1.4}
+.sticky-cta-msg strong{color:#fff}
+.sticky-cta-btn{
+  padding:12px 28px;border-radius:12px;
+  background:var(--grad);color:#fff;
+  font-size:14px;font-weight:700;font-family:inherit;
+  border:none;cursor:pointer;white-space:nowrap;
+  transition:opacity .2s,transform .15s;
+  flex-shrink:0;
+  box-shadow:0 4px 24px rgba(175,70,253,.3);
+}
+.sticky-cta-btn:hover{opacity:.9;transform:translateY(-1px)}
+@media(max-width:760px){.sticky-cta-btn{width:auto;padding:10px 16px;font-size:13px;flex-shrink:0}}
+
+/* nudge content above sticky bar */
+.content{padding-bottom:72px}
+@media(max-width:760px){.content{padding-bottom:80px}}
+
+/* ─ GATED ─ */
+.gated{position:relative;border-radius:14px;overflow:hidden;margin-bottom:12px}
+.gated-blur{filter:blur(4px);pointer-events:none;user-select:none}
+.gated-wall{position:absolute;inset:0;
+  background:linear-gradient(to bottom,transparent 0%,rgba(11,11,20,.8) 35%,rgba(11,11,20,.97) 65%);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding:24px;text-align:center}
+.gated-msg{font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:12px}
+.gated-msg strong{color:#fff}
+.gated-btn{padding:10px 22px;border-radius:9px;background:var(--grad);
+  color:#fff;font-size:13px;font-weight:700;font-family:inherit;border:none;cursor:pointer;transition:opacity .2s}
+.gated-btn:hover{opacity:.9}
+
+/* ─ PERSONALITY BLOCK ─ */
+.persona-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:0}
+.persona-item{padding:12px 14px;border-radius:11px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  transition:border-color .2s}
+.persona-item:hover{border-color:rgba(255,255,255,.12)}
+.persona-emoji{font-size:20px;margin-bottom:6px}
+.persona-label{font-size:12px;font-weight:700;color:#fff;margin-bottom:2px}
+.persona-desc{font-size:11px;color:var(--text3);line-height:1.4}
+
+/* ─ AUDIENCE BAR ─ */
+.aud-bar{margin-bottom:14px}
+.aud-bar-label{display:flex;justify-content:space-between;
+  font-size:11.5px;margin-bottom:6px}
+.aud-bar-key{color:var(--text2)}
+.aud-bar-val{color:#fff;font-weight:600}
+.aud-track{height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
+.aud-fill{height:100%;border-radius:3px;transition:width 1s ease .3s}
+
+/* ─ MODAL ─ */
+.modal-bg{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.8);backdrop-filter:blur(16px);
+  display:none;opacity:0;transition:opacity .3s;
+  align-items:center;justify-content:center;padding:20px;
+}
+.modal-bg.show{display:flex}
+.modal-bg.visible{opacity:1}
+
+.modal{
+  background:#0E0B18;
+  border:1px solid rgba(175,70,253,.2);
+  border-radius:22px;
+  padding:32px 28px;
+  width:100%;max-width:400px;
+  position:relative;
+  box-shadow:0 0 80px rgba(175,70,253,.18),0 32px 80px rgba(0,0,0,.7);
+  transform:translateY(16px);
+  transition:transform .38s cubic-bezier(.4,0,.2,1);
+}
+.modal-bg.visible .modal{transform:translateY(0)}
+.modal::before{
+  content:'';position:absolute;inset:0;border-radius:22px;pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(175,70,253,.12),transparent 60%);
+}
+
+.modal-close{
+  position:absolute;top:14px;right:14px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.4);font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-family:inherit;transition:all .2s;z-index:1;
+}
+.modal-close:hover{background:rgba(255,255,255,.1);color:#fff}
+
+/* steps */
+.modal-step{display:none;animation:fadeUp .28s ease both}
+.modal-step.active{display:block}
+
+/* logo row */
+.modal-logo{display:flex;align-items:center;gap:8px;margin-bottom:22px}
+.modal-logo-icon{width:24px;height:24px;border-radius:6px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.modal-logo-icon svg{width:12px;height:12px}
+.modal-logo-name{font-size:13px;font-weight:700;color:#fff}
+.modal-logo-name span{color:var(--purple)}
+
+/* heading */
+.modal-h{font-size:18px;font-weight:700;color:#fff;margin-bottom:5px;
+  text-align:center;position:relative;z-index:1;line-height:1.3}
+.modal-sub{font-size:13px;color:rgba(255,255,255,.45);text-align:center;
+  line-height:1.6;margin-bottom:22px;position:relative;z-index:1}
+.modal-sub strong{color:rgba(255,255,255,.75);font-weight:500}
+
+/* phone input row */
+.phone-row{display:flex;gap:8px;margin-bottom:12px;position:relative;z-index:1}
+.phone-cc{
+  padding:0 14px;height:50px;border-radius:11px;
+  background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);
+  color:#fff;font-size:14px;font-weight:600;font-family:inherit;
+  display:flex;align-items:center;gap:4px;flex-shrink:0;cursor:default;
+}
+.phone-cc-flag{font-size:16px}
+.phone-num{
+  flex:1;height:50px;padding:0 16px;
+  background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);
+  border-radius:11px;font-size:15px;color:#fff;outline:none;font-family:inherit;
+  transition:all .2s;letter-spacing:.5px;
+}
+.phone-num::placeholder{color:rgba(255,255,255,.2);letter-spacing:0}
+.phone-num:focus{border-color:rgba(175,70,253,.55);background:rgba(255,255,255,.09);box-shadow:0 0 0 3px rgba(175,70,253,.1)}
+
+/* OTP boxes */
+.otp-row{display:flex;gap:8px;justify-content:center;margin-bottom:14px;position:relative;z-index:1}
+.otp-box{
+  width:48px;height:54px;border-radius:11px;
+  background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);
+  font-size:20px;font-weight:700;color:#fff;text-align:center;
+  outline:none;font-family:inherit;transition:all .2s;caret-color:var(--purple);
+}
+.otp-box:focus{border-color:rgba(175,70,253,.6);background:rgba(255,255,255,.1);box-shadow:0 0 0 3px rgba(175,70,253,.12)}
+.otp-box.filled{border-color:rgba(175,70,253,.4);background:rgba(175,70,253,.08)}
+@media(max-width:400px){.otp-box{width:42px;height:48px;font-size:18px}}
+
+/* edit number row */
+.edit-row{display:flex;align-items:center;justify-content:center;gap:6px;
+  font-size:12.5px;color:rgba(255,255,255,.45);margin-bottom:18px;position:relative;z-index:1}
+.edit-num{color:rgba(255,255,255,.75);font-weight:500}
+.edit-btn{color:var(--purple);cursor:pointer;display:flex;align-items:center;gap:3px;
+  font-size:12px;font-weight:600;background:none;border:none;font-family:inherit;padding:0}
+.edit-btn:hover{opacity:.8}
+
+/* primary button */
+.modal-btn{
+  width:100%;padding:14px;border-radius:12px;
+  background:var(--grad);color:#fff;
+  font-size:14px;font-weight:700;font-family:inherit;border:none;
+  cursor:pointer;transition:opacity .2s,transform .15s;
+  position:relative;z-index:1;margin-bottom:0;
+}
+.modal-btn:hover{opacity:.9;transform:translateY(-1px)}
+.modal-btn:disabled{opacity:.45;cursor:default;transform:none}
+
+/* resend */
+.resend-row{text-align:center;font-size:12.5px;color:rgba(255,255,255,.35);
+  margin-top:14px;position:relative;z-index:1}
+.resend-link{color:var(--purple);cursor:pointer;font-weight:600;background:none;
+  border:none;font-family:inherit;font-size:inherit;padding:0}
+.resend-link:disabled{color:rgba(255,255,255,.25);cursor:default}
+
+/* fine */
+.modal-fine{text-align:center;font-size:11.5px;color:rgba(255,255,255,.2);margin-top:12px;position:relative;z-index:1}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+    <span>Shiprocket <span class="hdr-logo-studio">Studio</span></span>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-domain"><span class="hdr-domain-dot"></span>sheshaayurveda.com · Brand report ready</div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <div class="sb-logo"><img src="shesha-logo.avif" alt="Shesha Ayurveda"></div>
+      <div class="sb-name">Shesha Ayurveda</div>
+      <div class="sb-domain"><span class="sb-live"></span>sheshaayurveda.com</div>
+      <div class="sb-conf-row">
+        <div class="sb-conf-num">91%</div>
+        <div class="sb-conf-info">
+          <div class="sb-conf-label">Brand Confidence</div>
+          <div class="sb-conf-sub">Based on 14 signals</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-swatches">
+      <div class="sb-swatch" style="background:#1B3A2D" title="Forest Green"></div>
+      <div class="sb-swatch" style="background:#C9A84C" title="Gold"></div>
+      <div class="sb-swatch" style="background:#F5F0E8;border-color:rgba(0,0,0,.1)" title="Cream"></div>
+      <div class="sb-swatch" style="background:#2C1810" title="Dark Brown"></div>
+      <div class="sb-swatch" style="background:#4A7C5F" title="Sage"></div>
+    </div>
+
+    <nav class="sb-nav">
+      <button class="sb-item active" onclick="go('identity')"><span class="sb-icon">🎨</span>Brand Identity</button>
+      <button class="sb-item" onclick="go('products')"><span class="sb-icon">📦</span>Products</button>
+      <button class="sb-item" onclick="go('messaging')"><span class="sb-icon">✍️</span>Messaging & Tone</button>
+      <button class="sb-item" onclick="go('audience')"><span class="sb-icon">👤</span>Audience</button>
+      <button class="sb-item" onclick="go('competitive')"><span class="sb-icon">🔍</span>Competitive<span class="sb-lock">Unlock</span></button>
+    </nav>
+
+
+  </aside>
+
+  <!-- ── MOBILE TABS ── -->
+  <div class="mob-tabs">
+    <button class="mob-tab active" onclick="go('identity')">🎨 Identity</button>
+    <button class="mob-tab" onclick="go('products')">📦 Products</button>
+    <button class="mob-tab" onclick="go('messaging')">✍️ Messaging</button>
+    <button class="mob-tab" onclick="go('audience')">👤 Audience</button>
+    <button class="mob-tab" onclick="go('competitive')">🔍 Competitive</button>
+  </div>
+
+  <!-- ── CONTENT ── -->
+  <main class="content" id="main-content">
+
+    <!-- IDENTITY -->
+    <div class="panel active" id="panel-identity">
+      <h1 class="panel-h">Brand Identity</h1>
+      <p class="panel-sub">Visual language, personality and trust signals extracted from sheshaayurveda.com</p>
+
+      <!-- Colour palette -->
+      <div class="card">
+        <div class="card-label">Brand Colours</div>
+        <div class="color-bars">
+          <div class="cbar" style="background:#1B3A2D"><div class="cbar-name" style="color:rgba(255,255,255,.6)">Forest Green</div></div>
+          <div class="cbar" style="background:#C9A84C"><div class="cbar-name" style="color:rgba(0,0,0,.5)">Gold</div></div>
+          <div class="cbar" style="background:#F5F0E8"><div class="cbar-name" style="color:rgba(0,0,0,.5)">Cream</div></div>
+          <div class="cbar" style="background:#2C1810"><div class="cbar-name" style="color:rgba(255,255,255,.5)">Dark Brown</div></div>
+          <div class="cbar" style="background:#4A7C5F"><div class="cbar-name" style="color:rgba(255,255,255,.5)">Sage</div></div>
+        </div>
+        <div class="color-hexes">
+          <span class="chex"><span class="chex-dot" style="background:#1B3A2D"></span>#1B3A2D</span>
+          <span class="chex"><span class="chex-dot" style="background:#C9A84C"></span>#C9A84C</span>
+          <span class="chex"><span class="chex-dot" style="background:#F5F0E8;border:1px solid rgba(0,0,0,.1)"></span>#F5F0E8</span>
+          <span class="chex"><span class="chex-dot" style="background:#2C1810"></span>#2C1810</span>
+          <span class="chex"><span class="chex-dot" style="background:#4A7C5F"></span>#4A7C5F</span>
+        </div>
+      </div>
+
+      <!-- Products strip -->
+      <div class="card">
+        <div class="card-label">Product Range</div>
+        <div class="prod-strip">
+          <div class="prod-card"><img src="shesha-p4.jpg" alt="Night Cream"><div class="prod-card-info"><div class="prod-card-name">Red Sandalwood Night Cream</div><div class="prod-card-price">₹599</div></div></div>
+          <div class="prod-card"><img src="shesha-p3.jpg" alt="Day Cream"><div class="prod-card-info"><div class="prod-card-name">Kumkumadi Day Cream</div><div class="prod-card-price">₹549</div></div></div>
+          <div class="prod-card"><img src="shesha-p1.jpg" alt="Hair Colour"><div class="prod-card-info"><div class="prod-card-name">Nilini Hair Colour</div><div class="prod-card-price">₹299</div></div></div>
+          <div class="prod-card"><img src="shesha-p2.jpg" alt="Face Wash"><div class="prod-card-info"><div class="prod-card-name">Red Sandalwood Face Wash</div><div class="prod-card-price">₹349</div></div></div>
+          <div class="prod-card"><img src="shesha-p5.jpg" alt="Body Mist"><div class="prod-card-info"><div class="prod-card-name">Nargis Body Mist</div><div class="prod-card-price">₹449</div></div></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="g3">
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">8K+</div><div class="stat-lbl">Reviews</div><div class="stat-sub">Avg 4.5 ★</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">34</div><div class="stat-lbl">Live Ads</div><div class="stat-sub">Meta Ad Library</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">91%</div><div class="stat-lbl">Confidence</div><div class="stat-sub">14 signals</div></div></div>
+      </div>
+
+      <!-- Personality -->
+      <div class="card" style="margin-top:12px">
+        <div class="card-label">Brand Personality</div>
+        <div class="persona-grid">
+          <div class="persona-item"><div class="persona-emoji">🌿</div><div class="persona-label">The Healer</div><div class="persona-desc">Ancient wisdom for modern skin</div></div>
+          <div class="persona-item"><div class="persona-emoji">📿</div><div class="persona-label">The Sage</div><div class="persona-desc">Knowledge-led, credible, trusted</div></div>
+          <div class="persona-item"><div class="persona-emoji">✨</div><div class="persona-label">Premium</div><div class="persona-desc">Elevated packaging & photography</div></div>
+          <div class="persona-item"><div class="persona-emoji">🏆</div><div class="persona-label">Authentic</div><div class="persona-desc">Kerala roots, no-chemical promise</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="panel" id="panel-products">
+      <h1 class="panel-h">Products</h1>
+      <p class="panel-sub">5 product lines detected · ₹299–₹1,899 · Avg order ₹874 · As seen on Shark Tank India S5</p>
+
+      <div class="g2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Product Lines</div>
+          <div class="pr"><div class="pr-img"><img src="shesha-p1.jpg"></div><div style="flex:1"><div class="pr-name">Nilini Hair Colour</div><div class="pr-price">₹299 · Natural Black, Dark Brown</div></div><span class="chip cg" style="margin:0">Bestseller</span></div>
+          <div class="pr"><div class="pr-img"><img src="shesha-p4.jpg"></div><div style="flex:1"><div class="pr-name">Red Sandalwood Night Cream</div><div class="pr-price">₹599 · Night Repair</div></div><span class="chip cp" style="margin:0">High ROAS</span></div>
+          <div class="pr"><div class="pr-img"><img src="shesha-p3.jpg"></div><div style="flex:1"><div class="pr-name">Kumkumadi Day Cream</div><div class="pr-price">₹549 · Brightening</div></div><span class="chip cb" style="margin:0">Growing</span></div>
+          <div class="pr"><div class="pr-img"><img src="shesha-p2.jpg"></div><div style="flex:1"><div class="pr-name">Red Sandalwood Face Wash</div><div class="pr-price">₹349 · Cleanser</div></div><span class="chip ca" style="margin:0">New</span></div>
+          <div class="pr"><div class="pr-img"><img src="shesha-p5.jpg"></div><div style="flex:1"><div class="pr-name">Nargis Body Mist Deodorant</div><div class="pr-price">₹449 · Body Care</div></div><span class="chip co" style="margin:0">Ayurvedic</span></div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-label">Pricing Intelligence</div>
+            <div style="font-size:28px;font-weight:800;color:#fff;margin-bottom:3px;line-height:1">₹874</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-bottom:12px">Estimated average order value</div>
+            <div class="dr"><span class="dr-k">Price range</span><span class="dr-v">₹299 – ₹1,899</span></div>
+            <div class="dr"><span class="dr-k">Positioning</span><span class="dr-v">Mid-premium Ayurvedic</span></div>
+            <div class="dr"><span class="dr-k">Discount style</span><span class="dr-v">Festive · 20–35% off</span></div>
+            <div class="dr"><span class="dr-k">Bestseller</span><span class="dr-v">Nilini Hair Colour · ₹299</span></div>
+          </div>
+          <div class="card" style="margin-bottom:0">
+            <div class="card-label">Fulfilment</div>
+            <div class="dr"><span class="dr-k">Free shipping</span><span class="dr-v">Above ₹499</span></div>
+            <div class="dr"><span class="dr-k">Delivery</span><span class="dr-v">4–6 days</span></div>
+            <div class="dr"><span class="dr-k">COD</span><span class="dr-v" style="color:var(--green)">✓ Available</span></div>
+            <div class="dr"><span class="dr-k">Returns</span><span class="dr-v">7-day policy</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MESSAGING -->
+    <div class="panel" id="panel-messaging">
+      <h1 class="panel-h">Messaging & Tone</h1>
+      <p class="panel-sub">Headlines, claims and tone patterns from site copy and ad creatives</p>
+
+      <div class="g2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Tone of Voice</div>
+          <div class="bar-r"><span class="bar-l">Authentic</span><div class="bar-t"><div class="bar-f" style="width:92%"></div></div><span class="bar-v">92%</span></div>
+          <div class="bar-r"><span class="bar-l">Premium</span><div class="bar-t"><div class="bar-f" style="width:85%"></div></div><span class="bar-v">85%</span></div>
+          <div class="bar-r"><span class="bar-l">Educational</span><div class="bar-t"><div class="bar-f" style="width:78%"></div></div><span class="bar-v">78%</span></div>
+          <div class="bar-r"><span class="bar-l">Emotional</span><div class="bar-t"><div class="bar-f" style="width:71%"></div></div><span class="bar-v">71%</span></div>
+          <div class="bar-r"><span class="bar-l">Urgent</span><div class="bar-t"><div class="bar-f" style="width:34%"></div></div><span class="bar-v">34%</span></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Key Claims</div>
+          <div class="dr"><span class="dr-k">Primary</span><span class="dr-v" style="color:#fff;font-weight:600">"No Chemicals. Just Pure Ayurveda."</span></div>
+          <div class="dr"><span class="dr-k">Secondary</span><span class="dr-v">"Ancient wisdom. Modern results."</span></div>
+          <div class="dr"><span class="dr-k">Social proof</span><span class="dr-v">"Trusted by 1L+ women"</span></div>
+          <div class="dr"><span class="dr-k">CTA pattern</span><span class="dr-v"><span class="chip cp">Shop Now</span><span class="chip cg">Get 20% off</span></span></div>
+          <div class="dr"><span class="dr-k">Hook type</span><span class="dr-v"><span class="chip ca">Problem–Solution</span></span></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0">
+        <div class="card-label">Extracted Headlines from Ads</div>
+        <div class="quote">
+          <div class="quote-t">"No Chemicals. Just Pure Ayurveda. Transform your skin with Red Sandalwood Night Cream."</div>
+          <div class="quote-s">Homepage hero · <span class="quote-badge" style="background:rgba(175,70,253,.12);color:var(--purple);border:1px solid rgba(175,70,253,.2)">Problem–Solution</span></div>
+        </div>
+        <div class="quote">
+          <div class="quote-t">"Fades tan, reduces pigmentation, corrects uneven tone — overnight."</div>
+          <div class="quote-s">Product page · <span class="quote-badge" style="background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2)">Benefit-led</span></div>
+        </div>
+        <div class="quote">
+          <div class="quote-t">"1,00,000+ women trust Shesha Ayurveda for radiant, chemical-free skin."</div>
+          <div class="quote-s">Ad creative · <span class="quote-badge" style="background:rgba(251,146,60,.1);color:var(--amber);border:1px solid rgba(251,146,60,.2)">Social Proof · Scaling</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIENCE -->
+    <div class="panel" id="panel-audience">
+      <h1 class="panel-h">Audience</h1>
+      <p class="panel-sub">Who is buying — demographics, psychographics and purchase signals</p>
+
+      <div class="g2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Demographics</div>
+          <div class="dr"><span class="dr-k">Gender</span><span class="dr-v"><span class="chip ck">Women 82%</span><span class="chip cb">Men 18%</span></span></div>
+          <div class="dr"><span class="dr-k">Age</span><span class="dr-v"><span class="chip cp">25–35 primary</span><span class="chip ca">35–45</span></span></div>
+          <div class="dr"><span class="dr-k">Tier</span><span class="dr-v"><span class="chip cg">T1 · 58%</span><span class="chip ca">T2 · 32%</span></span></div>
+          <div class="dr"><span class="dr-k">Top cities</span><span class="dr-v">Bengaluru, Mumbai, Delhi, Hyderabad</span></div>
+          <div class="dr"><span class="dr-k">Income</span><span class="dr-v">₹6L – ₹15L annually</span></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Psychographics</div>
+          <div class="dr"><span class="dr-k">Values</span><span class="dr-v"><span class="chip cg">Natural living</span><span class="chip co">Clean beauty</span></span></div>
+          <div class="dr"><span class="dr-k">Interests</span><span class="dr-v"><span class="chip cb">Yoga</span><span class="chip ca">Skincare</span><span class="chip ck">Ayurveda</span></span></div>
+          <div class="dr"><span class="dr-k">Behaviour</span><span class="dr-v">Reads labels · Researches before buying</span></div>
+          <div class="dr"><span class="dr-k">Pain points</span><span class="dr-v">Pigmentation · harsh chemicals · uneven tone</span></div>
+        </div>
+      </div>
+
+      <!-- Audience breakdown bars -->
+      <div class="card">
+        <div class="card-label">Age Distribution</div>
+        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">18–24</span><span class="aud-bar-val">12%</span></div><div class="aud-track"><div class="aud-fill" style="width:12%;background:var(--grad)"></div></div></div>
+        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">25–34</span><span class="aud-bar-val">48%</span></div><div class="aud-track"><div class="aud-fill" style="width:48%;background:var(--grad)"></div></div></div>
+        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">35–44</span><span class="aud-bar-val">29%</span></div><div class="aud-track"><div class="aud-fill" style="width:29%;background:linear-gradient(90deg,#AF46FD,#DA3BC2)"></div></div></div>
+        <div class="aud-bar" style="margin-bottom:0"><div class="aud-bar-label"><span class="aud-bar-key">45+</span><span class="aud-bar-val">11%</span></div><div class="aud-track"><div class="aud-fill" style="width:11%;background:rgba(175,70,253,.5)"></div></div></div>
+      </div>
+
+      <div class="g3">
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">2.4x</div><div class="stat-lbl">Repeat Purchase</div><div class="stat-sub">vs 1.8x category</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">68%</div><div class="stat-lbl">Prepaid Orders</div><div class="stat-sub">High buyer intent</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">₹874</div><div class="stat-lbl">Avg Order Value</div><div class="stat-sub">Above category</div></div></div>
+      </div>
+    </div>
+
+    <!-- COMPETITIVE -->
+    <div class="panel" id="panel-competitive">
+      <h1 class="panel-h">Competitive Landscape</h1>
+      <p class="panel-sub">3 competitors detected in Ayurvedic Skincare · India</p>
+
+      <div class="card">
+        <div class="card-label">Competitors Detected</div>
+        <div class="comp"><div class="comp-icon" style="background:linear-gradient(135deg,#1a3a1a,#2d6b2d)">KA</div><div style="flex:1"><div class="comp-name">Kama Ayurveda</div><div class="comp-sub">Premium · D2C + Retail</div></div><span class="chip cr" style="margin:0">● 24 live ads</span></div>
+        <div class="comp"><div class="comp-icon" style="background:linear-gradient(135deg,#1a2f1a,#2d4a2d)">FE</div><div style="flex:1"><div class="comp-name">Forest Essentials</div><div class="comp-sub">Luxury · D2C + Offline</div></div><span class="chip cr" style="margin:0">● 18 live ads</span></div>
+        <div class="comp"><div class="comp-icon" style="background:linear-gradient(135deg,#1a1a2f,#2d2d4a)">BT</div><div style="flex:1"><div class="comp-name">Biotique</div><div class="comp-sub">Mass-premium · Wide distribution</div></div><span class="chip ca" style="margin:0">↑ Scaling</span></div>
+      </div>
+
+      <div class="gated">
+        <div class="card gated-blur" style="margin-bottom:0">
+          <div class="card-label">Competitor Ad Intelligence</div>
+          <div class="bar-r"><span class="bar-l">Kama Ayurveda</span><div class="bar-t"><div class="bar-f" style="width:85%"></div></div><span class="bar-v">85</span></div>
+          <div class="bar-r"><span class="bar-l">Forest Essentials</span><div class="bar-t"><div class="bar-f" style="width:91%"></div></div><span class="bar-v">91</span></div>
+          <div class="bar-r"><span class="bar-l">Shesha Ayurveda</span><div class="bar-t"><div class="bar-f" style="width:74%"></div></div><span class="bar-v">74</span></div>
+          <div style="margin-top:12px;padding:10px;border-radius:8px;background:rgba(255,255,255,.04)">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Trending hook this week</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.6)">"Chemical-free alternatives to leading skincare brands"</div>
+          </div>
+        </div>
+        <div class="gated-wall">
+          <div class="gated-msg"><strong>Unlock competitor ad intelligence</strong><br>See every ad your rivals are running — hooks, creative scores, spend signals.</div>
+          <button class="gated-btn" onclick="openSignup()">Sign up free to unlock →</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- STICKY CTA -->
+<div class="sticky-cta">
+  <div class="sticky-cta-left">
+    <div class="sticky-cta-pct">✦ You are viewing 30% of this report</div>
+    <div class="sticky-cta-msg">Sign up to see your <strong>creative scores, competitor ad intelligence</strong> and full audience insights.</div>
+  </div>
+  <button class="sticky-cta-btn" onclick="openSignup()">See competitive report →</button>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="handleModalClick(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeSignup()">✕</button>
+
+    <!-- STEP 1: Phone -->
+    <div class="modal-step active" id="step-phone">
+      <div class="modal-logo">
+        <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+        <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <h2 class="modal-h">See your competitive report</h2>
+      <p class="modal-sub">Enter your mobile number to unlock competitor intelligence, creative scores and full audience insights.</p>
+      <div class="phone-row">
+        <div class="phone-cc"><span class="phone-cc-flag">🇮🇳</span> +91</div>
+        <input class="phone-num" id="phone-inp" type="tel" maxlength="10" placeholder="Enter mobile number" onkeydown="if(event.key==='Enter')submitPhone()" oninput="this.value=this.value.replace(/\D/g,'')" />
+      </div>
+      <button class="modal-btn" id="phone-btn" onclick="submitPhone()">Continue →</button>
+      <div class="modal-fine">We'll send a 6-digit OTP to verify</div>
+    </div>
+
+    <!-- STEP 2: OTP -->
+    <div class="modal-step" id="step-otp">
+      <div class="modal-logo">
+        <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+        <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <h2 class="modal-h">Enter OTP</h2>
+      <p class="modal-sub" id="otp-sub">We've sent a 6-digit code to <strong id="otp-phone-display">+91 XXXXXXXXXX</strong></p>
+      <div class="edit-row">
+        <span class="edit-num" id="otp-num-show"></span>
+        <button class="edit-btn" onclick="backToPhone()">✏ Edit</button>
+      </div>
+      <div class="otp-row" id="otp-row">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+      </div>
+      <button class="modal-btn" id="otp-btn" onclick="submitOTP()" disabled>Verify OTP →</button>
+      <div class="resend-row">
+        Didn't receive code?
+        <button class="resend-link" id="resend-btn" disabled>Resend in <span id="resend-timer">30s</span></button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const PANELS=['identity','products','messaging','audience','competitive'];
+function go(id){
+  PANELS.forEach((p,i)=>{
+    document.querySelectorAll('.sb-item')[i].classList.toggle('active',p===id);
+    document.querySelectorAll('.mob-tab')[i].classList.toggle('active',p===id);
+    document.getElementById('panel-'+p).classList.toggle('active',p===id);
+  });
+  document.getElementById('main-content').scrollTop=0;
+}
+function openSignup(){
+  const bg=document.getElementById('modal-bg');
+  bg.classList.add('show');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    bg.classList.add('visible');
+    setTimeout(()=>document.getElementById('modal-email').focus(),100);
+  }));
+}
+function closeSignup(){
+  const bg=document.getElementById('modal-bg');
+  bg.classList.remove('visible');
+  setTimeout(()=>bg.classList.remove('show'),300);
+}
+function handleModalClick(e){if(e.target===document.getElementById('modal-bg'))closeSignup()}
+function handleSignup(){
+  const email=document.getElementById('modal-email').value.trim();
+  if(!email){document.getElementById('modal-email').focus();return;}
+  alert('Account created: '+email+'\n\n→ Next: Connect your Meta Ads account');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSignup()});
+</script>
+</body>
+</html>

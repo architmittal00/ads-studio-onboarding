@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shiprocket Studio — Brand Report · Shesha Ayurveda</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F5F5FA;--bg2:rgba(0,0,0,.03);
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.12);
+  --text:#111827;--text2:rgba(0,0,0,.55);--text3:rgba(0,0,0,.38);
+  --purple:#AF46FD;--pink:#F4349D;--mid:#DA3BC2;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --grad-text:linear-gradient(135deg,#9333EA,#EC4899);
+  --green:#16A34A;--amber:#D97706;--cyan:#0891B2;--blue:#2563EB;
+}
+html,body{width:100%;height:100%;background:var(--bg);font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);overflow:hidden}
+
+/* ─ BG glow ─ */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 40% 50% at 75% 20%,rgba(175,70,253,.05),transparent 65%),
+             radial-gradient(ellipse 30% 40% at 10% 80%,rgba(244,52,157,.03),transparent 65%)}
+
+/* ─ HEADER ─ */
+.hdr{height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.96);backdrop-filter:blur(20px);
+  position:relative;z-index:100;flex-shrink:0}
+@media(max-width:600px){.hdr{padding:0 16px}}
+.hdr-logo{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:var(--text)}
+.hdr-logo-icon{width:27px;height:27px;border-radius:7px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hdr-logo-icon svg{width:13px;height:13px}
+.hdr-logo-studio{color:var(--purple)}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.hdr-domain{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.hdr-domain-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+.hdr-btn{padding:8px 18px;border-radius:9px;background:var(--grad);color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;border:none;cursor:pointer;transition:opacity .2s}
+.hdr-btn:hover{opacity:.88}
+
+/* ─ LAYOUT ─ */
+.page{display:flex;height:calc(100vh - 56px);overflow:hidden;position:relative;z-index:1}
+
+/* ─ SIDEBAR ─ */
+.sidebar{width:224px;flex-shrink:0;border-right:1px solid var(--border);
+  background:rgba(255,255,255,.8);display:flex;flex-direction:column;
+  overflow-y:auto;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+@media(max-width:760px){.sidebar{display:none}}
+
+/* brand block */
+.sb-top{padding:20px 18px 18px;border-bottom:1px solid var(--border)}
+.sb-logo{width:52px;height:52px;border-radius:12px;overflow:hidden;
+  border:1px solid rgba(201,168,76,.3);margin-bottom:12px;background:#f0efe8}
+.sb-logo img{width:100%;height:100%;object-fit:contain}
+.sb-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:2px}
+.sb-domain{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;margin-bottom:14px}
+.sb-live{width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
+/* confidence */
+.sb-conf-row{display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:10px;background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.15)}
+.sb-conf-num{font-size:22px;font-weight:800;line-height:1;
+  background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb-conf-info{}
+.sb-conf-label{font-size:11px;font-weight:700;color:var(--text)}
+.sb-conf-sub{font-size:10px;color:var(--text3);margin-top:1px}
+
+/* swatches */
+.sb-swatches{display:flex;gap:5px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.sb-swatch{flex:1;height:28px;border-radius:7px;border:1px solid rgba(0,0,0,.1);cursor:default;transition:transform .2s}
+.sb-swatch:hover{transform:scaleY(1.15)}
+
+/* nav */
+.sb-nav{display:flex;flex-direction:column;gap:2px;padding:12px 10px;flex:1}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);
+  cursor:pointer;transition:all .2s;border:none;background:transparent;
+  font-family:inherit;text-align:left;width:100%;position:relative}
+.sb-item:hover{background:rgba(0,0,0,.04);color:var(--text)}
+.sb-item.active{background:rgba(175,70,253,.08);color:var(--text);font-weight:600}
+.sb-item.active::before{content:'';position:absolute;left:0;top:7px;bottom:7px;
+  width:2.5px;border-radius:0 2px 2px 0;background:var(--grad)}
+.sb-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center}
+.sb-lock{margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;
+  border-radius:100px;background:rgba(217,119,6,.1);color:var(--amber);
+  border:1px solid rgba(217,119,6,.2)}
+
+/* sidebar CTA */
+.sb-cta{margin:8px 10px 16px;padding:14px;border-radius:12px;
+  background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.15)}
+.sb-cta-eyebrow{font-size:9.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.6px;color:var(--purple);margin-bottom:6px}
+.sb-cta-title{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.4}
+.sb-cta-sub{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+.sb-cta-btn{width:100%;padding:9px;border-radius:8px;background:var(--grad);
+  color:#fff;font-size:12px;font-weight:700;font-family:inherit;border:none;
+  cursor:pointer;transition:opacity .2s}
+.sb-cta-btn:hover{opacity:.9}
+
+/* ─ MOBILE TABS ─ */
+.mob-tabs{display:none;overflow-x:auto;scrollbar-width:none;
+  border-bottom:1px solid var(--border);background:rgba(255,255,255,.97);
+  padding:0 16px;position:absolute;top:0;left:0;right:0;z-index:50;flex-shrink:0}
+.mob-tabs::-webkit-scrollbar{display:none}
+@media(max-width:760px){.mob-tabs{display:flex}}
+.mob-tab{padding:11px 14px;font-size:12.5px;font-weight:600;font-family:inherit;
+  color:var(--text3);background:transparent;border:none;
+  border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;white-space:nowrap}
+.mob-tab.active{color:var(--text);border-bottom-color:var(--purple)}
+
+/* ─ CONTENT ─ */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+@media(max-width:760px){.content{padding-top:42px}}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-track{background:transparent}
+.content::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12);border-radius:2px}
+
+.panel{display:none;padding:36px 40px 80px;animation:fadeUp .3s ease both}
+.panel.active{display:block}
+@media(max-width:760px){.panel{padding:20px 16px 80px}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─ PANEL HEADING ─ */
+.panel-h{font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(24px,3vw,36px);color:var(--text);letter-spacing:-.3px;
+  margin-bottom:4px;line-height:1.1}
+.panel-sub{font-size:13.5px;color:var(--text2);margin-bottom:28px;line-height:1.6}
+@media(max-width:600px){.panel-sub{margin-bottom:20px}}
+
+/* ─ GRID ─ */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.g5{display:flex;gap:8px;margin-bottom:12px}
+@media(max-width:700px){.g2,.g3{grid-template-columns:1fr}}
+
+/* ─ CARD ─ */
+.card{background:#fff;border:1px solid var(--border);
+  border-radius:14px;padding:18px 20px;transition:border-color .25s;margin-bottom:12px;
+  box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.card:hover{border-color:rgba(0,0,0,.14)}
+.card-label{font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.7px;color:var(--text3);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px}
+.card-label::after{content:'';flex:1;height:1px;background:rgba(0,0,0,.06)}
+
+/* ─ COLOUR BARS ─ */
+.color-bars{display:flex;height:60px;border-radius:10px;overflow:hidden;margin-bottom:10px;gap:2px}
+.cbar{flex:1;position:relative;cursor:default;transition:flex .35s cubic-bezier(.4,0,.2,1)}
+.cbar:hover{flex:1.8}
+.cbar-name{position:absolute;bottom:7px;left:0;right:0;text-align:center;
+  font-size:9px;font-weight:600;opacity:0;transition:opacity .2s;white-space:nowrap;overflow:hidden}
+.color-hexes{display:flex;gap:16px;flex-wrap:wrap}
+.chex{font-size:10.5px;color:var(--text3);font-weight:500;display:flex;align-items:center;gap:5px}
+.chex-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
+
+/* ─ STAT ─ */
+.stat{text-align:center;padding:20px 14px}
+.stat-val{font-size:32px;font-weight:800;line-height:1;
+  background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;margin-bottom:4px}
+.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+.stat-sub{font-size:11.5px;color:var(--text2);margin-top:3px}
+
+/* ─ PRODUCT STRIP ─ */
+.prod-strip{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.prod-strip::-webkit-scrollbar{display:none}
+.prod-card{flex-shrink:0;width:100px;border-radius:12px;overflow:hidden;
+  border:1px solid var(--border);background:#fafafa;
+  transition:border-color .2s,transform .2s;cursor:default}
+.prod-card:hover{border-color:rgba(0,0,0,.16);transform:translateY(-2px)}
+.prod-card img{width:100%;height:80px;object-fit:cover;display:block}
+.prod-card-info{padding:7px 8px}
+.prod-card-name{font-size:10px;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:3px}
+.prod-card-price{font-size:10px;color:var(--text3)}
+
+/* ─ CHIP ─ */
+.chip{display:inline-flex;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:500;border:1px solid;margin:2px 2px 2px 0}
+.cg{background:rgba(22,163,74,.08); border-color:rgba(22,163,74,.2); color:rgba(22,163,74,1)}
+.cp{background:rgba(175,70,253,.08);border-color:rgba(175,70,253,.2);color:rgba(147,51,234,1)}
+.ca{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.2);color:rgba(217,119,6,1)}
+.ck{background:rgba(219,39,119,.08);border-color:rgba(219,39,119,.2);color:rgba(219,39,119,1)}
+.cb{background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.2);color:rgba(37,99,235,1)}
+.co{background:rgba(180,142,52,.08);border-color:rgba(180,142,52,.2);color:rgba(155,122,38,1)}
+.cr{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.15); color:rgba(220,38,38,1)}
+
+/* ─ DATA ROW ─ */
+.dr{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:12px;padding:9px 0;border-bottom:1px solid rgba(0,0,0,.05)}
+.dr:last-child{border-bottom:none}
+.dr-k{font-size:12px;color:var(--text3);flex-shrink:0;padding-top:1px;min-width:80px}
+.dr-v{font-size:13px;color:rgba(0,0,0,.75);text-align:right;line-height:1.5}
+
+/* ─ BAR ─ */
+.bar-r{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-r:last-child{margin-bottom:0}
+.bar-l{font-size:12.5px;color:var(--text2);width:100px;flex-shrink:0}
+.bar-t{flex:1;height:5px;background:rgba(0,0,0,.07);border-radius:3px;overflow:hidden}
+.bar-f{height:100%;border-radius:3px;background:var(--grad);transition:width 1s ease .3s}
+.bar-v{font-size:12px;font-weight:700;width:32px;text-align:right;flex-shrink:0;color:var(--text3)}
+
+/* ─ QUOTE ─ */
+.quote{padding:14px 16px 14px 18px;border-radius:11px;
+  background:rgba(175,70,253,.04);border-left:2.5px solid var(--purple);margin-bottom:8px}
+.quote:last-child{margin-bottom:0}
+.quote-t{font-size:14px;font-family:'Instrument Serif',serif;font-style:italic;
+  color:rgba(0,0,0,.75);line-height:1.65;margin-bottom:5px}
+.quote-s{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.quote-badge{padding:1px 7px;border-radius:100px;font-size:9.5px;font-weight:600}
+
+/* ─ PRODUCT ROW ─ */
+.pr{display:flex;align-items:center;gap:12px;padding:10px 0;
+  border-bottom:1px solid rgba(0,0,0,.05)}
+.pr:last-child{border-bottom:none}
+.pr-img{width:38px;height:38px;border-radius:8px;overflow:hidden;flex-shrink:0;
+  border:1px solid var(--border);background:#f5f5ee}
+.pr-img img{width:100%;height:100%;object-fit:cover}
+.pr-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.pr-price{font-size:11.5px;color:var(--text3)}
+
+/* ─ COMPETITOR ROW ─ */
+.comp{display:flex;align-items:center;gap:12px;padding:11px 0;
+  border-bottom:1px solid rgba(0,0,0,.05)}
+.comp:last-child{border-bottom:none}
+.comp-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+.comp-name{font-size:13px;font-weight:600;color:rgba(0,0,0,.8)}
+.comp-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ─ STICKY CTA BAR ─ */
+.sticky-cta{
+  position:fixed;bottom:0;left:220px;right:0;z-index:200;
+  background:rgba(255,255,255,.96);
+  backdrop-filter:blur(20px);
+  border-top:1px solid rgba(175,70,253,.2);
+  padding:14px 40px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;
+}
+@media(max-width:760px){
+  .sticky-cta{left:0;padding:10px 16px;flex-direction:row;align-items:center;gap:10px}
+  .sticky-cta-msg{display:none}
+  .sticky-cta-pct{margin-bottom:0;font-size:11px}
+}
+/* progress bar on top of sticky */
+.sticky-cta::before{
+  content:'';
+  position:absolute;top:-1px;left:0;
+  width:30%;height:2px;
+  background:var(--grad);
+}
+.sticky-cta-left{flex:1}
+.sticky-cta-pct{
+  font-size:12px;font-weight:700;
+  background:var(--grad-text);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  letter-spacing:0;margin-bottom:3px;
+}
+.sticky-cta-msg{font-size:13.5px;color:var(--text2);line-height:1.4}
+.sticky-cta-msg strong{color:var(--text)}
+.sticky-cta-btn{
+  padding:12px 28px;border-radius:12px;
+  background:var(--grad);color:#fff;
+  font-size:14px;font-weight:700;font-family:inherit;
+  border:none;cursor:pointer;white-space:nowrap;
+  transition:opacity .2s,transform .15s;
+  flex-shrink:0;
+  box-shadow:0 4px 24px rgba(175,70,253,.25);
+}
+.sticky-cta-btn:hover{opacity:.9;transform:translateY(-1px)}
+@media(max-width:760px){.sticky-cta-btn{width:auto;padding:10px 16px;font-size:13px;flex-shrink:0}}
+
+/* nudge content above sticky bar */
+.content{padding-bottom:72px}
+@media(max-width:760px){.content{padding-bottom:80px}}
+
+/* ─ GATED ─ */
+.gated{position:relative;border-radius:14px;overflow:hidden;margin-bottom:12px}
+.gated-blur{filter:blur(4px);pointer-events:none;user-select:none}
+.gated-wall{position:absolute;inset:0;
+  background:linear-gradient(to bottom,transparent 0%,rgba(245,245,250,.8) 35%,rgba(245,245,250,.97) 65%);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding:24px;text-align:center}
+.gated-msg{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px}
+.gated-msg strong{color:var(--text)}
+.gated-btn{padding:10px 22px;border-radius:9px;background:var(--grad);
+  color:#fff;font-size:13px;font-weight:700;font-family:inherit;border:none;cursor:pointer;transition:opacity .2s}
+.gated-btn:hover{opacity:.9}
+
+/* ─ PERSONALITY BLOCK ─ */
+.persona-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:0}
+.persona-item{padding:12px 14px;border-radius:11px;
+  background:#fafafa;border:1px solid var(--border);
+  transition:border-color .2s}
+.persona-item:hover{border-color:rgba(0,0,0,.14)}
+.persona-emoji{font-size:20px;margin-bottom:6px}
+.persona-label{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px}
+.persona-desc{font-size:11px;color:var(--text3);line-height:1.4}
+
+/* ─ AUDIENCE BAR ─ */
+.aud-bar{margin-bottom:14px}
+.aud-bar-label{display:flex;justify-content:space-between;
+  font-size:11.5px;margin-bottom:6px}
+.aud-bar-key{color:var(--text2)}
+.aud-bar-val{color:var(--text);font-weight:600}
+.aud-track{height:6px;background:rgba(0,0,0,.07);border-radius:3px;overflow:hidden}
+.aud-fill{height:100%;border-radius:3px;transition:width 1s ease .3s}
+
+/* ─ MODAL ─ */
+.modal-bg{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.4);backdrop-filter:blur(16px);
+  display:none;opacity:0;transition:opacity .3s;
+  align-items:center;justify-content:center;padding:20px;
+}
+.modal-bg.show{display:flex}
+.modal-bg.visible{opacity:1}
+
+.modal{
+  background:#fff;
+  border:1px solid rgba(175,70,253,.15);
+  border-radius:22px;
+  padding:32px 28px;
+  width:100%;max-width:400px;
+  position:relative;
+  box-shadow:0 0 60px rgba(175,70,253,.1),0 32px 80px rgba(0,0,0,.12);
+  transform:translateY(16px);
+  transition:transform .38s cubic-bezier(.4,0,.2,1);
+}
+.modal-bg.visible .modal{transform:translateY(0)}
+.modal::before{
+  content:'';position:absolute;inset:0;border-radius:22px;pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(175,70,253,.06),transparent 60%);
+}
+
+.modal-close{
+  position:absolute;top:14px;right:14px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.1);
+  color:rgba(0,0,0,.35);font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-family:inherit;transition:all .2s;z-index:1;
+}
+.modal-close:hover{background:rgba(0,0,0,.09);color:var(--text)}
+
+/* steps */
+.modal-step{display:none;animation:fadeUp .28s ease both}
+.modal-step.active{display:block}
+
+/* logo row */
+.modal-logo{display:flex;align-items:center;gap:8px;margin-bottom:22px}
+.modal-logo-icon{width:24px;height:24px;border-radius:6px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.modal-logo-icon svg{width:12px;height:12px}
+.modal-logo-name{font-size:13px;font-weight:700;color:var(--text)}
+.modal-logo-name span{color:var(--purple)}
+
+/* heading */
+.modal-h{font-size:18px;font-weight:700;color:var(--text);margin-bottom:5px;
+  text-align:center;position:relative;z-index:1;line-height:1.3}
+.modal-sub{font-size:13px;color:var(--text2);text-align:center;
+  line-height:1.6;margin-bottom:22px;position:relative;z-index:1}
+.modal-sub strong{color:var(--text);font-weight:500}
+
+/* phone input row */
+.phone-row{display:flex;gap:8px;margin-bottom:12px;position:relative;z-index:1}
+.phone-cc{
+  padding:0 14px;height:50px;border-radius:11px;
+  background:rgba(0,0,0,.04);border:1.5px solid rgba(0,0,0,.1);
+  color:var(--text);font-size:14px;font-weight:600;font-family:inherit;
+  display:flex;align-items:center;gap:4px;flex-shrink:0;cursor:default;
+}
+.phone-cc-flag{font-size:16px}
+.phone-num{
+  flex:1;height:50px;padding:0 16px;
+  background:rgba(0,0,0,.04);border:1.5px solid rgba(0,0,0,.1);
+  border-radius:11px;font-size:15px;color:var(--text);outline:none;font-family:inherit;
+  transition:all .2s;letter-spacing:.5px;
+}
+.phone-num::placeholder{color:var(--text3);letter-spacing:0}
+.phone-num:focus{border-color:rgba(175,70,253,.55);background:rgba(175,70,253,.03);box-shadow:0 0 0 3px rgba(175,70,253,.08)}
+
+/* OTP boxes */
+.otp-row{display:flex;gap:8px;justify-content:center;margin-bottom:14px;position:relative;z-index:1}
+.otp-box{
+  width:48px;height:54px;border-radius:11px;
+  background:rgba(0,0,0,.04);border:1.5px solid rgba(0,0,0,.1);
+  font-size:20px;font-weight:700;color:var(--text);text-align:center;
+  outline:none;font-family:inherit;transition:all .2s;caret-color:var(--purple);
+}
+.otp-box:focus{border-color:rgba(175,70,253,.6);background:rgba(175,70,253,.04);box-shadow:0 0 0 3px rgba(175,70,253,.1)}
+.otp-box.filled{border-color:rgba(175,70,253,.4);background:rgba(175,70,253,.06)}
+@media(max-width:400px){.otp-box{width:42px;height:48px;font-size:18px}}
+
+/* edit number row */
+.edit-row{display:flex;align-items:center;justify-content:center;gap:6px;
+  font-size:12.5px;color:var(--text3);margin-bottom:18px;position:relative;z-index:1}
+.edit-num{color:var(--text2);font-weight:500}
+.edit-btn{color:var(--purple);cursor:pointer;display:flex;align-items:center;gap:3px;
+  font-size:12px;font-weight:600;background:none;border:none;font-family:inherit;padding:0}
+.edit-btn:hover{opacity:.8}
+
+/* primary button */
+.modal-btn{
+  width:100%;padding:14px;border-radius:12px;
+  background:var(--grad);color:#fff;
+  font-size:14px;font-weight:700;font-family:inherit;border:none;
+  cursor:pointer;transition:opacity .2s,transform .15s;
+  position:relative;z-index:1;margin-bottom:0;
+}
+.modal-btn:hover{opacity:.9;transform:translateY(-1px)}
+.modal-btn:disabled{opacity:.45;cursor:default;transform:none}
+
+/* resend */
+.resend-row{text-align:center;font-size:12.5px;color:var(--text3);
+  margin-top:14px;position:relative;z-index:1}
+.resend-link{color:var(--purple);cursor:pointer;font-weight:600;background:none;
+  border:none;font-family:inherit;font-size:inherit;padding:0}
+.resend-link:disabled{color:var(--text3);cursor:default}
+
+/* fine */
+.modal-fine{text-align:center;font-size:11.5px;color:var(--text3);margin-top:12px;position:relative;z-index:1}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+    <span>Shiprocket <span class="hdr-logo-studio">Studio</span></span>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-domain"><span class="hdr-domain-dot"></span>sheshaayurveda.com · Brand report ready</div>
+    <button id="hdr-login-btn" onclick="openSignup()" style="padding:7px 16px;border-radius:8px;background:var(--grad);color:#fff;border:none;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;">Login →</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <div class="sb-logo"><img src="../images/shesha-logo.avif" alt="Shesha Ayurveda"></div>
+      <div class="sb-name">Shesha Ayurveda</div>
+      <div class="sb-domain"><span class="sb-live"></span>sheshaayurveda.com</div>
+      <div class="sb-conf-row">
+        <div class="sb-conf-num">91%</div>
+        <div class="sb-conf-info">
+          <div class="sb-conf-label">Brand Confidence</div>
+          <div class="sb-conf-sub">Based on 14 signals</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-swatches">
+      <div class="sb-swatch" style="background:#1B3A2D" title="Forest Green"></div>
+      <div class="sb-swatch" style="background:#C9A84C" title="Gold"></div>
+      <div class="sb-swatch" style="background:#F5F0E8" title="Cream"></div>
+      <div class="sb-swatch" style="background:#2C1810" title="Dark Brown"></div>
+      <div class="sb-swatch" style="background:#4A7C5F" title="Sage"></div>
+    </div>
+
+    <nav class="sb-nav">
+      <button class="sb-item active" onclick="go('identity')"><span class="sb-icon">🎨</span>Brand Identity</button>
+      <button class="sb-item" onclick="go('products')"><span class="sb-icon">📦</span>Products</button>
+      <button class="sb-item" onclick="go('messaging')"><span class="sb-icon">✍️</span>Messaging & Tone</button>
+      <button class="sb-item" onclick="go('audience')"><span class="sb-icon">👤</span>Audience</button>
+      <button class="sb-item" onclick="go('competitive')"><span class="sb-icon">🔍</span>Competitive<span class="sb-lock">Unlock</span></button>
+      <button class="sb-item" onclick="window.location.href='chat.html'" style="margin-top:8px"><span class="sb-icon">💬</span>Chat</button>
+      <button class="sb-item" onclick="window.location.href='workspace.html'" style="margin-top:2px"><span class="sb-icon">⬡</span>Workspaces</button>
+    </nav>
+    <div style="margin:4px 10px 0;padding:10px 12px;border-radius:10px;background:rgba(175,70,253,.05);border:1px solid rgba(175,70,253,.12)">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Active Workspace</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px" id="br-ws-name">Shesha Ayurveda</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px" id="br-ws-url">sheshaayurveda.com</div>
+      <button onclick="window.location.href='workspace.html'" style="font-size:11px;font-weight:600;color:var(--purple);background:none;border:none;cursor:pointer;font-family:inherit;padding:0">Switch workspace →</button>
+    </div>
+
+    <button onclick="window.location.href='shiprocket_hero_carousel.html'" style="margin:8px 10px 16px;padding:9px 12px;border-radius:10px;background:none;border:1px solid rgba(0,0,0,.1);color:var(--text3);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .15s;width:calc(100% - 20px)" onmouseover="this.style.color='var(--text)';this.style.borderColor='rgba(0,0,0,.2)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='rgba(0,0,0,.1)'"><span>⎋</span>Logout</button>
+
+  </aside>
+
+  <!-- ── MOBILE TABS ── -->
+  <div class="mob-tabs">
+    <button class="mob-tab active" onclick="go('identity')">🎨 Identity</button>
+    <button class="mob-tab" onclick="go('products')">📦 Products</button>
+    <button class="mob-tab" onclick="go('messaging')">✍️ Messaging</button>
+    <button class="mob-tab" onclick="go('audience')">👤 Audience</button>
+    <button class="mob-tab" onclick="go('competitive')">🔍 Competitive</button>
+  </div>
+
+  <!-- ── CONTENT ── -->
+  <main class="content" id="main-content">
+
+    <!-- IDENTITY -->
+    <div class="panel active" id="panel-identity">
+      <h1 class="panel-h">Brand Identity</h1>
+      <p class="panel-sub">Visual language, personality and trust signals extracted from sheshaayurveda.com</p>
+
+      <!-- Colour palette -->
+      <div class="card">
+        <div class="card-label">Brand Colours</div>
+        <div class="color-bars">
+          <div class="cbar" style="background:#1B3A2D"><div class="cbar-name" style="color:rgba(255,255,255,.6)">Forest Green</div></div>
+          <div class="cbar" style="background:#C9A84C"><div class="cbar-name" style="color:rgba(0,0,0,.5)">Gold</div></div>
+          <div class="cbar" style="background:#F5F0E8"><div class="cbar-name" style="color:rgba(0,0,0,.5)">Cream</div></div>
+          <div class="cbar" style="background:#2C1810"><div class="cbar-name" style="color:rgba(255,255,255,.5)">Dark Brown</div></div>
+          <div class="cbar" style="background:#4A7C5F"><div class="cbar-name" style="color:rgba(255,255,255,.5)">Sage</div></div>
+        </div>
+        <div class="color-hexes">
+          <span class="chex"><span class="chex-dot" style="background:#1B3A2D"></span>#1B3A2D</span>
+          <span class="chex"><span class="chex-dot" style="background:#C9A84C"></span>#C9A84C</span>
+          <span class="chex"><span class="chex-dot" style="background:#F5F0E8;border:1px solid rgba(0,0,0,.1)"></span>#F5F0E8</span>
+          <span class="chex"><span class="chex-dot" style="background:#2C1810"></span>#2C1810</span>
+          <span class="chex"><span class="chex-dot" style="background:#4A7C5F"></span>#4A7C5F</span>
+        </div>
+      </div>
+
+      <!-- Products strip -->
+      <div class="card">
+        <div class="card-label">Product Range</div>
+        <div class="prod-strip">
+          <div class="prod-card"><img src="../images/shesha-p4.jpg" alt="Night Cream"><div class="prod-card-info"><div class="prod-card-name">Red Sandalwood Night Cream</div><div class="prod-card-price">₹599</div></div></div>
+          <div class="prod-card"><img src="../images/shesha-p3.jpg" alt="Day Cream"><div class="prod-card-info"><div class="prod-card-name">Kumkumadi Day Cream</div><div class="prod-card-price">₹549</div></div></div>
+          <div class="prod-card"><img src="../images/shesha-p1.jpg" alt="Hair Colour"><div class="prod-card-info"><div class="prod-card-name">Nilini Hair Colour</div><div class="prod-card-price">₹299</div></div></div>
+          <div class="prod-card"><img src="../images/shesha-p2.jpg" alt="Face Wash"><div class="prod-card-info"><div class="prod-card-name">Red Sandalwood Face Wash</div><div class="prod-card-price">₹349</div></div></div>
+          <div class="prod-card"><img src="../images/shesha-p5.jpg" alt="Body Mist"><div class="prod-card-info"><div class="prod-card-name">Nargis Body Mist</div><div class="prod-card-price">₹449</div></div></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="g3">
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">8K+</div><div class="stat-lbl">Reviews</div><div class="stat-sub">Avg 4.5 ★</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">34</div><div class="stat-lbl">Live Ads</div><div class="stat-sub">Meta Ad Library</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">91%</div><div class="stat-lbl">Confidence</div><div class="stat-sub">14 signals</div></div></div>
+      </div>
+
+      <!-- Personality -->
+      <div class="card" style="margin-top:12px">
+        <div class="card-label">Brand Personality</div>
+        <div class="persona-grid">
+          <div class="persona-item"><div class="persona-emoji">🌿</div><div class="persona-label">The Healer</div><div class="persona-desc">Ancient wisdom for modern skin</div></div>
+          <div class="persona-item"><div class="persona-emoji">📿</div><div class="persona-label">The Sage</div><div class="persona-desc">Knowledge-led, credible, trusted</div></div>
+          <div class="persona-item"><div class="persona-emoji">✨</div><div class="persona-label">Premium</div><div class="persona-desc">Elevated packaging & photography</div></div>
+          <div class="persona-item"><div class="persona-emoji">🏆</div><div class="persona-label">Authentic</div><div class="persona-desc">Kerala roots, no-chemical promise</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="panel" id="panel-products">
+      <h1 class="panel-h">Products</h1>
+      <p class="panel-sub">5 product lines detected · ₹299–₹1,899 · Avg order ₹874 · As seen on Shark Tank India S5</p>
+
+      <div class="g2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Product Lines</div>
+          <div class="pr"><div class="pr-img"><img src="../images/shesha-p1.jpg"></div><div style="flex:1"><div class="pr-name">Nilini Hair Colour</div><div class="pr-price">₹299 · Natural Black, Dark Brown</div></div><span class="chip cg" style="margin:0">Bestseller</span></div>
+          <div class="pr"><div class="pr-img"><img src="../images/shesha-p4.jpg"></div><div style="flex:1"><div class="pr-name">Red Sandalwood Night Cream</div><div class="pr-price">₹599 · Night Repair</div></div><span class="chip cp" style="margin:0">High ROAS</span></div>
+          <div class="pr"><div class="pr-img"><img src="../images/shesha-p3.jpg"></div><div style="flex:1"><div class="pr-name">Kumkumadi Day Cream</div><div class="pr-price">₹549 · Brightening</div></div><span class="chip cb" style="margin:0">Growing</span></div>
+          <div class="pr"><div class="pr-img"><img src="../images/shesha-p2.jpg"></div><div style="flex:1"><div class="pr-name">Red Sandalwood Face Wash</div><div class="pr-price">₹349 · Cleanser</div></div><span class="chip ca" style="margin:0">New</span></div>
+          <div class="pr"><div class="pr-img"><img src="../images/shesha-p5.jpg"></div><div style="flex:1"><div class="pr-name">Nargis Body Mist Deodorant</div><div class="pr-price">₹449 · Body Care</div></div><span class="chip co" style="margin:0">Ayurvedic</span></div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-label">Pricing Intelligence</div>
+            <div style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:3px;line-height:1">₹874</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-bottom:12px">Estimated average order value</div>
+            <div class="dr"><span class="dr-k">Price range</span><span class="dr-v">₹299 – ₹1,899</span></div>
+            <div class="dr"><span class="dr-k">Positioning</span><span class="dr-v">Mid-premium Ayurvedic</span></div>
+            <div class="dr"><span class="dr-k">Discount style</span><span class="dr-v">Festive · 20–35% off</span></div>
+            <div class="dr"><span class="dr-k">Bestseller</span><span class="dr-v">Nilini Hair Colour · ₹299</span></div>
+          </div>
+          <div class="card" style="margin-bottom:0">
+            <div class="card-label">Fulfilment</div>
+            <div class="dr"><span class="dr-k">Free shipping</span><span class="dr-v">Above ₹499</span></div>
+            <div class="dr"><span class="dr-k">Delivery</span><span class="dr-v">4–6 days</span></div>
+            <div class="dr"><span class="dr-k">COD</span><span class="dr-v" style="color:var(--green)">✓ Available</span></div>
+            <div class="dr"><span class="dr-k">Returns</span><span class="dr-v">7-day policy</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MESSAGING -->
+    <div class="panel" id="panel-messaging">
+      <h1 class="panel-h">Messaging & Tone</h1>
+      <p class="panel-sub">Headlines, claims and tone patterns from site copy and ad creatives</p>
+
+      <div class="g2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Tone of Voice</div>
+          <div class="bar-r"><span class="bar-l">Authentic</span><div class="bar-t"><div class="bar-f" style="width:92%"></div></div><span class="bar-v">92%</span></div>
+          <div class="bar-r"><span class="bar-l">Premium</span><div class="bar-t"><div class="bar-f" style="width:85%"></div></div><span class="bar-v">85%</span></div>
+          <div class="bar-r"><span class="bar-l">Educational</span><div class="bar-t"><div class="bar-f" style="width:78%"></div></div><span class="bar-v">78%</span></div>
+          <div class="bar-r"><span class="bar-l">Emotional</span><div class="bar-t"><div class="bar-f" style="width:71%"></div></div><span class="bar-v">71%</span></div>
+          <div class="bar-r"><span class="bar-l">Urgent</span><div class="bar-t"><div class="bar-f" style="width:34%"></div></div><span class="bar-v">34%</span></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Key Claims</div>
+          <div class="dr"><span class="dr-k">Primary</span><span class="dr-v" style="color:var(--text);font-weight:600">"No Chemicals. Just Pure Ayurveda."</span></div>
+          <div class="dr"><span class="dr-k">Secondary</span><span class="dr-v">"Ancient wisdom. Modern results."</span></div>
+          <div class="dr"><span class="dr-k">Social proof</span><span class="dr-v">"Trusted by 1L+ women"</span></div>
+          <div class="dr"><span class="dr-k">CTA pattern</span><span class="dr-v"><span class="chip cp">Shop Now</span><span class="chip cg">Get 20% off</span></span></div>
+          <div class="dr"><span class="dr-k">Hook type</span><span class="dr-v"><span class="chip ca">Problem–Solution</span></span></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0">
+        <div class="card-label">Extracted Headlines from Ads</div>
+        <div class="quote">
+          <div class="quote-t">"No Chemicals. Just Pure Ayurveda. Transform your skin with Red Sandalwood Night Cream."</div>
+          <div class="quote-s">Homepage hero · <span class="quote-badge" style="background:rgba(175,70,253,.08);color:var(--purple);border:1px solid rgba(175,70,253,.2)">Problem–Solution</span></div>
+        </div>
+        <div class="quote">
+          <div class="quote-t">"Fades tan, reduces pigmentation, corrects uneven tone — overnight."</div>
+          <div class="quote-s">Product page · <span class="quote-badge" style="background:rgba(22,163,74,.08);color:var(--green);border:1px solid rgba(22,163,74,.2)">Benefit-led</span></div>
+        </div>
+        <div class="quote">
+          <div class="quote-t">"1,00,000+ women trust Shesha Ayurveda for radiant, chemical-free skin."</div>
+          <div class="quote-s">Ad creative · <span class="quote-badge" style="background:rgba(217,119,6,.08);color:var(--amber);border:1px solid rgba(217,119,6,.2)">Social Proof · Scaling</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIENCE -->
+    <div class="panel" id="panel-audience">
+      <h1 class="panel-h">Audience</h1>
+      <p class="panel-sub">Who is buying — demographics, psychographics and purchase signals</p>
+
+      <div class="g2">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Demographics</div>
+          <div class="dr"><span class="dr-k">Gender</span><span class="dr-v"><span class="chip ck">Women 82%</span><span class="chip cb">Men 18%</span></span></div>
+          <div class="dr"><span class="dr-k">Age</span><span class="dr-v"><span class="chip cp">25–35 primary</span><span class="chip ca">35–45</span></span></div>
+          <div class="dr"><span class="dr-k">Tier</span><span class="dr-v"><span class="chip cg">T1 · 58%</span><span class="chip ca">T2 · 32%</span></span></div>
+          <div class="dr"><span class="dr-k">Top cities</span><span class="dr-v">Bengaluru, Mumbai, Delhi, Hyderabad</span></div>
+          <div class="dr"><span class="dr-k">Income</span><span class="dr-v">₹6L – ₹15L annually</span></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-label">Psychographics</div>
+          <div class="dr"><span class="dr-k">Values</span><span class="dr-v"><span class="chip cg">Natural living</span><span class="chip co">Clean beauty</span></span></div>
+          <div class="dr"><span class="dr-k">Interests</span><span class="dr-v"><span class="chip cb">Yoga</span><span class="chip ca">Skincare</span><span class="chip ck">Ayurveda</span></span></div>
+          <div class="dr"><span class="dr-k">Behaviour</span><span class="dr-v">Reads labels · Researches before buying</span></div>
+          <div class="dr"><span class="dr-k">Pain points</span><span class="dr-v">Pigmentation · harsh chemicals · uneven tone</span></div>
+        </div>
+      </div>
+
+      <!-- Audience breakdown bars -->
+      <div class="card">
+        <div class="card-label">Age Distribution</div>
+        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">18–24</span><span class="aud-bar-val">12%</span></div><div class="aud-track"><div class="aud-fill" style="width:12%;background:var(--grad)"></div></div></div>
+        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">25–34</span><span class="aud-bar-val">48%</span></div><div class="aud-track"><div class="aud-fill" style="width:48%;background:var(--grad)"></div></div></div>
+        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">35–44</span><span class="aud-bar-val">29%</span></div><div class="aud-track"><div class="aud-fill" style="width:29%;background:linear-gradient(90deg,#AF46FD,#DA3BC2)"></div></div></div>
+        <div class="aud-bar" style="margin-bottom:0"><div class="aud-bar-label"><span class="aud-bar-key">45+</span><span class="aud-bar-val">11%</span></div><div class="aud-track"><div class="aud-fill" style="width:11%;background:rgba(175,70,253,.4)"></div></div></div>
+      </div>
+
+      <div class="g3">
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">2.4x</div><div class="stat-lbl">Repeat Purchase</div><div class="stat-sub">vs 1.8x category</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">68%</div><div class="stat-lbl">Prepaid Orders</div><div class="stat-sub">High buyer intent</div></div></div>
+        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">₹874</div><div class="stat-lbl">Avg Order Value</div><div class="stat-sub">Above category</div></div></div>
+      </div>
+    </div>
+
+    <!-- COMPETITIVE -->
+    <div class="panel" id="panel-competitive">
+      <h1 class="panel-h">Competitive Landscape</h1>
+      <p class="panel-sub">3 competitors detected in Ayurvedic Skincare · India</p>
+
+      <div class="card">
+        <div class="card-label">Competitors Detected</div>
+        <div class="comp"><div class="comp-icon" style="background:linear-gradient(135deg,#1a3a1a,#2d6b2d)">KA</div><div style="flex:1"><div class="comp-name">Kama Ayurveda</div><div class="comp-sub">Premium · D2C + Retail</div></div><span class="chip cr" style="margin:0">● 24 live ads</span></div>
+        <div class="comp"><div class="comp-icon" style="background:linear-gradient(135deg,#1a2f1a,#2d4a2d)">FE</div><div style="flex:1"><div class="comp-name">Forest Essentials</div><div class="comp-sub">Luxury · D2C + Offline</div></div><span class="chip cr" style="margin:0">● 18 live ads</span></div>
+        <div class="comp"><div class="comp-icon" style="background:linear-gradient(135deg,#1a1a2f,#2d2d4a)">BT</div><div style="flex:1"><div class="comp-name">Biotique</div><div class="comp-sub">Mass-premium · Wide distribution</div></div><span class="chip ca" style="margin:0">↑ Scaling</span></div>
+      </div>
+
+      <div class="gated">
+        <div class="card gated-blur" style="margin-bottom:0">
+          <div class="card-label">Competitor Ad Intelligence</div>
+          <div class="bar-r"><span class="bar-l">Kama Ayurveda</span><div class="bar-t"><div class="bar-f" style="width:85%"></div></div><span class="bar-v">85</span></div>
+          <div class="bar-r"><span class="bar-l">Forest Essentials</span><div class="bar-t"><div class="bar-f" style="width:91%"></div></div><span class="bar-v">91</span></div>
+          <div class="bar-r"><span class="bar-l">Shesha Ayurveda</span><div class="bar-t"><div class="bar-f" style="width:74%"></div></div><span class="bar-v">74</span></div>
+          <div style="margin-top:12px;padding:10px;border-radius:8px;background:rgba(0,0,0,.04)">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Trending hook this week</div>
+            <div style="font-size:13px;color:var(--text2)">"Chemical-free alternatives to leading skincare brands"</div>
+          </div>
+        </div>
+        <div class="gated-wall">
+          <div class="gated-msg"><strong>Unlock competitor ad intelligence</strong><br>See every ad your rivals are running — hooks, creative scores, spend signals.</div>
+          <button class="gated-btn" onclick="seeReport()">Sign up free to unlock →</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- STICKY CTA -->
+<div class="sticky-cta">
+  <div class="sticky-cta-left">
+    <div class="sticky-cta-pct">✦ You are viewing 30% of this report</div>
+    <div class="sticky-cta-msg">Sign up to see your <strong>creative scores, competitor ad intelligence</strong> and full audience insights.</div>
+  </div>
+  <button class="sticky-cta-btn" onclick="seeReport()">See competitive report →</button>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="handleModalClick(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeSignup()">✕</button>
+
+    <!-- STEP 1: Phone -->
+    <div class="modal-step active" id="step-phone">
+      <div class="modal-logo">
+        <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+        <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <h2 class="modal-h">See your competitive report</h2>
+      <p class="modal-sub">Enter your mobile number to unlock competitor intelligence, creative scores and full audience insights.</p>
+      <div class="phone-row">
+        <div class="phone-cc"><span class="phone-cc-flag">🇮🇳</span> +91</div>
+        <input class="phone-num" id="phone-inp" type="tel" maxlength="10" placeholder="Enter mobile number" onkeydown="if(event.key==='Enter')submitPhone()" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+      </div>
+      <button class="modal-btn" id="phone-btn" onclick="submitPhone()">Continue →</button>
+      <div class="modal-fine">We'll send a 6-digit OTP to verify</div>
+    </div>
+
+    <!-- STEP 2: OTP -->
+    <div class="modal-step" id="step-otp">
+      <div class="modal-logo">
+        <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+        <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <h2 class="modal-h">Enter OTP</h2>
+      <p class="modal-sub" id="otp-sub">We've sent a 6-digit code to <strong id="otp-phone-display">+91 XXXXXXXXXX</strong></p>
+      <div class="edit-row">
+        <span class="edit-num" id="otp-num-show"></span>
+        <button class="edit-btn" onclick="backToPhone()">✏ Edit</button>
+      </div>
+      <div class="otp-row" id="otp-row">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="otp-box" type="tel" maxlength="1" inputmode="numeric">
+      </div>
+      <button class="modal-btn" id="otp-btn" onclick="submitOTP()" disabled>Verify OTP →</button>
+      <div class="resend-row">
+        Didn't receive code?
+        <button class="resend-link" id="resend-btn" disabled>Resend in <span id="resend-timer">30s</span></button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const PANELS=['identity','products','messaging','audience','competitive'];
+function go(id){
+  PANELS.forEach(function(p,i){
+    document.querySelectorAll('.sb-item')[i].classList.toggle('active',p===id);
+    document.querySelectorAll('.mob-tab')[i].classList.toggle('active',p===id);
+    document.getElementById('panel-'+p).classList.toggle('active',p===id);
+  });
+  document.getElementById('main-content').scrollTop=0;
+}
+
+function seeReport(){
+  if(sessionStorage.getItem('authed')==='1'){
+    showConnectScreen();
+  } else {
+    openSignup();
+  }
+}
+
+function openSignup(){
+  showStep('phone');
+  var bg=document.getElementById('modal-bg');
+  bg.classList.add('show');
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    bg.classList.add('visible');
+    setTimeout(function(){document.getElementById('phone-inp').focus();},120);
+  });});
+}
+function closeSignup(){
+  var bg=document.getElementById('modal-bg');
+  bg.classList.remove('visible');
+  setTimeout(function(){bg.classList.remove('show');},300);
+}
+function handleModalClick(e){if(e.target===document.getElementById('modal-bg'))closeSignup();}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeSignup();});
+
+function showStep(s){
+  document.querySelectorAll('.modal-step').forEach(function(el){el.classList.remove('active');});
+  document.getElementById('step-'+s).classList.add('active');
+}
+
+function submitPhone(){
+  var val=document.getElementById('phone-inp').value.replace(/[^0-9]/g,'');
+  if(val.length<10){
+    var inp=document.getElementById('phone-inp');
+    inp.style.borderColor='rgba(244,52,157,.7)';
+    inp.style.boxShadow='0 0 0 3px rgba(244,52,157,.15)';
+    setTimeout(function(){inp.style.borderColor='';inp.style.boxShadow='';},1400);
+    return;
+  }
+  var display='+91 '+val.slice(0,5)+' '+val.slice(5);
+  document.getElementById('otp-phone-display').textContent=display;
+  document.getElementById('otp-num-show').textContent=display;
+  showStep('otp');
+  document.querySelectorAll('.otp-box').forEach(function(b){b.value='';b.classList.remove('filled');});
+  document.getElementById('otp-btn').disabled=true;
+  setTimeout(function(){document.querySelectorAll('.otp-box')[0].focus();},140);
+  startResendTimer();
+}
+
+function backToPhone(){
+  clearInterval(window._resendInt);
+  showStep('phone');
+  setTimeout(function(){document.getElementById('phone-inp').focus();},120);
+}
+
+function startResendTimer(){
+  var secs=30;
+  var resendBtn=document.getElementById('resend-btn');
+  resendBtn.disabled=true;
+  resendBtn.innerHTML='Resend in <span id="resend-timer">30s</span>';
+  clearInterval(window._resendInt);
+  window._resendInt=setInterval(function(){
+    secs--;
+    var el=document.getElementById('resend-timer');
+    if(el)el.textContent=secs+'s';
+    if(secs<=0){
+      clearInterval(window._resendInt);
+      resendBtn.disabled=false;
+      resendBtn.textContent='Resend OTP';
+    }
+  },1000);
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  if(sessionStorage.getItem('authed')==='1'){
+    var btn=document.getElementById('hdr-login-btn');
+    if(btn)btn.style.display='none';
+  }
+
+  document.getElementById('resend-btn').addEventListener('click',function(){
+    if(this.disabled)return;
+    document.querySelectorAll('.otp-box').forEach(function(b){b.value='';b.classList.remove('filled');});
+    document.getElementById('otp-btn').disabled=true;
+    document.querySelectorAll('.otp-box')[0].focus();
+    startResendTimer();
+  });
+
+  document.getElementById('otp-row').addEventListener('input',function(e){
+    var boxes=Array.from(document.querySelectorAll('.otp-box'));
+    var idx=boxes.indexOf(e.target);
+    e.target.value=e.target.value.replace(/[^0-9]/g,'').slice(-1);
+    e.target.classList.toggle('filled',!!e.target.value);
+    if(e.target.value&&idx<boxes.length-1)boxes[idx+1].focus();
+    document.getElementById('otp-btn').disabled=boxes.some(function(b){return !b.value;});
+  });
+
+  document.getElementById('otp-row').addEventListener('keydown',function(e){
+    var boxes=Array.from(document.querySelectorAll('.otp-box'));
+    var idx=boxes.indexOf(e.target);
+    if(e.key==='Backspace'&&!e.target.value&&idx>0){
+      boxes[idx-1].value='';
+      boxes[idx-1].classList.remove('filled');
+      boxes[idx-1].focus();
+      document.getElementById('otp-btn').disabled=true;
+    }
+    if(e.key==='Enter')submitOTP();
+  });
+
+  document.getElementById('otp-row').addEventListener('paste',function(e){
+    e.preventDefault();
+    var text=(e.clipboardData||window.clipboardData).getData('text').replace(/[^0-9]/g,'').slice(0,6);
+    var boxes=document.querySelectorAll('.otp-box');
+    text.split('').forEach(function(ch,i){if(boxes[i]){boxes[i].value=ch;boxes[i].classList.add('filled');}});
+    document.getElementById('otp-btn').disabled=text.length<6;
+    if(text.length===6)boxes[5].focus();
+  });
+});
+
+function submitOTP(){
+  var boxes=document.querySelectorAll('.otp-box');
+  var otp=Array.from(boxes).map(function(b){return b.value;}).join('');
+  if(otp.length<6)return;
+  var otpBtn=document.getElementById('otp-btn');
+  otpBtn.textContent='Verifying…';
+  otpBtn.disabled=true;
+  var phoneVal=document.getElementById('phone-inp').value.replace(/[^0-9]/g,'');
+  setTimeout(function(){
+    otpBtn.textContent='Verify OTP →';
+    otpBtn.disabled=false;
+    if(phoneVal==='8888888888'){
+      closeSignup();
+      window.location.href='chat.html';
+    } else {
+      sessionStorage.setItem('authed','1');
+      closeSignup();
+      showConnectScreen();
+    }
+  },1200);
+}
+</script>
+
+<!-- ══════════════════════════════
+     CONNECT ACCOUNTS SCREEN
+══════════════════════════════ -->
+<style>
+.connect-screen{
+  position:fixed;inset:0;z-index:999;
+  background:#F5F5FA;
+  display:none;opacity:0;
+  flex-direction:column;
+  transition:opacity .4s ease;
+  overflow-y:auto;
+}
+.connect-screen.show{display:flex}
+.connect-screen.visible{opacity:1}
+
+/* background glow */
+.connect-screen::before{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 50% 60% at 20% 30%,rgba(175,70,253,.06),transparent 60%),
+    radial-gradient(ellipse 40% 50% at 80% 70%,rgba(244,52,157,.04),transparent 60%);
+}
+
+/* header */
+.cs-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 40px;
+  border-bottom:1px solid rgba(0,0,0,.08);
+  background:rgba(255,255,255,.96);backdrop-filter:blur(20px);
+  flex-shrink:0;position:relative;z-index:2;
+}
+@media(max-width:600px){.cs-header{padding:12px 16px}}
+.cs-logo{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:var(--text)}
+.cs-logo-icon{width:27px;height:27px;border-radius:7px;background:linear-gradient(135deg,#AF46FD,#F4349D);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cs-logo-icon svg{width:13px;height:13px}
+.cs-logo-studio{color:#AF46FD}
+.cs-step-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:100px;
+  background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.18);
+  font-size:11px;font-weight:600;color:#AF46FD;
+}
+
+/* main */
+.cs-main{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  padding:48px 24px 80px;
+  position:relative;z-index:1;
+}
+@media(max-width:600px){.cs-main{padding:32px 16px 60px}}
+
+.cs-inner{width:100%;max-width:520px}
+
+/* top */
+.cs-kicker{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:100px;
+  font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+  color:#16A34A;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.2);
+  margin-bottom:16px;
+}
+.cs-h{
+  font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(26px,4vw,38px);line-height:1.1;letter-spacing:-.3px;
+  color:var(--text);margin-bottom:10px;
+}
+.cs-sub{
+  font-size:14px;color:var(--text2);
+  line-height:1.7;margin-bottom:32px;
+}
+@media(max-width:600px){.cs-sub{margin-bottom:24px;font-size:13px}}
+
+/* ── PRIMARY: FACEBOOK CARD ── */
+@keyframes fbBorderSpin{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.fb-card-wrap{
+  border-radius:18px;padding:2px;
+  background:linear-gradient(135deg,#1877F2,#AF46FD,#1877F2);
+  background-size:300% 300%;
+  animation:fbBorderSpin 4s ease infinite;
+  box-shadow:0 0 20px rgba(24,119,242,.1),0 8px 28px rgba(0,0,0,.08);
+  margin-bottom:14px;
+}
+.fb-card{
+  background:#fff;border-radius:16px;
+  padding:18px 20px;
+  position:relative;
+}
+.fb-card::before{
+  content:'';position:absolute;inset:0;pointer-events:none;border-radius:16px;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(24,119,242,.06),transparent 65%);
+}
+.fb-card-top{display:flex;align-items:center;gap:14px;margin-bottom:18px;position:relative;z-index:1}
+.fb-icon{
+  width:38px;height:38px;border-radius:10px;
+  background:#1877F2;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.fb-icon svg{width:18px;height:18px}
+.fb-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:2px}
+.fb-sub{font-size:12px;color:var(--text3)}
+.fb-badge{
+  margin-left:auto;padding:3px 10px;border-radius:100px;
+  font-size:10px;font-weight:700;
+  background:rgba(24,119,242,.1);color:#1877F2;
+  border:1px solid rgba(24,119,242,.2);flex-shrink:0;
+}
+
+/* unlocks list */
+.fb-unlocks{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;
+  margin-bottom:16px;position:relative;z-index:1;
+}
+@media(max-width:420px){.fb-unlocks{grid-template-columns:1fr}}
+.fb-unlock-item{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 10px;border-radius:8px;
+  background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.07);
+  font-size:11.5px;color:var(--text2);
+}
+.fb-unlock-icon{font-size:14px;flex-shrink:0}
+
+/* connect button */
+.fb-btn{
+  width:100%;padding:12px;border-radius:10px;
+  background:#1877F2;color:#fff;
+  font-size:13px;font-weight:700;font-family:inherit;border:none;
+  cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  position:relative;z-index:1;
+}
+.fb-btn:hover{background:#1565d8;transform:translateY(-1px)}
+.fb-btn:active{transform:scale(.98)}
+
+/* ── SECONDARY PLATFORMS ── */
+.secondary-label{
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--text3);margin-bottom:8px;
+}
+.secondary-cards{
+  flex-direction:column;gap:8px;
+  margin-bottom:14px;
+}
+
+.sc-card{
+  display:flex;flex-direction:column;
+  padding:16px 18px;border-radius:14px;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow:0 1px 4px rgba(0,0,0,.04);
+  transition:border-color .2s,background .2s;
+}
+.sc-card-top{display:flex;align-items:center;gap:14px}
+.sc-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.sc-info{flex:1}
+.sc-name{font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px}
+.sc-desc{font-size:11.5px;color:var(--text3)}
+.sc-connect-btn{
+  padding:7px 14px;border-radius:8px;
+  background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.1);
+  color:var(--text2);font-size:12px;font-weight:600;
+  font-family:inherit;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;
+}
+.sc-connect-btn:hover{background:rgba(0,0,0,.08);color:var(--text);border-color:rgba(0,0,0,.18)}
+
+/* ── ACCOUNT PICKER ── */
+.acct-picker{
+  margin-top:14px;padding-top:14px;
+  border-top:1px solid rgba(0,0,0,.08);
+  position:relative;z-index:2;
+}
+.acct-picker-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+}
+.acct-picker-label{
+  font-size:11.5px;font-weight:600;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.4px;
+}
+.acct-picker-count{
+  font-size:11px;font-weight:700;color:#AF46FD;
+  background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.18);
+  padding:2px 9px;border-radius:100px;
+}
+/* selected chips row */
+.acct-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.acct-chip{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 10px 5px 12px;border-radius:100px;
+  background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);
+  font-size:12px;font-weight:600;color:#9333EA;
+}
+.acct-chip-remove{
+  width:16px;height:16px;border-radius:50%;
+  background:rgba(175,70,253,.15);border:none;
+  color:#9333EA;font-size:11px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:inherit;line-height:1;padding:0;transition:background .15s;
+}
+.acct-chip-remove:hover{background:rgba(175,70,253,.3)}
+/* dropdown trigger */
+.acct-dropdown-wrap{}
+.acct-dropdown-btn{
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;padding:10px 14px;border-radius:10px;
+  background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.09);
+  color:var(--text3);font-size:13px;font-weight:500;
+  font-family:inherit;cursor:pointer;transition:all .18s;text-align:left;
+  box-sizing:border-box;
+}
+.acct-dropdown-btn:hover{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.15);color:var(--text2)}
+.acct-dropdown-btn.open{border-color:rgba(175,70,253,.4);border-bottom-left-radius:0;border-bottom-right-radius:0;color:var(--text)}
+.acct-dropdown-btn.maxed{opacity:.4;cursor:not-allowed;pointer-events:none}
+.acct-dropdown-arrow{font-size:10px;transition:transform .18s;flex-shrink:0}
+.acct-dropdown-btn.open .acct-dropdown-arrow{transform:rotate(180deg)}
+/* dropdown panel — inline block, not absolute */
+.acct-dropdown-panel{
+  display:none;
+  background:#fff;border:1px solid rgba(175,70,253,.3);border-top:none;
+  border-bottom-left-radius:10px;border-bottom-right-radius:10px;overflow:hidden;
+}
+.acct-dropdown-panel.open{display:block}
+.acct-search-wrap{padding:10px 10px 6px;border-bottom:1px solid rgba(0,0,0,.06)}
+.acct-search{
+  width:100%;padding:8px 12px;border-radius:8px;
+  background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);
+  color:var(--text);font-size:12.5px;font-family:inherit;outline:none;
+  box-sizing:border-box;
+}
+.acct-search::placeholder{color:var(--text3)}
+.acct-search:focus{border-color:rgba(175,70,253,.4)}
+.acct-list{max-height:200px;overflow-y:auto;padding:6px}
+.acct-list::-webkit-scrollbar{width:4px}
+.acct-list::-webkit-scrollbar-track{background:transparent}
+.acct-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12);border-radius:4px}
+.acct-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:8px;
+  cursor:pointer;transition:all .15s;
+}
+.acct-row:hover{background:rgba(0,0,0,.04)}
+.acct-row.selected{background:rgba(175,70,253,.06)}
+.acct-row.disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.acct-info{flex:1;min-width:0}
+.acct-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct-meta{font-size:10.5px;color:var(--text3);margin-top:1px;font-family:'Courier New',monospace}
+.acct-row-check{
+  width:18px;height:18px;border-radius:50%;flex-shrink:0;
+  border:1.5px solid rgba(0,0,0,.18);
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.acct-row.selected .acct-row-check{
+  background:#AF46FD;border-color:#AF46FD;
+  font-size:10px;color:#fff;font-weight:700;
+}
+
+/* bottom actions */
+.cs-bottom{
+  margin-top:24px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.cs-continue-btn{
+  width:100%;padding:14px;border-radius:12px;
+  background:var(--grad);color:#fff;
+  font-size:14px;font-weight:700;font-family:inherit;border:none;
+  cursor:pointer;transition:opacity .2s,transform .15s;
+  opacity:.4;
+}
+.cs-continue-btn.active{opacity:1}
+.cs-continue-btn.active:hover{opacity:.9;transform:translateY(-1px)}
+.cs-skip{
+  font-size:12.5px;color:var(--text3);
+  cursor:pointer;transition:color .2s;
+  background:none;border:none;font-family:inherit;
+}
+.cs-skip:hover{color:var(--text2)}
+</style>
+
+<div class="connect-screen" id="connect-screen">
+
+  <!-- header -->
+  <div class="cs-header">
+    <div class="cs-logo">
+      <div class="cs-logo-icon">
+        <svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg>
+      </div>
+      <span>Shiprocket <span class="cs-logo-studio">Studio</span></span>
+    </div>
+    <div class="cs-step-pill">✦ Step 2 of 3 · Connect Accounts</div>
+  </div>
+
+  <div class="cs-main">
+    <div class="cs-inner">
+
+      <div class="cs-kicker">✓ Phone verified</div>
+      <h1 class="cs-h">Connect your ad accounts<br>to unlock everything.</h1>
+      <p class="cs-sub">We need read-only access to your ad accounts to calculate your true ROAS, score your creatives and identify exactly where your budget is being wasted.</p>
+
+      <!-- Facebook — primary -->
+      <div class="fb-card-wrap">
+        <div class="fb-card">
+          <div class="fb-card-top">
+            <div class="fb-icon">
+              <svg viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            </div>
+            <div>
+              <div class="fb-title">Facebook Ads</div>
+              <div class="fb-sub">Meta Business Suite · Read-only access</div>
+            </div>
+            <div class="fb-badge">Recommended</div>
+          </div>
+
+          <div class="fb-unlocks">
+            <div class="fb-unlock-item"><span class="fb-unlock-icon">📊</span>True ROAS calculation</div>
+            <div class="fb-unlock-item"><span class="fb-unlock-icon">🎯</span>Creative performance scores</div>
+            <div class="fb-unlock-item"><span class="fb-unlock-icon">👥</span>Audience intelligence</div>
+            <div class="fb-unlock-item"><span class="fb-unlock-icon">🔥</span>Ad fatigue detection</div>
+            <div class="fb-unlock-item"><span class="fb-unlock-icon">💸</span>Wasted spend signals</div>
+            <div class="fb-unlock-item"><span class="fb-unlock-icon">🏆</span>Competitor benchmarks</div>
+          </div>
+
+          <button class="fb-btn" id="fb-connect-btn" onclick="connectFacebook()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            Connect Facebook Ads →
+          </button>
+
+          <!-- Account picker — shown after FB auth -->
+          <div class="acct-picker" id="fb-acct-picker" style="display:none">
+            <div class="acct-picker-header">
+              <div class="acct-picker-label">Select accounts to sync</div>
+              <div class="acct-picker-count" id="fb-count">0 of 3 selected</div>
+            </div>
+            <div class="acct-chips" id="fb-chips"></div>
+            <div class="acct-dropdown-wrap">
+              <button class="acct-dropdown-btn" id="fb-dropdown-btn" onclick="toggleDropdown('fb')">
+                <span id="fb-dropdown-label">Choose an account...</span>
+                <span class="acct-dropdown-arrow">▼</span>
+              </button>
+              <div class="acct-dropdown-panel" id="fb-dropdown-panel">
+                <div class="acct-search-wrap">
+                  <input class="acct-search" id="fb-search" placeholder="Search accounts..." oninput="filterAccts('fb')" />
+                </div>
+                <div class="acct-list" id="fb-acct-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- secondary platforms -->
+      <div class="secondary-label">Also connect</div>
+      <div class="secondary-cards" id="secondary-cards" style="display:flex">
+        <div class="sc-card" id="google-card">
+          <div class="sc-card-top">
+            <div class="sc-icon" style="background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08)">
+              <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            </div>
+            <div class="sc-info">
+              <div class="sc-name">Google Ads</div>
+              <div class="sc-desc">Search intent data · Cross-channel ROAS</div>
+            </div>
+            <button class="sc-connect-btn" id="google-connect-btn" onclick="connectGoogle()">Connect →</button>
+          </div>
+          <div class="acct-picker" id="google-acct-picker" style="display:none">
+            <div class="acct-picker-header">
+              <div class="acct-picker-label">Select accounts to sync</div>
+              <div class="acct-picker-count" id="google-count">0 of 3 selected</div>
+            </div>
+            <div class="acct-chips" id="google-chips"></div>
+            <div class="acct-dropdown-wrap">
+              <button class="acct-dropdown-btn" id="google-dropdown-btn" onclick="toggleDropdown('google')">
+                <span id="google-dropdown-label">Choose an account...</span>
+                <span class="acct-dropdown-arrow">▼</span>
+              </button>
+              <div class="acct-dropdown-panel" id="google-dropdown-panel">
+                <div class="acct-search-wrap">
+                  <input class="acct-search" id="google-search" placeholder="Search accounts..." oninput="filterAccts('google')" />
+                </div>
+                <div class="acct-list" id="google-acct-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sc-card" id="shopify-card">
+          <div class="sc-card-top">
+            <div class="sc-icon" style="background:rgba(149,191,71,.08);border:1px solid rgba(149,191,71,.2)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#95BF47"><path d="M15.337 23.979l7.216-1.561s-2.597-17.566-2.617-17.7c-.019-.133-.133-.218-.256-.218-.124 0-2.345-.047-2.345-.047s-1.542-1.495-1.713-1.656v21.182zm-2.489.521l-6.477-1.8v-1.333h-1.09v-15.498l1.5-.408S8.3 4.2 8.357 4.017c.057-.189.208-.256.35-.218.133.038 2.86.883 2.86.883L15.337 24l-2.489.5zM9.75 4.463l-1.165.322s-.18-1.165-.854-1.75c.673.067 1.154.711 1.154 1.154l.865-.246V4.463zm-.865 0l-.5.133v-.133s0-.865-.5-1.363c.5.133.979.597 1 1.363zm-.5.133l-1 .284s.067-.5.067-1.1c.394.246.755.559.933.816z"/></svg>
+            </div>
+            <div class="sc-info">
+              <div class="sc-name">Shopify</div>
+              <div class="sc-desc">Order attribution · RTO signals · AOV data</div>
+            </div>
+            <button class="sc-connect-btn" id="shopify-connect-btn" onclick="connectShopify()">Connect →</button>
+          </div>
+          <div class="acct-picker" id="shopify-acct-picker" style="display:none">
+            <div class="acct-picker-header">
+              <div class="acct-picker-label">Select stores to sync</div>
+              <div class="acct-picker-count" id="shopify-count">0 of 3 selected</div>
+            </div>
+            <div class="acct-chips" id="shopify-chips"></div>
+            <div class="acct-dropdown-wrap">
+              <button class="acct-dropdown-btn" id="shopify-dropdown-btn" onclick="toggleDropdown('shopify')">
+                <span id="shopify-dropdown-label">Choose a store...</span>
+                <span class="acct-dropdown-arrow">▼</span>
+              </button>
+              <div class="acct-dropdown-panel" id="shopify-dropdown-panel">
+                <div class="acct-search-wrap">
+                  <input class="acct-search" id="shopify-search" placeholder="Search stores..." oninput="filterAccts('shopify')" />
+                </div>
+                <div class="acct-list" id="shopify-acct-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- bottom CTA row -->
+      <div class="cs-bottom">
+        <button class="cs-continue-btn" id="cs-continue-btn" onclick="continueToReport()">
+          Continue to my report →
+        </button>
+        <button class="cs-skip" onclick="skipConnect()">Skip, connect later</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function showConnectScreen(){
+  var screen = document.getElementById('connect-screen');
+  screen.classList.add('show');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>screen.classList.add('visible')));
+}
+
+// ── DUMMY ACCOUNT DATA ──
+var DUMMY_ACCOUNTS = {
+  fb: [
+    {id:'act_1842930471',name:'Shesha Ayurveda - Main',spend:'₹2.4L/mo'},
+    {id:'act_2930471842',name:'Shesha - Hair Care',spend:'₹68K/mo'},
+    {id:'act_3471842930',name:'Shesha - Festive Campaigns',spend:'₹1.1L/mo'},
+    {id:'act_4930284711',name:'SR Agency Account',spend:'₹4.2L/mo'},
+    {id:'act_5284711930',name:'Test Account',spend:'₹2K/mo'},
+  ],
+  google: [
+    {id:'700-842-3019',name:'Shesha Ayurveda Search',spend:'₹89K/mo'},
+    {id:'700-293-8471',name:'Shesha Performance Max',spend:'₹1.2L/mo'},
+    {id:'700-471-2938',name:'Shesha Brand Keywords',spend:'₹34K/mo'},
+    {id:'700-938-4712',name:'Generic Agency Acc',spend:'₹5.1L/mo'},
+  ],
+  shopify: [
+    {id:'shesha-ayurveda.myshopify.com',name:'Shesha Ayurveda'},
+    {id:'shesha-hair.myshopify.com',name:'Shesha - Hair Care'},
+    {id:'shesha-festive.myshopify.com',name:'Shesha - Festive Store'},
+  ]
+};
+
+// track selected accounts
+var selectedAccts = {fb: [], google: [], shopify: []};
+
+function updateContinueBtn(){
+  var total = selectedAccts.fb.length + selectedAccts.google.length + selectedAccts.shopify.length;
+  var btn = document.getElementById('cs-continue-btn');
+  btn.classList.toggle('active', total > 0);
+  if(total > 0){
+    var parts = [];
+    if(selectedAccts.fb.length) parts.push(selectedAccts.fb.length + ' Facebook');
+    if(selectedAccts.google.length) parts.push(selectedAccts.google.length + ' Google');
+    if(selectedAccts.shopify.length) parts.push(selectedAccts.shopify.length + ' Shopify');
+    btn.textContent = 'Continue with ' + parts.join(' & ') + ' account' + (total>1?'s':'') + ' →';
+  } else {
+    btn.textContent = 'Continue to my report →';
+  }
+}
+
+// ── FACEBOOK ──
+function connectFacebook(){
+  var btn = document.getElementById('fb-connect-btn');
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> Facebook connected ✓';
+  btn.style.background = '#16a34a';
+  btn.onclick = null;
+  showFbPicker();
+}
+
+function showFbPicker(){
+  document.getElementById('fb-acct-picker').style.display = 'block';
+}
+
+function renderAcctList(platform, query){
+  var list = document.getElementById(platform+'-acct-list');
+  var accounts = DUMMY_ACCOUNTS[platform];
+  var q = (query || '').toLowerCase();
+  if(q) accounts = accounts.filter(function(a){ return a.name.toLowerCase().indexOf(q)>=0 || a.id.toLowerCase().indexOf(q)>=0; });
+  list.innerHTML = '';
+  accounts.forEach(function(acct){
+    var isSel = selectedAccts[platform].indexOf(acct.id) >= 0;
+    var isDisabled = !isSel && selectedAccts[platform].length >= 3;
+    var row = document.createElement('div');
+    row.className = 'acct-row' + (isSel?' selected':'') + (isDisabled?' disabled':'');
+    row.innerHTML =
+      '<div class="acct-row-check">'+(isSel?'✓':'')+'</div>' +
+      '<div class="acct-info">' +
+        '<div class="acct-name">'+acct.name+'</div>' +
+        '<div class="acct-meta">'+acct.id+'</div>' +
+      '</div>';
+    if(!isDisabled){
+      row.onclick = function(){ toggleAcct(platform, acct.id); };
+    }
+    list.appendChild(row);
+  });
+  if(!accounts.length){
+    list.innerHTML = '<div style="padding:14px 10px;text-align:center;font-size:12px;color:var(--text3)">No accounts found</div>';
+  }
+}
+
+function renderChips(platform){
+  var chips = document.getElementById(platform+'-chips');
+  chips.innerHTML = '';
+  selectedAccts[platform].forEach(function(id){
+    var acct = DUMMY_ACCOUNTS[platform].filter(function(a){ return a.id===id; })[0];
+    if(!acct) return;
+    var chip = document.createElement('div');
+    chip.className = 'acct-chip';
+    chip.innerHTML = acct.name + '<button class="acct-chip-remove" onclick="removeAcct(\'' + platform + '\',\'' + id + '\')">×</button>';
+    chips.appendChild(chip);
+  });
+  var sel = selectedAccts[platform].length;
+  document.getElementById(platform+'-count').textContent = sel + ' of 3 selected';
+  var btn = document.getElementById(platform+'-dropdown-btn');
+  if(sel >= 3){
+    btn.classList.add('maxed');
+    document.getElementById(platform+'-dropdown-label').textContent = 'Max 3 accounts selected';
+    closeDropdown(platform);
+  } else {
+    btn.classList.remove('maxed');
+    document.getElementById(platform+'-dropdown-label').textContent = sel > 0 ? 'Add another account...' : 'Choose an account...';
+  }
+  updateContinueBtn();
+}
+
+function toggleAcct(platform, id){
+  var arr = selectedAccts[platform];
+  var idx = arr.indexOf(id);
+  if(idx >= 0){ arr.splice(idx,1); }
+  else if(arr.length < 3){ arr.push(id); }
+  var q = document.getElementById(platform+'-search').value;
+  renderAcctList(platform, q);
+  renderChips(platform);
+}
+
+function removeAcct(platform, id){
+  var arr = selectedAccts[platform];
+  var idx = arr.indexOf(id);
+  if(idx >= 0) arr.splice(idx,1);
+  var q = document.getElementById(platform+'-search').value;
+  renderAcctList(platform, q);
+  renderChips(platform);
+}
+
+function filterAccts(platform){
+  var q = document.getElementById(platform+'-search').value;
+  renderAcctList(platform, q);
+}
+
+var ALL_PLATFORMS = ['fb','google','shopify'];
+
+function toggleDropdown(platform){
+  var panel = document.getElementById(platform+'-dropdown-panel');
+  var btn = document.getElementById(platform+'-dropdown-btn');
+  var isOpen = panel.classList.contains('open');
+  ALL_PLATFORMS.forEach(function(p){ closeDropdown(p); });
+  if(!isOpen){
+    panel.classList.add('open');
+    btn.classList.add('open');
+    renderAcctList(platform, '');
+    setTimeout(function(){ document.getElementById(platform+'-search').focus(); }, 50);
+  }
+}
+
+function closeDropdown(platform){
+  var panel = document.getElementById(platform+'-dropdown-panel');
+  var btn = document.getElementById(platform+'-dropdown-btn');
+  if(panel) panel.classList.remove('open');
+  if(btn) btn.classList.remove('open');
+}
+
+document.addEventListener('click', function(e){
+  ALL_PLATFORMS.forEach(function(p){
+    var panel = document.getElementById(p+'-dropdown-panel');
+    var btn = document.getElementById(p+'-dropdown-btn');
+    if(panel && !panel.contains(e.target) && btn && !btn.contains(e.target)){
+      closeDropdown(p);
+    }
+  });
+});
+
+// ── GOOGLE ──
+function connectGoogle(){
+  var btn = document.getElementById('google-connect-btn');
+  btn.textContent = 'Google connected ✓';
+  btn.style.background = 'rgba(22,163,74,.1)';
+  btn.style.color = '#16A34A';
+  btn.style.borderColor = 'rgba(22,163,74,.25)';
+  btn.onclick = null;
+  document.getElementById('google-acct-picker').style.display = 'block';
+}
+
+// ── SHOPIFY ──
+function connectShopify(){
+  var btn = document.getElementById('shopify-connect-btn');
+  btn.textContent = 'Shopify connected ✓';
+  btn.style.background = 'rgba(22,163,74,.1)';
+  btn.style.color = '#16A34A';
+  btn.style.borderColor = 'rgba(22,163,74,.25)';
+  btn.onclick = null;
+  document.getElementById('shopify-acct-picker').style.display = 'block';
+}
+
+function continueToReport(){
+  var total = selectedAccts.fb.length + selectedAccts.google.length + selectedAccts.shopify.length;
+  if(total === 0) return;
+  if(sessionStorage.getItem('ws_add_flow')==='1'){
+    sessionStorage.removeItem('ws_add_flow');
+    window.location.href = 'workspace.html';
+  } else {
+    window.location.href = 'creative_report.html';
+  }
+}
+
+function skipConnect(){
+  if(sessionStorage.getItem('ws_add_flow')==='1'){
+    sessionStorage.removeItem('ws_add_flow');
+    window.location.href = 'workspace.html';
+    return;
+  }
+  document.getElementById('connect-screen').classList.remove('visible');
+  setTimeout(function(){document.getElementById('connect-screen').classList.remove('show');},400);
+}
+</script>
+
+</body>
+</html>

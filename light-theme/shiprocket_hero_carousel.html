@@ -1,0 +1,2596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shiprocket Studio — Light Theme</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F5F5FA;
+  --card:#fff;
+  --border:rgba(0,0,0,.08);
+  --border2:rgba(0,0,0,.12);
+  --text:#111827;--t1:#111827;
+  --text2:rgba(0,0,0,.55);--t2:rgba(0,0,0,.55);
+  --text3:rgba(0,0,0,.38);--t3:rgba(0,0,0,.38);
+  --purple:#AF46FD;
+  --pink:#F4349D;--mid:#DA3BC2;
+  --grad:linear-gradient(135deg,#AF46FD 0%,#DA3BC2 45%,#F4349D 100%);
+  --grad-text:linear-gradient(135deg,#9333EA,#EC4899);
+  --green:#16A34A;--amber:#D97706;--cyan:#0891B2;--indigo:#4F46E5;
+}
+html,body{width:100%;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text)}
+.page-wrap{overflow-x:hidden}
+.grad-text{background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* ══════════════════════════════════════
+   SECTION 1 — HEADER
+══════════════════════════════════════ */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 48px;
+  position:sticky;top:0;z-index:200;
+  background:rgba(245,245,250,.96);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  font-family:'Plus Jakarta Sans',sans-serif;
+}
+@media(max-width:600px){.header{padding:12px 20px}}
+.logo{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:var(--text)}
+.logo-icon{width:28px;height:28px;border-radius:7px;background:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.logo-icon svg{width:14px;height:14px}
+.logo-studio{color:var(--purple)}
+.header-cta{padding:9px 20px;border-radius:10px;background:var(--grad);color:#fff;font-size:13px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;border:none;cursor:pointer;transition:opacity .2s}
+.header-cta:hover{opacity:.88}
+
+/* ══════════════════════════════════════
+   SECTION 1 — HERO CAROUSEL
+══════════════════════════════════════ */
+.hero-carousel{position:relative;overflow:hidden}
+.hc-slide{
+  position:absolute;inset:0;
+  opacity:0;transition:opacity .85s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;z-index:1;
+}
+.hc-slide.active{opacity:1;pointer-events:all;z-index:2;position:relative}
+
+/* slide backgrounds */
+.hc-bg{position:absolute;inset:0;z-index:0}
+.bg1{background:radial-gradient(ellipse 55% 80% at 100% 50%,rgba(120,30,220,.13) 0%,transparent 60%),radial-gradient(ellipse 30% 40% at 5% 20%,rgba(236,72,153,.07) 0%,transparent 60%),var(--bg)}
+.bg2{background:radial-gradient(ellipse 55% 80% at 100% 50%,rgba(20,60,180,.12) 0%,transparent 60%),var(--bg)}
+.bg3{background:radial-gradient(ellipse 55% 80% at 100% 50%,rgba(5,110,55,.12) 0%,transparent 60%),var(--bg)}
+.bg4{background:radial-gradient(ellipse 55% 80% at 100% 50%,rgba(200,80,10,.11) 0%,transparent 60%),var(--bg)}
+.bg5{background:radial-gradient(ellipse 55% 80% at 100% 50%,rgba(0,100,200,.10) 0%,transparent 60%),var(--bg)}
+.bg6{background:radial-gradient(ellipse 55% 80% at 100% 50%,rgba(6,90,160,.11) 0%,transparent 60%),var(--bg)}
+.bg7{background:radial-gradient(ellipse 55% 80% at 100% 50%,rgba(80,0,180,.12) 0%,transparent 60%),var(--bg)}
+
+/* orbs — multiply blend on light */
+@keyframes od1{0%,100%{transform:translate(0,0)}33%{transform:translate(40px,-30px)}66%{transform:translate(-20px,35px)}}
+@keyframes od2{0%,100%{transform:translate(0,0)}40%{transform:translate(-50px,20px)}80%{transform:translate(30px,-40px)}}
+@keyframes op{0%,100%{opacity:.18}50%{opacity:.32}}
+@keyframes gd{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px) translateX(12px)}}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.65);opacity:.5}}
+.hc-anim{position:absolute;inset:0;z-index:1;pointer-events:none;mix-blend-mode:multiply}
+.orb{position:absolute;border-radius:50%;filter:blur(70px)}
+.o1{width:500px;height:500px;top:-10%;right:-5%;animation:od1 18s ease-in-out infinite,op 6s ease-in-out infinite}
+.o2{width:400px;height:400px;bottom:-10%;right:20%;animation:od2 22s ease-in-out infinite,op 8s ease-in-out infinite 1s}
+.op {background:radial-gradient(circle,rgba(192,100,255,.7),rgba(168,85,247,.4),transparent 70%)}
+.opk{background:radial-gradient(circle,rgba(255,100,180,.6),rgba(244,114,182,.35),transparent 70%)}
+.obl{background:radial-gradient(circle,rgba(80,140,255,.65),rgba(99,120,246,.38),transparent 70%)}
+.ogr{background:radial-gradient(circle,rgba(60,220,140,.6),rgba(34,197,94,.34),transparent 70%)}
+.oam{background:radial-gradient(circle,rgba(255,160,50,.6),rgba(251,146,60,.34),transparent 70%)}
+.ocy{background:radial-gradient(circle,rgba(56,189,248,.62),rgba(14,165,233,.36),transparent 70%)}
+.ote{background:radial-gradient(circle,rgba(20,200,200,.6),rgba(20,184,166,.35),transparent 70%)}
+.oin{background:radial-gradient(circle,rgba(100,80,255,.62),rgba(99,102,241,.36),transparent 70%)}
+.grid-bg{position:absolute;inset:-60px;pointer-events:none;background-image:radial-gradient(circle,rgba(0,0,0,.06) 1px,transparent 1px);background-size:44px 44px;animation:gd 25s ease-in-out infinite;-webkit-mask-image:radial-gradient(ellipse 90% 90% at 60% 50%,black 30%,transparent 80%);mask-image:radial-gradient(ellipse 90% 90% at 60% 50%,black 30%,transparent 80%)}
+
+/* overlay */
+.overlay{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(to right,rgba(245,245,250,1) 0%,rgba(245,245,250,.95) 30%,rgba(245,245,250,.7) 52%,rgba(245,245,250,.2) 72%,transparent 88%)}
+@media(max-width:680px){.overlay{background:linear-gradient(to bottom,rgba(245,245,250,.2) 0%,rgba(245,245,250,.7) 40%,rgba(245,245,250,.98) 62%)}}
+
+/* slide inner */
+.slide-inner{position:relative;z-index:4;min-height:580px;display:flex;align-items:center;font-family:'Plus Jakarta Sans',sans-serif}
+@media(max-width:680px){.slide-inner{min-height:auto;padding-bottom:0;flex-direction:column;align-items:stretch}}
+
+/* left copy */
+.hc-content{position:relative;padding:56px 0 56px 6vw;width:44%;flex-shrink:0}
+@media(max-width:1100px){.hc-content{width:48%;padding-left:4vw}}
+@media(max-width:860px){.hc-content{width:58%;padding-left:28px}}
+@media(max-width:680px){.hc-content{width:100%;padding:36px 20px 16px}}
+
+.eyebrow{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:100px;font-size:11px;font-weight:500;border:1px solid rgba(0,0,0,.1);background:rgba(0,0,0,.04);color:rgba(0,0,0,.6);margin-bottom:22px}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;animation:pulse 2s ease-in-out infinite}
+.hc-title{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(32px,4.2vw,62px);line-height:1.06;letter-spacing:-.5px;margin-bottom:18px;color:var(--text)}
+.hc-sub{font-size:15px;color:var(--text2);line-height:1.74;margin-bottom:24px;max-width:420px}
+@media(max-width:680px){.hc-sub{font-size:14px;margin-bottom:18px;max-width:100%}}
+.hc-feats{display:flex;flex-wrap:wrap;gap:6px}
+.feat{padding:4px 12px;border-radius:100px;font-size:11px;font-weight:500;border:1px solid rgba(0,0,0,.1);background:rgba(0,0,0,.04);color:rgba(0,0,0,.5)}
+
+/* right visual card */
+.vis-panel{position:absolute;right:6vw;top:50%;transform:translateY(-50%);width:320px;z-index:5}
+@media(max-width:1100px){.vis-panel{width:280px;right:3vw}}
+@media(max-width:860px){.vis-panel{width:240px;right:20px}}
+@media(max-width:680px){.vis-panel{position:relative;right:auto;top:auto;transform:none;width:100%;padding:0 20px 32px;display:flex;justify-content:center}}
+@media(max-width:680px){.vis-panel .vc{max-width:360px;width:100%}}
+
+/* card */
+.vc{width:100%;background:#fff;border:1px solid rgba(0,0,0,.09);border-radius:16px;backdrop-filter:blur(24px);box-shadow:0 8px 32px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.vp-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid rgba(0,0,0,.07);background:rgba(0,0,0,.02)}
+.vp-htitle{font-size:11px;font-weight:600;color:var(--text2)}
+.vp-hbadge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px}
+.vrow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(0,0,0,.05)}
+.vrow:last-child{border-bottom:none}
+.vicon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:1px solid rgba(0,0,0,.08)}
+.vinfo{flex:1;min-width:0}
+.vtitle{font-size:12px;font-weight:600;color:rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vsub{font-size:10.5px;color:var(--text3);margin-top:2px}
+.vbadge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;white-space:nowrap;flex-shrink:0;border:1px solid transparent}
+.vmetric-row{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(0,0,0,.06)}
+.vmetric{padding:12px 14px;background:#fff}
+.vmetric-val{font-size:20px;font-weight:800}
+.vmetric-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+.vbars{display:flex;align-items:flex-end;gap:5px;height:56px;padding:10px 14px 10px}
+.vbar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.vbar-col{width:100%;border-radius:3px 3px 0 0}
+.vbar-lbl{font-size:8px;color:var(--text3)}
+.vlaunch-btn{margin:8px 12px 12px;padding:11px 14px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;gap:7px;font-size:12.5px;font-weight:700;color:#fff}
+.c-green{color:#16A34A}.bg-green{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.22)}
+.c-pink{color:#F4349D}.bg-pink{background:rgba(244,52,157,.1);border-color:rgba(244,52,157,.2)}
+.c-purple{color:#9333EA}.bg-purple{background:rgba(147,51,234,.1);border-color:rgba(147,51,234,.2)}
+.c-amber{color:#D97706}.bg-amber{background:rgba(217,119,6,.1);border-color:rgba(217,119,6,.2)}
+.c-cyan{color:#0891B2}.bg-cyan{background:rgba(8,145,178,.1);border-color:rgba(8,145,178,.2)}
+.c-indigo{color:#4F46E5}.bg-indigo{background:rgba(79,70,229,.1);border-color:rgba(79,70,229,.2)}
+.c-red{color:#DC2626}.bg-red{background:rgba(220,38,38,.1);border-color:rgba(220,38,38,.18)}
+.prog-track{height:5px;background:rgba(0,0,0,.07);border-radius:3px;width:100%;overflow:hidden}
+
+/* nav */
+.hc-nav{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 0 8px;background:var(--bg);border-top:1px solid var(--border)}
+.hc-dot{width:6px;height:6px;border-radius:3px;background:rgba(0,0,0,.18);cursor:pointer;transition:all .38s cubic-bezier(.23,1,.32,1)}
+.hc-dot.active{width:24px;background:var(--purple)}
+.arrow{width:32px;height:32px;border-radius:7px;border:1px solid rgba(0,0,0,.1);background:rgba(0,0,0,.04);color:var(--text);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .2s;flex-shrink:0}
+.arrow:hover{background:rgba(0,0,0,.08);border-color:rgba(0,0,0,.16)}
+
+/* CTA */
+.cta-area{background:var(--bg);border-top:1px solid var(--border);padding:28px 32px;font-family:'Plus Jakarta Sans',sans-serif}
+@media(max-width:600px){.cta-area{padding:16px}}
+.cta-inner{max-width:620px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:12px}
+.cta-hint{font-size:12.5px;color:var(--text3);text-align:center}
+.inp-row{display:flex;gap:9px;width:100%}
+@media(max-width:500px){.inp-row{flex-direction:column}}
+.inp{flex:1;padding:14px 20px;background:#fff;border:1.5px solid rgba(0,0,0,.12);border-radius:12px;font-size:15px;color:var(--text);outline:none;font-family:'Plus Jakarta Sans',sans-serif;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.inp::placeholder{color:var(--text3)}
+.inp:focus{border-color:rgba(175,70,253,.5);background:#fff;box-shadow:0 0 0 3px rgba(175,70,253,.1)}
+.analyze-btn{padding:14px 26px;border-radius:12px;background:var(--grad);color:#fff;font-size:14px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;border:none;cursor:pointer;white-space:nowrap;transition:opacity .2s,transform .15s}
+.analyze-btn:hover{opacity:.9;transform:translateY(-1px)}
+.analyze-btn:active{transform:scale(.98)}
+.cta-fine{font-size:11px;color:rgba(0,0,0,.35);text-align:center}
+
+/* ══════════════════════════════════════
+   SECTION 2 — PROOF STRIP
+══════════════════════════════════════ */
+.proof-strip{background:var(--bg);border-top:1px solid rgba(0,0,0,.06);border-bottom:1px solid rgba(0,0,0,.06);padding:20px 0;overflow:hidden;position:relative}
+.proof-inner{display:flex;align-items:center;gap:0}
+.proof-label{font-size:11px;font-weight:600;color:rgba(0,0,0,.38);text-transform:uppercase;letter-spacing:1.2px;white-space:nowrap;padding:0 32px 0 48px;flex-shrink:0;position:relative}
+.proof-label::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:20px;background:rgba(0,0,0,.1)}
+@media(max-width:600px){.proof-label{padding:0 20px 0 20px;font-size:10px}}
+.marquee-wrap{flex:1;overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent 0%,black 6%,black 94%,transparent 100%);mask-image:linear-gradient(to right,transparent 0%,black 6%,black 94%,transparent 100%)}
+@keyframes marqueeScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.marquee{display:flex;align-items:center;gap:0;width:max-content;animation:marqueeScroll 32s linear infinite}
+.marquee:hover{animation-play-state:paused}
+.brand-logo{display:inline-flex;align-items:center;justify-content:center;padding:0 40px;height:48px;font-size:12px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:rgba(0,0,0,.35);white-space:nowrap;border-right:1px solid rgba(0,0,0,.07);transition:color .2s;cursor:default;flex-shrink:0}
+.brand-logo:hover{color:rgba(0,0,0,.7)}
+@media(max-width:600px){.brand-logo{padding:0 24px;font-size:11px;letter-spacing:1.4px}}
+
+/* ══════════════════════════════════════
+   SECTION 3 — FEATURES BENTO
+══════════════════════════════════════ */
+.feat-sec{background:var(--bg);padding:64px 0 72px;position:relative;overflow:hidden}
+@media(max-width:600px){.feat-sec{padding:32px 0 40px}}
+.feat-sec::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle,rgba(0,0,0,.03) 1px,transparent 1px);background-size:48px 48px;-webkit-mask-image:radial-gradient(ellipse 90% 90% at 50% 50%,black 20%,transparent 75%);mask-image:radial-gradient(ellipse 90% 90% at 50% 50%,black 20%,transparent 75%)}
+.feat-head{text-align:center;padding:0 24px;margin-bottom:48px;position:relative;z-index:2}
+.feat-kicker{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#7C3AED;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.18);margin-bottom:20px}
+.feat-h{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(30px,3.2vw,48px);line-height:1.1;letter-spacing:-.3px;color:var(--t1);margin-bottom:0}
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;max-width:1120px;margin:0 auto;padding:0 32px;position:relative;z-index:2}
+@media(max-width:860px){.bento{grid-template-columns:1fr 1fr;padding:0 20px}}
+@media(max-width:520px){.bento{grid-template-columns:1fr;padding:0 16px}}
+.bt{border-radius:20px;border:1px solid rgba(0,0,0,.07);overflow:hidden;position:relative;transition:border-color .3s,transform .3s,box-shadow .3s;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.04)}
+.bt:hover{border-color:rgba(0,0,0,.14);transform:translateY(-4px);box-shadow:0 8px 32px rgba(0,0,0,.09)}
+.bt-1{grid-column:span 5}.bt-2{grid-column:span 4}.bt-3{grid-column:span 3}.bt-4{grid-column:span 3}.bt-5{grid-column:span 5}.bt-6{grid-column:span 4}.bt-7{grid-column:span 12}
+@media(max-width:860px){.bt-1,.bt-2,.bt-3,.bt-4,.bt-5,.bt-6{grid-column:span 1}.bt-7{grid-column:span 2}}
+@media(max-width:520px){.bt-1,.bt-2,.bt-3,.bt-4,.bt-5,.bt-6,.bt-7{grid-column:span 1}}
+.bt-vis{position:relative;height:180px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(0,0,0,.018);border-bottom:1px solid rgba(0,0,0,.05)}
+.bt-7 .bt-vis{height:120px}
+.bt-stat{font-size:72px;font-weight:800;line-height:1;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;position:relative;z-index:2}
+.bt-7 .bt-stat{font-size:52px}
+.bt-icon{font-size:52px;position:relative;z-index:2;filter:drop-shadow(0 0 16px rgba(124,58,237,.2))}
+.bt-glow{position:absolute;inset:0;pointer-events:none;border-radius:20px}
+.bt-label{padding:20px 24px 24px}
+.bt-tag{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.bt-name{font-size:16px;font-weight:700;color:var(--t1);letter-spacing:-.2px;margin-bottom:4px}
+.bt-desc{font-size:13px;color:var(--t2);line-height:1.6}
+.bt-7 .bt-agent-inner{display:grid;grid-template-columns:1fr 1fr 1fr;height:100%}
+@media(max-width:700px){.bt-7 .bt-agent-inner{grid-template-columns:1fr}}
+.bt-7 .agent-col{padding:32px 36px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid rgba(0,0,0,.06)}
+.bt-7 .agent-col:last-child{border-right:none}
+.agent-step{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:12px}
+.agent-msg{font-size:14px;color:rgba(0,0,0,.7);line-height:1.6;flex:1}
+.agent-pill{display:inline-flex;align-items:center;gap:6px;margin-top:16px;font-size:12px;font-weight:600;padding:5px 12px;border-radius:100px;align-self:flex-start}
+.agent-desktop{display:block}
+.agent-mobile{display:none;margin-top:12px}
+@media(max-width:520px){.agent-desktop{display:none}.agent-mobile{display:block}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SECTION 1 — HEADER
+══════════════════════════════════════ -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#g)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="g" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop stop-color="#AF46FD"/><stop offset=".5" stop-color="#DA3BC2"/><stop offset="1" stop-color="#F4349D"/></linearGradient></defs>
+      </svg>
+    </div>
+    <span>Shiprocket <span class="logo-studio">Studio</span></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button style="padding:8px 18px;border-radius:8px;background:transparent;color:rgba(0,0,0,.6);border:1px solid rgba(0,0,0,.14);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='rgba(175,70,253,.4)';this.style.color='#111827'" onmouseout="this.style.borderColor='rgba(0,0,0,.14)';this.style.color='rgba(0,0,0,.6)'" onclick="openLoginModal()">Login</button>
+    <button class="header-cta" onclick="openStartModal()">Start Free →</button>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+<!-- ── HERO CAROUSEL ── -->
+<div class="hero-carousel">
+
+  <!-- SLIDE 1 · Brand DNA -->
+  <div class="hc-slide active">
+    <div class="hc-bg bg1"></div>
+    <div class="hc-anim"><div class="orb o1 op"></div><div class="orb o2 opk"></div><div class="grid-bg"></div></div>
+    <div class="overlay"></div>
+    <div class="slide-inner">
+      <div class="hc-content">
+        <div class="eyebrow"><span class="dot" style="background:#AF46FD"></span>Brand Intelligence</div>
+        <h1 class="hc-title">Your brand's DNA,<br>pulled from your URL<br><span class="grad-text">in 60 seconds.</span></h1>
+        <p class="hc-sub">Colors, tone, audience, category — extracted automatically from your store. No briefs, no back-and-forth. Just your brand, instantly understood.</p>
+        <div class="hc-feats"><span class="feat">Color Extraction</span><span class="feat">Tone of Voice</span><span class="feat">Audience Profile</span><span class="feat">Category Mapping</span></div>
+      </div>
+      <div class="vis-panel">
+        <div class="vc">
+          <div class="vp-head"><span class="vp-htitle">snitch.com · Brand Profile</span><span class="vp-hbadge bg-purple c-purple">87% confidence</span></div>
+          <div class="vrow">
+            <div class="vicon" style="background:#1A1A1A;font-size:15px;font-weight:800;color:#E8C547">S</div>
+            <div class="vinfo"><div class="vtitle">Snitch</div><div class="vsub">Men's Fashion · D2C</div></div>
+          </div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:8px">
+            <div class="vsub" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px">Brand Colors</div>
+            <div style="display:flex;gap:7px">
+              <div style="width:26px;height:26px;border-radius:6px;background:#1A1A1A"></div>
+              <div style="width:26px;height:26px;border-radius:6px;background:#E8C547"></div>
+              <div style="width:26px;height:26px;border-radius:6px;background:#C84B2F"></div>
+              <div style="width:26px;height:26px;border-radius:6px;background:#F5F5F0;border:1px solid rgba(0,0,0,.1)"></div>
+            </div>
+          </div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:7px">
+            <div class="vsub" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px">Tone &amp; Audience</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              <span class="vbadge bg-pink c-pink">Bold</span>
+              <span class="vbadge bg-purple c-purple">Street</span>
+              <span class="vbadge" style="background:rgba(161,126,0,.1);color:#8B6914;border-color:rgba(161,126,0,.2)">Premium</span>
+              <span class="vbadge" style="background:rgba(37,99,235,.1);color:#1D4ED8;border-color:rgba(37,99,235,.2)">Youth</span>
+            </div>
+          </div>
+          <div class="vrow" style="justify-content:space-between">
+            <span class="vsub">Category match</span>
+            <span class="vbadge bg-green c-green">Men's Fashion ✓</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2 · Creative Intelligence -->
+  <div class="hc-slide">
+    <div class="hc-bg bg2"></div>
+    <div class="hc-anim"><div class="orb o1 obl"></div><div class="orb o2 op"></div><div class="grid-bg"></div></div>
+    <div class="overlay"></div>
+    <div class="slide-inner">
+      <div class="hc-content">
+        <div class="eyebrow"><span class="dot" style="background:#4F46E5"></span>Creative Intelligence</div>
+        <h1 class="hc-title">Stop guessing why<br>some ads work and<br><span class="grad-text">others don't.</span></h1>
+        <p class="hc-sub">Hook strength, storytelling format, fatigue signals — every ad scored out of 100. Know exactly what to fix, scale, or kill before you waste another rupee.</p>
+        <div class="hc-feats"><span class="feat">Hook Analysis</span><span class="feat">Ad Score / 100</span><span class="feat">Fatigue Detection</span><span class="feat">Storytelling Audit</span></div>
+      </div>
+      <div class="vis-panel">
+        <div class="vc">
+          <div class="vp-head"><span class="vp-htitle">Creative Audit · Top Ads</span><span class="vp-hbadge bg-indigo c-indigo">12 ads scored</span></div>
+          <div class="vrow"><div class="vicon bg-green">🎯</div><div class="vinfo"><div class="vtitle">Festival Sale — Hook A</div><div class="vsub">Problem-solution · Image</div></div><span class="vbadge bg-green c-green">92</span></div>
+          <div class="vrow"><div class="vicon bg-indigo">🎬</div><div class="vinfo"><div class="vtitle">New Collection UGC</div><div class="vsub">Testimonial · Video</div></div><span class="vbadge bg-indigo c-indigo">78</span></div>
+          <div class="vrow"><div class="vicon bg-amber">⚡</div><div class="vinfo"><div class="vtitle">Influencer Collab</div><div class="vsub">Lifestyle · Reel</div></div><span class="vbadge bg-amber c-amber">61</span></div>
+          <div class="vrow"><div class="vicon bg-red">📉</div><div class="vinfo"><div class="vtitle">Generic Discount — v2</div><div class="vsub">Fatigue detected · Pause</div></div><span class="vbadge bg-red c-red">34</span></div>
+          <div class="vbars">
+            <div class="vbar-wrap"><div class="vbar-col" style="height:20px;background:rgba(220,38,38,.45)"></div><div class="vbar-lbl">34</div></div>
+            <div class="vbar-wrap"><div class="vbar-col" style="height:34px;background:rgba(217,119,6,.5)"></div><div class="vbar-lbl">61</div></div>
+            <div class="vbar-wrap"><div class="vbar-col" style="height:46px;background:rgba(79,70,229,.55)"></div><div class="vbar-lbl">78</div></div>
+            <div class="vbar-wrap"><div class="vbar-col" style="height:56px;background:rgba(22,163,74,.65)"></div><div class="vbar-lbl">92</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3 · Real ROAS -->
+  <div class="hc-slide">
+    <div class="hc-bg bg3"></div>
+    <div class="hc-anim"><div class="orb o1 ogr"></div><div class="orb o2 op"></div><div class="grid-bg"></div></div>
+    <div class="overlay"></div>
+    <div class="slide-inner">
+      <div class="hc-content">
+        <div class="eyebrow"><span class="dot" style="background:#16A34A"></span>Performance Analytics</div>
+        <h1 class="hc-title">Meta says 3.8x.<br>Here's what you<br><span class="grad-text">actually made.</span></h1>
+        <p class="hc-sub">We factor in RTO rates and delivery failures — your ROAS reflects real delivered revenue, not platform numbers. Often 30–50% lower than what's reported.</p>
+        <div class="hc-feats"><span class="feat">Delivered-Order Attribution</span><span class="feat">RTO Exclusion</span><span class="feat">True ROAS</span><span class="feat">Pincode Intelligence</span></div>
+      </div>
+      <div class="vis-panel">
+        <div class="vc">
+          <div class="vp-head"><span class="vp-htitle">Performance · Last 30 days</span><span class="vp-hbadge bg-green c-green">Live</span></div>
+          <div class="vmetric-row">
+            <div class="vmetric"><div class="vmetric-val c-green">5.1x</div><div class="vmetric-lbl">True ROAS (delivered)</div></div>
+            <div class="vmetric"><div class="vmetric-val c-red">3.8x</div><div class="vmetric-lbl">Meta reported ROAS</div></div>
+          </div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:6px">
+            <div style="display:flex;justify-content:space-between;width:100%"><span class="vsub">Delivered orders attribution</span><span style="font-size:11px;font-weight:700;color:#16A34A">+34%</span></div>
+            <div class="prog-track"><div style="width:68%;height:100%;background:linear-gradient(90deg,#16A34A,#4ADE80);border-radius:3px"></div></div>
+          </div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:6px">
+            <div style="display:flex;justify-content:space-between;width:100%"><span class="vsub">RTO risk excluded</span><span style="font-size:11px;font-weight:700;color:#DC2626">-22%</span></div>
+            <div class="prog-track"><div style="width:22%;height:100%;background:linear-gradient(90deg,#DC2626,#F87171);border-radius:3px"></div></div>
+          </div>
+          <div class="vrow" style="justify-content:space-between"><span class="vsub">D2C GMV powered</span><span class="vbadge bg-pink c-pink">₹2,000 Cr</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4 · Competitor Intelligence -->
+  <div class="hc-slide">
+    <div class="hc-bg bg4"></div>
+    <div class="hc-anim"><div class="orb o1 oam"></div><div class="orb o2 opk"></div><div class="grid-bg"></div></div>
+    <div class="overlay"></div>
+    <div class="slide-inner">
+      <div class="hc-content">
+        <div class="eyebrow"><span class="dot" style="background:#D97706"></span>Competitor Intelligence</div>
+        <h1 class="hc-title">See every ad your<br>rivals are running.<br><span class="grad-text">Right now.</span></h1>
+        <p class="hc-sub">Track active ads, creative angles, hooks, and budget signals across your category — sourced live from Meta Ad Library. Spot trends before you pay to test them.</p>
+        <div class="hc-feats"><span class="feat">Live Ad Tracking</span><span class="feat">Hook Comparison</span><span class="feat">Creative Patterns</span><span class="feat">Category Trends</span></div>
+      </div>
+      <div class="vis-panel">
+        <div class="vc">
+          <div class="vp-head"><span class="vp-htitle">Competitor Tracker · Men's Fashion</span><span class="vp-hbadge bg-amber c-amber">4 rivals</span></div>
+          <div class="vrow"><div class="vicon" style="background:#1A1A1A;font-size:12px;font-weight:800;color:#E8C547">RR</div><div class="vinfo"><div class="vtitle">Rare Rabbit</div><div class="vsub">18 active ads · Lifestyle heavy</div></div><span class="vbadge bg-red c-red">● Live</span></div>
+          <div class="vrow"><div class="vicon" style="background:#111827;font-size:12px;font-weight:800;color:#F9FAFB">SN</div><div class="vinfo"><div class="vtitle">Snitch</div><div class="vsub">9 active ads · UGC-led</div></div><span class="vbadge bg-red c-red">● Live</span></div>
+          <div class="vrow"><div class="vicon" style="background:#1C1917;font-size:12px;font-weight:800;color:#D97706">MF</div><div class="vinfo"><div class="vtitle">Mufti</div><div class="vsub">6 active ads · Discount push</div></div><span class="vbadge bg-amber c-amber">↑ Scaling</span></div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:6px">
+            <div class="vsub" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px">Trending hook this week</div>
+            <div style="padding:8px 10px;border-radius:8px;background:rgba(217,119,6,.07);border:1px solid rgba(217,119,6,.18);font-size:11.5px;color:rgba(0,0,0,.7);width:100%;line-height:1.4">"Festival looks under ₹999" — 3 brands testing</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5 · Audience Pro -->
+  <div class="hc-slide">
+    <div class="hc-bg bg6"></div>
+    <div class="hc-anim"><div class="orb o1 ote"></div><div class="orb o2 ocy"></div><div class="grid-bg"></div></div>
+    <div class="overlay"></div>
+    <div class="slide-inner">
+      <div class="hc-content">
+        <div class="eyebrow"><span class="dot" style="background:#0891B2"></span>Audience Pro</div>
+        <h1 class="hc-title">Stop testing cold.<br>Buy audiences that<br><span class="grad-text">already convert.</span></h1>
+        <p class="hc-sub">High-LTV buyer segments built from real purchase data — with RTO-risk exclusions and COD vs prepaid intent signals baked in. Skip the cold testing tax entirely.</p>
+        <div class="hc-feats"><span class="feat">High-LTV Segments</span><span class="feat">RTO Risk Exclusion</span><span class="feat">COD vs Prepaid Intent</span><span class="feat">Purchasable Audiences</span></div>
+      </div>
+      <div class="vis-panel">
+        <div class="vc">
+          <div class="vp-head"><span class="vp-htitle">Audience Segments · Fashion</span><span class="vp-hbadge bg-cyan c-cyan">4 available</span></div>
+          <div class="vrow"><div class="vicon bg-cyan" style="font-size:15px">👩</div><div class="vinfo"><div class="vtitle">Fashion Repeat Buyers</div><div class="vsub">F · 22–34 · Prepaid · 3.2x LTV</div></div><span class="vbadge bg-green c-green">Buy</span></div>
+          <div class="vrow"><div class="vicon bg-purple" style="font-size:15px">👨</div><div class="vinfo"><div class="vtitle">Urban Men · Apparel</div><div class="vsub">M · 25–40 · Metro · 2.7x LTV</div></div><span class="vbadge bg-green c-green">Buy</span></div>
+          <div class="vrow"><div class="vicon" style="background:rgba(161,126,0,.1);border-color:rgba(161,126,0,.18);font-size:15px">🏆</div><div class="vinfo"><div class="vtitle">D2C Loyalists · Premium</div><div class="vsub">Mixed · 4.1x ROAS proven</div></div><span class="vbadge bg-green c-green">Buy</span></div>
+          <div class="vrow" style="background:rgba(220,38,38,.04)"><div class="vicon bg-red" style="font-size:15px">🚫</div><div class="vinfo"><div class="vtitle">High RTO Risk · Tier 3</div><div class="vsub">COD · 68% RTO · Auto-excluded</div></div><span class="vbadge bg-red c-red">Out</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6 · Ad Launcher -->
+  <div class="hc-slide">
+    <div class="hc-bg bg7"></div>
+    <div class="hc-anim"><div class="orb o1 oin"></div><div class="orb o2 opk"></div><div class="grid-bg"></div></div>
+    <div class="overlay"></div>
+    <div class="slide-inner">
+      <div class="hc-content">
+        <div class="eyebrow"><span class="dot" style="background:#7C3AED"></span>Ad Launcher</div>
+        <h1 class="hc-title">50 ads live.<br>One click.<br><span class="grad-text">Two minutes.</span></h1>
+        <p class="hc-sub">Brief in, brand applied, formats generated — launch up to 50 creatives at once across Meta placements. Run bigger experiments without the operational overhead.</p>
+        <div class="hc-feats"><span class="feat">Bulk Launch · 50 Ads</span><span class="feat">Feed · Story · Reel</span><span class="feat">Brand-consistent</span><span class="feat">One-click to Meta</span></div>
+      </div>
+      <div class="vis-panel">
+        <div class="vc">
+          <div class="vp-head"><span class="vp-htitle">Launching · 48 ads · 6 ad sets</span><span class="vp-hbadge bg-indigo c-indigo">In progress</span></div>
+          <div class="vrow"><div class="vicon" style="background:linear-gradient(135deg,#1a0533,#4a0e8f);border:none;font-size:14px">🛍️</div><div class="vinfo"><div class="vtitle">Festival Sale — Hook A</div><div class="vsub">Feed · ₹1,200/day · W 22–34</div></div><span class="vbadge bg-green c-green">Live</span></div>
+          <div class="vrow"><div class="vicon" style="background:linear-gradient(135deg,#0d1f3c,#1e4080);border:none;font-size:14px">👗</div><div class="vinfo"><div class="vtitle">New Collection — Hook B</div><div class="vsub">Reel · ₹800/day · All</div></div><span class="vbadge bg-green c-green">Live</span></div>
+          <div class="vrow"><div class="vicon" style="background:linear-gradient(135deg,#1a1a1a,#3d1515);border:none;font-size:14px">🎬</div><div class="vinfo"><div class="vtitle">Testimonial · Social Proof</div><div class="vsub">Story · ₹600/day · Lookalike</div></div><span class="vbadge bg-purple c-purple">Queued</span></div>
+          <div class="vrow"><div class="vicon" style="background:linear-gradient(135deg,#0a2618,#0d4a2e);border:none;font-size:14px">✨</div><div class="vinfo"><div class="vtitle">UGC Pack · 8 variants</div><div class="vsub">Feed + Story · ₹2,400/day</div></div><span class="vbadge bg-amber c-amber">Ready</span></div>
+          <div class="vlaunch-btn">⚡ Launch All 48 Ads</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7 · AI Agent -->
+  <div class="hc-slide">
+    <div class="hc-bg bg5"></div>
+    <div class="hc-anim"><div class="orb o1 ocy"></div><div class="orb o2 obl"></div><div class="grid-bg"></div></div>
+    <div class="overlay"></div>
+    <div class="slide-inner">
+      <div class="hc-content">
+        <div class="eyebrow"><span class="dot" style="background:#0891B2"></span>Ads AI Agent</div>
+        <h1 class="hc-title">Your campaigns,<br>running themselves.<br><span class="grad-text">Profitably.</span></h1>
+        <p class="hc-sub">The agent catches fatigue, shifts budget to winners, and surfaces recommendations — 24/7. You approve the big calls. It handles everything else.</p>
+        <div class="hc-feats"><span class="feat">24/7 Monitoring</span><span class="feat">Budget Reallocation</span><span class="feat">Fatigue Alerts</span><span class="feat">One-click Actions</span></div>
+      </div>
+      <div class="vis-panel">
+        <div class="vc">
+          <div class="vp-head"><span class="vp-htitle">AI Agent · Live Activity</span><span class="vp-hbadge bg-cyan c-cyan">● Watching</span></div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Detected</div><div style="font-size:12px;color:rgba(0,0,0,.72);line-height:1.5">"Festival Sale" — CTR dropped 34% in 48h. Fatigue confirmed.</div></div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:4px;background:rgba(22,163,74,.04)"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#16A34A">Action Taken</div><div style="font-size:12px;color:rgba(0,0,0,.72);line-height:1.5">Budget shifted → "New Collection" +₹3,200/day. Underperformer paused.</div></div>
+          <div class="vrow" style="flex-direction:column;align-items:flex-start;gap:4px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Result · 6h later</div><div style="font-size:12px;color:rgba(0,0,0,.72);line-height:1.5">ROAS recovered: 2.1x → 4.7x. Spend efficiency up 58%.</div></div>
+          <div class="vrow" style="justify-content:space-between"><span class="vsub">Next check-in</span><span class="vbadge bg-cyan c-cyan">in 2h 14m</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /hero-carousel -->
+
+<!-- NAV -->
+<div class="hc-nav">
+  <button class="arrow" onclick="hcPrev()">←</button>
+  <div id="dots" style="display:flex;gap:7px;align-items:center"></div>
+  <button class="arrow" onclick="hcNext()">→</button>
+</div>
+
+<!-- CTA -->
+<div class="cta-area">
+  <div class="cta-inner">
+    <p class="cta-hint">Enter your store URL — we'll extract your brand profile in 60 seconds, no login needed</p>
+    <div class="inp-row">
+      <input class="inp" type="text" id="hc-inp" placeholder="yourstore.com" onkeydown="if(event.key==='Enter')handleAnalyze()" />
+      <button class="analyze-btn" onclick="handleAnalyze()">Analyze →</button>
+    </div>
+    <p class="cta-fine">Read-only scan &nbsp;·&nbsp; No credit card &nbsp;·&nbsp; No ad account needed to start</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 2 — PROOF STRIP
+══════════════════════════════════════ -->
+<div class="proof-strip">
+  <div class="proof-inner">
+    <span class="proof-label">Trusted by</span>
+    <div class="marquee-wrap">
+      <div class="marquee">
+        <span class="brand-logo">Snitch</span>
+        <span class="brand-logo">Rare Rabbit</span>
+        <span class="brand-logo">Mamaearth</span>
+        <span class="brand-logo">Bewakoof</span>
+        <span class="brand-logo">boAt</span>
+        <span class="brand-logo">Wow Skin</span>
+        <span class="brand-logo">Foxtale</span>
+        <span class="brand-logo">Sugar Cosmetics</span>
+        <span class="brand-logo">The Souled Store</span>
+        <span class="brand-logo">Hidesign</span>
+        <span class="brand-logo">Nykd by Nykaa</span>
+        <span class="brand-logo">Fixderma</span>
+        <span class="brand-logo">Mufti</span>
+        <span class="brand-logo">Skullcandy</span>
+        <span class="brand-logo">Anveshan</span>
+        <span class="brand-logo">Snitch</span>
+        <span class="brand-logo">Rare Rabbit</span>
+        <span class="brand-logo">Mamaearth</span>
+        <span class="brand-logo">Bewakoof</span>
+        <span class="brand-logo">boAt</span>
+        <span class="brand-logo">Wow Skin</span>
+        <span class="brand-logo">Foxtale</span>
+        <span class="brand-logo">Sugar Cosmetics</span>
+        <span class="brand-logo">The Souled Store</span>
+        <span class="brand-logo">Hidesign</span>
+        <span class="brand-logo">Nykd by Nykaa</span>
+        <span class="brand-logo">Fixderma</span>
+        <span class="brand-logo">Mufti</span>
+        <span class="brand-logo">Skullcandy</span>
+        <span class="brand-logo">Anveshan</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 3 — FEATURES BENTO
+══════════════════════════════════════ -->
+<section class="feat-sec">
+
+  <div class="feat-head">
+    <div class="feat-kicker">✦ What's inside</div>
+    <h2 class="feat-h">Seven layers of intelligence.<br><span class="grad-text">One unfair advantage.</span></h2>
+  </div>
+
+  <div class="bento">
+
+    <!-- 1 · Brand DNA -->
+    <div class="bt bt-1">
+      <div class="bt-vis">
+        <div class="bt-glow" style="background:radial-gradient(circle at 50% 60%,rgba(124,58,237,.1),transparent 70%)"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;position:relative;z-index:2">
+          <div style="display:flex;gap:8px">
+            <div style="width:36px;height:36px;border-radius:9px;background:#1A1A1A"></div>
+            <div style="width:36px;height:36px;border-radius:9px;background:#E8C547"></div>
+            <div style="width:36px;height:36px;border-radius:9px;background:#C84B2F"></div>
+            <div style="width:36px;height:36px;border-radius:9px;background:#E8E8E0;border:1px solid rgba(0,0,0,.08)"></div>
+            <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#9333EA,#EC4899)"></div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:220px">
+            <span style="padding:3px 10px;border-radius:100px;font-size:11px;font-weight:500;border:1px solid rgba(124,58,237,.25);color:rgba(109,40,217,.9);background:rgba(124,58,237,.07)">Bold</span>
+            <span style="padding:3px 10px;border-radius:100px;font-size:11px;font-weight:500;border:1px solid rgba(236,72,153,.25);color:rgba(219,39,119,.9);background:rgba(236,72,153,.07)">Street</span>
+            <span style="padding:3px 10px;border-radius:100px;font-size:11px;font-weight:500;border:1px solid rgba(217,119,6,.25);color:rgba(180,83,9,.9);background:rgba(217,119,6,.06)">Premium</span>
+            <span style="padding:3px 10px;border-radius:100px;font-size:11px;font-weight:500;border:1px solid rgba(37,99,235,.25);color:rgba(29,78,216,.9);background:rgba(37,99,235,.06)">Youth</span>
+          </div>
+        </div>
+      </div>
+      <div class="bt-label">
+        <div class="bt-tag">Brand Intelligence</div>
+        <div class="bt-name">Brand DNA Profile</div>
+        <div class="bt-desc">Colors, tone &amp; audience — extracted from your URL in 60 seconds.</div>
+      </div>
+    </div>
+
+    <!-- 2 · Creative Score -->
+    <div class="bt bt-2">
+      <div class="bt-vis">
+        <div class="bt-glow" style="background:radial-gradient(circle at 50% 70%,rgba(99,102,241,.12),transparent 65%)"></div>
+        <div class="bt-stat">92</div>
+        <div style="position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:12px;color:rgba(0,0,0,.35);z-index:2">out of 100 · hook strength</div>
+      </div>
+      <div class="bt-label">
+        <div class="bt-tag">Creative Intelligence</div>
+        <div class="bt-name">Ad Scoring</div>
+        <div class="bt-desc">Every creative scored. Know what to scale and what to kill.</div>
+      </div>
+    </div>
+
+    <!-- 3 · True ROAS -->
+    <div class="bt bt-3">
+      <div class="bt-vis" style="flex-direction:column;gap:6px">
+        <div class="bt-glow" style="background:radial-gradient(circle at 50% 60%,rgba(22,163,74,.1),transparent 65%)"></div>
+        <div style="font-size:11px;color:rgba(220,38,38,.7);font-weight:600;position:relative;z-index:2">Meta says 3.8x</div>
+        <div style="font-size:56px;font-weight:800;color:#16A34A;line-height:1;position:relative;z-index:2">5.1x</div>
+        <div style="font-size:11px;color:rgba(22,163,74,.7);font-weight:600;position:relative;z-index:2">True ROAS</div>
+      </div>
+      <div class="bt-label">
+        <div class="bt-tag">Commerce Attribution</div>
+        <div class="bt-name">Real ROAS</div>
+        <div class="bt-desc">After RTO exclusion. Not platform math.</div>
+      </div>
+    </div>
+
+    <!-- 4 · Competitor -->
+    <div class="bt bt-4">
+      <div class="bt-vis">
+        <div class="bt-glow" style="background:radial-gradient(circle at 50% 60%,rgba(234,88,12,.1),transparent 65%)"></div>
+        <div class="bt-icon">🔍</div>
+      </div>
+      <div class="bt-label">
+        <div class="bt-tag">Competitor Intelligence</div>
+        <div class="bt-name">Competitor Tracker</div>
+        <div class="bt-desc">See every ad your rivals are running. Right now.</div>
+      </div>
+    </div>
+
+    <!-- 5 · Audience Pro -->
+    <div class="bt bt-5">
+      <div class="bt-vis">
+        <div class="bt-glow" style="background:radial-gradient(circle at 50% 60%,rgba(8,145,178,.1),transparent 65%)"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:72%;position:relative;z-index:2">
+          <div style="padding:10px 14px;border-radius:10px;background:rgba(8,145,178,.06);border:1px solid rgba(8,145,178,.16);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;color:rgba(0,0,0,.65)">Fashion Repeat Buyers</span>
+            <span style="font-size:11px;font-weight:700;color:#16A34A">Buy</span>
+          </div>
+          <div style="padding:10px 14px;border-radius:10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.16);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;color:rgba(0,0,0,.65)">Urban Men · Metro</span>
+            <span style="font-size:11px;font-weight:700;color:#16A34A">Buy</span>
+          </div>
+          <div style="padding:10px 14px;border-radius:10px;background:rgba(220,38,38,.04);border:1px solid rgba(220,38,38,.14);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;color:rgba(0,0,0,.4)">High RTO Risk · Tier 3</span>
+            <span style="font-size:11px;font-weight:700;color:#DC2626">Excluded</span>
+          </div>
+        </div>
+      </div>
+      <div class="bt-label">
+        <div class="bt-tag">Audience Pro</div>
+        <div class="bt-name">Purchasable Audiences</div>
+        <div class="bt-desc">Buy segments with proven purchase history. RTO risk auto-excluded.</div>
+      </div>
+    </div>
+
+    <!-- 6 · Ad Launcher -->
+    <div class="bt bt-6">
+      <div class="bt-vis" style="flex-direction:column;gap:4px">
+        <div class="bt-glow" style="background:radial-gradient(circle at 50% 60%,rgba(99,102,241,.12),transparent 65%)"></div>
+        <div class="bt-stat" style="font-size:80px">50</div>
+        <div style="font-size:12px;color:rgba(0,0,0,.35);position:relative;z-index:2">ads · one click · two minutes</div>
+      </div>
+      <div class="bt-label">
+        <div class="bt-tag">Ad Launcher</div>
+        <div class="bt-name">Bulk Launch</div>
+        <div class="bt-desc">Feed, Story, Reel — brand-consistent and live in minutes.</div>
+      </div>
+    </div>
+
+    <!-- 7 · AI Agent — DESKTOP -->
+    <div class="bt bt-7 agent-desktop" style="border-color:rgba(124,58,237,.18);background:#fff">
+      <div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;min-height:210px">
+        <div style="padding:28px 28px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid rgba(0,0,0,.06);position:relative;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(ellipse 80% 80% at 10% 90%,rgba(124,58,237,.07),transparent 65%);pointer-events:none"></div>
+          <div style="position:relative;z-index:1">
+            <div class="bt-tag" style="margin-bottom:8px;color:#7C3AED">Agentic AI</div>
+            <div style="font-size:18px;font-weight:700;color:var(--t1);letter-spacing:-.2px;line-height:1.25;margin-bottom:6px">Ads AI Agent</div>
+            <div style="font-size:12.5px;color:var(--t2);line-height:1.6">Monitors 24/7, catches fatigue, shifts budget. You approve. It executes.</div>
+          </div>
+          <div style="display:flex;gap:20px;position:relative;z-index:1;margin-top:20px">
+            <div><div style="font-size:20px;font-weight:800;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">24/7</div><div style="font-size:10px;color:var(--t3);margin-top:1px">Always on</div></div>
+            <div><div style="font-size:20px;font-weight:800;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">40%</div><div style="font-size:10px;color:var(--t3);margin-top:1px">ROAS uplift</div></div>
+            <div><div style="font-size:20px;font-weight:800;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">5.1x</div><div style="font-size:10px;color:var(--t3);margin-top:1px">Avg. ROAS</div></div>
+          </div>
+        </div>
+        <div style="padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid rgba(0,0,0,.06)">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:12px">01 · Detected</div>
+            <div style="font-size:13.5px;color:rgba(0,0,0,.7);line-height:1.65">"Festival Sale" CTR dropped 34% in 48h. Frequency hitting fatigue threshold.</div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;margin-top:18px;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:100px;align-self:flex-start;background:rgba(220,38,38,.07);color:#DC2626;border:1px solid rgba(220,38,38,.18)">⚠ Fatigue confirmed</span>
+        </div>
+        <div style="padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid rgba(0,0,0,.06)">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:12px">02 · Action taken</div>
+            <div style="font-size:13.5px;color:rgba(0,0,0,.7);line-height:1.65">Budget shifted to "New Collection" +₹3,200/day. Underperformer paused automatically.</div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;margin-top:18px;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:100px;align-self:flex-start;background:rgba(124,58,237,.08);color:#7C3AED;border:1px solid rgba(124,58,237,.2)">✦ Auto-reallocated</span>
+        </div>
+        <div style="padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:12px">03 · Result · 6h later</div>
+            <div style="font-size:13.5px;color:rgba(0,0,0,.7);line-height:1.65">ROAS recovered 2.1x → 4.7x. Spend efficiency up 58%. Zero manual work.</div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;margin-top:18px;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:100px;align-self:flex-start;background:rgba(22,163,74,.08);color:#16A34A;border:1px solid rgba(22,163,74,.2)">↑ 4.7x ROAS restored</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /bento -->
+
+  <!-- MOBILE-ONLY AI AGENT CARD -->
+  <div class="agent-mobile">
+    <div style="max-width:100%;margin:0 16px;border-radius:20px;border:1px solid rgba(124,58,237,.16);background:#fff;overflow:hidden;position:relative;box-shadow:0 4px 24px rgba(0,0,0,.07)">
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(124,58,237,.07),transparent 65%);pointer-events:none"></div>
+      <div style="padding:24px 20px 20px;position:relative;z-index:1;border-bottom:1px solid rgba(0,0,0,.06)">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#7C3AED;margin-bottom:8px">Agentic AI</div>
+        <div style="font-size:20px;font-weight:700;color:var(--t1);letter-spacing:-.3px;margin-bottom:6px">Ads AI Agent</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.6">Monitors 24/7, catches fatigue, shifts budget. You approve. It executes.</div>
+        <div style="display:flex;gap:0;margin-top:20px;border:1px solid rgba(0,0,0,.07);border-radius:12px;overflow:hidden">
+          <div style="flex:1;padding:12px 0;text-align:center;border-right:1px solid rgba(0,0,0,.07)"><div style="font-size:20px;font-weight:800;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">24/7</div><div style="font-size:10px;color:var(--t3);margin-top:2px">Always on</div></div>
+          <div style="flex:1;padding:12px 0;text-align:center;border-right:1px solid rgba(0,0,0,.07)"><div style="font-size:20px;font-weight:800;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">40%</div><div style="font-size:10px;color:var(--t3);margin-top:2px">ROAS uplift</div></div>
+          <div style="flex:1;padding:12px 0;text-align:center"><div style="font-size:20px;font-weight:800;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">5.1x</div><div style="font-size:10px;color:var(--t3);margin-top:2px">Avg. ROAS</div></div>
+        </div>
+      </div>
+      <div style="padding:20px;position:relative;z-index:1;display:flex;flex-direction:column;gap:0">
+        <div style="position:absolute;left:32px;top:28px;bottom:28px;width:1px;background:linear-gradient(to bottom,rgba(220,38,38,.3),rgba(124,58,237,.3),rgba(22,163,74,.3))"></div>
+        <div style="display:flex;gap:16px;align-items:flex-start;padding-bottom:20px">
+          <div style="width:24px;height:24px;border-radius:50%;background:rgba(220,38,38,.1);border:1.5px solid rgba(220,38,38,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;z-index:1"><div style="width:7px;height:7px;border-radius:50%;background:#DC2626"></div></div>
+          <div style="flex:1"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);margin-bottom:5px">01 · Detected</div><div style="font-size:13px;color:rgba(0,0,0,.7);line-height:1.6;margin-bottom:8px">"Festival Sale" CTR dropped 34% in 48h. Fatigue threshold hit.</div><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:rgba(220,38,38,.07);color:#DC2626;border:1px solid rgba(220,38,38,.18)">⚠ Fatigue confirmed</span></div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:flex-start;padding-bottom:20px">
+          <div style="width:24px;height:24px;border-radius:50%;background:rgba(124,58,237,.1);border:1.5px solid rgba(124,58,237,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;z-index:1"><div style="width:7px;height:7px;border-radius:50%;background:#7C3AED"></div></div>
+          <div style="flex:1"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);margin-bottom:5px">02 · Action taken</div><div style="font-size:13px;color:rgba(0,0,0,.7);line-height:1.6;margin-bottom:8px">Budget shifted to "New Collection" +₹3,200/day. Underperformer paused.</div><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:rgba(124,58,237,.08);color:#7C3AED;border:1px solid rgba(124,58,237,.2)">✦ Auto-reallocated</span></div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:flex-start">
+          <div style="width:24px;height:24px;border-radius:50%;background:rgba(22,163,74,.1);border:1.5px solid rgba(22,163,74,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;z-index:1"><div style="width:7px;height:7px;border-radius:50%;background:#16A34A"></div></div>
+          <div style="flex:1"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);margin-bottom:5px">03 · Result · 6h later</div><div style="font-size:13px;color:rgba(0,0,0,.7);line-height:1.6;margin-bottom:8px">ROAS recovered 2.1x → 4.7x. Spend efficiency up 58%.</div><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:rgba(22,163,74,.08);color:#16A34A;border:1px solid rgba(22,163,74,.2)">↑ 4.7x ROAS restored</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ══════════════════════════════════════
+     SECTION 4 — CREATIVES THAT CONVERT
+══════════════════════════════════════ -->
+<style>
+.ctc-sec{background:var(--bg);padding:64px 0 72px;position:relative;overflow:hidden}
+@media(max-width:600px){.ctc-sec{padding:32px 0 40px}}
+.ctc-sec::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 60% at 75% 50%,rgba(175,70,253,.05),transparent 65%),radial-gradient(ellipse 35% 45% at 15% 55%,rgba(244,52,157,.04),transparent 65%)}
+.ctc-inner{max-width:1120px;margin:0 auto;padding:0 32px;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;position:relative;z-index:2}
+@media(max-width:860px){.ctc-inner{grid-template-columns:1fr;gap:40px;padding:0 20px}}
+.ctc-kicker{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#EC4899;background:rgba(236,72,153,.07);border:1px solid rgba(236,72,153,.18);margin-bottom:20px}
+.ctc-h{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(30px,3.2vw,46px);line-height:1.1;letter-spacing:-.3px;color:var(--t1);margin-bottom:16px}
+.ctc-sub{font-size:15px;color:var(--t2);line-height:1.75;margin-bottom:28px;max-width:400px}
+.ctc-bullets{display:flex;flex-direction:column;gap:11px;margin-bottom:32px}
+.ctc-bullet{display:flex;align-items:flex-start;gap:11px;font-size:13.5px;color:rgba(0,0,0,.65);line-height:1.5}
+.ctc-bullet-dot{width:19px;height:19px;border-radius:6px;flex-shrink:0;margin-top:1px;background:rgba(236,72,153,.08);border:1px solid rgba(236,72,153,.2);display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#EC4899}
+.ctc-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:11px;background:var(--grad);color:#fff;font-size:14px;font-weight:600;font-family:inherit;border:none;cursor:pointer;transition:opacity .2s,transform .15s}
+.ctc-cta:hover{opacity:.9;transform:translateY(-1px)}
+
+/* right spotlight */
+.ctc-spotlight{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:0}
+.ctc-frame-wrap{position:relative;display:flex;flex-direction:column;gap:16px;width:100%}
+.ctc-frame{position:relative;width:100%;z-index:2}
+.ctc-glow{position:absolute;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(175,70,253,.14),transparent 70%);filter:blur(40px);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0;transition:background .6s ease}
+.ctc-img-wrap{border-radius:16px;overflow:visible;position:relative;border:1px solid rgba(0,0,0,.1);box-shadow:0 20px 60px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);aspect-ratio:1/1;background:#f0f0f5;z-index:1}
+.ctc-slide-img{position:absolute;inset:0;opacity:0;transition:opacity .65s cubic-bezier(.4,0,.2,1)}
+.ctc-slide-img.active{opacity:1}
+.ctc-slide-img img{width:100%;height:100%;object-fit:cover;display:block}
+.ctc-img-badge{position:absolute;bottom:10px;left:10px;z-index:3;padding:4px 10px;border-radius:100px;background:rgba(0,0,0,.64);backdrop-filter:blur(10px);font-size:10px;font-weight:600;color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:5px}
+.ctc-img-badge-dot{width:5px;height:5px;border-radius:50%;background:var(--grad)}
+
+/* score badge */
+.ctc-score-badge{position:absolute;bottom:-28px;right:-28px;z-index:4;width:100px;height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transition:opacity .4s,transform .4s}
+.ctc-score-badge.changing{opacity:0;transform:scale(.85) translate(6px,6px)}
+.ctc-score-svg{position:absolute;inset:0;transform:rotate(-90deg);width:100%;height:100%}
+.ctc-ring-track{fill:none;stroke:rgba(0,0,0,.08);stroke-width:7}
+.ctc-ring-fill{fill:none;stroke-width:7;stroke-linecap:round;stroke:url(#ringGrad);stroke-dasharray:276.46;stroke-dashoffset:30.41;transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1)}
+.ctc-ring-bg{fill:#fff}
+.ctc-score-tag{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(0,0,0,.4);position:relative;z-index:1}
+.ctc-score-num{font-size:26px;font-weight:800;line-height:1;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;position:relative;z-index:1}
+.ctc-score-lbl{font-size:8.5px;font-weight:600;color:rgba(0,0,0,.38);letter-spacing:.2px;position:relative;z-index:1}
+
+/* strip */
+.ctc-strip{display:flex;align-items:stretch;border:1px solid rgba(0,0,0,.08);border-radius:12px;overflow:hidden;background:#fff;transition:opacity .4s;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.ctc-strip.changing{opacity:0}
+.ctc-strip-item{flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:3px;border-right:1px solid rgba(0,0,0,.07)}
+.ctc-strip-item:last-child{border-right:none}
+.ctc-strip-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t3)}
+.ctc-strip-val{font-size:13px;font-weight:700;color:var(--t1)}
+.ctc-strip-sub{font-size:10.5px;color:var(--t2)}
+@media(max-width:480px){.ctc-strip-sub{display:none}.ctc-strip-item{padding:10px 12px}}
+
+/* dot nav */
+.ctc-dots{display:flex;gap:6px;margin-top:14px;justify-content:center;position:relative;z-index:3}
+.ctc-dot{width:5px;height:5px;border-radius:50%;background:rgba(0,0,0,.18);cursor:pointer;transition:all .32s cubic-bezier(.23,1,.32,1)}
+.ctc-dot.active{background:var(--purple);width:18px;border-radius:3px}
+
+/* ══════════════════════════════════════
+   SECTION 5 — QUESTIONS MARQUEE
+══════════════════════════════════════ */
+.qa-sec{background:var(--bg);padding:64px 0 72px;position:relative;overflow:hidden}
+@media(max-width:600px){.qa-sec{padding:32px 0 40px}}
+.qa-sec::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 50% 60% at 50% 100%,rgba(175,70,253,.04),transparent 65%)}
+.qa-head{text-align:center;padding:0 24px;margin-bottom:36px;position:relative;z-index:2}
+.qa-kicker{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#7C3AED;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.18);margin-bottom:20px}
+.qa-h{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(28px,3vw,44px);line-height:1.1;letter-spacing:-.3px;color:var(--t1);margin-bottom:12px}
+.qa-sub{font-size:15px;color:var(--t2);line-height:1.7;max-width:480px;margin:0 auto}
+.qa-marquee-outer{position:relative;-webkit-mask-image:linear-gradient(to right,transparent 0%,black 8%,black 92%,transparent 100%);mask-image:linear-gradient(to right,transparent 0%,black 8%,black 92%,transparent 100%)}
+.qa-row{display:flex;gap:14px;margin-bottom:14px;width:max-content}
+.qa-row:last-child{margin-bottom:0}
+@keyframes qaLeft{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes qaRight{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.qa-row-1{animation:qaLeft 38s linear infinite}
+.qa-row-2{animation:qaRight 42s linear infinite}
+.qa-marquee-outer:hover .qa-row{animation-play-state:paused}
+.qa-card{flex-shrink:0;width:300px;padding:22px 24px;border-radius:16px;background:#fff;border:1px solid rgba(0,0,0,.07);box-shadow:0 2px 10px rgba(0,0,0,.04);display:flex;flex-direction:column;gap:14px;transition:border-color .25s,box-shadow .25s;cursor:default}
+.qa-card:hover{border-color:rgba(0,0,0,.14);box-shadow:0 6px 24px rgba(0,0,0,.07)}
+.qa-q{font-size:14px;font-weight:600;color:rgba(0,0,0,.82);line-height:1.55;font-family:'Instrument Serif',serif;font-style:italic}
+.qa-answer{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:100px;font-size:11.5px;font-weight:600;align-self:flex-start}
+.qa-vis{border-radius:10px;background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.06);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.qa-vis-row{display:flex;align-items:center;gap:8px}
+.qa-vis-label{font-size:10px;color:var(--t3);width:72px;flex-shrink:0}
+.qa-vis-bar-wrap{flex:1;height:5px;background:rgba(0,0,0,.08);border-radius:3px;overflow:hidden}
+.qa-vis-bar{height:100%;border-radius:3px}
+.qa-vis-val{font-size:10px;font-weight:700;width:32px;text-align:right;flex-shrink:0}
+.qa-stat-row{display:flex;align-items:baseline;gap:6px}
+.qa-stat-num{font-size:22px;font-weight:800;line-height:1}
+.qa-stat-ctx{font-size:11px;color:var(--t2);line-height:1.4}
+.qa-comp{display:flex;gap:8px}
+.qa-comp-col{flex:1;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.07)}
+.qa-comp-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);margin-bottom:4px}
+.qa-comp-val{font-size:14px;font-weight:800}
+.qa-comp-sub{font-size:9.5px;color:var(--t2);margin-top:2px}
+
+/* ══════════════════════════════════════
+   SECTION 6 — TESTIMONIALS
+══════════════════════════════════════ */
+.testi-sec{background:var(--bg);padding:64px 0 72px;position:relative;overflow:hidden}
+@media(max-width:600px){.testi-sec{padding:32px 0 40px}}
+.testi-sec::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 40% 50% at 15% 50%,rgba(175,70,253,.04),transparent 65%),radial-gradient(ellipse 40% 50% at 85% 50%,rgba(244,52,157,.03),transparent 65%)}
+.testi-head{text-align:center;padding:0 24px;margin-bottom:36px;position:relative;z-index:2}
+.testi-kicker{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#EC4899;background:rgba(236,72,153,.07);border:1px solid rgba(236,72,153,.18);margin-bottom:20px}
+.testi-h{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(28px,3vw,44px);line-height:1.1;letter-spacing:-.3px;color:var(--t1)}
+.testi-carousel-wrap{position:relative;max-width:1100px;margin:0 auto;padding:0 32px}
+@media(max-width:600px){.testi-carousel-wrap{padding:0 20px}}
+.testi-track-outer{overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent 0%,black 4%,black 96%,transparent 100%);mask-image:linear-gradient(to right,transparent 0%,black 4%,black 96%,transparent 100%)}
+.testi-track{display:flex;gap:16px;transition:transform .5s cubic-bezier(.4,0,.2,1);will-change:transform}
+.tc{flex:0 0 calc(33.333% - 11px);border-radius:20px;background:#fff;border:1px solid rgba(0,0,0,.07);box-shadow:0 2px 12px rgba(0,0,0,.05);padding:28px;display:flex;flex-direction:column;gap:18px;position:relative;overflow:hidden;transition:border-color .3s,box-shadow .3s;box-sizing:border-box}
+@media(max-width:900px){.tc{flex:0 0 calc(50% - 8px)}}
+@media(max-width:560px){.tc{flex:0 0 calc(85vw)}}
+.tc:hover{border-color:rgba(0,0,0,.14);box-shadow:0 8px 32px rgba(0,0,0,.09)}
+.tc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px}
+.tc-1::before{background:linear-gradient(90deg,transparent,rgba(175,70,253,.6),transparent)}
+.tc-2::before{background:linear-gradient(90deg,transparent,rgba(244,52,157,.6),transparent)}
+.tc-3::before{background:linear-gradient(90deg,transparent,rgba(34,211,238,.6),transparent)}
+.tc-4::before{background:linear-gradient(90deg,transparent,rgba(251,146,60,.6),transparent)}
+.tc-5::before{background:linear-gradient(90deg,transparent,rgba(34,197,94,.6),transparent)}
+.tc-6::before{background:linear-gradient(90deg,transparent,rgba(129,140,248,.6),transparent)}
+.tc-7::before{background:linear-gradient(90deg,transparent,rgba(34,211,238,.6),transparent)}
+.tc-result{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;align-self:flex-start}
+.tc-result-num{font-size:22px;font-weight:800;line-height:1}
+.tc-result-label{font-size:11px;color:rgba(0,0,0,.5);line-height:1.4;max-width:110px}
+.tc-stars{display:flex;gap:2px;font-size:12px}
+.tc-quote{font-size:13.5px;color:rgba(0,0,0,.7);line-height:1.75;flex:1;font-family:'Instrument Serif',serif;font-style:italic}
+.tc-quote::before{content:'\201C';font-size:28px;line-height:0;vertical-align:-10px;color:rgba(0,0,0,.12);margin-right:3px}
+.tc-author{display:flex;align-items:center;gap:12px;padding-top:16px;border-top:1px solid rgba(0,0,0,.07)}
+.tc-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}
+.tc-name{font-size:13px;font-weight:700;color:var(--t1)}
+.tc-role{font-size:11px;color:var(--t2);margin-top:2px}
+.testi-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:32px}
+.testi-arrow{width:38px;height:38px;border-radius:10px;border:1px solid rgba(0,0,0,.12);background:rgba(0,0,0,.04);color:var(--t1);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .2s;flex-shrink:0}
+.testi-arrow:hover{background:rgba(0,0,0,.08);border-color:rgba(0,0,0,.18)}
+.testi-arrow:disabled{opacity:.3;cursor:default}
+.testi-dots{display:flex;gap:6px;align-items:center}
+.testi-dot{width:6px;height:6px;border-radius:50%;background:rgba(0,0,0,.18);cursor:pointer;transition:all .32s cubic-bezier(.23,1,.32,1)}
+.testi-dot.active{background:var(--purple);width:20px;border-radius:3px}
+</style>
+
+<!-- SECTION 4 — CREATIVES THAT CONVERT -->
+<section class="ctc-sec">
+  <div class="ctc-inner">
+
+    <!-- LEFT -->
+    <div>
+      <div class="ctc-kicker">✦ Creative Studio</div>
+      <h2 class="ctc-h">Ads your audience<br>can't scroll <span class="grad-text">past.</span></h2>
+      <p class="ctc-sub">Brief in. Brand DNA applied automatically. Ready-to-launch in under 2 minutes — with a predicted CTR before you spend a rupee.</p>
+      <div class="ctc-bullets">
+        <div class="ctc-bullet"><div class="ctc-bullet-dot">✓</div>Brand colors, fonts and tone applied automatically</div>
+        <div class="ctc-bullet"><div class="ctc-bullet-dot">✓</div>Hook-optimised copy from your top performers</div>
+        <div class="ctc-bullet"><div class="ctc-bullet-dot">✓</div>Feed, Story and Reel — all formats, one click</div>
+        <div class="ctc-bullet"><div class="ctc-bullet-dot">✓</div>CTR score predicted before you go live</div>
+      </div>
+      <button class="ctc-cta">Create yours free →</button>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="ctc-spotlight">
+      <div class="ctc-frame-wrap">
+        <div class="ctc-glow" id="ctc-glow"></div>
+        <div class="ctc-frame">
+          <div class="ctc-img-wrap">
+            <div style="border-radius:16px;overflow:hidden;position:relative;z-index:1;aspect-ratio:1/1;">
+              <div class="ctc-slide-img active" data-idx="0"><img src="../images/creative_1.jpg" alt="Shesha Ayurveda"></div>
+              <div class="ctc-slide-img"        data-idx="1"><img src="../images/creative_2.jpg" alt="Mysore Pattu Saree"></div>
+              <div class="ctc-slide-img"        data-idx="2"><img src="../images/creative_3.jpg" alt="Krafted Millets"></div>
+              <div class="ctc-slide-img"        data-idx="3"><img src="../images/creative_4.jpg" alt="Matri"></div>
+              <div class="ctc-slide-img"        data-idx="4"><img src="../images/creative_5.jpg" alt="Care Damn"></div>
+            </div>
+            <div class="ctc-img-badge"><div class="ctc-img-badge-dot"></div><span id="ctc-brand-badge">Shesha Ayurveda</span></div>
+            <div class="ctc-score-badge" id="ctc-score-badge">
+              <svg class="ctc-score-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#AF46FD"/><stop offset="50%" stop-color="#DA3BC2"/><stop offset="100%" stop-color="#F4349D"/>
+                  </linearGradient>
+                </defs>
+                <circle class="ctc-ring-bg" cx="50" cy="50" r="44"/>
+                <circle class="ctc-ring-track" cx="50" cy="50" r="44"/>
+                <circle class="ctc-ring-fill" id="ctc-ring-fill" cx="50" cy="50" r="44"/>
+              </svg>
+              <div class="ctc-score-tag">Ad Score</div>
+              <div class="ctc-score-num" id="ctc-score-num">89</div>
+              <div class="ctc-score-lbl">out of 100</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ctc-strip" id="ctc-strip">
+          <div class="ctc-strip-item">
+            <div class="ctc-strip-lbl">Hook</div>
+            <div class="ctc-strip-val" id="strip-hook-val">Problem–Solution</div>
+            <div class="ctc-strip-sub" id="strip-hook-sub">No Chemicals claim</div>
+          </div>
+          <div class="ctc-strip-item">
+            <div class="ctc-strip-lbl">Predicted CTR</div>
+            <div class="ctc-strip-val" id="strip-ctr-val" style="color:#16A34A">2.4%</div>
+            <div class="ctc-strip-sub" id="strip-ctr-sub">↑ above category avg</div>
+          </div>
+          <div class="ctc-strip-item">
+            <div class="ctc-strip-lbl">Format</div>
+            <div class="ctc-strip-val" id="strip-fmt-val">Feed 1:1</div>
+            <div class="ctc-strip-sub" id="strip-fmt-sub">Story variant ready</div>
+          </div>
+        </div>
+
+        <div class="ctc-dots" id="ctc-dots">
+          <div class="ctc-dot active" onclick="ctcGo(0)"></div>
+          <div class="ctc-dot"        onclick="ctcGo(1)"></div>
+          <div class="ctc-dot"        onclick="ctcGo(2)"></div>
+          <div class="ctc-dot"        onclick="ctcGo(3)"></div>
+          <div class="ctc-dot"        onclick="ctcGo(4)"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- SECTION 5 — QUESTIONS MARQUEE -->
+<section class="qa-sec">
+  <div class="qa-head">
+    <div class="qa-kicker">✦ Real questions. Real answers.</div>
+    <h2 class="qa-h">Every marketer has these questions.<br><span class="grad-text">Studio answers them.</span></h2>
+    <p class="qa-sub">Not after a weekly report. Not in a strategy call. Right now, inside your dashboard.</p>
+  </div>
+
+  <div class="qa-marquee-outer">
+
+    <!-- ROW 1 -->
+    <div class="qa-row qa-row-1">
+      <div class="qa-card">
+        <div class="qa-q">"I've spent ₹2L this month. Why can't I tell which ad actually drove sales?"</div>
+        <div class="qa-vis">
+          <div class="qa-vis-row"><span class="qa-vis-label">Festival Sale A</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:78%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">₹68K</span></div>
+          <div class="qa-vis-row"><span class="qa-vis-label">New Collection</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:42%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">₹37K</span></div>
+          <div class="qa-vis-row"><span class="qa-vis-label">Generic Offer</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:12%;background:rgba(220,38,38,.4)"></div></div><span class="qa-vis-val" style="color:#DC2626">₹9K</span></div>
+        </div>
+        <div class="qa-answer" style="background:rgba(22,163,74,.08);color:#16A34A;border:1px solid rgba(22,163,74,.2)">✓ Delivered-order attribution mapped</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"My agency says ROAS is 4x. My revenue hasn't moved. Who's lying?"</div>
+        <div class="qa-vis">
+          <div class="qa-comp">
+            <div class="qa-comp-col"><div class="qa-comp-lbl">Platform says</div><div class="qa-comp-val" style="color:#DC2626">4.0x</div><div class="qa-comp-sub">Includes returns</div></div>
+            <div class="qa-comp-col" style="border-color:rgba(22,163,74,.2)"><div class="qa-comp-lbl">True ROAS</div><div class="qa-comp-val" style="color:#16A34A">2.6x</div><div class="qa-comp-sub">After RTO removed</div></div>
+          </div>
+        </div>
+        <div class="qa-answer" style="background:rgba(234,88,12,.08);color:#C2410C;border:1px solid rgba(234,88,12,.2)">↑ RTO inflating your numbers by 35%</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"We made 10 creatives last week. I have no idea which one to scale."</div>
+        <div class="qa-vis">
+          <div class="qa-vis-row"><span class="qa-vis-label">Hook A · UGC</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:92%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">92</span></div>
+          <div class="qa-vis-row"><span class="qa-vis-label">Hook B · Static</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:74%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#4F46E5">74</span></div>
+          <div class="qa-vis-row"><span class="qa-vis-label">Hook C · Offer</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:31%;background:rgba(220,38,38,.4)"></div></div><span class="qa-vis-val" style="color:#DC2626">31</span></div>
+        </div>
+        <div class="qa-answer" style="background:rgba(124,58,237,.08);color:#7C3AED;border:1px solid rgba(124,58,237,.2)">✦ Scale Hook A · Pause Hook C</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"I keep increasing budget but returns keep dropping. What's broken?"</div>
+        <div class="qa-vis">
+          <div class="qa-stat-row"><span class="qa-stat-num" style="color:#DC2626">68%</span><span class="qa-stat-ctx">of your spend is hitting a fatigued audience.<br>Frequency: 7.2 — well past the sweet spot.</span></div>
+        </div>
+        <div class="qa-answer" style="background:rgba(220,38,38,.07);color:#DC2626;border:1px solid rgba(220,38,38,.18)">⚠ Creative fatigue — new angles needed</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"My CTR looks great. So why isn't anyone buying?"</div>
+        <div class="qa-vis">
+          <div class="qa-comp">
+            <div class="qa-comp-col"><div class="qa-comp-lbl">CTR</div><div class="qa-comp-val" style="color:#16A34A">3.8%</div><div class="qa-comp-sub">Strong hook</div></div>
+            <div class="qa-comp-col" style="border-color:rgba(220,38,38,.2)"><div class="qa-comp-lbl">CVR</div><div class="qa-comp-val" style="color:#DC2626">0.4%</div><div class="qa-comp-sub">Landing page drop</div></div>
+          </div>
+        </div>
+        <div class="qa-answer" style="background:rgba(234,88,12,.08);color:#C2410C;border:1px solid rgba(234,88,12,.2)">↳ Hook works. Landing page doesn't.</div>
+      </div>
+      <!-- duplicate set -->
+      <div class="qa-card"><div class="qa-q">"I've spent ₹2L this month. Why can't I tell which ad actually drove sales?"</div><div class="qa-vis"><div class="qa-vis-row"><span class="qa-vis-label">Festival Sale A</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:78%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">₹68K</span></div><div class="qa-vis-row"><span class="qa-vis-label">New Collection</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:42%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">₹37K</span></div><div class="qa-vis-row"><span class="qa-vis-label">Generic Offer</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:12%;background:rgba(220,38,38,.4)"></div></div><span class="qa-vis-val" style="color:#DC2626">₹9K</span></div></div><div class="qa-answer" style="background:rgba(22,163,74,.08);color:#16A34A;border:1px solid rgba(22,163,74,.2)">✓ Delivered-order attribution mapped</div></div>
+      <div class="qa-card"><div class="qa-q">"My agency says ROAS is 4x. My revenue hasn't moved. Who's lying?"</div><div class="qa-vis"><div class="qa-comp"><div class="qa-comp-col"><div class="qa-comp-lbl">Platform says</div><div class="qa-comp-val" style="color:#DC2626">4.0x</div><div class="qa-comp-sub">Includes returns</div></div><div class="qa-comp-col" style="border-color:rgba(22,163,74,.2)"><div class="qa-comp-lbl">True ROAS</div><div class="qa-comp-val" style="color:#16A34A">2.6x</div><div class="qa-comp-sub">After RTO removed</div></div></div></div><div class="qa-answer" style="background:rgba(234,88,12,.08);color:#C2410C;border:1px solid rgba(234,88,12,.2)">↑ RTO inflating your numbers by 35%</div></div>
+      <div class="qa-card"><div class="qa-q">"We made 10 creatives last week. I have no idea which one to scale."</div><div class="qa-vis"><div class="qa-vis-row"><span class="qa-vis-label">Hook A · UGC</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:92%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">92</span></div><div class="qa-vis-row"><span class="qa-vis-label">Hook B · Static</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:74%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#4F46E5">74</span></div><div class="qa-vis-row"><span class="qa-vis-label">Hook C · Offer</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:31%;background:rgba(220,38,38,.4)"></div></div><span class="qa-vis-val" style="color:#DC2626">31</span></div></div><div class="qa-answer" style="background:rgba(124,58,237,.08);color:#7C3AED;border:1px solid rgba(124,58,237,.2)">✦ Scale Hook A · Pause Hook C</div></div>
+      <div class="qa-card"><div class="qa-q">"I keep increasing budget but returns keep dropping. What's broken?"</div><div class="qa-vis"><div class="qa-stat-row"><span class="qa-stat-num" style="color:#DC2626">68%</span><span class="qa-stat-ctx">of your spend is hitting a fatigued audience.<br>Frequency: 7.2 — well past the sweet spot.</span></div></div><div class="qa-answer" style="background:rgba(220,38,38,.07);color:#DC2626;border:1px solid rgba(220,38,38,.18)">⚠ Creative fatigue — new angles needed</div></div>
+      <div class="qa-card"><div class="qa-q">"My CTR looks great. So why isn't anyone buying?"</div><div class="qa-vis"><div class="qa-comp"><div class="qa-comp-col"><div class="qa-comp-lbl">CTR</div><div class="qa-comp-val" style="color:#16A34A">3.8%</div><div class="qa-comp-sub">Strong hook</div></div><div class="qa-comp-col" style="border-color:rgba(220,38,38,.2)"><div class="qa-comp-lbl">CVR</div><div class="qa-comp-val" style="color:#DC2626">0.4%</div><div class="qa-comp-sub">Landing page drop</div></div></div></div><div class="qa-answer" style="background:rgba(234,88,12,.08);color:#C2410C;border:1px solid rgba(234,88,12,.2)">↳ Hook works. Landing page doesn't.</div></div>
+    </div><!-- /row 1 -->
+
+    <!-- ROW 2 -->
+    <div class="qa-row qa-row-2">
+      <div class="qa-card">
+        <div class="qa-q">"My competitor just launched 5 new ads this week. Are they winning?"</div>
+        <div class="qa-vis">
+          <div class="qa-vis-row"><span class="qa-vis-label">Rare Rabbit</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:85%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#C2410C">18 ads</span></div>
+          <div class="qa-vis-row"><span class="qa-vis-label">Your brand</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:30%;background:rgba(0,0,0,.18)"></div></div><span class="qa-vis-val" style="color:var(--t3)">6 ads</span></div>
+          <div style="font-size:10px;color:var(--t3);margin-top:4px">Trending hook: "Festival looks under ₹999"</div>
+        </div>
+        <div class="qa-answer" style="background:rgba(234,88,12,.08);color:#C2410C;border:1px solid rgba(234,88,12,.2)">↑ Gap identified — counter-strategy ready</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"We burned ₹80K on an audience that never converted. How do I avoid that next time?"</div>
+        <div class="qa-vis"><div class="qa-stat-row"><span class="qa-stat-num" style="color:#DC2626">71%</span><span class="qa-stat-ctx">of that spend went to a high-RTO pincode cluster. COD intent signal was 0.2x the category average.</span></div></div>
+        <div class="qa-answer" style="background:rgba(22,163,74,.08);color:#16A34A;border:1px solid rgba(22,163,74,.2)">✓ RTO-risk audiences auto-excluded going forward</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"Which hook is actually making people stop scrolling on my ads?"</div>
+        <div class="qa-vis">
+          <div class="qa-vis-row"><span class="qa-vis-label">Bold claim</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:88%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">4.1%</span></div>
+          <div class="qa-vis-row"><span class="qa-vis-label">Problem/Sol</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:62%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#4F46E5">2.8%</span></div>
+          <div class="qa-vis-row"><span class="qa-vis-label">Lifestyle</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:24%;background:rgba(220,38,38,.4)"></div></div><span class="qa-vis-val" style="color:#DC2626">1.1%</span></div>
+        </div>
+        <div class="qa-answer" style="background:rgba(124,58,237,.08);color:#7C3AED;border:1px solid rgba(124,58,237,.2)">✦ Bold claim hooks win in your category</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"Should I kill this ad or give it more budget? I genuinely can't tell."</div>
+        <div class="qa-vis"><div class="qa-comp"><div class="qa-comp-col" style="border-color:rgba(220,38,38,.2)"><div class="qa-comp-lbl">Ad Score</div><div class="qa-comp-val" style="color:#DC2626">29</div><div class="qa-comp-sub">Weak hook</div></div><div class="qa-comp-col" style="border-color:rgba(220,38,38,.2)"><div class="qa-comp-lbl">Trend</div><div class="qa-comp-val" style="color:#DC2626">↓ 34%</div><div class="qa-comp-sub">CTR last 72h</div></div></div></div>
+        <div class="qa-answer" style="background:rgba(220,38,38,.07);color:#DC2626;border:1px solid rgba(220,38,38,.18)">⚠ Kill it. Budget to Ad #3 instead.</div>
+      </div>
+      <div class="qa-card">
+        <div class="qa-q">"Our best ad from last month isn't working anymore. What changed?"</div>
+        <div class="qa-vis"><div class="qa-stat-row"><span class="qa-stat-num" style="color:#C2410C">8.4×</span><span class="qa-stat-ctx">frequency reached. Your audience has seen this ad 8 times on average. They've stopped seeing it.</span></div></div>
+        <div class="qa-answer" style="background:rgba(8,145,178,.08);color:#0E7490;border:1px solid rgba(8,145,178,.2)">↻ Same offer, fresh angles — 3 variants suggested</div>
+      </div>
+      <!-- duplicate set -->
+      <div class="qa-card"><div class="qa-q">"My competitor just launched 5 new ads this week. Are they winning?"</div><div class="qa-vis"><div class="qa-vis-row"><span class="qa-vis-label">Rare Rabbit</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:85%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#C2410C">18 ads</span></div><div class="qa-vis-row"><span class="qa-vis-label">Your brand</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:30%;background:rgba(0,0,0,.18)"></div></div><span class="qa-vis-val" style="color:var(--t3)">6 ads</span></div><div style="font-size:10px;color:var(--t3);margin-top:4px">Trending hook: "Festival looks under ₹999"</div></div><div class="qa-answer" style="background:rgba(234,88,12,.08);color:#C2410C;border:1px solid rgba(234,88,12,.2)">↑ Gap identified — counter-strategy ready</div></div>
+      <div class="qa-card"><div class="qa-q">"We burned ₹80K on an audience that never converted. How do I avoid that next time?"</div><div class="qa-vis"><div class="qa-stat-row"><span class="qa-stat-num" style="color:#DC2626">71%</span><span class="qa-stat-ctx">of that spend went to a high-RTO pincode cluster. COD intent signal was 0.2x the category average.</span></div></div><div class="qa-answer" style="background:rgba(22,163,74,.08);color:#16A34A;border:1px solid rgba(22,163,74,.2)">✓ RTO-risk audiences auto-excluded going forward</div></div>
+      <div class="qa-card"><div class="qa-q">"Which hook is actually making people stop scrolling on my ads?"</div><div class="qa-vis"><div class="qa-vis-row"><span class="qa-vis-label">Bold claim</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:88%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#16A34A">4.1%</span></div><div class="qa-vis-row"><span class="qa-vis-label">Problem/Sol</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:62%;background:linear-gradient(90deg,#AF46FD,#F4349D)"></div></div><span class="qa-vis-val" style="color:#4F46E5">2.8%</span></div><div class="qa-vis-row"><span class="qa-vis-label">Lifestyle</span><div class="qa-vis-bar-wrap"><div class="qa-vis-bar" style="width:24%;background:rgba(220,38,38,.4)"></div></div><span class="qa-vis-val" style="color:#DC2626">1.1%</span></div></div><div class="qa-answer" style="background:rgba(124,58,237,.08);color:#7C3AED;border:1px solid rgba(124,58,237,.2)">✦ Bold claim hooks win in your category</div></div>
+      <div class="qa-card"><div class="qa-q">"Should I kill this ad or give it more budget? I genuinely can't tell."</div><div class="qa-vis"><div class="qa-comp"><div class="qa-comp-col" style="border-color:rgba(220,38,38,.2)"><div class="qa-comp-lbl">Ad Score</div><div class="qa-comp-val" style="color:#DC2626">29</div><div class="qa-comp-sub">Weak hook</div></div><div class="qa-comp-col" style="border-color:rgba(220,38,38,.2)"><div class="qa-comp-lbl">Trend</div><div class="qa-comp-val" style="color:#DC2626">↓ 34%</div><div class="qa-comp-sub">CTR last 72h</div></div></div></div><div class="qa-answer" style="background:rgba(220,38,38,.07);color:#DC2626;border:1px solid rgba(220,38,38,.18)">⚠ Kill it. Budget to Ad #3 instead.</div></div>
+      <div class="qa-card"><div class="qa-q">"Our best ad from last month isn't working anymore. What changed?"</div><div class="qa-vis"><div class="qa-stat-row"><span class="qa-stat-num" style="color:#C2410C">8.4×</span><span class="qa-stat-ctx">frequency reached. Your audience has seen this ad 8 times on average. They've stopped seeing it.</span></div></div><div class="qa-answer" style="background:rgba(8,145,178,.08);color:#0E7490;border:1px solid rgba(8,145,178,.2)">↻ Same offer, fresh angles — 3 variants suggested</div></div>
+    </div><!-- /row 2 -->
+
+  </div>
+</section>
+
+<!-- SECTION 6 — TESTIMONIALS -->
+<section class="testi-sec">
+  <div class="testi-head">
+    <div class="testi-kicker">&#10022; From the brands using it</div>
+    <h2 class="testi-h">Don't take our word for it.<br><span class="grad-text">Take theirs.</span></h2>
+  </div>
+  <div class="testi-carousel-wrap">
+    <div class="testi-track-outer">
+      <div class="testi-track" id="testi-track">
+        <div class="tc tc-1">
+          <div class="tc-result" style="background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.18)"><div class="tc-result-num" style="color:#7C3AED">3.8x</div><div class="tc-result-label">ROAS after switching to Studio-scored creatives</div></div>
+          <div class="tc-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <div class="tc-quote">We had 12 ads running and genuinely no clue which ones were pulling weight. Studio flagged 4 as fatigued in the first week. We paused them, shifted budget to the top 2 — ROAS went from 1.9x to 3.8x without touching a single targeting setting.</div>
+          <div class="tc-author"><div class="tc-avatar" style="background:linear-gradient(135deg,#1a0533,#4a0e8f)">R</div><div><div class="tc-name">Rohan Mehra</div><div class="tc-role">Head of Growth &middot; Rare Rabbit</div></div></div>
+        </div>
+        <div class="tc tc-2">
+          <div class="tc-result" style="background:rgba(236,72,153,.08);border:1px solid rgba(236,72,153,.18)"><div class="tc-result-num" style="color:#EC4899">22%</div><div class="tc-result-label">Revenue growth after fixing attribution</div></div>
+          <div class="tc-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <div class="tc-quote">Our agency kept showing 4x ROAS. But the bank account didn't match. Studio showed us the real number — 2.3x after RTO. That one insight changed how we briefed every campaign going forward. 22% revenue growth the next month.</div>
+          <div class="tc-author"><div class="tc-avatar" style="background:linear-gradient(135deg,#0a2618,#0d4a2e)">A</div><div><div class="tc-name">Ananya Krishnan</div><div class="tc-role">Founder &middot; Shesha Ayurveda</div></div></div>
+        </div>
+        <div class="tc tc-3">
+          <div class="tc-result" style="background:rgba(8,145,178,.08);border:1px solid rgba(8,145,178,.18)"><div class="tc-result-num" style="color:#0891B2">4.1%</div><div class="tc-result-label">CTR on a format no competitor was running</div></div>
+          <div class="tc-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <div class="tc-quote">I used to spend hours stalking competitor ads manually. Studio does it in real time. I found a gap in the ingredient-led format nobody in our category was running. We tested it. 4.1% CTR. That single creative now carries 40% of our monthly spend.</div>
+          <div class="tc-author"><div class="tc-avatar" style="background:linear-gradient(135deg,#1C1917,#3d2008)">K</div><div><div class="tc-name">Karan Bhatia</div><div class="tc-role">Marketing Lead &middot; Anveshan</div></div></div>
+        </div>
+        <div class="tc tc-4">
+          <div class="tc-result" style="background:rgba(234,88,12,.08);border:1px solid rgba(234,88,12,.18)"><div class="tc-result-num" style="color:#EA580C">&#8377;40K</div><div class="tc-result-label">Saved monthly by cutting RTO-risk audiences</div></div>
+          <div class="tc-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <div class="tc-quote">We were spending aggressively on Tier 3 cities with COD. Returns were killing margins. Studio mapped our RTO hotspots by pincode and we excluded them. Saved &#8377;40K the very next month — same revenue, better margins.</div>
+          <div class="tc-author"><div class="tc-avatar" style="background:linear-gradient(135deg,#1a1505,#4a3a0a)">P</div><div><div class="tc-name">Priya Sethi</div><div class="tc-role">Performance Lead &middot; Foxtale</div></div></div>
+        </div>
+        <div class="tc tc-5">
+          <div class="tc-result" style="background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.18)"><div class="tc-result-num" style="color:#16A34A">2.1%</div><div class="tc-result-label">CTR lift just from switching hook format</div></div>
+          <div class="tc-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <div class="tc-quote">We'd been running lifestyle creatives for 6 months because they 'looked premium.' Studio told us bold-claim hooks were outperforming by 3x in our category. CTR went from 0.9% to 3.0% overnight. Same product, same audience, different opening line.</div>
+          <div class="tc-author"><div class="tc-avatar" style="background:linear-gradient(135deg,#051a14,#0a3d2e)">N</div><div><div class="tc-name">Nidhi Agarwal</div><div class="tc-role">Brand Manager &middot; WOW Skin Science</div></div></div>
+        </div>
+        <div class="tc tc-6">
+          <div class="tc-result" style="background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.18)"><div class="tc-result-num" style="color:#4F46E5">5.6x</div><div class="tc-result-label">ROAS on a competitor-gap campaign</div></div>
+          <div class="tc-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <div class="tc-quote">Studio showed me none of my top 3 competitors were running video in the gifting angle before Diwali. We launched a 15-second reel 10 days before the festival. 5.6x ROAS. By the time they caught up, we'd already captured the demand.</div>
+          <div class="tc-author"><div class="tc-avatar" style="background:linear-gradient(135deg,#0d0533,#2a0e7f)">S</div><div><div class="tc-name">Sameer Kapoor</div><div class="tc-role">Co-founder &middot; The Souled Store</div></div></div>
+        </div>
+        <div class="tc tc-7">
+          <div class="tc-result" style="background:rgba(8,145,178,.08);border:1px solid rgba(8,145,178,.18)"><div class="tc-result-num" style="color:#0891B2">8h</div><div class="tc-result-label">Saved weekly that used to go into manual checks</div></div>
+          <div class="tc-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <div class="tc-quote">I'm a team of one managing 6 ad accounts. Before Studio I'd spend Sunday mornings checking what tanked. Now the AI catches it, shifts budget, sends me a summary. I come in Monday and things are already fixed. 8 hours back every week.</div>
+          <div class="tc-author"><div class="tc-avatar" style="background:linear-gradient(135deg,#1a0a04,#4a2008)">V</div><div><div class="tc-name">Varun Sharma</div><div class="tc-role">Solo Marketer &middot; Anveshan Farm</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-nav">
+      <button class="testi-arrow" id="testi-prev" onclick="testiMove(-1)">&#8592;</button>
+      <div class="testi-dots" id="testi-dots"></div>
+      <button class="testi-arrow" id="testi-next" onclick="testiMove(1)">&#8594;</button>
+    </div>
+  </div>
+</section>
+
+</div><!-- /page-wrap -->
+
+<script>
+const slides = document.querySelectorAll('.hc-slide');
+const dotsEl = document.getElementById('dots');
+let cur = 0, timer;
+slides.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'hc-dot'+(i===0?' active':'');
+  d.onclick = () => hcGo(i);
+  dotsEl.appendChild(d);
+});
+function hcGo(n){
+  slides[cur].classList.remove('active');
+  dotsEl.children[cur].classList.remove('active');
+  cur=(n+slides.length)%slides.length;
+  slides[cur].classList.add('active');
+  dotsEl.children[cur].classList.add('active');
+  resetTimer();
+}
+function hcNext(){hcGo(cur+1)}
+function hcPrev(){hcGo(cur-1)}
+function resetTimer(){clearInterval(timer);timer=setInterval(hcNext,4500)}
+resetTimer();
+function handleAnalyze(){
+  const v=document.getElementById('hc-inp').value.trim();
+  if(!v){document.getElementById('hc-inp').focus();return;}
+  launchExtraction(v);
+}
+
+// ── CTC SLIDESHOW ──
+const ctcData = [
+  {brand:'Shesha Ayurveda',glow:'rgba(120,60,20,.14)',score:89,hook:'Problem–Solution',hookSub:'No Chemicals claim',ctr:'2.4%',ctrColor:'#16A34A',ctrSub:'↑ above category avg',fmt:'Feed 1:1',fmtSub:'Story variant ready'},
+  {brand:'Mysore Pattu Saree',glow:'rgba(80,20,100,.14)',score:84,hook:'Aspiration + Urgency',hookSub:'Festival Sale discount',ctr:'3.1%',ctrColor:'#16A34A',ctrSub:'↑ 1.4x category avg',fmt:'Feed 1:1',fmtSub:'Carousel variant ready'},
+  {brand:'Krafted Millets',glow:'rgba(60,100,20,.12)',score:78,hook:'Bold Claim + Offer',hookSub:'No More Fatigue hook',ctr:'1.9%',ctrColor:'#EA580C',ctrSub:'→ at category avg',fmt:'Feed 1:1',fmtSub:'Reel variant suggested'},
+  {brand:'Matri',glow:'rgba(220,80,180,.1)',score:92,hook:'Social Proof + Stat',hookSub:'96% claim + testimonial',ctr:'3.8%',ctrColor:'#16A34A',ctrSub:'↑ 1.9x category avg',fmt:'Feed 1:1',fmtSub:'Story variant ready'},
+  {brand:'Care Damn',glow:'rgba(100,70,30,.13)',score:86,hook:'Evidence-led',hookSub:'92% stat + Before/After',ctr:'2.7%',ctrColor:'#16A34A',ctrSub:'↑ above category avg',fmt:'Feed 1:1',fmtSub:'Prepaid offer variant'},
+];
+let ctcCur=0,ctcTimer;
+function ctcGo(n){
+  document.querySelectorAll('.ctc-slide-img').forEach((el,i)=>el.classList.toggle('active',i===n));
+  document.querySelectorAll('.ctc-dot').forEach((el,i)=>el.classList.toggle('active',i===n));
+  const d=ctcData[n];
+  document.getElementById('ctc-glow').style.background=`radial-gradient(circle,${d.glow},transparent 70%)`;
+  const badge=document.getElementById('ctc-score-badge');
+  const strip=document.getElementById('ctc-strip');
+  badge.classList.add('changing');strip.classList.add('changing');
+  setTimeout(()=>{
+    document.getElementById('ctc-brand-badge').textContent=d.brand;
+    document.getElementById('ctc-score-num').textContent=d.score;
+    document.getElementById('ctc-ring-fill').style.strokeDashoffset=276.46*(1-d.score/100);
+    document.getElementById('strip-hook-val').textContent=d.hook;
+    document.getElementById('strip-hook-sub').textContent=d.hookSub;
+    document.getElementById('strip-ctr-val').textContent=d.ctr;
+    document.getElementById('strip-ctr-val').style.color=d.ctrColor;
+    document.getElementById('strip-ctr-sub').textContent=d.ctrSub;
+    document.getElementById('strip-fmt-val').textContent=d.fmt;
+    document.getElementById('strip-fmt-sub').textContent=d.fmtSub;
+    badge.classList.remove('changing');strip.classList.remove('changing');
+  },220);
+  ctcCur=n;resetCtcTimer();
+}
+function resetCtcTimer(){clearInterval(ctcTimer);ctcTimer=setInterval(()=>ctcGo((ctcCur+1)%ctcData.length),3500)}
+resetCtcTimer();
+
+// ── TESTIMONIALS ──
+(function(){
+  const track=document.getElementById('testi-track');
+  const dotsEl=document.getElementById('testi-dots');
+  const prevBtn=document.getElementById('testi-prev');
+  const nextBtn=document.getElementById('testi-next');
+  const cards=track.querySelectorAll('.tc');
+  const total=cards.length;
+  let cur=0;
+  cards.forEach((_,i)=>{
+    const d=document.createElement('div');
+    d.className='testi-dot'+(i===0?' active':'');
+    d.onclick=()=>testiGo(i);
+    dotsEl.appendChild(d);
+  });
+  function getVisible(){const w=track.parentElement.offsetWidth;if(w<560)return 1;if(w<900)return 2;return 3}
+  function testiGo(n){
+    const vis=getVisible();const max=Math.max(0,total-vis);
+    cur=Math.max(0,Math.min(n,max));
+    const cardW=cards[0].offsetWidth+16;
+    track.style.transform=`translateX(-${cur*cardW}px)`;
+    dotsEl.querySelectorAll('.testi-dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
+    prevBtn.disabled=cur===0;nextBtn.disabled=cur>=max;
+  }
+  window.testiMove=function(dir){testiGo(cur+dir)};
+  testiGo(0);
+  window.addEventListener('resize',()=>testiGo(cur));
+  let autoTimer=setInterval(()=>{const vis=getVisible();const max=Math.max(0,total-vis);testiGo(cur>=max?0:cur+1)},8000);
+  track.parentElement.addEventListener('mouseenter',()=>clearInterval(autoTimer));
+  track.parentElement.addEventListener('mouseleave',()=>{autoTimer=setInterval(()=>{const vis=getVisible();const max=Math.max(0,total-vis);testiGo(cur>=max?0:cur+1)},8000)});
+})();
+</script>
+
+
+<!-- ══════════════════════════════════════
+     SECTION 7 — PRICING
+══════════════════════════════════════ -->
+<style>
+.price-sec{
+  background:var(--bg);padding:64px 0 72px;
+  position:relative;overflow:hidden;
+}
+@media(max-width:600px){.price-sec{padding:32px 0 40px}}
+.price-sec::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 50% 60% at 50% 100%,rgba(175,70,253,.07),transparent 65%);
+}
+
+.price-head{
+  text-align:center;padding:0 24px;margin-bottom:40px;
+  position:relative;z-index:2;
+}
+@media(max-width:600px){.price-head{margin-bottom:24px}}
+.price-kicker{
+  display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;
+  font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--purple);background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);
+  margin-bottom:20px;
+}
+.price-h{
+  font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(28px,3vw,44px);line-height:1.1;letter-spacing:-.3px;
+  color:var(--t1);margin-bottom:10px;
+}
+.price-sub{font-size:14px;color:var(--t3)}
+
+/* controls */
+.price-controls{
+  display:flex;align-items:center;justify-content:center;
+  gap:24px;flex-wrap:wrap;
+  margin:0 auto 32px;
+  position:relative;z-index:2;
+  padding:0 24px;
+}
+@media(max-width:600px){.price-controls{gap:14px;margin-bottom:20px}}
+.ctrl-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);margin-bottom:6px;text-align:center}
+
+/* billing toggle */
+.price-toggle{
+  display:inline-flex;align-items:center;
+  background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.1);
+  border-radius:100px;padding:3px;
+}
+.pt-btn{
+  padding:6px 16px;border-radius:100px;font-size:13px;font-weight:600;
+  font-family:inherit;border:none;cursor:pointer;transition:all .25s;
+  color:var(--t2);background:transparent;white-space:nowrap;
+}
+.pt-btn.active{background:var(--t1);color:#fff}
+.pt-save{font-size:9px;font-weight:700;padding:2px 6px;border-radius:100px;background:rgba(34,197,94,.15);color:#16A34A;border:1px solid rgba(34,197,94,.25);margin-left:3px;vertical-align:middle}
+
+/* account stepper */
+.acct-stepper{display:flex;align-items:center;gap:0;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.1);border-radius:100px;overflow:hidden}
+.acct-step-btn{width:36px;height:36px;border:none;background:transparent;color:rgba(0,0,0,.4);font-size:18px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.acct-step-btn:hover{background:rgba(0,0,0,.06);color:var(--t1)}
+.acct-step-btn:disabled{opacity:.25;cursor:default}
+.acct-display{min-width:110px;text-align:center;padding:0 4px}
+.acct-display-val{font-size:14px;font-weight:700;color:var(--t1);line-height:1.2}
+.acct-display-sub{font-size:9px;color:var(--t3);margin-top:1px}
+
+/* pricing band */
+.price-band-wrap{
+  max-width:1100px;margin:0 auto;padding:0 32px;
+  position:relative;z-index:2;
+}
+@media(max-width:700px){.price-band-wrap{padding:0 16px}}
+.price-band{
+  display:grid;
+  grid-template-columns:1fr 1.2fr 1fr;
+  border-radius:20px;
+  overflow:hidden;
+  border:1px solid rgba(0,0,0,.08);
+  position:relative;
+}
+@media(max-width:700px){.price-band{grid-template-columns:1fr;border-radius:16px}}
+.price-band::before{
+  content:'';
+  position:absolute;top:0;bottom:0;
+  left:calc(100% / 3.2);width:calc(100% / 3.2 * 1.2);
+  background:linear-gradient(180deg,rgba(175,70,253,.06) 0%,rgba(244,52,157,.03) 100%);
+  pointer-events:none;z-index:0;transition:opacity .25s;
+}
+@media(max-width:700px){.price-band::before{display:none}}
+.price-band:has(.pb-col:not(.pro-col):hover)::before{opacity:0}
+
+.pb-col{
+  display:flex;flex-direction:column;
+  padding:32px 28px;
+  position:relative;z-index:1;
+  border-right:1px solid rgba(0,0,0,.07);
+  transition:background .25s;
+  cursor:default;background:#fff;
+}
+.pb-col:last-child{border-right:none}
+.pb-col.pro-col{
+  border-right-color:rgba(175,70,253,.15);
+  border-left:1px solid rgba(175,70,253,.15);
+  transition:background .25s,border-color .25s;
+}
+.price-band:has(.pb-col:not(.pro-col):hover) .pro-col{
+  background:#fff;
+  border-left-color:rgba(0,0,0,.07);
+  border-right-color:rgba(0,0,0,.07);
+}
+.price-band:has(.pb-col:not(.pro-col):hover) .pro-col .pb-plan-name{color:var(--t3)}
+.pb-col:hover{background:rgba(175,70,253,.04)}
+.pb-col:hover::after{
+  content:'';position:absolute;inset:-1px;
+  border:1px solid rgba(175,70,253,.4);
+  pointer-events:none;z-index:2;
+}
+.pb-col:first-child:hover::after{border-radius:20px 0 0 20px}
+.pb-col:last-child:hover::after{border-radius:0 20px 20px 0}
+.pro-col:hover{background:rgba(175,70,253,.07)}
+.pro-col:hover::after{border-color:rgba(175,70,253,.5)}
+.price-band:has(.pb-col:hover) .pb-col:not(:hover) .pb-plan-name{opacity:.4;transition:opacity .25s}
+.pb-plan-name{transition:opacity .25s}
+@media(max-width:700px){
+  .pb-col{border-right:none;border-bottom:1px solid rgba(0,0,0,.07)}
+  .pb-col.pro-col{border-left:none;border-top:2px solid var(--purple);border-bottom:1px solid rgba(0,0,0,.07)}
+  .pb-col:last-child{border-bottom:none}
+}
+
+.pb-plan-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:100px;
+  font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  background:var(--grad);color:#fff;
+  align-self:flex-start;margin-bottom:12px;
+}
+.pb-plan-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:10px}
+.pro-col .pb-plan-name{color:var(--purple)}
+
+.pb-price{
+  font-size:42px;font-weight:800;line-height:1;letter-spacing:-1.5px;
+  color:var(--t1);margin-bottom:2px;transition:opacity .2s;
+}
+.pro-col .pb-price{
+  background:var(--grad-text);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  font-size:48px;
+}
+.pb-price sub{font-size:13px;font-weight:500;letter-spacing:0;vertical-align:baseline;color:var(--t2);-webkit-text-fill-color:var(--t2)}
+.pb-period{font-size:11px;color:var(--t3);margin-bottom:6px;transition:opacity .2s}
+.pb-trial{font-size:11px;font-weight:600;color:#16A34A;margin-bottom:24px}
+
+.pb-divider{height:1px;background:rgba(0,0,0,.07);margin:0 0 20px}
+.pro-col .pb-divider{background:rgba(175,70,253,.15)}
+
+.pb-feats{display:flex;flex-direction:column;gap:10px;flex:1;margin-bottom:28px}
+.pb-feat{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:rgba(0,0,0,.7);line-height:1.4}
+.pb-feat::before{
+  content:'✓';width:16px;height:16px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);
+  color:#16A34A;font-size:8px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.pro-col .pb-feat::before{background:rgba(175,70,253,.1);border-color:rgba(175,70,253,.25);color:var(--purple)}
+.pb-feat.no{color:var(--t3)}
+.pb-feat.no::before{content:'–';background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08);color:var(--t3)}
+
+.pb-cta{
+  padding:13px 20px;border-radius:12px;
+  font-size:14px;font-weight:700;font-family:inherit;
+  cursor:pointer;border:none;transition:all .2s;width:100%;
+}
+.pb-cta-ghost{
+  background:rgba(0,0,0,.04);
+  border:1.5px solid rgba(0,0,0,.12);
+  color:var(--t2);
+}
+.pb-cta-ghost:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.2);color:var(--t1)}
+.pb-cta-grad{background:var(--grad);color:#fff;box-shadow:0 4px 24px rgba(175,70,253,.25)}
+.pb-cta-grad:hover{opacity:.9;transform:translateY(-1px)}
+
+.price-fading{opacity:0}
+
+.price-note{text-align:center;margin-top:20px;font-size:12px;color:var(--t3);position:relative;z-index:2;padding:0 24px}
+</style>
+
+<section class="price-sec">
+  <div class="price-head">
+    <div class="price-kicker">&#10022; Pricing</div>
+    <h2 class="price-h">Start free. Scale when it works.</h2>
+    <p class="price-sub">No credit card required &nbsp;&middot;&nbsp; Cancel anytime</p>
+  </div>
+
+  <div class="price-controls">
+    <div>
+      <div class="ctrl-lbl">Billing</div>
+      <div class="price-toggle">
+        <button class="pt-btn active" id="pt-monthly" onclick="priceToggle('monthly')">Monthly</button>
+        <button class="pt-btn" id="pt-annual" onclick="priceToggle('annual')">Annual <span class="pt-save">Save 20%</span></button>
+      </div>
+    </div>
+    <div>
+      <div class="ctrl-lbl">Ad accounts to connect</div>
+      <div class="acct-stepper">
+        <button class="acct-step-btn" id="acct-prev" onclick="acctStep(-1)" disabled>&#8722;</button>
+        <div class="acct-display">
+          <div class="acct-display-val" id="acct-val">Up to 10</div>
+          <div class="acct-display-sub" id="acct-sub">Meta &amp; Google</div>
+        </div>
+        <button class="acct-step-btn" id="acct-next" onclick="acctStep(1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="price-band-wrap">
+    <div class="price-band">
+      <!-- STARTER -->
+      <div class="pb-col">
+        <div class="pb-plan-name">Starter</div>
+        <div class="pb-price">Free</div>
+        <div class="pb-period">Forever free</div>
+        <div class="pb-trial" style="color:var(--t3);font-weight:400">No trial needed</div>
+        <div class="pb-divider"></div>
+        <div class="pb-feats">
+          <div class="pb-feat">Brand DNA profile (1 brand)</div>
+          <div class="pb-feat">Public creative audit</div>
+          <div class="pb-feat">Competitor snapshot (1)</div>
+          <div class="pb-feat">Inspiration Hub access</div>
+          <div class="pb-feat no">Ad account connection</div>
+          <div class="pb-feat no">Performance reports</div>
+          <div class="pb-feat no">AI Agent</div>
+        </div>
+        <button class="pb-cta pb-cta-ghost">Start free &rarr;</button>
+      </div>
+      <!-- PRO -->
+      <div class="pb-col pro-col">
+        <div class="pb-plan-badge">&#10022; Most Popular</div>
+        <div class="pb-plan-name">Pro</div>
+        <div class="pb-price" id="pro-price">&#8377;2,999<sub>/mo</sub></div>
+        <div class="pb-period" id="pro-period">Billed monthly &middot; cancel anytime</div>
+        <div class="pb-trial">&#10003; 14-day free trial</div>
+        <div class="pb-divider"></div>
+        <div class="pb-feats">
+          <div class="pb-feat">Everything in Starter</div>
+          <div class="pb-feat">Connect Meta &amp; Google Ads</div>
+          <div class="pb-feat">Full creative performance report</div>
+          <div class="pb-feat">3 competitors tracked</div>
+          <div class="pb-feat">Performance alerts</div>
+          <div class="pb-feat">&#8377;500 ad credits on signup</div>
+          <div class="pb-feat no">AI Agent</div>
+        </div>
+        <button class="pb-cta pb-cta-grad">Start 14-day trial &rarr;</button>
+      </div>
+      <!-- SCALE -->
+      <div class="pb-col">
+        <div class="pb-plan-name">Scale</div>
+        <div class="pb-price" id="scale-price">&#8377;7,999<sub>/mo</sub></div>
+        <div class="pb-period" id="scale-period">Billed monthly</div>
+        <div class="pb-trial">&#10003; 14-day free trial</div>
+        <div class="pb-divider"></div>
+        <div class="pb-feats">
+          <div class="pb-feat">Everything in Pro</div>
+          <div class="pb-feat">Google Ads integration</div>
+          <div class="pb-feat">Shiprocket order attribution</div>
+          <div class="pb-feat">Ads AI Agent (24/7)</div>
+          <div class="pb-feat">Unlimited brands &amp; competitors</div>
+          <div class="pb-feat">Priority support</div>
+          <div class="pb-feat">&#8377;2,000 ad credits on signup</div>
+        </div>
+        <button class="pb-cta pb-cta-ghost">Talk to sales &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="price-note">14-day free trial on all paid plans &nbsp;&middot;&nbsp; No setup fees &nbsp;&middot;&nbsp; Switch anytime</p>
+</section>
+
+<script>
+function priceToggle(mode) {
+  document.getElementById('pt-monthly').classList.toggle('active', mode === 'monthly');
+  document.getElementById('pt-annual').classList.toggle('active', mode === 'annual');
+  if (mode === 'annual') {
+    document.getElementById('pro-price').innerHTML   = '&#8377;2,399<sub>/mo</sub>';
+    document.getElementById('pro-period').textContent = 'Billed annually · save ₹7,200/yr';
+    document.getElementById('scale-price').innerHTML  = '&#8377;6,399<sub>/mo</sub>';
+    document.getElementById('scale-period').textContent = 'Billed annually · save ₹19,200/yr';
+  } else {
+    document.getElementById('pro-price').innerHTML   = '&#8377;2,999<sub>/mo</sub>';
+    document.getElementById('pro-period').textContent = 'Billed monthly · cancel anytime';
+    document.getElementById('scale-price').innerHTML  = '&#8377;7,999<sub>/mo</sub>';
+    document.getElementById('scale-period').textContent = 'Billed monthly';
+  }
+}
+function acctStep(d){
+  const tiers = ['Up to 10','Up to 25','Unlimited'];
+  const subs  = ['Meta & Google','Meta & Google','Meta, Google & more'];
+  const prev = document.getElementById('acct-prev');
+  const next = document.getElementById('acct-next');
+  const val  = document.getElementById('acct-val');
+  const sub  = document.getElementById('acct-sub');
+  let idx = tiers.indexOf(val.textContent);
+  idx = Math.max(0, Math.min(tiers.length-1, idx+d));
+  val.textContent = tiers[idx];
+  sub.textContent = subs[idx];
+  prev.disabled = idx === 0;
+  next.disabled = idx === tiers.length-1;
+}
+</script>
+
+
+<!-- ══════════════════════════════════════
+     SECTION 8 — FAQ
+══════════════════════════════════════ -->
+<style>
+.faq-sec{
+  background:var(--bg);
+  padding:48px 0 56px;
+  position:relative;overflow:hidden;
+}
+@media(max-width:600px){.faq-sec{padding:28px 0 36px}}
+.faq-sec::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 40% 60% at 10% 50%,rgba(175,70,253,.05),transparent 65%);
+}
+.faq-inner{
+  max-width:1060px;margin:0 auto;padding:0 32px;
+  display:grid;grid-template-columns:1fr 1.6fr;
+  gap:56px;align-items:start;
+  position:relative;z-index:2;
+}
+@media(max-width:860px){.faq-inner{grid-template-columns:1fr;gap:28px;padding:0 20px}}
+.faq-left{position:sticky;top:88px;display:flex;flex-direction:column;align-items:flex-start}
+@media(max-width:860px){.faq-left{position:static;margin-bottom:4px}}
+.faq-kicker{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 14px;border-radius:100px;
+  font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--purple);background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);
+  margin-bottom:16px;align-self:flex-start;
+}
+@media(max-width:860px){.faq-kicker{margin-bottom:12px}}
+.faq-h{
+  font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(28px,2.8vw,40px);line-height:1.12;letter-spacing:-.3px;
+  color:var(--t1);margin-bottom:14px;
+}
+@media(max-width:860px){.faq-h{font-size:clamp(24px,6vw,32px);margin-bottom:10px}}
+.faq-sub{font-size:14px;color:var(--t2);line-height:1.7;margin-bottom:32px}
+@media(max-width:860px){.faq-sub{margin-bottom:16px}}
+.faq-cta-block{
+  padding:20px 22px;border-radius:14px;
+  background:#fff;border:1px solid rgba(0,0,0,.08);
+  margin-top:auto;width:100%;text-align:left;
+}
+@media(max-width:860px){.faq-cta-block{padding:16px 18px;margin-top:16px}}
+.faq-cta-title{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:6px}
+.faq-cta-sub{font-size:12.5px;color:var(--t2);line-height:1.6;margin-bottom:14px}
+.faq-cta-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 18px;border-radius:10px;
+  background:var(--grad);color:#fff;
+  font-size:13px;font-weight:600;font-family:inherit;
+  border:none;cursor:pointer;transition:opacity .2s;
+}
+.faq-cta-btn:hover{opacity:.88}
+.faq-list{display:flex;flex-direction:column}
+.faq-item{border-bottom:1px solid rgba(0,0,0,.07);position:relative}
+.faq-item:first-child{border-top:1px solid rgba(0,0,0,.07)}
+.faq-item.open::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:2px;background:var(--grad);border-radius:0 1px 1px 0;
+}
+.faq-q{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 0 16px 16px;cursor:pointer;transition:padding .3s;
+}
+.faq-item:not(.open) .faq-q{padding-left:0;padding-top:15px;padding-bottom:15px}
+.faq-q-text{font-size:14.5px;font-weight:600;color:rgba(0,0,0,.8);line-height:1.45;transition:color .2s}
+.faq-item.open .faq-q-text{color:var(--t1)}
+.faq-q-icon{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;color:rgba(0,0,0,.4);
+  transition:all .3s cubic-bezier(.4,0,.2,1);line-height:1;
+}
+.faq-item.open .faq-q-icon{
+  background:rgba(175,70,253,.1);border-color:rgba(175,70,253,.25);
+  color:var(--purple);transform:rotate(45deg);
+}
+.faq-a-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s cubic-bezier(.4,0,.2,1)}
+.faq-item.open .faq-a-wrap{grid-template-rows:1fr}
+.faq-a-inner{overflow:hidden}
+.faq-a{padding:0 40px 20px 16px;font-size:13.5px;color:var(--t2);line-height:1.75}
+</style>
+
+<section class="faq-sec">
+  <div style="text-align:center;max-width:1060px;margin:0 auto 28px;padding:0 32px;position:relative;z-index:2">
+    <div class="faq-kicker" style="display:inline-flex">&#10022; FAQ</div>
+  </div>
+  <div class="faq-inner">
+    <div class="faq-left">
+      <h2 class="faq-h">Questions we<br>get all the time.</h2>
+      <p class="faq-sub">Everything you need to know about Shiprocket Studio before you get started.</p>
+      <div class="faq-cta-block">
+        <div class="faq-cta-title">Still have questions?</div>
+        <div class="faq-cta-sub">Talk to someone on our team — we'll walk you through the platform personally.</div>
+        <a href="mailto:adconnect@shiprocket.com" class="faq-cta-btn">Contact us &rarr;</a>
+      </div>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">What exactly is Shiprocket Studio?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">Shiprocket Studio is a DIY marketing intelligence and creative tool. It helps merchants understand which ads are working, identify why some ads fail, discover what competitors are doing, and generate new ad creatives using AI. Think of it as a marketing analyst and creative assistant inside one dashboard — built specifically for D2C brands running Meta and Google ads.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">How does Studio connect to my ad accounts?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">Studio connects through secure integrations with Meta Ads and Google Ads using read-only OAuth access. This allows Studio to fetch your campaign and creative performance data. We never post, edit, or make changes to your campaigns on your behalf — you stay fully in control.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">Does Studio run or modify my ads automatically?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">No. Studio only analyzes your performance, provides insights, and surfaces recommendations. You remain fully in control of all campaigns. The AI Agent (available on the Scale plan) can suggest budget reallocations and flag underperformers — but every action requires your explicit approval before anything changes.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">What is a creative audit and what does it tell me?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">A creative audit analyzes all ads running in your account and evaluates them based on performance signals — click-through rate, conversion rate, cost per purchase, engagement, and creative structure. Studio identifies your best performing creatives, underperformers, ads that are scaling, and ads showing fatigue. Each ad gets a score out of 100 so you know exactly what to scale and what to pause.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">What is hook analysis?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">The hook is the first few seconds of an ad that captures attention — a strong claim, a problem statement, a visual surprise. Studio analyzes which hooks are driving performance across your creatives and your category. It tells you whether bold claim hooks, problem-solution formats, or testimonial-led openers are winning for your specific audience — so you stop guessing and start replicating what works.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">How does competitor tracking work?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">Studio tracks competitor ads sourced live from the Meta Ad Library. You can see every active ad your rivals are running, the creative formats they're testing, the hooks they're using, and which products they're promoting. You can also bookmark ads, create collections, and share them with your creative team for inspiration and counter-strategy planning.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">What is the 1L+ ads library?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">Studio has a library of 100,000+ ads across industries that you can browse for creative inspiration. Discover new formats, explore different hooks, and identify trending creative styles — so you never run out of ideas for what to test next. It's especially useful when you're briefing a creative team or trying to break out of a stale format.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">How does AI ad creation work?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">Simply choose or upload a reference image and upload your product image. Studio's AI generates a ready-to-use ad creative — with your brand colors, tone, and format applied automatically from your Brand DNA profile. It's especially useful for small brands without designers, or performance marketers running large creative experiments who need to test many variations quickly.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">What is the ad score out of 100?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">Every ad in your account gets scored based on creative structure, hook strength, messaging clarity, and visual quality. The score helps you understand how strong your ad is likely to perform before you commit more budget to it. Studio also highlights weak areas, missing elements, and specific improvements for your audience — not just a number, but a direction.</div></div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="faqToggle(this)"><span class="faq-q-text">What is the bulk ad launcher?</span><span class="faq-q-icon">+</span></div>
+        <div class="faq-a-wrap"><div class="faq-a-inner"><div class="faq-a">The bulk ad launcher lets you launch up to 50 ads at once — across Feed, Story, and Reel formats — directly to Meta. Your brand DNA is applied automatically so every creative is consistent. It's designed for brands that want to run large-scale creative experiments and find winning ads faster, without the operational overhead of setting up each ad individually.</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+function faqToggle(qEl) {
+  const item = qEl.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+</script>
+
+
+<!-- ══════════════════════════════════════
+     SECTION 9 — CLOSING CTA
+══════════════════════════════════════ -->
+<style>
+.closing-sec{
+  position:relative;overflow:hidden;
+  padding:96px 24px;
+  background:var(--bg);
+}
+@media(max-width:600px){.closing-sec{padding:60px 20px}}
+.closing-sec::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 80% at 50% 100%,rgba(175,70,253,.1),transparent 65%),
+    radial-gradient(ellipse 40% 50% at 20% 50%,rgba(244,52,157,.05),transparent 60%),
+    radial-gradient(ellipse 40% 50% at 80% 50%,rgba(175,70,253,.04),transparent 60%);
+}
+.closing-sec::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(circle,rgba(0,0,0,.04) 1px,transparent 1px);
+  background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 80%);
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 80%);
+}
+.closing-inner{
+  max-width:680px;margin:0 auto;
+  text-align:center;
+  position:relative;z-index:2;
+  display:flex;flex-direction:column;align-items:center;
+}
+.closing-eyebrow{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 14px;border-radius:100px;
+  font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--purple);background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);
+  margin-bottom:24px;
+}
+.closing-h{
+  font-family:'Instrument Serif',serif;font-style:italic;
+  font-size:clamp(32px,4vw,58px);
+  line-height:1.08;letter-spacing:-.5px;
+  color:var(--t1);margin-bottom:16px;
+}
+.closing-sub{
+  font-size:16px;color:rgba(0,0,0,.55);
+  line-height:1.7;margin-bottom:36px;max-width:480px;
+}
+@media(max-width:600px){.closing-sub{font-size:14px;margin-bottom:28px}}
+.closing-inp-row{display:flex;gap:10px;width:100%;max-width:520px;margin-bottom:16px}
+@media(max-width:500px){.closing-inp-row{flex-direction:column}}
+.closing-inp{
+  flex:1;padding:16px 22px;
+  background:#fff;border:1.5px solid rgba(0,0,0,.14);
+  border-radius:13px;font-size:16px;color:var(--t1);
+  outline:none;font-family:'Plus Jakarta Sans',sans-serif;transition:all .2s;
+}
+.closing-inp::placeholder{color:rgba(0,0,0,.3)}
+.closing-inp:focus{border-color:rgba(175,70,253,.55);box-shadow:0 0 0 3px rgba(175,70,253,.1)}
+.closing-btn{
+  padding:16px 28px;border-radius:13px;
+  background:var(--grad);color:#fff;
+  font-size:15px;font-weight:700;font-family:inherit;
+  border:none;cursor:pointer;white-space:nowrap;
+  transition:opacity .2s,transform .15s;
+}
+.closing-btn:hover{opacity:.9;transform:translateY(-1px)}
+.closing-fine{
+  font-size:12px;color:rgba(0,0,0,.38);
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;
+}
+.closing-fine span::before{content:'·';margin-right:16px;opacity:.4}
+.closing-fine span:first-child::before{display:none}
+</style>
+
+<section class="closing-sec">
+  <div class="closing-inner">
+    <div class="closing-eyebrow">&#10022; Start for free</div>
+    <h2 class="closing-h">Your brand's best ad<br>is <span class="grad-text">still unbuilt.</span></h2>
+    <p class="closing-sub">Enter your store URL. We'll extract your brand DNA, score your creatives, and show you exactly where your next rupee should go.</p>
+    <div class="closing-inp-row">
+      <input class="closing-inp" type="text" id="closing-inp" placeholder="yourstore.com" onkeydown="if(event.key==='Enter')handleClosingAnalyze()" />
+      <button class="closing-btn" onclick="handleClosingAnalyze()">Analyze free →</button>
+    </div>
+    <div class="closing-fine">
+      <span>No credit card required</span>
+      <span>Read-only scan</span>
+      <span>60 seconds to your brand profile</span>
+    </div>
+  </div>
+</section>
+
+<script>
+function handleClosingAnalyze(){
+  const v = document.getElementById('closing-inp').value.trim();
+  if(!v){ document.getElementById('closing-inp').focus(); return; }
+  launchExtraction(v);
+}
+</script>
+
+
+<!-- ══════════════════════════════════════
+     FOOTER
+══════════════════════════════════════ -->
+<style>
+.footer{
+  background:#EEEEF3;
+  border-top:1px solid rgba(0,0,0,.08);
+  position:relative;overflow:hidden;
+}
+.footer::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 40% 60% at 0% 0%,rgba(175,70,253,.04),transparent 60%);
+}
+.footer-top{
+  max-width:1120px;margin:0 auto;
+  padding:56px 32px 48px;
+  display:grid;
+  grid-template-columns:1.8fr 1fr 1fr 1fr;
+  gap:48px;position:relative;z-index:2;
+}
+@media(max-width:900px){.footer-top{grid-template-columns:1fr 1fr;gap:36px;padding:40px 20px 36px}}
+@media(max-width:520px){.footer-top{grid-template-columns:1fr;gap:28px;padding:36px 20px 28px}}
+.footer-logo{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.footer-logo-icon{width:28px;height:28px;border-radius:7px;background:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.footer-logo-icon svg{width:14px;height:14px}
+.footer-logo-name{font-size:15px;font-weight:700;color:var(--t1)}
+.footer-logo-name span{color:var(--purple)}
+.footer-desc{font-size:13px;color:rgba(0,0,0,.5);line-height:1.75;margin-bottom:20px;max-width:260px}
+.footer-socials{display:flex;gap:8px}
+.footer-social{
+  width:34px;height:34px;border-radius:9px;
+  background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.09);
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(0,0,0,.4);font-size:14px;
+  text-decoration:none;transition:all .2s;
+}
+.footer-social:hover{background:rgba(175,70,253,.1);border-color:rgba(175,70,253,.25);color:var(--purple)}
+.footer-col-title{
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:1px;color:rgba(0,0,0,.35);margin-bottom:16px;
+}
+.footer-links{display:flex;flex-direction:column;gap:10px}
+.footer-link{
+  font-size:13.5px;color:rgba(0,0,0,.55);
+  text-decoration:none;transition:color .2s;
+  display:flex;align-items:center;gap:6px;
+}
+.footer-link:hover{color:var(--t1)}
+.footer-link .badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:100px;background:rgba(34,197,94,.12);color:#16A34A;border:1px solid rgba(34,197,94,.2)}
+.footer-link .soon{font-size:9px;font-weight:700;padding:2px 6px;border-radius:100px;background:rgba(251,146,60,.1);color:#D97706;border:1px solid rgba(251,146,60,.18)}
+.footer-trust{
+  border-top:1px solid rgba(0,0,0,.07);border-bottom:1px solid rgba(0,0,0,.07);
+  padding:20px 32px;
+  max-width:1120px;margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:24px;flex-wrap:wrap;position:relative;z-index:2;
+}
+@media(max-width:600px){.footer-trust{padding:16px 20px;justify-content:center}}
+.footer-trust-item{display:flex;align-items:center;gap:8px;font-size:12.5px;color:rgba(0,0,0,.38)}
+.footer-trust-item strong{color:rgba(0,0,0,.65);font-weight:600}
+.footer-trust-dot{width:4px;height:4px;border-radius:50%;background:rgba(0,0,0,.15);flex-shrink:0}
+@media(max-width:600px){.footer-trust-dot{display:none}}
+.footer-bottom{
+  max-width:1120px;margin:0 auto;
+  padding:20px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;position:relative;z-index:2;
+}
+@media(max-width:600px){.footer-bottom{flex-direction:column;align-items:center;padding:16px 20px;text-align:center;gap:10px}}
+.footer-copy{font-size:12px;color:rgba(0,0,0,.38)}
+.footer-legal{display:flex;gap:20px;flex-wrap:wrap}
+.footer-legal a{font-size:12px;color:rgba(0,0,0,.35);text-decoration:none;transition:color .2s}
+.footer-legal a:hover{color:rgba(0,0,0,.7)}
+</style>
+
+<footer class="footer">
+  <div class="footer-top">
+    <div class="footer-brand">
+      <div class="footer-logo">
+        <div class="footer-logo-icon">
+          <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="28" height="28" rx="7" fill="url(#fl-grad)"/>
+            <path d="M8 14.5L12.5 19L20 10" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="fl-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse"><stop stop-color="#AF46FD"/><stop offset="1" stop-color="#F4349D"/></linearGradient></defs>
+          </svg>
+        </div>
+        <span class="footer-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <p class="footer-desc">India's first AI-led marketing intelligence platform for D2C brands. Know what works. Scale what wins.</p>
+      <div class="footer-socials">
+        <a href="#" class="footer-social" title="Instagram">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+        </a>
+        <a href="#" class="footer-social" title="LinkedIn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+        </a>
+        <a href="#" class="footer-social" title="Twitter">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a href="#" class="footer-social" title="YouTube">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.54C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="currentColor" stroke="none"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-title">Product</div>
+      <div class="footer-links">
+        <a href="#" class="footer-link">Brand DNA Profile</a>
+        <a href="#" class="footer-link">Creative Intelligence</a>
+        <a href="#" class="footer-link">Performance Analytics</a>
+        <a href="#" class="footer-link">Competitor Tracker</a>
+        <a href="#" class="footer-link">Audience Pro</a>
+        <a href="#" class="footer-link">Ad Launcher <span class="badge">New</span></a>
+        <a href="#" class="footer-link">Ads AI Agent <span class="soon">Coming soon</span></a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-title">Company</div>
+      <div class="footer-links">
+        <a href="#" class="footer-link">About Shiprocket</a>
+        <a href="#" class="footer-link">Blog</a>
+        <a href="#" class="footer-link">Case Studies</a>
+        <a href="#" class="footer-link">Careers</a>
+        <a href="mailto:adconnect@shiprocket.com" class="footer-link">Contact Us</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <div class="footer-col-title">Resources</div>
+      <div class="footer-links">
+        <a href="#" class="footer-link">Help Center</a>
+        <a href="#" class="footer-link">API Docs</a>
+        <a href="#" class="footer-link">Changelog</a>
+        <a href="#" class="footer-link">Pricing</a>
+        <a href="#" class="footer-link">Status</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-trust">
+    <div class="footer-trust-item"><strong>10,000+</strong> D2C brands on the platform</div>
+    <div class="footer-trust-dot"></div>
+    <div class="footer-trust-item"><strong>₹2,000 Cr+</strong> GMV powered</div>
+    <div class="footer-trust-dot"></div>
+    <div class="footer-trust-item"><strong>5.1x</strong> average ROAS</div>
+    <div class="footer-trust-dot"></div>
+    <div class="footer-trust-item"><strong>1L+</strong> ads in the library</div>
+    <div class="footer-trust-dot"></div>
+    <div class="footer-trust-item">Part of <strong>Shiprocket</strong> — India's #1 D2C logistics platform</div>
+  </div>
+  <div class="footer-bottom">
+    <span class="footer-copy">© 2025 Shiprocket Pvt. Ltd. All rights reserved.</span>
+    <div class="footer-legal">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Cookie Policy</a>
+      <a href="#">Refund Policy</a>
+    </div>
+  </div>
+</footer>
+
+
+<!-- ══════════════════════════════════════
+     EXTRACTION OVERLAY
+══════════════════════════════════════ -->
+<style>
+.ext-overlay{
+  position:fixed;inset:0;z-index:999;
+  background:var(--bg);
+  display:none;flex-direction:column;
+  opacity:0;transition:opacity .45s ease;
+}
+.ext-overlay.show{display:flex}
+.ext-overlay.visible{opacity:1}
+.ext-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 50% 60% at 15% 40%,rgba(175,70,253,.08),transparent 60%),
+    radial-gradient(ellipse 45% 55% at 85% 60%,rgba(244,52,157,.05),transparent 60%);
+}
+.ext-grid{
+  position:absolute;inset:-60px;pointer-events:none;
+  background-image:radial-gradient(circle,rgba(0,0,0,.04) 1px,transparent 1px);
+  background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 75%);
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 75%);
+}
+.ext-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 32px;
+  border-bottom:1px solid rgba(0,0,0,.07);
+  position:relative;z-index:2;flex-shrink:0;
+}
+@media(max-width:600px){.ext-header{padding:12px 16px}}
+.ext-logo{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:var(--t1)}
+.ext-logo-icon{width:28px;height:28px;border-radius:7px;background:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.ext-logo-icon svg{width:14px;height:14px}
+.ext-logo-studio{color:var(--purple)}
+.ext-domain{font-size:13px;color:rgba(0,0,0,.45);display:flex;align-items:center;gap:7px}
+.ext-domain-dot{width:6px;height:6px;border-radius:50%;background:#16A34A;animation:extPulse 1.5s ease-in-out infinite}
+@keyframes extPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+.ext-body{
+  flex:1;overflow:hidden;
+  display:grid;grid-template-columns:1fr 1fr;
+  position:relative;z-index:1;
+}
+@media(max-width:800px){.ext-body{display:flex;flex-direction:column;overflow:hidden}}
+.ext-log{
+  border-right:1px solid rgba(0,0,0,.07);
+  padding:28px 32px;display:flex;flex-direction:column;overflow:hidden;
+}
+@media(max-width:800px){.ext-log{padding:16px;border-right:none;border-bottom:none;overflow-y:auto;display:none}}
+.ext-log.mob-active{display:flex!important}
+.ext-log-title{
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+  color:rgba(0,0,0,.35);margin-bottom:16px;display:flex;align-items:center;gap:8px;
+}
+.ext-log-title::before{
+  content:'';width:8px;height:8px;border-radius:50%;background:#16A34A;
+  box-shadow:0 0 8px #16A34A;animation:extPulse 1.5s ease-in-out infinite;
+}
+.ext-log-lines{display:flex;flex-direction:column;gap:0;flex:1;font-family:'Plus Jakarta Sans',monospace}
+.ext-line{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:7px 0;border-bottom:1px solid rgba(0,0,0,.04);
+  opacity:0;transform:translateY(6px);
+  transition:opacity .3s ease,transform .3s ease;
+}
+.ext-line.visible{opacity:1;transform:translateY(0)}
+.ext-line.done .ext-line-icon{color:#16A34A}
+.ext-line.active .ext-line-icon{color:var(--purple)}
+.ext-line-icon{font-size:11px;width:16px;flex-shrink:0;margin-top:2px;color:rgba(0,0,0,.2);transition:color .3s}
+.ext-line-text{font-size:13px;color:rgba(0,0,0,.5);line-height:1.5;flex:1}
+.ext-line.active .ext-line-text{color:rgba(0,0,0,.8)}
+.ext-line.done .ext-line-text{color:rgba(0,0,0,.3)}
+.ext-phase{display:none;align-items:center;gap:10px;padding:16px 0 8px}
+.ext-phase.visible{display:flex}
+.ext-phase::before{content:'';flex:none;height:1px;width:16px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.12))}
+.ext-phase::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(0,0,0,.08),transparent)}
+.ext-phase-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:3px 10px 3px 4px;border-radius:100px;
+  background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);
+  white-space:nowrap;flex-shrink:0;
+}
+.ext-phase-num{
+  width:18px;height:18px;border-radius:50%;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.ext-phase-label{font-size:10px;font-weight:600;letter-spacing:.4px;color:rgba(0,0,0,.45)}
+.ext-cursor{display:inline-block;width:2px;height:12px;background:var(--purple);margin-left:3px;vertical-align:middle;animation:cursorBlink .7s ease-in-out infinite}
+@keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
+.ext-progress{
+  padding:14px 32px 18px;
+  border-top:1px solid rgba(0,0,0,.07);
+  position:relative;z-index:2;flex-shrink:0;
+}
+@media(max-width:800px){.ext-progress{padding:12px 16px 14px}}
+.ext-prog-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ext-prog-label{font-size:12px;color:rgba(0,0,0,.4)}
+.ext-prog-pct{font-size:13px;font-weight:700;color:var(--purple);transition:all .3s}
+.ext-prog-track{height:3px;background:rgba(0,0,0,.08);border-radius:2px;overflow:hidden}
+.ext-prog-fill{height:100%;background:var(--grad);border-radius:2px;width:0%;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.ext-map{padding:28px 32px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+@media(max-width:800px){.ext-map{padding:16px;gap:12px;overflow-y:auto;display:none}}
+.ext-map.mob-active{display:flex!important}
+.ext-map-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:rgba(0,0,0,.35);margin-bottom:4px}
+.bm-card{
+  background:#fff;border:1px solid rgba(0,0,0,.08);
+  border-radius:14px;padding:16px 18px;
+  transition:border-color .4s,box-shadow .4s;
+}
+@media(max-width:800px){.bm-card{border-radius:12px;padding:14px 16px}}
+.bm-card.lit{border-color:rgba(175,70,253,.2);box-shadow:0 0 20px rgba(175,70,253,.06)}
+.bm-section-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(0,0,0,.28);margin-bottom:12px}
+.bm-brand-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.bm-brand-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:800;color:rgba(0,0,0,.3);
+  transition:all .4s;flex-shrink:0;
+}
+.bm-brand-icon.lit{background:var(--grad);color:#fff;border-color:transparent}
+.bm-brand-name{font-size:15px;font-weight:700;color:rgba(0,0,0,.3);transition:color .4s}
+.bm-brand-name.lit{color:var(--t1)}
+.bm-brand-domain{font-size:12px;color:rgba(0,0,0,.2);margin-top:2px;transition:color .4s}
+.bm-brand-domain.lit{color:rgba(0,0,0,.45)}
+.bm-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(0,0,0,.05)}
+.bm-row:last-child{border-bottom:none}
+.bm-row-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:rgba(0,0,0,.22);width:90px;flex-shrink:0;transition:color .3s}
+.bm-row-label.lit{color:rgba(0,0,0,.4)}
+.bm-row-val{flex:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bm-swatch{width:20px;height:20px;border-radius:5px;border:1px solid rgba(0,0,0,.1);opacity:0;transform:scale(.7);transition:opacity .3s,transform .3s}
+.bm-swatch.show{opacity:1;transform:scale(1)}
+.bm-chip{padding:3px 10px;border-radius:100px;font-size:11px;font-weight:500;background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.18);color:rgba(120,40,180,.85);opacity:0;transform:translateY(4px);transition:opacity .3s,transform .3s}
+.bm-chip.show{opacity:1;transform:translateY(0)}
+.bm-chip.green{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.18);color:#16A34A}
+.bm-chip.amber{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.18);color:#D97706}
+.bm-chip.blue{background:rgba(8,145,178,.08);border-color:rgba(8,145,178,.18);color:#0891B2}
+.bm-chip.pink{background:rgba(244,52,157,.08);border-color:rgba(244,52,157,.18);color:#F4349D}
+.bm-text{font-size:12.5px;color:rgba(0,0,0,.2);opacity:0;transition:opacity .4s,color .4s}
+.bm-text.show{opacity:1;color:rgba(0,0,0,.7)}
+.bm-stat{font-size:20px;font-weight:800;background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;transition:opacity .4s}
+.bm-stat.show{opacity:1}
+.bm-conf-wrap{display:flex;align-items:center;gap:12px;margin-top:4px}
+.bm-conf-ring{position:relative;width:52px;height:52px;flex-shrink:0}
+.bm-conf-ring svg{transform:rotate(-90deg)}
+.bm-conf-ring-track{fill:none;stroke:rgba(0,0,0,.08);stroke-width:4}
+.bm-conf-ring-fill{fill:none;stroke-width:4;stroke-linecap:round;stroke:url(#confGrad);stroke-dasharray:125.66;stroke-dashoffset:125.66;transition:stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1)}
+.bm-conf-ring-bg{fill:rgba(245,245,250,.95)}
+.bm-conf-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--t1);opacity:0;transition:opacity .4s .6s}
+.bm-conf-num.show{opacity:1}
+.bm-conf-label{font-size:12px;color:rgba(0,0,0,.45)}
+.bm-conf-sublabel{font-size:11px;color:rgba(0,0,0,.28);margin-top:2px}
+.bm-comps{display:flex;gap:7px;flex-wrap:wrap}
+.bm-comp-logo{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;opacity:0;transform:scale(.7);transition:opacity .3s,transform .3s}
+.bm-comp-logo.show{opacity:1;transform:scale(1)}
+.bm-counter{font-size:18px;font-weight:800;color:var(--purple);font-variant-numeric:tabular-nums;opacity:0;transition:opacity .4s}
+.bm-counter.show{opacity:1}
+.ext-complete{
+  display:none;padding:16px 32px 20px;
+  border-top:1px solid rgba(0,0,0,.07);
+  position:relative;z-index:2;
+  align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+@media(max-width:600px){.ext-complete{padding:14px 16px 16px;flex-direction:column;align-items:stretch}}
+.ext-complete.show{display:flex}
+.ext-tabs{display:none;flex-shrink:0;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.07);position:relative;z-index:2}
+@media(max-width:800px){.ext-tabs{display:flex}}
+.ext-tabs-inner{display:flex;width:100%;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);border-radius:100px;padding:3px;position:relative}
+.ext-tab-indicator{position:absolute;top:3px;bottom:3px;width:calc(50% - 3px);border-radius:100px;background:var(--grad);transition:transform .3s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 12px rgba(175,70,253,.25);z-index:0}
+.ext-tab-indicator.on-map{transform:translateX(calc(100% + 0px))}
+.ext-tab{flex:1;padding:9px 0;border-radius:100px;font-size:13px;font-weight:600;font-family:inherit;border:none;background:transparent;color:rgba(0,0,0,.35);cursor:pointer;transition:color .25s;text-align:center;position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:6px}
+.ext-tab.active{color:#fff}
+.ext-complete-msg{font-size:14px;color:rgba(0,0,0,.55);line-height:1.5}
+.ext-complete-msg strong{color:var(--t1)}
+.ext-continue-btn{padding:13px 28px;border-radius:12px;background:var(--grad);color:#fff;font-size:14px;font-weight:700;font-family:inherit;border:none;cursor:pointer;white-space:nowrap;transition:opacity .2s,transform .15s;flex-shrink:0}
+.ext-continue-btn:hover{opacity:.9;transform:translateY(-1px)}
+@media(max-width:600px){.ext-continue-btn{width:100%;text-align:center}}
+</style>
+
+<div class="ext-overlay" id="ext-overlay">
+  <div class="ext-bg"></div>
+  <div class="ext-grid"></div>
+  <div class="ext-header">
+    <div class="ext-logo">
+      <div class="ext-logo-icon">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="28" height="28" rx="7" fill="url(#el-grad)"/>
+          <path d="M8 14.5L12.5 19L20 10" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="el-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse"><stop stop-color="#AF46FD"/><stop offset="1" stop-color="#F4349D"/></linearGradient></defs>
+        </svg>
+      </div>
+      <span>Shiprocket <span class="ext-logo-studio">Studio</span></span>
+    </div>
+    <div class="ext-domain">
+      <span class="ext-domain-dot"></span>
+      <span id="ext-domain-label">Analysing…</span>
+    </div>
+  </div>
+  <div class="ext-tabs">
+    <div class="ext-tabs-inner">
+      <div class="ext-tab-indicator" id="tab-indicator"></div>
+      <button class="ext-tab active" id="tab-log" onclick="extSwitchTab('log')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Live Log
+      </button>
+      <button class="ext-tab" id="tab-map" onclick="extSwitchTab('map')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Brand Map
+      </button>
+    </div>
+  </div>
+  <div class="ext-body">
+    <div class="ext-log">
+      <div class="ext-log-title">Live extraction</div>
+      <div class="ext-log-lines" id="ext-log-lines"></div>
+    </div>
+    <div class="ext-map">
+      <div class="ext-map-title">Brand map</div>
+      <div class="bm-card" id="bm-identity">
+        <div class="bm-section-label">Identity</div>
+        <div class="bm-brand-row">
+          <div class="bm-brand-icon" id="bm-icon">S</div>
+          <div>
+            <div class="bm-brand-name" id="bm-name">–</div>
+            <div class="bm-brand-domain" id="bm-domain-val">–</div>
+          </div>
+        </div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-colors">Colors</span><div class="bm-row-val" id="bm-colors"><div class="bm-swatch" id="sw0" style="background:#1A1A1A"></div><div class="bm-swatch" id="sw1" style="background:#E8C547"></div><div class="bm-swatch" id="sw2" style="background:#C84B2F"></div><div class="bm-swatch" id="sw3" style="background:#F5F5F0"></div></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-tone">Tone</span><div class="bm-row-val" id="bm-tone"><span class="bm-chip" id="chip-bold">Bold</span><span class="bm-chip" id="chip-street">Street</span><span class="bm-chip" id="chip-asp">Aspirational</span></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-audience">Audience</span><div class="bm-row-val"><span class="bm-chip green" id="chip-audience">Men · 18–35 · Tier 1–2</span></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-category">Category</span><div class="bm-row-val"><span class="bm-chip amber" id="chip-category">Men's Fashion · D2C</span></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-pricing">Pricing</span><div class="bm-row-val"><span class="bm-text" id="bm-pricing">₹799 – ₹3,499 · Mid-premium</span></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-reviews">Reviews</span><div class="bm-row-val"><span class="bm-chip blue" id="chip-reviews">4.3★ · 12,000+ reviews</span></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-shipping">Shipping</span><div class="bm-row-val"><span class="bm-text" id="bm-shipping">Free above ₹499 · 3–5 days</span></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-messaging">Messaging</span><div class="bm-row-val"><span class="bm-chip pink" id="chip-msg">Street culture, premium feel</span></div></div>
+      </div>
+      <div class="bm-card" id="bm-comp-card">
+        <div class="bm-section-label">Competitive landscape</div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-ads">Ads found</span><div class="bm-row-val"><span class="bm-counter" id="bm-ads-count">0</span><span class="bm-text" id="bm-ads-label" style="font-size:11px"> public Meta ads</span></div></div>
+        <div class="bm-row"><span class="bm-row-label" id="lbl-comp">Competitors</span><div class="bm-row-val bm-comps" id="bm-comps"><div class="bm-comp-logo" id="comp0" style="background:linear-gradient(135deg,#1a3a5c,#2563eb)">RR</div><div class="bm-comp-logo" id="comp1" style="background:linear-gradient(135deg,#3d1a00,#c84b2f)">BW</div><div class="bm-comp-logo" id="comp2" style="background:linear-gradient(135deg,#1a0a3d,#6b21a8)">TS</div></div></div>
+      </div>
+      <div class="bm-card" id="bm-conf-card">
+        <div class="bm-section-label">Brand confidence</div>
+        <div class="bm-conf-wrap">
+          <div class="bm-conf-ring">
+            <svg width="52" height="52" viewBox="0 0 52 52">
+              <defs><linearGradient id="confGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#AF46FD"/><stop offset="100%" stop-color="#F4349D"/></linearGradient></defs>
+              <circle class="bm-conf-ring-bg" cx="26" cy="26" r="24"/>
+              <circle class="bm-conf-ring-track" cx="26" cy="26" r="20"/>
+              <circle class="bm-conf-ring-fill" id="conf-ring-fill" cx="26" cy="26" r="20"/>
+            </svg>
+            <div class="bm-conf-num" id="conf-num">87%</div>
+          </div>
+          <div>
+            <div class="bm-conf-label" id="conf-label" style="opacity:.2">Confidence score</div>
+            <div class="bm-conf-sublabel" id="conf-sublabel" style="opacity:.2">Based on 12 extracted signals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ext-progress" id="ext-progress">
+    <div class="ext-prog-row">
+      <span class="ext-prog-label" id="ext-prog-label">Initialising…</span>
+      <span class="ext-prog-pct" id="ext-prog-pct">0%</span>
+    </div>
+    <div class="ext-prog-track"><div class="ext-prog-fill" id="ext-prog-fill"></div></div>
+  </div>
+  <div class="ext-complete" id="ext-complete">
+    <div class="ext-complete-msg">
+      <strong id="ext-brand-ready">Your brand map is ready.</strong><br>
+      67 ads found · 3 competitors identified · 87% confidence
+    </div>
+    <button class="ext-continue-btn" onclick="goToInspirationHub()">See full brand profile + insights →</button>
+  </div>
+</div>
+
+<script>
+const EXT_PHASES = [
+  {label:'Phase 1 · Website Scan',lines:[{text:'Connecting to {domain}…',prog:5,map:null},{text:'Reading homepage structure…',prog:10,map:null},{text:'Extracting meta tags and copy…',prog:14,map:'identity'}]},
+  {label:'Phase 2 · Visual Identity',lines:[{text:'Identifying brand colors… 4 found',prog:22,map:'colors'},{text:'Detecting typography and visual style…',prog:28,map:'tone'},{text:'Extracting logo and brand assets…',prog:33,map:'icon'}]},
+  {label:'Phase 3 · Brand Voice',lines:[{text:'Analysing headline copy and messaging…',prog:40,map:'messaging'},{text:'Detecting tone of voice… Bold, Street, Aspirational',prog:46,map:'toneChips'},{text:'Mapping content themes and keywords…',prog:52,map:null}]},
+  {label:'Phase 4 · Audience & Product',lines:[{text:'Identifying target audience… Men · 18–35',prog:58,map:'audience'},{text:'Mapping product catalogue and categories…',prog:63,map:'category'},{text:'Reading pricing signals… ₹799–₹3,499',prog:67,map:'pricing'},{text:'Scanning customer reviews… 4.3★ · 12,000+',prog:71,map:'reviews'},{text:'Checking shipping policy…',prog:74,map:'shipping'}]},
+  {label:'Phase 5 · Competitive Landscape',lines:[{text:'Searching Meta Ad Library for {domain}…',prog:80,map:null},{text:'Found 67 public ads · scanning creative patterns…',prog:85,map:'ads'},{text:"Detecting 3 key competitors in Men's Fashion…",prog:90,map:'comps'}]},
+  {label:'Phase 6 · Brand Map Assembly',lines:[{text:'Calculating brand confidence score… 87%',prog:95,map:'confidence'},{text:'Building your brand intelligence map…',prog:98,map:null},{text:'Your brand profile is ready ✦',prog:100,map:'done'}]},
+];
+
+function launchExtraction(url) {
+  if (!sessionStorage.getItem('loginFlow') && !sessionStorage.getItem('ws_add_flow')) {
+    sessionStorage.removeItem('authed');
+  }
+  sessionStorage.removeItem('loginFlow');
+  const domain = url.replace('https://','').replace('http://','').split('/')[0].replace('www.','').trim() || 'yourstore.com';
+  const brandName = domain.split('.')[0];
+  const brandCap  = brandName.charAt(0).toUpperCase() + brandName.slice(1);
+  document.getElementById('ext-domain-label').textContent = domain;
+  document.getElementById('bm-icon').textContent = brandCap.charAt(0).toUpperCase();
+  document.getElementById('bm-name').textContent = brandCap;
+  document.getElementById('bm-domain-val').textContent = domain;
+  document.getElementById('ext-brand-ready').textContent = brandCap + "'s brand map is ready.";
+  const overlay = document.getElementById('ext-overlay');
+  if (window.innerWidth <= 800) { extSwitchTab('log'); }
+  overlay.classList.add('show');
+  requestAnimationFrame(() => { requestAnimationFrame(() => overlay.classList.add('visible')); });
+  const logEl = document.getElementById('ext-log-lines');
+  logEl.innerHTML = '';
+  let lineIdx = 0;
+  const allLines = [];
+  EXT_PHASES.forEach((phase, pi) => {
+    const ph = document.createElement('div');
+    ph.className = 'ext-phase'; ph.id = 'phase-' + pi;
+    const phParts = phase.label.split(' · ');
+    const phNum = phParts[0].replace('Phase ','');
+    const phLbl = phParts[1] || phase.label;
+    ph.innerHTML = `<div class="ext-phase-badge"><div class="ext-phase-num">${phNum}</div><span class="ext-phase-label">${phLbl}</span></div>`;
+    logEl.appendChild(ph);
+    phase.lines.forEach((line) => {
+      const el = document.createElement('div');
+      el.className = 'ext-line'; el.id = 'line-' + lineIdx;
+      const txt = line.text.replace('{domain}', domain);
+      el.innerHTML = `<span class="ext-line-icon">○</span><span class="ext-line-text">${txt}</span>`;
+      logEl.appendChild(el);
+      allLines.push({el, line, phaseEl: ph, idx: lineIdx});
+      lineIdx++;
+    });
+  });
+  runSequence(allLines, 0);
+}
+
+function runSequence(lines, i) {
+  if (i >= lines.length) return;
+  const {el, line, phaseEl} = lines[i];
+  const delay = i === 0 ? 300 : 680;
+  setTimeout(() => {
+    if (phaseEl && !phaseEl.classList.contains('visible')) phaseEl.classList.add('visible');
+    if (i > 0) { lines[i-1].el.classList.remove('active'); lines[i-1].el.classList.add('done'); lines[i-1].el.querySelector('.ext-line-icon').textContent = '✓'; }
+    el.classList.add('visible','active');
+    document.getElementById('ext-prog-fill').style.width = line.prog + '%';
+    document.getElementById('ext-prog-pct').textContent  = line.prog + '%';
+    document.getElementById('ext-prog-label').textContent = el.querySelector('.ext-line-text').textContent;
+    triggerMapReveal(line.map);
+    el.scrollIntoView({behavior:'smooth', block:'nearest'});
+    if (i === lines.length - 1) { el.querySelector('.ext-line-icon').textContent = '✦'; setTimeout(showComplete, 700); }
+    else { runSequence(lines, i + 1); }
+  }, delay);
+}
+
+function triggerMapReveal(trigger) {
+  if (!trigger) return;
+  const t = trigger;
+  if (t === 'identity') { document.getElementById('bm-identity').classList.add('lit'); document.getElementById('bm-name').classList.add('lit'); document.getElementById('bm-domain-val').classList.add('lit'); document.getElementById('bm-icon').classList.add('lit'); }
+  if (t === 'colors') { extAutoSwitchToMap(); ['sw0','sw1','sw2','sw3'].forEach((id,i) => { setTimeout(() => document.getElementById(id).classList.add('show'), i * 100); }); document.getElementById('lbl-colors').classList.add('lit'); }
+  if (t === 'tone' || t === 'toneChips') { setTimeout(() => document.getElementById('chip-bold').classList.add('show'), 0); setTimeout(() => document.getElementById('chip-street').classList.add('show'), 100); setTimeout(() => document.getElementById('chip-asp').classList.add('show'), 200); document.getElementById('lbl-tone').classList.add('lit'); }
+  if (t === 'messaging') { document.getElementById('chip-msg').classList.add('show'); document.getElementById('lbl-messaging').classList.add('lit'); }
+  if (t === 'audience') { document.getElementById('chip-audience').classList.add('show'); document.getElementById('lbl-audience').classList.add('lit'); }
+  if (t === 'category') { document.getElementById('chip-category').classList.add('show'); document.getElementById('lbl-category').classList.add('lit'); }
+  if (t === 'pricing') { document.getElementById('bm-pricing').classList.add('show'); document.getElementById('lbl-pricing').classList.add('lit'); }
+  if (t === 'reviews') { document.getElementById('chip-reviews').classList.add('show'); document.getElementById('lbl-reviews').classList.add('lit'); }
+  if (t === 'shipping') { document.getElementById('bm-shipping').classList.add('show'); document.getElementById('lbl-shipping').classList.add('lit'); }
+  if (t === 'ads') { document.getElementById('bm-comp-card').classList.add('lit'); document.getElementById('lbl-ads').classList.add('lit'); document.getElementById('bm-ads-label').classList.add('show'); animateCounter('bm-ads-count', 0, 67, 1200); }
+  if (t === 'comps') { document.getElementById('lbl-comp').classList.add('lit'); ['comp0','comp1','comp2'].forEach((id,i) => { setTimeout(() => document.getElementById(id).classList.add('show'), i * 150); }); }
+  if (t === 'confidence') {
+    document.getElementById('bm-conf-card').classList.add('lit');
+    const fill = document.getElementById('conf-ring-fill');
+    const offset = 125.66 * (1 - 0.87);
+    setTimeout(() => { fill.style.strokeDashoffset = offset; document.getElementById('conf-num').classList.add('show'); document.getElementById('conf-label').style.opacity = '1'; document.getElementById('conf-sublabel').style.opacity = '1'; }, 200);
+  }
+}
+
+function animateCounter(id, from, to, duration) {
+  const el = document.getElementById(id);
+  el.classList.add('show');
+  const start = performance.now();
+  function tick(now) { const p = Math.min((now - start) / duration, 1); el.textContent = Math.round(from + (to - from) * p); if (p < 1) requestAnimationFrame(tick); else el.textContent = to; }
+  requestAnimationFrame(tick);
+}
+
+function showComplete() { document.getElementById('ext-complete').classList.add('show'); document.getElementById('ext-progress').style.display = 'none'; }
+
+function extSwitchTab(tab) {
+  const log = document.querySelector('.ext-log'); const map = document.querySelector('.ext-map');
+  const tabLog = document.getElementById('tab-log'); const tabMap = document.getElementById('tab-map');
+  const indicator = document.getElementById('tab-indicator');
+  if (tab === 'log') { log.classList.add('mob-active'); map.classList.remove('mob-active'); tabLog.classList.add('active'); tabMap.classList.remove('active'); if(indicator) indicator.classList.remove('on-map'); }
+  else { map.classList.add('mob-active'); log.classList.remove('mob-active'); tabMap.classList.add('active'); tabLog.classList.remove('active'); if(indicator) indicator.classList.add('on-map'); }
+}
+function extAutoSwitchToMap() { if (window.innerWidth <= 800) { extSwitchTab('map'); } }
+function goToInspirationHub(){ window.location.href="brand_report.html"; }
+</script>
+
+
+<!-- ══════════════════════════════════════
+     START FREE MODAL
+══════════════════════════════════════ -->
+<style>
+.start-modal-backdrop{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(12px);
+  display:none;opacity:0;transition:opacity .3s ease;
+  align-items:center;justify-content:center;padding:20px;
+}
+.start-modal-backdrop.show{display:flex}
+.start-modal-backdrop.visible{opacity:1}
+.start-modal{
+  background:#fff;border:1px solid rgba(0,0,0,.12);
+  border-radius:20px;padding:32px 28px;
+  width:100%;max-width:460px;position:relative;
+  box-shadow:0 0 40px rgba(175,70,253,.12),0 24px 60px rgba(0,0,0,.12);
+  transform:translateY(16px);transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+.start-modal-backdrop.visible .start-modal{transform:translateY(0)}
+.start-modal::before{
+  content:'';position:absolute;inset:0;border-radius:20px;pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(175,70,253,.06),transparent 65%);
+}
+.sm-close{
+  position:absolute;top:14px;right:14px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.1);
+  color:rgba(0,0,0,.4);font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-family:inherit;transition:all .2s;
+}
+.sm-close:hover{background:rgba(0,0,0,.08);color:var(--t1)}
+.sm-kicker{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:100px;
+  font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--purple);background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);
+  margin-bottom:16px;
+}
+.sm-h{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(22px,3vw,30px);line-height:1.1;letter-spacing:-.3px;color:var(--t1);margin-bottom:8px}
+.sm-sub{font-size:13.5px;color:var(--t2);line-height:1.65;margin-bottom:22px}
+.sm-input-wrap{position:relative;margin-bottom:10px}
+.sm-input{
+  width:100%;padding:14px 16px;
+  background:#fff;border:1.5px solid rgba(0,0,0,.14);
+  border-radius:12px;font-size:15px;color:var(--t1);
+  outline:none;font-family:'Plus Jakarta Sans',sans-serif;transition:all .25s;
+}
+.sm-input::placeholder{color:var(--t3)}
+.sm-input:focus{border-color:rgba(175,70,253,.55);box-shadow:0 0 0 3px rgba(175,70,253,.1)}
+.sm-btn{width:100%;padding:14px;border-radius:12px;background:var(--grad);color:#fff;font-size:15px;font-weight:700;font-family:inherit;border:none;cursor:pointer;transition:opacity .2s,transform .15s;position:relative;overflow:hidden}
+.sm-btn:hover{opacity:.9;transform:translateY(-1px)}
+.sm-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);transform:translateX(-100%);transition:transform .6s}
+.sm-btn:hover::after{transform:translateX(100%)}
+.sm-fine{text-align:center;font-size:11.5px;color:var(--t3);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px}
+</style>
+
+<div class="start-modal-backdrop" id="start-modal-backdrop" onclick="handleBackdropClick(event)">
+  <div class="start-modal">
+    <button class="sm-close" onclick="closeStartModal()">✕</button>
+    <div class="sm-kicker">&#10022; Step 1 of 3</div>
+    <h2 class="sm-h">Enter your store URL<br>to get started.</h2>
+    <p class="sm-sub">We'll extract your brand identity automatically — colors, tone, audience, category. Takes under 60 seconds.</p>
+    <div class="sm-input-wrap">
+      <input class="sm-input" type="text" id="sm-input" placeholder="yourstore.com" onkeydown="if(event.key==='Enter')handleStartModal()" autofocus />
+    </div>
+    <button class="sm-btn" onclick="handleStartModal()">Analyse my brand →</button>
+    <div class="sm-fine">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Read-only scan &nbsp;·&nbsp; No credit card needed
+    </div>
+  </div>
+</div>
+
+<script>
+function openStartModal() {
+  const bd = document.getElementById('start-modal-backdrop');
+  bd.classList.add('show');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    bd.classList.add('visible');
+    setTimeout(() => document.getElementById('sm-input').focus(), 100);
+  }));
+}
+function closeStartModal() {
+  const bd = document.getElementById('start-modal-backdrop');
+  bd.classList.remove('visible');
+  setTimeout(() => bd.classList.remove('show'), 300);
+}
+function handleBackdropClick(e) {
+  if (e.target === document.getElementById('start-modal-backdrop')) closeStartModal();
+}
+function handleStartModal() {
+  const v = document.getElementById('sm-input').value.trim();
+  if (!v) { document.getElementById('sm-input').style.borderColor = 'rgba(244,52,157,.5)'; setTimeout(() => document.getElementById('sm-input').style.borderColor = '', 1200); return; }
+  closeStartModal();
+  setTimeout(() => launchExtraction(v), 320);
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeStartModal(); closeLoginModal(); }
+});
+</script>
+
+
+<!-- ══════════════════════════════════════
+     LOGIN MODAL
+══════════════════════════════════════ -->
+<style>
+.login-modal-backdrop{
+  position:fixed;inset:0;z-index:600;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(14px);
+  display:none;opacity:0;transition:opacity .3s;
+  align-items:center;justify-content:center;padding:20px;
+}
+.login-modal-backdrop.show{display:flex}
+.login-modal-backdrop.visible{opacity:1}
+.login-modal{
+  position:relative;background:#fff;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:20px;padding:36px 32px 32px;
+  width:100%;max-width:400px;
+  box-shadow:0 0 40px rgba(175,70,253,.1),0 24px 60px rgba(0,0,0,.1);
+  transform:translateY(16px);transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+.login-modal-backdrop.visible .login-modal{transform:translateY(0)}
+.login-modal::before{
+  content:'';position:absolute;inset:0;border-radius:20px;pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(175,70,253,.05),transparent 65%);
+}
+.lm-close{position:absolute;top:14px;right:16px;background:none;border:none;color:rgba(0,0,0,.35);font-size:18px;cursor:pointer;line-height:1;padding:4px;transition:color .15s}
+.lm-close:hover{color:var(--t1)}
+.lm-title{font-size:20px;font-weight:800;color:var(--t1);margin-bottom:6px;position:relative}
+.lm-sub{font-size:13px;color:rgba(0,0,0,.45);margin-bottom:24px;position:relative}
+.lm-step{display:none}
+.lm-step.active{display:block}
+.lm-label{font-size:11.5px;font-weight:600;color:rgba(0,0,0,.45);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;position:relative}
+.lm-phone-row{display:flex;gap:0;border:1px solid rgba(175,70,253,.25);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.02);position:relative}
+.lm-prefix{padding:12px 14px;font-size:14px;color:rgba(0,0,0,.4);border-right:1px solid rgba(0,0,0,.08);white-space:nowrap}
+.lm-phone-inp{flex:1;background:none;border:none;outline:none;color:var(--t1);font-size:15px;font-weight:600;padding:12px 14px;font-family:inherit}
+.lm-otp-row{display:flex;gap:10px;justify-content:center;margin-bottom:6px;position:relative}
+.lm-otp-box{width:46px;height:52px;border-radius:10px;text-align:center;background:rgba(0,0,0,.04);border:1.5px solid rgba(0,0,0,.12);color:var(--t1);font-size:20px;font-weight:700;font-family:inherit;outline:none;transition:border-color .15s,background .15s}
+.lm-otp-box:focus{border-color:rgba(175,70,253,.6);background:rgba(175,70,253,.06)}
+.lm-otp-box.filled{border-color:rgba(175,70,253,.4)}
+.lm-otp-hint{font-size:12px;color:rgba(0,0,0,.35);text-align:center;margin-bottom:20px;position:relative}
+.lm-btn{width:100%;padding:14px;border-radius:10px;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);color:#fff;border:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;position:relative;margin-top:4px}
+.lm-btn:hover{opacity:.88}
+.lm-btn:disabled{opacity:.4;cursor:not-allowed}
+.lm-back{background:none;border:none;color:rgba(0,0,0,.38);font-size:12px;cursor:pointer;padding:0;margin-top:14px;display:block;width:100%;text-align:center;font-family:inherit;position:relative}
+.lm-back:hover{color:rgba(0,0,0,.65)}
+</style>
+
+<div class="login-modal-backdrop" id="login-modal-backdrop" onclick="handleLoginBackdropClick(event)">
+  <div class="login-modal">
+    <button class="lm-close" onclick="closeLoginModal()">✕</button>
+    <div class="lm-step active" id="lm-step-phone">
+      <div class="lm-title">Welcome back</div>
+      <div class="lm-sub">Enter your phone number to continue</div>
+      <div class="lm-label">Phone number</div>
+      <div class="lm-phone-row">
+        <span class="lm-prefix">🇮🇳 +91</span>
+        <input class="lm-phone-inp" id="lm-phone-inp" type="tel" maxlength="10" placeholder="98765 43210" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');document.getElementById('lm-phone-btn').disabled=this.value.length<10">
+      </div>
+      <button class="lm-btn" id="lm-phone-btn" onclick="lmSubmitPhone()" disabled style="margin-top:20px">Send OTP →</button>
+    </div>
+    <div class="lm-step" id="lm-step-otp">
+      <div class="lm-title">Verify OTP</div>
+      <div class="lm-sub" id="lm-otp-sub">Sent to +91 XXXXX XXXXX</div>
+      <div class="lm-label" style="text-align:center;margin-bottom:16px">Enter 6-digit code</div>
+      <div class="lm-otp-row">
+        <input class="lm-otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="lm-otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="lm-otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="lm-otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="lm-otp-box" type="tel" maxlength="1" inputmode="numeric">
+        <input class="lm-otp-box" type="tel" maxlength="1" inputmode="numeric">
+      </div>
+      <div class="lm-otp-hint">Use any 6 digits for the prototype</div>
+      <button class="lm-btn" id="lm-otp-btn" onclick="lmSubmitOTP()" disabled>Verify OTP →</button>
+      <button class="lm-back" onclick="lmShowStep('phone')">← Change number</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _lmPhone = '';
+function openLoginModal() {
+  lmShowStep('phone');
+  var bd = document.getElementById('login-modal-backdrop');
+  bd.classList.add('show');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    bd.classList.add('visible');
+    setTimeout(function(){ document.getElementById('lm-phone-inp').focus(); }, 120);
+  }); });
+}
+function closeLoginModal() {
+  var bd = document.getElementById('login-modal-backdrop');
+  bd.classList.remove('visible');
+  setTimeout(function(){ bd.classList.remove('show'); }, 300);
+}
+function handleLoginBackdropClick(e) {
+  if (e.target === document.getElementById('login-modal-backdrop')) closeLoginModal();
+}
+function lmShowStep(s) {
+  document.querySelectorAll('.lm-step').forEach(function(el){ el.classList.remove('active'); });
+  document.getElementById('lm-step-' + s).classList.add('active');
+}
+function lmSubmitPhone() {
+  var val = document.getElementById('lm-phone-inp').value.replace(/[^0-9]/g, '');
+  if (val.length < 10) return;
+  _lmPhone = val;
+  var display = '+91 ' + val.slice(0,5) + ' ' + val.slice(5);
+  document.getElementById('lm-otp-sub').textContent = 'Sent to ' + display;
+  document.querySelectorAll('.lm-otp-box').forEach(function(b){ b.value=''; b.classList.remove('filled'); });
+  document.getElementById('lm-otp-btn').disabled = true;
+  lmShowStep('otp');
+  setTimeout(function(){ document.querySelectorAll('.lm-otp-box')[0].focus(); }, 140);
+}
+function lmSubmitOTP() {
+  var boxes = document.querySelectorAll('.lm-otp-box');
+  var otp = Array.from(boxes).map(function(b){ return b.value; }).join('');
+  if (otp.length < 6) return;
+  var btn = document.getElementById('lm-otp-btn');
+  btn.textContent = 'Verifying…'; btn.disabled = true;
+  setTimeout(function(){
+    btn.textContent = 'Verify OTP →'; btn.disabled = false;
+    closeLoginModal();
+    if (_lmPhone === '8888888888') { window.location.href = 'chat.html'; }
+    else { sessionStorage.setItem('authed', '1'); sessionStorage.setItem('loginFlow', '1'); openStartModal(); }
+  }, 1200);
+}
+document.addEventListener('DOMContentLoaded', function(){
+  var wsAddUrl = sessionStorage.getItem('ws_add_url');
+  if (sessionStorage.getItem('ws_add_flow') === '1' && wsAddUrl) {
+    sessionStorage.removeItem('ws_add_url');
+    setTimeout(function(){ launchExtraction(wsAddUrl); }, 400);
+    return;
+  }
+  var lmBoxes = document.querySelectorAll('.lm-otp-box');
+  lmBoxes.forEach(function(box, i){
+    box.addEventListener('input', function(){
+      box.value = box.value.replace(/[^0-9]/g,'');
+      if (box.value) { box.classList.add('filled'); if (lmBoxes[i+1]) lmBoxes[i+1].focus(); }
+      else box.classList.remove('filled');
+      var all = Array.from(lmBoxes).map(function(b){ return b.value; }).join('');
+      document.getElementById('lm-otp-btn').disabled = all.length < 6;
+    });
+    box.addEventListener('keydown', function(e){
+      if (e.key==='Backspace' && !box.value && lmBoxes[i-1]) lmBoxes[i-1].focus();
+      if (e.key==='Enter') lmSubmitOTP();
+    });
+    box.addEventListener('paste', function(e){
+      var text = (e.clipboardData||window.clipboardData).getData('text').replace(/[^0-9]/g,'');
+      e.preventDefault();
+      text.split('').forEach(function(ch, j){ if (lmBoxes[j]) { lmBoxes[j].value=ch; lmBoxes[j].classList.add('filled'); } });
+      document.getElementById('lm-otp-btn').disabled = text.length < 6;
+      if (text.length >= 6) lmBoxes[5].focus();
+    });
+  });
+  document.getElementById('lm-phone-inp').addEventListener('keydown', function(e){
+    if (e.key==='Enter') lmSubmitPhone();
+  });
+});
+</script>
+
+</body>
+</html>

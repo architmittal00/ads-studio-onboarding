@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4CAF50"/>
+      <stop offset="100%" stop-color="#1B5E20"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="98" fill="url(#bg)"/>
+  <circle cx="100" cy="100" r="88" fill="none" stroke="white" stroke-width="2" opacity="0.6"/>
+  <circle cx="100" cy="100" r="62" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
+  <!-- Leaf mandala center -->
+  <g transform="translate(100,100)">
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(0)"/>
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(45)"/>
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(90)"/>
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(135)"/>
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(22.5)"/>
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(67.5)"/>
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(112.5)"/>
+    <ellipse rx="5" ry="14" fill="white" opacity="0.85" transform="rotate(157.5)"/>
+    <circle r="8" fill="#1B5E20"/>
+    <circle r="4" fill="white" opacity="0.8"/>
+  </g>
+  <!-- SHESHA text arc top -->
+  <path id="topArc" d="M 28,100 A 72,72 0 0 1 172,100" fill="none"/>
+  <text font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="white" letter-spacing="6">
+    <textPath href="#topArc" startOffset="8%">SHESHA</textPath>
+  </text>
+  <!-- AYURVEDA text arc bottom -->
+  <path id="botArc" d="M 22,108 A 78,78 0 0 0 178,108" fill="none"/>
+  <text font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="white" letter-spacing="3">
+    <textPath href="#botArc" startOffset="5%">AYURVEDA</textPath>
+  </text>
+  <!-- outer ring dots -->
+  <circle cx="100" cy="4" r="3" fill="white" opacity="0.7"/>
+  <circle cx="100" cy="196" r="3" fill="white" opacity="0.7"/>
+</svg>

@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:3456/)",
+      "Bash(curl -s \"http://localhost:3456/brand_report.html\")",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__computer",
+      "mcp__Claude_in_Chrome__resize_window",
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "Bash(ls -lt /Users/architmittal/Downloads/*.png)",
+      "Bash(grep -E \"\\\\.png$\")",
+      "Bash(ls \"/Users/architmittal/Documents/Studio Onboarding Archit/\"*.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/creative_report.html\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/brand_report.html\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/\")",
+      "Bash(curl -sv \"http://localhost:3456/brand_report.html\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/brand_report.html\" --path-as-is)",
+      "Bash(python3 -c \":*)",
+      "Bash(head -15 grep -n \"skipConnect\\\\|cs-continue\\\\|continueAccounts\\\\|creative_report\\\\|ws_add\" \"/Users/architmittal/Documents/Studio Onboarding Archit/brand_report.html\")",
+      "Bash(sed -n '4055,4065p' \"/Users/architmittal/Documents/Studio Onboarding Archit/shiprocket_hero_carousel.html\")",
+      "Bash(sed -n '4390,4415p' \"/Users/architmittal/Documents/Studio Onboarding Archit/shiprocket_hero_carousel.html\")",
+      "Bash(sed -n '473,500p' \"/Users/architmittal/Documents/Studio Onboarding Archit/workspace.html\")",
+      "Bash(sed -n '327,360p' \"/Users/architmittal/Documents/Studio Onboarding Archit/workspace.html\")",
+      "Bash(sed -n '884,900p' \"/Users/architmittal/Documents/Studio Onboarding Archit/workspace.html\")",
+      "Bash(sed -n '719,725p' \"/Users/architmittal/Documents/Studio Onboarding Archit/workspace.html\")",
+      "Bash(wc -l \"/Users/architmittal/Documents/Studio Onboarding Archit/\"*.html)",
+      "Bash(/dev/null grep:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/light-theme/creative_report.html\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/light-theme/brand_report.html\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/Studio%20Onboarding%20Archit/light-theme/creative_report.html\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3456/%2FUsers%2Farchitmittal%2FDocuments%2FStudio%20Onboarding%20Archit%2Flight-theme%2Fcreative_report.html\")"
+    ]
+  }
+}
