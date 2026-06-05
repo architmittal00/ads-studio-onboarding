@@ -13,259 +13,292 @@
   --purple:#AF46FD;--pink:#F4349D;--grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
   --green:#22C55E;--amber:#FB923C;--red:#E54545;--cyan:#22D3EE;
 }
-html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px}
 a{color:inherit;text-decoration:none}
 .app{display:flex;height:100vh;width:100%;overflow:hidden}
 
-/* SIDEBAR */
-.sb{width:64px;flex-shrink:0;background:#0d0d1a;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px}
-.sb-logo{width:36px;height:36px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;margin-bottom:18px;flex-shrink:0}
-.sb-logo svg{width:15px;height:15px}
-.sb-item{width:44px;height:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:background .15s;color:var(--t3);border:none;background:transparent;text-decoration:none}
+/* ── ICON SIDEBAR ── */
+.sb{width:56px;flex-shrink:0;background:#0d0d1a;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:2px}
+.sb-logo{width:30px;height:30px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;margin-bottom:14px;flex-shrink:0}
+.sb-logo svg{width:12px;height:12px}
+.sb-item{width:38px;height:38px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:background .15s;color:var(--t3);border:none;background:transparent;text-decoration:none}
 .sb-item:hover{background:var(--card2);color:var(--t2)}
-.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
-.sb-item svg{width:17px;height:17px}
-.sb-item span{font-size:9px;font-weight:600}
-.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0;flex-shrink:0}
-.sb-ws{margin-top:auto;width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;border:2px solid rgba(175,70,253,.4);flex-shrink:0}
+.sb-item.active{background:rgba(175,70,253,.1);color:var(--purple)}
+.sb-item svg{width:15px;height:15px}
+.sb-item span{font-size:8px;font-weight:600}
+.sb-div{width:26px;height:1px;background:var(--border);margin:3px 0;flex-shrink:0}
+.sb-ws{margin-top:auto;width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;border:2px solid rgba(175,70,253,.3);flex-shrink:0}
 
-/* MAIN */
+/* ── MAIN ── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.topbar{flex-shrink:0;height:60px;padding:0 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(11,11,20,.98);z-index:10}
-.back-btn{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--t3);padding:6px 10px;border-radius:8px;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.topbar{flex-shrink:0;height:50px;padding:0 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:rgba(11,11,20,.98);z-index:10}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--t3);padding:5px 8px;border-radius:7px;transition:all .15s;flex-shrink:0}
 .back-btn:hover{background:var(--card2);color:var(--t1)}
-.tb-div{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.tb-div{width:1px;height:16px;background:var(--border);flex-shrink:0}
 .tb-meta{min-width:0;flex:1}
-.tb-title{font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tb-id{font-size:10px;color:var(--t3);font-weight:600;letter-spacing:.05em;margin-top:1px}
+.tb-title{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-id{font-size:9px;color:var(--t3);font-weight:600;letter-spacing:.05em;margin-top:1px}
 .tb-right{flex-shrink:0}
-.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700}
-.badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
-.b-action{background:rgba(251,146,60,.12);color:var(--amber);border:1px solid rgba(251,146,60,.22)}
-.b-progress{background:rgba(34,211,238,.08);color:var(--cyan);border:1px solid rgba(34,211,238,.18)}
-.b-done{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.18)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600}
+.badge .dot{width:4px;height:4px;border-radius:50%;background:currentColor}
+.b-action{background:rgba(251,146,60,.1);color:var(--amber);border:1px solid rgba(251,146,60,.18)}
+.b-progress{background:rgba(34,211,238,.06);color:var(--cyan);border:1px solid rgba(34,211,238,.15)}
+.b-done{background:rgba(34,197,94,.06);color:var(--green);border:1px solid rgba(34,197,94,.15)}
 
-/* BODY */
-.body{flex:1;display:grid;grid-template-columns:1fr 300px;overflow:hidden}
-.left{overflow-y:auto;padding:24px 28px}
-.right{overflow-y:auto;padding:24px 20px;border-left:1px solid var(--border);display:flex;flex-direction:column}
+/* ── 3-COL BODY ── */
+.body{flex:1;display:grid;grid-template-columns:220px 1fr 300px;overflow:hidden}
 
-/* ENGAGEMENT RAIL */
-.eng-rail{display:flex;align-items:center;margin-bottom:24px;padding:14px 18px;background:var(--card);border:1px solid var(--border);border-radius:12px;gap:0}
-.er-step{display:flex;align-items:center;flex:1}
-.er-pill{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;font-size:10px;font-weight:700;white-space:nowrap}
-.er-done{background:rgba(34,197,94,.1);color:var(--green)}
-.er-active{background:rgba(175,70,253,.14);color:#C084FC}
-.er-active.amber{background:rgba(251,146,60,.1);color:var(--amber)}
-.er-pending{background:rgba(255,255,255,.04);color:var(--t3)}
-.er-connector{flex:1;height:1px;background:var(--border);margin:0 4px;min-width:6px}
+/* ── STAGE NAV ── */
+.stage-nav{overflow-y:auto;border-right:1px solid var(--border);padding:20px 0 40px;display:flex;flex-direction:column}
+.sn-header{padding:0 16px 14px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.sn-list{display:flex;flex-direction:column}
+.sn-item{display:flex;align-items:flex-start;gap:10px;padding:0 16px;cursor:pointer}
+.sn-item:last-child .sn-line{display:none}
+.sn-track{display:flex;flex-direction:column;align-items:center;width:22px;flex-shrink:0}
+.sn-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;font-weight:800;position:relative;z-index:1;margin-top:3px;transition:all .2s}
+.sn-dot.done{background:rgba(34,197,94,.12);border:1.5px solid rgba(34,197,94,.4);color:var(--green)}
+.sn-dot.active{background:rgba(175,70,253,.15);border:1.5px solid rgba(175,70,253,.7);color:var(--purple);box-shadow:0 0 0 3px rgba(175,70,253,.08)}
+.sn-dot.pending{background:transparent;border:1.5px solid rgba(255,255,255,.12);color:var(--t3)}
+.sn-line{width:1.5px;flex:1;min-height:32px;margin-top:2px;transition:background .2s}
+.sn-line.done{background:rgba(34,197,94,.2)}
+.sn-line.pending{background:rgba(255,255,255,.06)}
+.sn-content{flex:1;padding-bottom:24px;padding-top:4px;min-width:0}
+.sn-name{font-size:11px;font-weight:700;line-height:1.2;transition:color .15s}
+.sn-name.done{color:var(--t3)}
+.sn-name.active{color:var(--t1)}
+.sn-name.pending{color:var(--t3)}
+.sn-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;margin-top:5px;white-space:nowrap}
+.sn-badge.action{background:rgba(251,146,60,.08);color:var(--amber);border:1px solid rgba(251,146,60,.18)}
+.sn-badge.progress{background:rgba(34,211,238,.05);color:var(--cyan);border:1px solid rgba(34,211,238,.12)}
+.sn-badge.green{background:rgba(34,197,94,.06);color:var(--green);border:1px solid rgba(34,197,94,.15)}
+.sn-item.sel .sn-content{background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;margin-bottom:14px;padding-bottom:8px}
+.sn-item.sel .sn-name{color:var(--t1)}
 
-/* ─── ACTION NEEDED SECTION ─── */
-.action-section{margin-bottom:28px}
-.action-section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.ash-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.22);color:var(--amber);font-size:11px;font-weight:800}
-.ash-pill svg{width:11px;height:11px}
-.ash-count{font-size:12px;color:var(--t2);font-weight:600}
+/* ── CONTENT AREA ── */
+.left{overflow-y:auto;display:flex;flex-direction:column}
+.content-header{flex-shrink:0;padding:16px 20px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.content-title{font-size:13px;font-weight:800}
+.content-sub{font-size:10px;color:var(--t3);margin-top:1px}
+.content-body{flex:1;overflow-y:auto;padding:16px 20px}
 
-/* Action cards */
-.ac-card{border:1px solid rgba(255,255,255,.1);border-left:3px solid var(--amber);border-radius:12px;overflow:hidden;margin-bottom:10px;background:rgba(255,255,255,.02)}
-.ac-card.review{border-left-color:var(--purple)}
-.ac-card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
-.ach-left{display:flex;align-items:center;gap:10px}
-.ach-type{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;font-weight:800}
-.ach-type.asset{background:rgba(251,146,60,.12);color:var(--amber)}
-.ach-type.review-sl{background:rgba(175,70,253,.12);color:#C084FC}
-.ach-type.review-cr{background:rgba(175,70,253,.12);color:#C084FC}
-.ach-name{font-size:13px;font-weight:700}
-.ach-product{font-size:11px;color:var(--t3);margin-top:2px}
-.ach-right{display:flex;align-items:center;gap:8px}
-.action-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700}
-.at-upload{background:rgba(251,146,60,.1);color:var(--amber);border:1px solid rgba(251,146,60,.2)}
-.at-review{background:rgba(175,70,253,.1);color:#C084FC;border:1px solid rgba(175,70,253,.2)}
-.ac-body{padding:16px 18px}
+/* ── CREATIVE CARDS GRID ── */
+.creatives-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 
-/* ─── PROGRESS SECTION ─── */
-.prog-section{margin-bottom:24px}
-.prog-section-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.psh-label{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.1em;text-transform:uppercase}
-.psh-count{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:rgba(255,255,255,.06);font-size:9px;font-weight:700;color:var(--t3)}
-.psh-line{flex:1;height:1px;background:var(--border)}
+/* ── CREATIVE CARD ── */
+.cr-card{border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s;background:rgba(255,255,255,.02)}
+.cr-card:hover{border-color:rgba(255,255,255,.16);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.cr-card:active{transform:translateY(0)}
 
-/* Progress rows */
-.prog-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid var(--border);margin-bottom:6px}
-.pr-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.pr-icon.working{background:rgba(34,211,238,.07);color:var(--cyan)}
-.pr-icon.rework{background:rgba(251,146,60,.07);color:var(--amber)}
-.pr-name{font-size:12px;font-weight:700;flex:1;min-width:0}
-.pr-product{font-size:10px;color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pr-status{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.pr-status-text{font-size:10px;font-weight:700;white-space:nowrap}
-.pr-status-text.cyan{color:var(--cyan)}
-.pr-status-text.amber{color:var(--amber)}
+/* Card illustration area */
+.cr-card-visual{height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.cr-card-visual img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cr-card-visual .vis-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.cr-card-visual .vis-bg-blur{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
 
-/* ─── DONE SECTION ─── */
-.done-section{margin-bottom:24px}
+.vis-icon{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.vis-icon svg{width:22px;height:22px}
+.vis-label{font-size:10px;font-weight:700;position:relative;z-index:1;text-align:center;padding:0 8px}
 
-/* Done rows */
-.done-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(34,197,94,.03);border:1px solid rgba(34,197,94,.1);margin-bottom:6px}
-.dr-thumb{width:40px;height:40px;border-radius:7px;object-fit:cover;flex-shrink:0}
-.dr-thumb-ph{width:40px;height:40px;border-radius:7px;background:rgba(34,197,94,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.dr-info{flex:1;min-width:0}
-.dr-name{font-size:12px;font-weight:700}
-.dr-product{font-size:10px;color:var(--t3);margin-top:1px}
-.dr-state{display:flex;align-items:center;gap:5px;flex-shrink:0}
-.dr-approved{font-size:10px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:4px}
-.dr-dl{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.18);color:var(--green);font-size:10px;font-weight:700;cursor:pointer;transition:background .15s;border-top-width:1px}
-.dr-dl:hover{background:rgba(34,197,94,.15)}
+/* State: upload pending */
+.vis-upload .vis-icon{background:rgba(251,146,60,.15);border:1.5px solid rgba(251,146,60,.3);color:var(--amber);animation:uploadBounce 1.8s ease-in-out infinite}
+.vis-upload .vis-label{color:var(--amber)}
+.vis-upload{background:linear-gradient(160deg,rgba(251,146,60,.08),rgba(251,146,60,.03))}
 
-/* PAYMENT BANNER */
-.pay-banner{background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.25);border-radius:14px;padding:18px 20px;margin-bottom:22px;display:flex;align-items:center;gap:16px}
-.pay-banner-icon{width:40px;height:40px;border-radius:11px;background:rgba(251,146,60,.12);display:flex;align-items:center;justify-content:center;color:var(--amber);flex-shrink:0}
+/* State: working/in-progress */
+.vis-working .vis-icon{background:rgba(34,211,238,.1);border:1.5px solid rgba(34,211,238,.25);color:var(--cyan)}
+.vis-working .vis-icon::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid transparent;border-top-color:var(--cyan);animation:spin 1.2s linear infinite}
+.vis-working .vis-label{color:var(--cyan)}
+.vis-working{background:linear-gradient(160deg,rgba(34,211,238,.08),rgba(34,211,238,.02))}
+
+/* State: review needed */
+.vis-review .vis-icon{background:rgba(175,70,253,.15);border:1.5px solid rgba(175,70,253,.35);color:#C084FC;animation:reviewPulse 2s ease-in-out infinite}
+.vis-review .vis-label{color:#C084FC}
+.vis-review{background:linear-gradient(160deg,rgba(175,70,253,.1),rgba(175,70,253,.03))}
+
+/* State: approved */
+.vis-approved .vis-icon{background:rgba(34,197,94,.12);border:1.5px solid rgba(34,197,94,.3);color:var(--green)}
+.vis-approved .vis-label{color:var(--green)}
+.vis-approved{background:linear-gradient(160deg,rgba(34,197,94,.08),rgba(34,197,94,.02))}
+
+/* State: delivered */
+.vis-delivered .vis-icon{background:rgba(34,197,94,.12);border:1.5px solid rgba(34,197,94,.3);color:var(--green);animation:deliveredPop .4s cubic-bezier(.34,1.56,.64,1) both}
+.vis-delivered .vis-label{color:var(--green)}
+.vis-delivered{background:linear-gradient(160deg,rgba(34,197,94,.1),rgba(34,197,94,.03))}
+
+/* State: locked */
+.vis-locked .vis-icon{background:rgba(251,146,60,.1);border:1.5px solid rgba(251,146,60,.25);color:var(--amber);animation:lockPulse 2s ease-in-out infinite}
+.vis-locked .vis-label{color:var(--amber)}
+.vis-locked{background:linear-gradient(160deg,rgba(251,146,60,.08),rgba(251,146,60,.02))}
+
+/* Animations */
+@keyframes uploadBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes reviewPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.1);opacity:.8}}
+@keyframes lockPulse{0%,100%{box-shadow:0 0 0 0 rgba(251,146,60,.25)}60%{box-shadow:0 0 0 10px rgba(251,146,60,0)}}
+@keyframes deliveredPop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.anim-card-in{animation:cardIn .3s cubic-bezier(.25,.46,.45,.94) both}
+
+/* Card bottom */
+.cr-card-info{padding:11px 13px}
+.cr-card-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cr-card-format{font-size:10px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cr-card-state{display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px}
+.cs-upload{background:rgba(251,146,60,.08);color:var(--amber);border:1px solid rgba(251,146,60,.18)}
+.cs-working{background:rgba(34,211,238,.06);color:var(--cyan);border:1px solid rgba(34,211,238,.14)}
+.cs-review{background:rgba(175,70,253,.08);color:#C084FC;border:1px solid rgba(175,70,253,.2)}
+.cs-approved{background:rgba(34,197,94,.06);color:var(--green);border:1px solid rgba(34,197,94,.15)}
+.cs-locked{background:rgba(251,146,60,.08);color:var(--amber);border:1px solid rgba(251,146,60,.18)}
+
+/* Payment banner */
+.pay-banner{background:rgba(251,146,60,.04);border:1px solid rgba(251,146,60,.18);border-radius:12px;padding:13px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.pay-banner-icon{width:32px;height:32px;border-radius:8px;background:rgba(251,146,60,.1);display:flex;align-items:center;justify-content:center;color:var(--amber);flex-shrink:0}
 .pay-banner-body{flex:1;min-width:0}
-.pay-banner-title{font-size:14px;font-weight:800;color:var(--t1);margin-bottom:3px}
-.pay-banner-sub{font-size:12px;color:var(--t2);line-height:1.5}
-.pay-banner-amounts{display:flex;gap:16px;margin-top:8px}
-.pay-amount-item{display:flex;flex-direction:column;gap:2px}
-.pay-amount-label{font-size:9px;font-weight:800;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
-.pay-amount-val{font-size:13px;font-weight:800}
+.pay-banner-title{font-size:12px;font-weight:700;margin-bottom:2px}
+.pay-banner-sub{font-size:10px;color:var(--t2)}
+.pay-banner-amounts{display:flex;gap:16px;margin-top:6px}
+.pay-amount-item{display:flex;flex-direction:column;gap:1px}
+.pay-amount-label{font-size:8px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
+.pay-amount-val{font-size:12px;font-weight:700}
 .pay-amount-val.green{color:var(--green)}
 .pay-amount-val.amber{color:var(--amber)}
-.pay-btn{flex-shrink:0;padding:11px 20px;border-radius:10px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:13px;font-weight:800;transition:opacity .15s;white-space:nowrap}
+.pay-btn{flex-shrink:0;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:12px;font-weight:700;transition:opacity .15s;white-space:nowrap}
 .pay-btn:hover{opacity:.85}
 
-/* LOCKED ROW (payment pending) */
-.done-row.locked{background:rgba(251,146,60,.03);border-color:rgba(251,146,60,.15)}
-.dr-thumb-locked{width:40px;height:40px;border-radius:7px;object-fit:cover;flex-shrink:0;filter:blur(3px) brightness(.6);position:relative}
-.dr-thumb-wrap{width:40px;height:40px;border-radius:7px;overflow:hidden;position:relative;flex-shrink:0}
-.dr-thumb-wrap .lock-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
-.dr-lock-cta{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:7px;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.2);color:var(--amber);font-size:10px;font-weight:700;white-space:nowrap}
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;gap:8px}
+.empty-state-icon{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--t3);margin-bottom:4px}
+.empty-state-t1{font-size:12px;font-weight:700;color:var(--t2)}
+.empty-state-t2{font-size:11px;color:var(--t3);line-height:1.5}
 
-/* DELIVERED BANNER */
-.del-banner{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
-.del-title{font-size:13px;font-weight:800;color:var(--green)}
-.del-sub{font-size:11px;color:var(--t2);margin-top:1px}
+/* ── RIGHT PANEL ── */
+.right{overflow-y:auto;padding:16px 16px;border-left:1px solid var(--border);display:flex;flex-direction:column}
+.sec{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:7px;margin-bottom:10px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.brief-row{padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);display:flex;flex-direction:column;gap:2px}
+.brief-row:last-child{border-bottom:none}
+.brief-key{font-size:8px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
+.brief-val{font-size:11px;color:var(--t1);line-height:1.4}
+.brief-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px}
+.brief-tag{padding:1px 6px;border-radius:4px;background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.15);font-size:9px;color:#C084FC;font-weight:600}
+.chat-wrap{flex:1;display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--border);padding-top:10px;margin-top:10px}
+.chat-title{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.chat-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;max-height:220px}
+.msg{display:flex;flex-direction:column;gap:2px}
+.msg.mine{align-items:flex-end}
+.msg-bubble{max-width:200px;padding:7px 10px;border-radius:9px;font-size:11px;line-height:1.5}
+.msg.theirs .msg-bubble{background:rgba(255,255,255,.05);border:1px solid var(--border);border-bottom-left-radius:3px}
+.msg.mine .msg-bubble{background:rgba(175,70,253,.13);border:1px solid rgba(175,70,253,.2);border-bottom-right-radius:3px}
+.msg-from{font-size:9px;font-weight:700;color:var(--t3)}
+.msg-time{font-size:8px;color:var(--t3)}
+.chat-input-row{display:flex;gap:5px;align-items:flex-end;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);margin-top:8px;flex-shrink:0}
+.chat-input{flex:1;min-height:32px;max-height:80px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--t1);font-family:inherit;font-size:11px;outline:none;resize:none;transition:border-color .15s;line-height:1.5}
+.chat-input::placeholder{color:var(--t3)}
+.chat-input:focus{border-color:rgba(175,70,253,.3)}
+.chat-send{width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}
+.chat-send:hover{opacity:.8}
+.chat-send svg{width:11px;height:11px}
 
-/* ASSET UPLOAD */
-.field-label{font-size:9px;font-weight:800;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
-.field-input{width:100%;height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--t1);font-family:inherit;font-size:12px;outline:none;transition:border-color .15s}
+/* ── ACTION MODAL ── */
+.am-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:600;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.am-overlay.open{opacity:1;pointer-events:all}
+.am-modal{background:#0E0E1C;border:1px solid rgba(255,255,255,.14);border-radius:20px;width:580px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;transform:translateY(16px);transition:transform .22s;overflow:hidden}
+.am-overlay.open .am-modal{transform:translateY(0)}
+.am-head{padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0}
+.am-head-left{flex:1;min-width:0}
+.am-title{font-size:15px;font-weight:800}
+.am-sub{font-size:11px;color:var(--t3);margin-top:3px}
+.am-close{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t2);flex-shrink:0;transition:background .15s}
+.am-close:hover{background:var(--card2)}
+.am-body{overflow-y:auto;padding:20px 24px;flex:1}
+.am-footer{padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px}
+.am-footer .btn-grad{flex:1;margin:0}
+.am-cancel{padding:10px 16px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--t2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.am-cancel:hover{background:var(--card)}
+
+/* ── MODAL ACTION CONTENT ── */
+.field-label{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px}
+.field-input{width:100%;height:36px;padding:0 11px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--t1);font-family:inherit;font-size:12px;outline:none;transition:border-color .15s}
 .field-input::placeholder{color:var(--t3)}
-.field-input:focus{border-color:rgba(175,70,253,.4)}
-.asset-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.upload-zone{border:1.5px dashed rgba(251,146,60,.25);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all .15s;background:rgba(251,146,60,.03);margin-bottom:8px}
-.upload-zone:hover{border-color:rgba(251,146,60,.5);background:rgba(251,146,60,.07)}
-.uz-icon{width:28px;height:28px;border-radius:8px;background:rgba(251,146,60,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;color:var(--amber)}
-.uz-title{font-size:11px;font-weight:700;margin-bottom:1px}
-.uz-sub{font-size:10px;color:var(--t3)}
+.field-input:focus{border-color:rgba(175,70,253,.35)}
+.upload-zone{border:1px dashed rgba(255,255,255,.12);border-radius:10px;padding:16px;cursor:pointer;transition:all .15s;background:rgba(255,255,255,.02);margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.upload-zone:hover{border-color:rgba(251,146,60,.35);background:rgba(251,146,60,.04)}
+.uz-icon{width:36px;height:36px;border-radius:9px;background:rgba(251,146,60,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--amber)}
+.uz-icon svg{width:16px;height:16px}
+.uz-title{font-size:13px;font-weight:600}
+.uz-sub{font-size:10px;color:var(--t3);margin-top:2px}
 input[type=file]{display:none}
-.file-list{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
-.file-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:7px 10px}
-.fi-icon{width:22px;height:22px;border-radius:5px;background:rgba(175,70,253,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#C084FC}
+.file-list{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.file-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:7px 10px}
+.fi-icon{width:20px;height:20px;border-radius:5px;background:rgba(175,70,253,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#C084FC}
 .fi-name{flex:1;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fi-size{font-size:10px;color:var(--t3);margin-top:1px}
 .fi-rm{color:var(--t3);cursor:pointer;background:none;border:none;display:flex;padding:2px;transition:color .15s}
 .fi-rm:hover{color:var(--red)}
-
-/* STORYLINE REVIEW */
-.sl-label{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}
-.sl-box{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:13px;font-size:12px;line-height:1.75;color:var(--t1);white-space:pre-wrap;max-height:200px;overflow-y:auto;margin-bottom:12px}
-.comment-input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--t1);font-family:inherit;font-size:12px;outline:none;resize:none;line-height:1.55;transition:border-color .15s;margin-bottom:8px}
+.sl-box{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;line-height:1.75;color:var(--t2);white-space:pre-wrap;max-height:200px;overflow-y:auto;margin-bottom:12px}
+.comment-input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--t1);font-family:inherit;font-size:12px;outline:none;resize:none;line-height:1.55;transition:border-color .15s}
 .comment-input::placeholder{color:var(--t3)}
-.comment-input:focus{border-color:rgba(175,70,253,.4)}
-
-/* CREATIVE REVIEW */
-.cr-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:12px}
+.comment-input:focus{border-color:rgba(175,70,253,.35)}
+.cr-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;align-items:start}
 .cr-img-wrap{position:relative;border-radius:10px;overflow:hidden}
 .cr-img-wrap img{width:100%;display:block;aspect-ratio:1/1;object-fit:cover}
 .wm-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.wm-text{font-size:18px;font-weight:900;color:rgba(255,255,255,.18);letter-spacing:.12em;transform:rotate(-30deg);white-space:nowrap}
-.wm-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);padding:3px 9px;border-radius:5px;font-size:9px;font-weight:700;color:rgba(255,255,255,.55);letter-spacing:.04em}
-.cr-details{display:flex;flex-direction:column;gap:10px}
-.detail-label{font-size:9px;font-weight:800;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px}
-.detail-val{font-size:12px;color:var(--t1);line-height:1.5}
-.detail-link{font-size:11px;color:var(--purple);display:flex;align-items:center;gap:4px}
-
-/* REWORK BOX */
-.rework-box{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.18);border-radius:10px;padding:12px}
-.rework-header{display:flex;align-items:center;gap:7px;margin-bottom:7px}
-.rework-icon{width:18px;height:18px;border-radius:5px;background:rgba(251,146,60,.15);display:flex;align-items:center;justify-content:center;color:var(--amber)}
+.wm-text{font-size:15px;font-weight:900;color:rgba(255,255,255,.12);letter-spacing:.1em;transform:rotate(-30deg);white-space:nowrap}
+.wm-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);padding:3px 9px;border-radius:5px;font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.04em}
+.detail-block{margin-bottom:10px}
+.detail-label{font-size:8px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px}
+.detail-val{font-size:12px;color:var(--t1);line-height:1.4}
+.detail-link{font-size:11px;color:var(--purple);display:flex;align-items:center;gap:4px;margin-top:2px}
+.rework-box{background:rgba(251,146,60,.03);border:1px solid rgba(251,146,60,.14);border-radius:10px;padding:12px;margin-bottom:12px}
+.rework-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.rework-icon{width:16px;height:16px;border-radius:4px;background:rgba(251,146,60,.12);display:flex;align-items:center;justify-content:center;color:var(--amber)}
 .rework-label{font-size:11px;font-weight:700;color:var(--amber)}
-.rework-date{font-size:10px;color:var(--t3);margin-left:auto}
-.rework-text{font-size:12px;color:var(--t2);line-height:1.6;font-style:italic}
-.rework-note{font-size:10px;color:var(--t3);margin-top:7px;display:flex;align-items:center;gap:4px}
-
-/* AWAITING BOX */
-.awaiting-box{background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.15);border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px}
-.spin{width:22px;height:22px;border-radius:50%;border:2px solid rgba(175,70,253,.2);border-top-color:var(--purple);animation:spin 1s linear infinite;flex-shrink:0}
-@keyframes spin{to{transform:rotate(360deg)}}
-.awaiting-t1{font-size:12px;font-weight:700}
-.awaiting-t2{font-size:11px;color:var(--t3);margin-top:2px}
-
-/* APPROVED / DELIVERED BLOCKS */
-.approved-box{background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.15);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px}
-.approved-icon{width:24px;height:24px;border-radius:7px;background:rgba(34,197,94,.12);display:flex;align-items:center;justify-content:center;color:var(--green);flex-shrink:0}
-.approved-t1{font-size:12px;font-weight:700;color:var(--green)}
-.approved-t2{font-size:10px;color:var(--t3);margin-top:1px}
+.rework-date{font-size:9px;color:var(--t3);margin-left:auto}
+.rework-text{font-size:12px;color:var(--t2);line-height:1.55;font-style:italic}
+.awaiting-box{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px;display:flex;align-items:center;gap:14px}
+.spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(175,70,253,.15);border-top-color:var(--purple);animation:spin 1s linear infinite;flex-shrink:0}
+.awaiting-t1{font-size:12px;font-weight:600}
+.awaiting-t2{font-size:11px;color:var(--t3);margin-top:3px}
+.approved-box{background:rgba(34,197,94,.03);border:1px solid rgba(34,197,94,.12);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px}
+.approved-icon{width:24px;height:24px;border-radius:6px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;color:var(--green);flex-shrink:0}
+.approved-t1{font-size:12px;font-weight:600;color:var(--green)}
+.approved-t2{font-size:11px;color:var(--t3);margin-top:2px}
 .dl-btn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(34,197,94,.2);background:rgba(34,197,94,.05);cursor:pointer;transition:background .15s;margin-top:10px}
 .dl-btn:hover{background:rgba(34,197,94,.1)}
-.dl-icon{width:26px;height:26px;border-radius:7px;background:rgba(34,197,94,.12);display:flex;align-items:center;justify-content:center;color:var(--green);flex-shrink:0}
-.dl-name{font-size:12px;font-weight:700;color:var(--green)}
+.dl-name{font-size:12px;font-weight:600;color:var(--green)}
 .dl-sub{font-size:10px;color:var(--t3);margin-top:1px}
-
-/* BUTTONS */
-.btn-grad{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:10px;border-radius:10px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:13px;font-weight:700;transition:opacity .15s;margin-top:8px}
+.btn-grad{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:10px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:13px;font-weight:700;transition:opacity .15s}
 .btn-grad:hover{opacity:.85}
-.btn-row{display:flex;gap:8px;margin-top:8px}
-.btn-approve{flex:1;padding:10px;border-radius:9px;border:1px solid rgba(34,197,94,.25);background:rgba(34,197,94,.08);color:var(--green);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s}
-.btn-approve:hover{background:rgba(34,197,94,.16)}
-.btn-reject{flex:1;padding:10px;border-radius:9px;border:1px solid rgba(229,69,69,.2);background:rgba(229,69,69,.07);color:var(--red);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s}
-.btn-reject:hover{background:rgba(229,69,69,.15)}
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.btn-approve{flex:1;padding:10px;border-radius:9px;border:1px solid rgba(34,197,94,.2);background:rgba(34,197,94,.06);color:var(--green);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:background .15s}
+.btn-approve:hover{background:rgba(34,197,94,.12)}
+.btn-reject{flex:1;padding:10px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--t2);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:background .15s}
+.btn-reject:hover{background:rgba(255,255,255,.05)}
+.field-gap{margin-bottom:12px}
 
-/* BRIEF PANEL */
-.sec{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:16px}
-.sec::after{content:'';flex:1;height:1px;background:var(--border)}
-.brief-row{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;gap:3px}
-.brief-row:last-child{border-bottom:none}
-.brief-key{font-size:9px;font-weight:800;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
-.brief-val{font-size:12px;color:var(--t1);line-height:1.5}
-.brief-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
-.brief-tag{padding:2px 8px;border-radius:5px;background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.18);font-size:10px;color:#C084FC;font-weight:600}
+/* ── FULLSCREEN LIGHTBOX ── */
+.fs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:900;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.fs-overlay.open{opacity:1;pointer-events:all}
+.fs-close{position:absolute;top:18px;right:18px;width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:background .15s;z-index:1}
+.fs-close:hover{background:rgba(255,255,255,.15)}
+.fs-close svg{width:15px;height:15px}
+.fs-inner{max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center;transform:scale(.96);transition:transform .22s}
+.fs-overlay.open .fs-inner{transform:scale(1)}
+.fs-inner img{max-width:90vw;max-height:88vh;border-radius:12px;object-fit:contain;display:block}
+.fs-inner video{max-width:90vw;max-height:88vh;border-radius:12px;display:block}
+.fs-expand-btn{position:absolute;bottom:8px;right:8px;width:28px;height:28px;border-radius:7px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;transition:background .15s;opacity:0;pointer-events:none;transition:opacity .15s}
+.cr-img-wrap:hover .fs-expand-btn{opacity:1;pointer-events:all}
+.fs-expand-btn:hover{background:rgba(0,0,0,.85)}
+.fs-expand-btn svg{width:12px;height:12px}
 
-/* CHAT */
-.chat-wrap{flex:1;display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--border);padding-top:16px;margin-top:16px}
-.chat-title{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
-.chat-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;max-height:220px}
-.msg{display:flex;flex-direction:column;gap:2px}
-.msg.mine{align-items:flex-end}
-.msg-bubble{max-width:220px;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.55}
-.msg.theirs .msg-bubble{background:rgba(255,255,255,.06);border:1px solid var(--border);border-bottom-left-radius:3px}
-.msg.mine .msg-bubble{background:rgba(175,70,253,.16);border:1px solid rgba(175,70,253,.22);border-bottom-right-radius:3px}
-.msg-from{font-size:9px;font-weight:700;color:var(--t3)}
-.msg-time{font-size:9px;color:var(--t3)}
-.chat-input-row{display:flex;gap:6px;align-items:flex-end;padding-top:10px;border-top:1px solid rgba(255,255,255,.05);margin-top:10px;flex-shrink:0}
-.chat-input{flex:1;min-height:36px;max-height:100px;padding:8px 11px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--t1);font-family:inherit;font-size:12px;outline:none;resize:none;transition:border-color .15s;line-height:1.5}
-.chat-input::placeholder{color:var(--t3)}
-.chat-input:focus{border-color:rgba(175,70,253,.35)}
-.chat-send{width:32px;height:32px;border-radius:8px;border:none;cursor:pointer;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}
-.chat-send:hover{opacity:.8}
-
-/* TRANSITION ANIMATIONS */
-@keyframes cardOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-10px) scale(.98)}}
-@keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes rowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
-@keyframes sectionIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.anim-card-in{animation:cardIn .3s cubic-bezier(.25,.46,.45,.94) forwards}
-.anim-row-in{animation:rowIn .28s cubic-bezier(.25,.46,.45,.94) forwards}
-.anim-section-in{animation:sectionIn .25s ease forwards}
-
-/* MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+/* ── CONFIRM MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:700;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-overlay.open{opacity:1;pointer-events:all}
-.modal{background:#0d0d1a;border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:26px;width:460px;max-width:90vw;transform:translateY(14px);transition:transform .2s}
+.modal{background:#0d0d1a;border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:24px;width:420px;max-width:90vw;transform:translateY(14px);transition:transform .2s}
 .modal-overlay.open .modal{transform:translateY(0)}
-.modal-title{font-size:16px;font-weight:800;margin-bottom:4px}
+.modal-title{font-size:15px;font-weight:800;margin-bottom:4px}
 .modal-sub{font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.6}
 .modal-btns{display:flex;gap:8px;margin-top:14px}
-.modal-btns .btn-grad{flex:1;margin:0}
+.modal-btns .btn-grad{flex:1}
 .modal-cancel{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--t2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
 .modal-cancel:hover{background:var(--card)}
 .reason-box{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--t1);font-family:inherit;font-size:12px;outline:none;resize:none;line-height:1.55;height:90px;transition:border-color .15s}
@@ -275,69 +308,59 @@ input[type=file]{display:none}
 /* ── MOBILE NAV ── */
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#0d0d1a;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);z-index:200}
 .mobile-nav-inner{display:flex}
-.mn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 0 10px;font-size:9px;font-weight:600;color:var(--t3);text-decoration:none;border:none;background:transparent;cursor:pointer;transition:color .15s}
+.mn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 0;font-size:9px;font-weight:600;color:var(--t3);text-decoration:none;border:none;background:transparent;cursor:pointer;transition:color .15s}
 .mn-item.active{color:var(--purple)}
-.mn-item svg{width:19px;height:19px}
+.mn-item svg{width:18px;height:18px}
+.mobile-stage-tabs{display:none;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-bottom:1px solid var(--border);background:rgba(11,11,20,.98);flex-shrink:0}
+.mobile-stage-tabs::-webkit-scrollbar{display:none}
+.mst-inner{display:flex;padding:0 14px;gap:0;min-width:max-content}
+.mst-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 14px;font-size:10px;font-weight:700;color:var(--t3);cursor:pointer;white-space:nowrap;transition:color .15s;border-bottom:2px solid transparent}
+.mst-item.active{color:var(--t1);border-bottom-color:var(--purple)}
+.mst-item.done{color:var(--green)}
+.mst-item.done.active{border-bottom-color:var(--green)}
+.mst-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.15)}
+.mst-item.done .mst-dot{background:var(--green)}
+.mst-item.active .mst-dot{background:var(--purple)}
 
-/* ── RESPONSIVE (≤640px) ── */
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .body{grid-template-columns:200px 1fr}
+  .right{display:none}
+}
 @media(max-width:640px){
   .mobile-nav{display:block}
+  .mobile-stage-tabs{display:block}
   html,body{height:auto;overflow-y:auto}
   .app{flex-direction:column;height:auto;min-height:100dvh;overflow:visible}
   .sb{display:none}
-  .main{height:auto;overflow:visible;width:100%}
-  body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
-
-  /* Topbar */
-  .topbar{padding:0 12px;height:54px;gap:8px}
-  .tb-div{display:none}
-  .tb-title{font-size:13px}
-  .tb-id{display:none}
-  .back-btn{font-size:12px;padding:5px 8px;gap:5px}
-  .back-btn span{display:none} /* show only arrow on very narrow */
-
-  /* Body: stack panels */
+  .main{height:auto;overflow:visible;width:100%;display:flex;flex-direction:column}
+  body{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+  .topbar{padding:0 14px;height:50px}
+  .tb-div,.tb-id{display:none}
+  .back-btn span{display:none}
   .body{display:flex;flex-direction:column;overflow:visible}
-  .left{padding:14px 14px;overflow-y:visible}
-  .right{border-left:none;border-top:1px solid var(--border);padding:14px 14px;overflow-y:visible}
-
-  /* Engagement rail: horizontally scrollable */
-  .eng-rail{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;padding:10px 12px}
-  .eng-rail::-webkit-scrollbar{display:none}
-  .er-pill{font-size:9px;padding:4px 8px}
-
-  /* Asset upload: single column */
-  .asset-row{grid-template-columns:1fr}
-
-  /* Creative review: single column */
-  .cr-grid{grid-template-columns:1fr}
-
-  /* Pay banner: stack */
-  .pay-banner{flex-direction:column;gap:10px;padding:14px 16px;align-items:flex-start}
-  .pay-btn{width:100%;text-align:center;justify-content:center}
-  .pay-banner-amounts{gap:16px}
-
-  /* Action card header */
-  .ach-right{flex-shrink:1}
-
-  /* Modal: bottom sheet */
+  .stage-nav{display:none}
+  .right{display:none}
+  .content-body{padding:12px 14px}
+  .creatives-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .cr-card-visual{height:120px}
+  .am-overlay{align-items:flex-end}
+  .am-modal{width:100%;max-width:100%;border-radius:24px 24px 0 0;max-height:90vh}
   .modal-overlay{align-items:flex-end}
-  .modal{width:100%;max-width:100%;border-radius:20px 20px 0 0;position:relative;transform:none}
-  .modal-overlay .modal{transform:translateY(16px)}
-  .modal-overlay.open .modal{transform:translateY(0)}
-
-  /* Chat */
-  .chat-msgs{max-height:160px}
+  .modal{width:100%;max-width:100%;border-radius:20px 20px 0 0}
+  .cr-review-grid{grid-template-columns:1fr}
+  .pay-banner{flex-direction:column;gap:10px;align-items:flex-start}
+  .pay-btn{width:100%;text-align:center;justify-content:center}
 }
 </style>
 </head>
 <body>
 <div class="app">
+
 <nav class="sb">
   <div class="sb-logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
-  <a class="sb-item" href="../dark-theme/creative_report.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></a>
+  <a class="sb-item" href="../dark-theme/creative_report.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Home</span></a>
   <a class="sb-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><span>Ads</span></a>
-  <a class="sb-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg><span>My</span></a>
   <div class="sb-div"></div>
   <a class="sb-item active" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg><span>Requests</span></a>
   <a class="sb-item" href="../dark-theme/chat.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Chat</span></a>
@@ -347,43 +370,64 @@ input[type=file]{display:none}
 
 <div class="main">
   <div class="topbar">
-    <a class="back-btn" href="index.html"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span>Your Requests</span></a>
+    <a class="back-btn" href="index.html">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      <span>Your Requests</span>
+    </a>
     <div class="tb-div"></div>
     <div class="tb-meta"><div class="tb-title" id="tbTitle">—</div><div class="tb-id" id="tbId">—</div></div>
     <div class="tb-right" id="tbRight"></div>
   </div>
+  <div class="mobile-stage-tabs"><div class="mst-inner" id="mobileStgTabs"></div></div>
   <div class="body">
-    <div class="left" id="leftPanel"></div>
+    <div class="stage-nav" id="stageNav"></div>
+    <div class="left" id="leftPanel">
+      <div class="content-header">
+        <div>
+          <div class="content-title" id="contentTitle">Your Creatives</div>
+          <div class="content-sub" id="contentSub"></div>
+        </div>
+      </div>
+      <div class="content-body" id="contentBody"></div>
+    </div>
     <div class="right" id="rightPanel"></div>
   </div>
 </div>
 </div>
 
-<!-- MOBILE NAV -->
+<!-- Mobile Nav -->
 <nav class="mobile-nav"><div class="mobile-nav-inner">
-  <a class="mn-item" href="../dark-theme/creative_report.html">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-    <span>Dashboard</span>
-  </a>
-  <a class="mn-item" href="#">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-    <span>Ads</span>
-  </a>
-  <a class="mn-item active" href="index.html">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-    <span>Requests</span>
-  </a>
-  <a class="mn-item" href="../dark-theme/chat.html">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-    <span>Chat</span>
-  </a>
-  <a class="mn-item" href="../dark-theme/workspace.html">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
-    <span>Spaces</span>
-  </a>
+  <a class="mn-item" href="../dark-theme/creative_report.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></a>
+  <a class="mn-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><span>Ads</span></a>
+  <a class="mn-item active" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg><span>Requests</span></a>
+  <a class="mn-item" href="../dark-theme/chat.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Chat</span></a>
+  <a class="mn-item" href="../dark-theme/workspace.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg><span>Spaces</span></a>
 </div></nav>
 
-<!-- MODAL -->
+<!-- Action Modal -->
+<div class="am-overlay" id="amOverlay" onclick="if(event.target===this)closeActionModal()">
+  <div class="am-modal">
+    <div class="am-head">
+      <div class="am-head-left">
+        <div class="am-title" id="amTitle">—</div>
+        <div class="am-sub" id="amSub">—</div>
+      </div>
+      <button class="am-close" onclick="closeActionModal()">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="am-body" id="amBody"></div>
+    <div class="am-footer" id="amFooter"></div>
+  </div>
+</div>
+
+<!-- Fullscreen Lightbox -->
+<div class="fs-overlay" id="fsOverlay" onclick="if(event.target===this||event.target.closest('.fs-close'))closeLightbox()">
+  <button class="fs-close" onclick="closeLightbox()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <div class="fs-inner" id="fsInner"></div>
+</div>
+
+<!-- Confirm Modal (for feedback/rejection) -->
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-title" id="modalTitle"></div>
@@ -398,6 +442,14 @@ input[type=file]{display:none}
 
 <script>
 const ST = {ASSET:0,ASSET_DONE:1,SL_REVIEW:2,SL_REWORK:3,CR_PENDING:4,CR_REVIEW:5,CR_REWORK:6,APPROVED:7,DELIVERED:8,PAYMENT_PENDING:9};
+const STAGE_STATES = [
+  [],
+  [ST.ASSET],
+  [ST.ASSET_DONE, ST.SL_REVIEW, ST.SL_REWORK],
+  [ST.CR_PENDING, ST.CR_REVIEW, ST.CR_REWORK, ST.APPROVED],
+  [ST.DELIVERED, ST.PAYMENT_PENDING],
+];
+const STAGE_LABELS = ['Brief Shared','Asset Upload','Storyline','Creative Review','Delivered'];
 
 const ALL = [
   {
@@ -413,7 +465,7 @@ const ALL = [
     creatives:[
       {id:'C1',name:'Video Ad 1',type:'video',product:'',productUrl:'',format:'1080×1920 · Reels',stage:ST.ASSET,files:[],links:[]},
       {id:'C2',name:'Video Ad 2',type:'video',product:'',productUrl:'',format:'1080×1920 · Stories',stage:ST.ASSET,files:[],links:[]},
-      {id:'C3',name:'Static Ad 1',type:'static',product:'',productUrl:'',format:'1080×1080 · Feed',stage:ST.ASSET_DONE,files:['product_shot.jpg'],links:['https://nykaa.com/p/kundan'],
+      {id:'C3',name:'Static Ad 1',type:'static',product:'Kundan Jewellery Set',productUrl:'https://nykaa.com/p/kundan',format:'1080×1080 · Feed',stage:ST.ASSET_DONE,files:['product_shot.jpg'],links:[],
         storyline:'Warm golden light on a display table. Kundan jewellery fanned out.\nText: "Celebrate every tradition."\nBrand logo bottom-right. CTA: "Shop the Edit".'},
     ]
   },
@@ -424,7 +476,7 @@ const ALL = [
     tone:'Premium, sophisticated, minimal',
     started:'Nov 8, 2024', delivery:'Nov 18, 2024',
     messages:[
-      {from:'Aditya · Studio',text:'Assets received — our content writer has prepared storylines for each creative. Please review.',time:'Nov 10 · 9:00 AM',mine:false},
+      {from:'Aditya · Studio',text:'Assets received — storylines prepared for each creative. Please review.',time:'Nov 10 · 9:00 AM',mine:false},
     ],
     creatives:[
       {id:'C1',name:'Video Ad 1',type:'video',product:'Structured Overcoat — Navy',productUrl:'https://nykaa.com/p/overcoat',format:'1080×1920 · Reels',
@@ -433,7 +485,7 @@ const ALL = [
       {id:'C2',name:'Video Ad 2',type:'video',product:'Cashmere Scarf — Ivory',productUrl:'https://nykaa.com/p/scarf',format:'1080×1920 · Stories',
         stage:ST.SL_REWORK,files:['scarf_product.jpg'],links:[],
         storyline:`Vertical reel. Soft cinematic grain. Model wraps ivory cashmere scarf in golden hour light. Text: "Luxury you can feel." CTA: "Shop Now."`,
-        feedback:'The golden-hour angle is good but the text is too small on mobile. Please increase font size and add a subtle gradient behind the text so it\'s readable on all screens.',
+        feedback:'The golden-hour angle is good but the text is too small on mobile. Please increase font size and add a subtle gradient behind the text.',
         feedbackDate:'Nov 11 · 3:20 PM'},
       {id:'C3',name:'Static Ad 1',type:'static',product:'Ankle Boots — Cognac',productUrl:'https://nykaa.com/p/boots',format:'1080×1080 · Feed',
         stage:ST.SL_REVIEW,files:['boots_product.jpg'],links:[],
@@ -454,18 +506,18 @@ const ALL = [
       {id:'C1',name:'Static Ad 1',type:'static',product:'Red Sandalwood Night Cream',productUrl:'https://amazon.in/shesha-ayurveda',format:'1080×1080 · Feed',
         stage:ST.CR_REVIEW,image:'../images/creative_1.jpg',files:['night_cream.jpg'],links:['https://amazon.in/shesha'],
         storyline:'Dark earthy backdrop with sandalwood & saffron elements. Product centred with ingredients annotated. Tagline: "No Chemicals. Just Pure Ayurveda."'},
-      {id:'C2',name:'Static Ad 2',type:'static',product:'Mysore Pattu Saree — Festival Edit',productUrl:'https://amazon.in/mysore-pattu',format:'1080×1080 · Feed',
+      {id:'C2',name:'Static Ad 2',type:'static',product:'Mysore Pattu Saree',productUrl:'https://amazon.in/mysore-pattu',format:'1080×1080 · Feed',
         stage:ST.CR_REWORK,image:'../images/creative_2.jpg',files:['saree.jpg'],links:[],
-        storyline:'Deep maroon background. Two models in contrasting sarees. Gold typography: "Festival Sale — Upto 90% Off." Use code badge bottom centre.',
-        feedback:'The discount percentage feels too prominent and overshadows the product. Please reduce its size and make the sarees the hero. The "Use Code" badge font also feels too casual for the brand.',
+        storyline:'Deep maroon background. Two models in contrasting sarees. Gold typography: "Festival Sale — Upto 90% Off."',
+        feedback:'The discount percentage feels too prominent. Please reduce its size and make the sarees the hero.',
         feedbackDate:'Nov 13 · 6:15 PM'},
       {id:'C3',name:'Static Ad 3',type:'static',product:'Krafted Millets Combo Pack',productUrl:'https://amazon.in/krafted-millets',format:'1080×1080 · Feed',
         stage:ST.APPROVED,image:'../images/creative_3.jpg',files:['millets.jpg'],links:[],
-        storyline:'Warm cream background. All products fanned out naturally. Bold headline: "No More Fatigue." Price callout: "Buy Any 4 @ ₹999."',
+        storyline:'Warm cream background. All products fanned out naturally. Bold headline: "No More Fatigue."',
         approvedDate:'Nov 13 · 5:45 PM'},
       {id:'C4',name:'Static Ad 4',type:'static',product:'Matri Period Relief Device',productUrl:'https://amazon.in/matri-device',format:'1080×1350 · Feed',
         stage:ST.CR_REVIEW,image:'../images/creative_4.jpg',files:['matri.jpg'],links:[],
-        storyline:'Soft lavender/pink gradient. Model smiling confidently. Product shot with "Save 38%" badge. Stats: "96% women experienced relief." CTA: "Use Code MOM500".'},
+        storyline:'Soft lavender/pink gradient. Model smiling confidently. Product shot with "Save 38%" badge. Stats: "96% women experienced relief."'},
       {id:'C5',name:'Static Ad 5',type:'static',product:'Care Damn Hair Growth Serum',productUrl:'https://amazon.in/caredamn',format:'1080×1080 · Feed',
         stage:ST.CR_REVIEW,image:'../images/creative_5.jpg',files:['serum.jpg'],links:[],
         storyline:'Warm beige/sand tones. Product hero shot with before/after results panel. Stat: "92% People Saw Visible Hair Growth." Price: ₹649.'},
@@ -492,21 +544,19 @@ const ALL = [
     started:'Nov 14, 2024', delivery:'Nov 22, 2024',
     partialPayment:true, amountPaid:'₹6,500', amountDue:'₹12,500', totalAmount:'₹19,000',
     messages:[
-      {from:'Sneha · Studio',text:'Great news — 2 of your 3 creatives are approved! Please complete payment to unlock full-resolution downloads.',time:'Nov 20 · 11:00 AM',mine:false},
-      {from:'You',text:'Looks good overall. Will pay once I review the 3rd creative.',time:'Nov 20 · 11:45 AM',mine:true},
+      {from:'Sneha · Studio',text:'2 creatives approved! Complete payment to unlock full-resolution downloads.',time:'Nov 20 · 11:00 AM',mine:false},
+      {from:'You',text:'Will pay once I review the 3rd creative.',time:'Nov 20 · 11:45 AM',mine:true},
     ],
     creatives:[
       {id:'C1',name:'Static Ad 1',type:'static',product:'Red Sandalwood Night Cream',productUrl:'https://amazon.in/shesha',format:'1080×1080 · Feed',
         stage:ST.PAYMENT_PENDING,image:'../images/creative_1.jpg',files:['night_cream.jpg'],links:[],
-        storyline:'Dark earthy backdrop. Product centred with saffron & sandalwood elements. Tagline: "No Chemicals. Just Pure Ayurveda."',
-        approvedDate:'Nov 20 · 10:15 AM'},
+        storyline:'Dark earthy backdrop. Tagline: "No Chemicals. Just Pure Ayurveda."',approvedDate:'Nov 20 · 10:15 AM'},
       {id:'C2',name:'Static Ad 2',type:'static',product:'Krafted Millets Combo Pack',productUrl:'https://amazon.in/krafted',format:'1080×1080 · Feed',
         stage:ST.PAYMENT_PENDING,image:'../images/creative_3.jpg',files:['millets.jpg'],links:[],
-        storyline:'Warm cream bg. All products fanned out. Headline: "No More Fatigue." Price callout: "Buy Any 4 @ ₹999."',
-        approvedDate:'Nov 20 · 10:30 AM'},
+        storyline:'Warm cream bg. Headline: "No More Fatigue." Price callout: "Buy Any 4 @ ₹999."',approvedDate:'Nov 20 · 10:30 AM'},
       {id:'C3',name:'Static Ad 3',type:'static',product:'Care Damn Hair Growth Serum',productUrl:'https://amazon.in/caredamn',format:'1080×1080 · Feed',
         stage:ST.CR_REVIEW,image:'../images/creative_5.jpg',files:['serum.jpg'],links:[],
-        storyline:'Warm beige tones. Product hero shot with before/after results. Stat: "92% Saw Visible Hair Growth." Price: ₹649.'},
+        storyline:'Warm beige tones. Product hero shot. Stat: "92% Saw Visible Hair Growth." Price: ₹649.'},
     ]
   },
   {
@@ -534,16 +584,11 @@ const eng = ALL.find(e=>e.id===engId) || ALL[2];
 const CS = {};
 eng.creatives.forEach(c => {
   CS[c.id] = {
-    stage: c.stage,
-    product: c.product||'',
-    productUrl: c.productUrl||'',
-    files: [...(c.files||[])],
-    links: [...(c.links||[])],
-    storyline: c.storyline||'',
-    feedback: c.feedback||'',
-    feedbackDate: c.feedbackDate||'',
-    approvedDate: c.approvedDate||'',
-    image: c.image||'',
+    stage:c.stage, product:c.product||'', productUrl:c.productUrl||'',
+    files:[...(c.files||[])], links:[...(c.links||[])],
+    storyline:c.storyline||'', feedback:c.feedback||'',
+    feedbackDate:c.feedbackDate||'', approvedDate:c.approvedDate||'',
+    image:c.image||'',
   };
 });
 
@@ -551,14 +596,55 @@ document.getElementById('tbTitle').textContent = eng.title;
 document.getElementById('tbId').textContent = eng.id;
 
 // ── SVGs ──
-const chk = `<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>`;
-const dlSvg = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5 5 5-5M12 3v13"/></svg>`;
-const xSvg  = `<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
-const videoSvg = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
-const imgSvg = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
-const spinnerSvg = `<div class="spin" style="width:16px;height:16px;border-width:1.5px"></div>`;
+const chk = `<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>`;
+const dlSvg = `<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5 5 5-5M12 3v13"/></svg>`;
+const xSvg = `<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+const videoSvg = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
+const imgSvg = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+const uploadSvg = `<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5-5 5 5M12 3v13"/></svg>`;
+const pencilSvg = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+const eyeSvg = `<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const brushSvg = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 00-2.82 0L8 7l9 9 1.59-1.59a2 2 0 000-2.82L17 10l4.37-4.37a2.12 2.12 0 000-3z"/><path d="M9 8c-2 3-4 3.5-7 4l8 8c1-.5 3.5-2 4-7"/></svg>`;
+const refreshSvg = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>`;
+const lockSvg = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`;
 
-// ── ENGAGEMENT BADGE ──
+// ── STAGE LOGIC ──
+function computeEngStage() {
+  const stages = eng.creatives.map(c=>CS[c.id].stage);
+  if (stages.every(s=>s>=ST.DELIVERED)) return 4;
+  if (stages.every(s=>s>=ST.CR_PENDING)) return 3;
+  if (stages.every(s=>s>=ST.ASSET_DONE)) return 2;
+  if (stages.some(s=>s>=ST.ASSET)) return 1;
+  return 0;
+}
+
+function defaultStage() {
+  const actionPerStage = [[], [ST.ASSET], [ST.SL_REVIEW], [ST.CR_REVIEW], []];
+  for (let i = 1; i <= 4; i++) {
+    if (eng.creatives.some(c => actionPerStage[i].includes(CS[c.id].stage))) return i;
+  }
+  for (let i = 1; i <= 4; i++) {
+    if (eng.creatives.some(c => STAGE_STATES[i].includes(CS[c.id].stage))) return i;
+  }
+  return computeEngStage();
+}
+
+let currentStage = defaultStage();
+
+function stageStatus(idx) {
+  const es = computeEngStage();
+  return idx < es ? 'done' : idx === es ? 'active' : 'pending';
+}
+
+function stageCount(idx) {
+  if (idx === 0) return null;
+  const inStage = eng.creatives.filter(c => STAGE_STATES[idx].includes(CS[c.id].stage));
+  const actionStates = [[], [ST.ASSET], [ST.SL_REVIEW], [ST.CR_REVIEW], []];
+  const needAction = inStage.filter(c => actionStates[idx].includes(CS[c.id].stage));
+  return { total: inStage.length, action: needAction.length };
+}
+
+// ── BADGE ──
 function engBadge() {
   const anyAction = eng.creatives.some(c=>[ST.ASSET,ST.SL_REVIEW,ST.CR_REVIEW].includes(CS[c.id].stage));
   const allDone = eng.creatives.every(c=>CS[c.id].stage>=ST.DELIVERED);
@@ -567,243 +653,166 @@ function engBadge() {
   return `<span class="badge b-progress"><span class="dot"></span>In Progress</span>`;
 }
 
-// ── ENGAGEMENT RAIL ──
-function computeEngStage() {
-  const stages = eng.creatives.map(c=>CS[c.id].stage);
-  if (stages.every(s=>s>=ST.DELIVERED)) return 4;
-  if (stages.every(s=>s>=ST.CR_PENDING)) return 3;
-  if (stages.every(s=>s>=ST.ASSET_DONE)) return 2;
-  return 1;
-}
-function renderEngRail() {
-  const es = computeEngStage();
-  const clkSvg = `<svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`;
-  const cirSvg = `<svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>`;
-  const LABELS = ['Brief Shared','Asset Upload','Storyline','Creative Review','Delivered'];
-  const steps = LABELS.map((l,i)=>{
-    const done=i<es, active=i===es;
-    const cls = done?'er-done':active?'er-active':'er-pending';
-    const icon = done?chk:active?clkSvg:cirSvg;
-    const connector = i<4?`<div class="er-connector"></div>`:'';
-    return `<div class="er-step"><div class="er-pill ${cls}">${icon} ${l}</div>${connector}</div>`;
+// ── STAGE NAV ──
+function renderStageNav() {
+  const items = STAGE_LABELS.map((label, i) => {
+    const status = stageStatus(i);
+    const cnt = stageCount(i);
+    const isSelected = i === currentStage;
+    const dotIcon = status==='done'
+      ? `<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>`
+      : status==='active'
+        ? `<svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg>`
+        : `<span>${i}</span>`;
+    const lineStatus = i < computeEngStage() ? 'done' : 'pending';
+    let badgeHtml = '';
+    if (cnt) {
+      if (cnt.action > 0) badgeHtml = `<div class="sn-badge action">${cnt.action} need${cnt.action===1?'s':''} input</div>`;
+      else if (cnt.total > 0) badgeHtml = status==='done'
+        ? `<div class="sn-badge green">${chk} ${cnt.total} done</div>`
+        : `<div class="sn-badge progress">${cnt.total} in progress</div>`;
+    }
+    return `<div class="sn-item${isSelected?' sel':''}" onclick="setStage(${i})">
+      <div class="sn-track">
+        <div class="sn-dot ${status}">${dotIcon}</div>
+        <div class="sn-line ${lineStatus}"></div>
+      </div>
+      <div class="sn-content">
+        <div class="sn-name ${status}">${label}</div>
+        ${badgeHtml}
+      </div>
+    </div>`;
   }).join('');
-  return `<div class="eng-rail">${steps}</div>`;
+  return `<div class="sn-header">Progress</div><div class="sn-list">${items}</div>`;
 }
 
-// ── SECTION HEADER ──
-function sectionHeader(label, count, cls='') {
-  return `<div class="prog-section-header" style="margin-bottom:12px">
-    <span class="psh-label" style="${cls}">${label}</span>
-    <span class="psh-count">${count}</span>
-    <div class="psh-line"></div>
-  </div>`;
+function renderMobileStageTabs() {
+  return STAGE_LABELS.map((label, i) => {
+    const status = stageStatus(i);
+    const isActive = i === currentStage;
+    return `<div class="mst-item ${isActive?'active':''} ${status==='done'?'done':''}" onclick="setStage(${i})">
+      <div class="mst-dot"></div>${label}
+    </div>`;
+  }).join('');
 }
 
-// ── ACTION CARDS (Your Turn) ──
-function renderActionCard(c) {
-  const cs = CS[c.id];
-  const s = cs.stage;
-  const isAsset = s === ST.ASSET;
-  const isSL = s === ST.SL_REVIEW;
-  const isCR = s === ST.CR_REVIEW;
-  const cardClass = isAsset ? '' : 'review';
-  const typeSvg = c.type === 'video' ? videoSvg : imgSvg;
-  const typeClass = isAsset ? 'asset' : isSL ? 'review-sl' : 'review-cr';
-  const actionLabel = isAsset
-    ? `<span class="action-tag at-upload">↑ Upload Assets</span>`
-    : isSL
-    ? `<span class="action-tag at-review">✦ Review Storyline</span>`
-    : `<span class="action-tag at-review">✦ Review Creative</span>`;
-
-  return `
-  <div class="ac-card ${cardClass}" id="card-${c.id}">
-    <div class="ac-card-head">
-      <div class="ach-left">
-        <div class="ach-type ${typeClass}">${typeSvg}</div>
-        <div>
-          <div class="ach-name">${c.name}</div>
-          <div class="ach-product">${cs.product||c.product||'Product not set'}</div>
-        </div>
-      </div>
-      <div class="ach-right">${actionLabel}</div>
-    </div>
-    <div class="ac-body">${renderActionBody(c, cs, s)}</div>
-  </div>`;
+function setStage(idx) {
+  currentStage = idx;
+  document.getElementById('stageNav').innerHTML = renderStageNav();
+  document.getElementById('mobileStgTabs').innerHTML = renderMobileStageTabs();
+  renderContent();
 }
 
-function renderActionBody(c, cs, s) {
-  if (s === ST.ASSET) return assetBlock(c);
-  if (s === ST.SL_REVIEW) return slReviewBlock(c, cs);
-  if (s === ST.CR_REVIEW) return crReviewBlock(c, cs);
-  return '';
-}
-
-// ── PROGRESS ROWS (Studio working) ──
-function renderProgressRow(c) {
-  const cs = CS[c.id];
-  const s = cs.stage;
-  const typeSvg = c.type === 'video' ? videoSvg : imgSvg;
-
-  let statusText = '';
-  let statusClass = 'cyan';
-  let iconClass = 'working';
-  let iconContent = spinnerSvg;
-
-  if (s === ST.ASSET_DONE) {
-    statusText = 'Writing Storyline';
-  } else if (s === ST.CR_PENDING) {
-    statusText = 'Designing Creative';
-  } else if (s === ST.SL_REWORK) {
-    statusText = 'Revising Storyline';
-    statusClass = 'amber';
-    iconClass = 'rework';
-    iconContent = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  } else if (s === ST.CR_REWORK) {
-    statusText = 'Revising Creative';
-    statusClass = 'amber';
-    iconClass = 'rework';
-    iconContent = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  }
-
-  const feedbackSnippet = (s === ST.SL_REWORK || s === ST.CR_REWORK) && cs.feedback
-    ? `<div style="font-size:10px;color:var(--amber);margin-top:3px;opacity:.75">Your feedback: "${cs.feedback.substring(0,60)}${cs.feedback.length>60?'…':''}"</div>`
-    : '';
-
-  return `
-  <div class="prog-row" id="card-${c.id}">
-    <div class="pr-icon ${iconClass}">${iconContent}</div>
-    <div style="min-width:0;flex:1">
-      <div class="pr-name">${c.name}</div>
-      <div class="pr-product">${cs.product||c.product||'—'}</div>
-      ${feedbackSnippet}
-    </div>
-    <div class="pr-status">
-      <span class="pr-status-text ${statusClass}">${statusText}</span>
-    </div>
-  </div>`;
-}
-
-// ── DONE ROWS ──
-function renderDoneRow(c) {
+// ── CARD VISUAL CONFIG ──
+function cardVisual(c) {
   const cs = CS[c.id];
   const s = cs.stage;
   const img = cs.image || c.image || '';
 
-  if (s === ST.PAYMENT_PENDING) {
-    const thumb = img
-      ? `<div class="dr-thumb-wrap"><img class="dr-thumb-locked" src="${img}" alt="${c.name}"><div class="lock-icon"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,.8)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div></div>`
-      : `<div class="dr-thumb-ph">${imgSvg}</div>`;
-    return `
-    <div class="done-row locked" id="card-${c.id}">
-      ${thumb}
-      <div class="dr-info">
-        <div class="dr-name">${c.name}</div>
-        <div class="dr-product">${cs.product||c.product||'—'} · ${c.format}</div>
-      </div>
-      <div class="dr-state"><div class="dr-lock-cta"><svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Pay to Download</div></div>
-    </div>`;
+  const configs = {
+    [ST.ASSET]: { cls:'vis-upload', icon:uploadSvg, label:'Upload Assets', badge:`<span class="cr-card-state cs-upload">↑ Upload Pending</span>` },
+    [ST.ASSET_DONE]: { cls:'vis-working', icon:pencilSvg, label:'Writing Storyline', badge:`<span class="cr-card-state cs-working">Writing Storyline</span>` },
+    [ST.SL_REVIEW]: { cls:'vis-review', icon:eyeSvg, label:'Review Storyline', badge:`<span class="cr-card-state cs-review">✦ Review Storyline</span>` },
+    [ST.SL_REWORK]: { cls:'vis-working', icon:refreshSvg, label:'Revising Storyline', badge:`<span class="cr-card-state cs-working">↻ Revising Storyline</span>` },
+    [ST.CR_PENDING]: { cls:'vis-working', icon:brushSvg, label:'Designing', badge:`<span class="cr-card-state cs-working">Designing Creative</span>` },
+    [ST.CR_REVIEW]: { cls:'vis-review', icon:eyeSvg, label:'Review Creative', badge:`<span class="cr-card-state cs-review">✦ Review Creative</span>` },
+    [ST.CR_REWORK]: { cls:'vis-working', icon:refreshSvg, label:'Revising Creative', badge:`<span class="cr-card-state cs-working">↻ Revising Creative</span>` },
+    [ST.APPROVED]: { cls:'vis-approved', icon:chk, label:'Approved', badge:`<span class="cr-card-state cs-approved">✓ Approved</span>` },
+    [ST.DELIVERED]: { cls:'vis-delivered', icon:dlSvg, label:'Delivered', badge:`<span class="cr-card-state cs-approved">↓ Download Ready</span>` },
+    [ST.PAYMENT_PENDING]: { cls:'vis-locked', icon:lockSvg, label:'Pay to Download', badge:`<span class="cr-card-state cs-locked">🔒 Pay to Download</span>` },
+  };
+  const cfg = configs[s] || configs[ST.ASSET];
+
+  // If creative has an image and is in a visual state, show it with overlay
+  const hasImg = img && [ST.CR_REVIEW, ST.CR_REWORK, ST.APPROVED, ST.DELIVERED, ST.PAYMENT_PENDING].includes(s);
+  const isLocked = s === ST.PAYMENT_PENDING;
+
+  let visualHtml;
+  if (hasImg) {
+    visualHtml = `
+      <img src="${img}" style="${isLocked?'filter:blur(8px) brightness(.4)':s===ST.CR_REVIEW||s===ST.CR_REWORK?'filter:brightness(.6)':''}">
+      <div class="vis-overlay">
+        ${isLocked?'<div class="vis-bg-blur"></div>':''}
+        <div class="vis-icon" style="${isLocked?'background:rgba(251,146,60,.2);border-color:rgba(251,146,60,.4);color:var(--amber)':s===ST.APPROVED||s===ST.DELIVERED?'background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.5);color:var(--green)':'background:rgba(175,70,253,.2);border-color:rgba(175,70,253,.5);color:#C084FC'}">${cfg.icon}</div>
+        <div class="vis-label" style="${isLocked?'color:var(--amber)':s===ST.APPROVED||s===ST.DELIVERED?'color:var(--green)':'color:#C084FC'}">${cfg.label}</div>
+      </div>`;
+  } else {
+    visualHtml = `
+      <div class="vis-overlay">
+        <div class="vis-icon">${cfg.icon}</div>
+        <div class="vis-label">${cfg.label}</div>
+      </div>`;
   }
 
-  const thumb = img
-    ? `<img class="dr-thumb" src="${img}" alt="${c.name}">`
-    : `<div class="dr-thumb-ph">${imgSvg}</div>`;
+  return { visualHtml, visualCls: hasImg ? '' : cfg.cls, badge: cfg.badge };
+}
 
-  const action = s === ST.DELIVERED
-    ? `<button class="dr-dl" onclick="toast('Downloading ${c.name}…','green')">${dlSvg} Download</button>`
-    : `<div class="dr-approved">${chk} Approved</div>`;
+// ── CREATIVE CARD ──
+function renderCard(c, delay) {
+  const cs = CS[c.id];
+  const product = cs.product || c.product || '';
+  const { visualHtml, visualCls, badge } = cardVisual(c);
+  const typeLabel = c.type === 'video' ? '▶ Video' : '⬛ Static';
 
-  return `
-  <div class="done-row" id="card-${c.id}">
-    ${thumb}
-    <div class="dr-info">
-      <div class="dr-name">${c.name}</div>
-      <div class="dr-product">${cs.product||c.product||'—'} · ${c.format}</div>
+  return `<div class="cr-card anim-card-in" style="animation-delay:${delay}ms" onclick="openActionModal('${c.id}')">
+    <div class="cr-card-visual ${visualCls}">${visualHtml}</div>
+    <div class="cr-card-info">
+      <div class="cr-card-name">${c.name}</div>
+      <div class="cr-card-format">${c.format}</div>
+      ${badge}
     </div>
-    <div class="dr-state">${action}</div>
   </div>`;
 }
 
-// ── ASSET BLOCK ──
-function assetBlock(c) {
-  const cid = c.id;
-  return `
-    <div class="field-label" style="margin-bottom:5px">Product URL</div>
-    <input class="field-input" id="url-${cid}" placeholder="Amazon / website link…" value="${CS[cid].productUrl}" style="margin-bottom:12px">
-    <div class="field-label">Assets</div>
-    <label class="upload-zone" for="file-${cid}">
-      <div class="uz-icon">${dlSvg}</div>
-      <div class="uz-title">Drop files or click to upload</div>
-      <div class="uz-sub">JPG, PNG, MP4, MOV · Max 200 MB</div>
-    </label>
-    <input type="file" id="file-${cid}" multiple accept="image/*,video/*" onchange="addFiles('${cid}',this.files)">
-    <div class="file-list" id="fl-${cid}" style="margin-bottom:12px">${CS[cid].files.map(f=>fileItem(f,cid)).join('')}</div>
-    <div class="field-label">Description</div>
-    <textarea class="comment-input" id="prod-${cid}" rows="3" placeholder="Brief description of the product or creative direction…">${CS[cid].product||''}</textarea>
-    <button class="btn-grad" onclick="submitAssets('${cid}')">${chk} Submit Assets for this Creative</button>`;
-}
+// ── RENDER CONTENT ──
+function renderContent() {
+  const body = document.getElementById('contentBody');
+  const titleEl = document.getElementById('contentTitle');
+  const subEl = document.getElementById('contentSub');
 
-function fileItem(name, cid) {
-  return `<div class="file-item"><div class="fi-icon"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><div class="fi-name">${name}</div><button class="fi-rm" onclick="removeFile('${cid}','${name}')"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
-}
-function linkItem(url, cid) {
-  return `<div class="file-item"><div class="fi-icon" style="background:rgba(251,146,60,.12);color:var(--amber)"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></div><div class="fi-name">${url}</div><button class="fi-rm" onclick="removeLink('${cid}','${url}')"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
-}
-
-// ── STORYLINE REVIEW BLOCK ──
-function slReviewBlock(c, cs) {
-  return `
-    <div class="sl-label">Storyline Draft</div>
-    <div class="sl-box">${cs.storyline||'Storyline coming soon…'}</div>
-    <textarea class="comment-input" id="sl-comment-${c.id}" rows="2" placeholder="Add feedback or revision notes before rejecting…"></textarea>
-    <div class="btn-row">
-      <button class="btn-approve" onclick="approveSL('${c.id}')">${chk} Approve Storyline</button>
-      <button class="btn-reject" onclick="rejectSL('${c.id}')">${xSvg} Request Edits</button>
-    </div>`;
-}
-
-// ── CREATIVE REVIEW BLOCK ──
-function crReviewBlock(c, cs) {
-  const img = cs.image || c.image || '';
-  return `
-    <div class="cr-grid">
-      <div class="cr-img-wrap">
-        ${img
-          ? `<img src="${img}" alt="${c.name}" loading="lazy"><div class="wm-overlay"><div class="wm-text">WATERMARK</div></div><div class="wm-badge">Preview</div>`
-          : `<div style="aspect-ratio:1/1;background:rgba(111,87,233,.08);display:flex;align-items:center;justify-content:center;border-radius:10px"><svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,.15)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>`}
+  if (currentStage === 0) {
+    titleEl.textContent = 'Campaign Brief';
+    subEl.textContent = 'Your brief has been shared with the Studio team';
+    body.innerHTML = `<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      ${[['Campaign',eng.title],['Category',eng.category],['Tone',eng.tone],['Delivery',eng.delivery],['Studio POC',eng.poc]].map(([k,v])=>`
+      <div style="padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;justify-content:space-between;gap:16px">
+        <span style="font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase">${k}</span>
+        <span style="font-size:11px;color:var(--t1);text-align:right">${v}</span>
+      </div>`).join('')}
+      <div style="padding:11px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+        <span style="font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase">Formats</span>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">${(eng.formats||[]).map(f=>`<span class="brief-tag">${f}</span>`).join('')}</div>
       </div>
-      <div class="cr-details">
-        <div><div class="detail-label">Product</div><div class="detail-val">${cs.product||c.product}</div>${cs.productUrl?`<a class="detail-link" href="${cs.productUrl}" target="_blank"><svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> View product</a>`:''}</div>
-        <div><div class="detail-label">Format</div><div class="detail-val">${c.format}</div></div>
-        <div><div class="detail-label">Storyboard</div><div class="sl-box" style="font-size:11px;max-height:110px">${cs.storyline}</div></div>
-      </div>
-    </div>
-    <textarea class="comment-input" id="cr-comment-${c.id}" rows="2" placeholder="Add feedback before requesting edits, or leave blank to approve…"></textarea>
-    <div class="btn-row">
-      <button class="btn-approve" onclick="approveCR('${c.id}')">${chk} Approve Creative</button>
-      <button class="btn-reject" onclick="rejectCR('${c.id}')">${xSvg} Request Edits</button>
     </div>`;
-}
+    return;
+  }
 
-// ── MAIN RENDER ──
-function renderLeft() {
-  const needsAction   = eng.creatives.filter(c => [ST.ASSET, ST.SL_REVIEW, ST.CR_REVIEW].includes(CS[c.id].stage));
-  const inProgress    = eng.creatives.filter(c => [ST.ASSET_DONE, ST.CR_PENDING, ST.SL_REWORK, ST.CR_REWORK].includes(CS[c.id].stage));
-  const done          = eng.creatives.filter(c => [ST.APPROVED, ST.DELIVERED, ST.PAYMENT_PENDING].includes(CS[c.id].stage));
-  const paymentLocked = eng.creatives.filter(c => CS[c.id].stage === ST.PAYMENT_PENDING);
-  const allDel        = eng.creatives.every(c => CS[c.id].stage >= ST.DELIVERED);
+  const creatives = eng.creatives.filter(c => STAGE_STATES[currentStage].includes(CS[c.id].stage));
+  titleEl.textContent = 'Your Creatives';
+  subEl.textContent = creatives.length > 0 ? `${creatives.length} creative${creatives.length===1?'':'s'} · ${STAGE_LABELS[currentStage]}` : '';
 
-  let html = renderEngRail();
+  if (creatives.length === 0) {
+    const isPast = currentStage < computeEngStage();
+    body.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">
+        ${isPast?`<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>`:
+        `<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>`}
+      </div>
+      <div class="empty-state-t1">${isPast?'Stage complete':'Not started yet'}</div>
+      <div class="empty-state-t2">${isPast?'All creatives have moved past this stage.':'Creatives haven\'t reached this stage yet.'}</div>
+    </div>`;
+    return;
+  }
 
   // Payment banner
+  const paymentLocked = creatives.filter(c => CS[c.id].stage === ST.PAYMENT_PENDING);
+  let html = '';
   if (paymentLocked.length > 0 && eng.partialPayment) {
-    html += `
-    <div class="pay-banner" id="payBanner">
-      <div class="pay-banner-icon">
-        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-      </div>
+    html += `<div class="pay-banner" id="payBanner">
+      <div class="pay-banner-icon"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
       <div class="pay-banner-body">
-        <div class="pay-banner-title">${paymentLocked.length} creative${paymentLocked.length>1?'s are':' is'} approved — pay to unlock full-res downloads</div>
-        <div class="pay-banner-sub">Watermarked previews are shown below. Complete payment to receive final high-resolution files.</div>
+        <div class="pay-banner-title">${paymentLocked.length} creative${paymentLocked.length>1?'s':''} approved — pay to unlock downloads</div>
+        <div class="pay-banner-sub">Watermarked previews shown. Complete payment for full-resolution files.</div>
         <div class="pay-banner-amounts">
           <div class="pay-amount-item"><div class="pay-amount-label">Paid</div><div class="pay-amount-val green">${eng.amountPaid}</div></div>
           <div class="pay-amount-item"><div class="pay-amount-label">Remaining</div><div class="pay-amount-val amber">${eng.amountDue}</div></div>
@@ -814,53 +823,232 @@ function renderLeft() {
     </div>`;
   }
 
-  if (allDel) {
-    html += `<div class="del-banner"><div style="font-size:20px;margin-right:4px">🎉</div><div><div class="del-title">All creatives delivered!</div><div class="del-sub">Your final high-resolution files are ready below.</div></div></div>`;
-  }
-
-  if (needsAction.length > 0) {
-    html += `<div class="action-section">
-      <div class="action-section-header">
-        <div class="ash-pill">
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          Your Turn
-        </div>
-        <span class="ash-count">${needsAction.length} creative${needsAction.length>1?'s':''} need${needsAction.length===1?'s':''} your input</span>
-      </div>`;
-    needsAction.forEach(c => { html += renderActionCard(c); });
-    html += `</div>`;
-  }
-
-  if (inProgress.length > 0) {
-    html += `<div class="prog-section">
-      ${sectionHeader('Studio Working On It', inProgress.length)}`;
-    inProgress.forEach(c => { html += renderProgressRow(c); });
-    html += `</div>`;
-  }
-
-  if (done.length > 0) {
-    html += `<div class="done-section">
-      ${sectionHeader('Completed', done.length, 'color:var(--green)')}`;
-    done.forEach(c => { html += renderDoneRow(c); });
-    html += `</div>`;
-  }
-
-  return html;
+  html += `<div class="creatives-grid">${creatives.map((c,i)=>renderCard(c,i*60)).join('')}</div>`;
+  body.innerHTML = html;
 }
 
+// ── SHARED CONTEXT PANEL ──
+// Shows what the merchant originally submitted — used in all review states
+function sharedContextBlock(cs, c) {
+  const hasUrl = cs.productUrl;
+  const hasDesc = cs.product;
+  const hasFiles = cs.files && cs.files.length > 0;
+  if (!hasUrl && !hasDesc && !hasFiles) return '';
+
+  const rows = [];
+  if (hasDesc) rows.push(`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <div style="font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;width:76px;flex-shrink:0;padding-top:2px">Product</div>
+      <div style="font-size:12px;color:var(--t1);line-height:1.4">${cs.product}</div>
+    </div>`);
+  if (hasUrl) rows.push(`
+    <div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <div style="font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;width:76px;flex-shrink:0">URL</div>
+      <a href="${cs.productUrl}" target="_blank" style="font-size:11px;color:var(--purple);display:flex;align-items:center;gap:4px;word-break:break-all">
+        <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+        ${cs.productUrl}
+      </a>
+    </div>`);
+  if (hasFiles) rows.push(`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0">
+      <div style="font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;width:76px;flex-shrink:0;padding-top:2px">Assets</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">${cs.files.map(f=>`
+        <div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:3px 8px">
+          <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,.4)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <span style="font-size:10px;font-weight:600;color:var(--t2)">${f}</span>
+        </div>`).join('')}
+      </div>
+    </div>`);
+
+  return `<div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:4px 14px 0;margin-bottom:18px">
+    <div style="font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;padding:10px 0 6px;display:flex;align-items:center;gap:6px">
+      <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+      What you shared
+    </div>
+    ${rows.join('')}
+  </div>`;
+}
+
+// ── ACTION MODAL ──
+let activeCid = null;
+
+function openActionModal(cid) {
+  activeCid = cid;
+  const c = eng.creatives.find(x=>x.id===cid);
+  const cs = CS[cid];
+  const s = cs.stage;
+
+  document.getElementById('amTitle').textContent = c.name;
+  document.getElementById('amSub').textContent = `${c.format} · ${c.product || cs.product || ''}`;
+
+  let bodyHtml = '';
+  let footerHtml = '';
+
+  if (s === ST.ASSET) {
+    bodyHtml = assetBlock(c);
+    footerHtml = `<button class="am-cancel" onclick="closeActionModal()">Cancel</button>
+      <button class="btn-grad" onclick="submitAssets('${cid}')">${chk} Submit Assets</button>`;
+
+  } else if (s === ST.ASSET_DONE) {
+    bodyHtml = `<div class="awaiting-box"><div class="spin" style="width:22px;height:22px;border-width:2px"></div>
+      <div><div class="awaiting-t1">Our writer is drafting the storyline</div>
+      <div class="awaiting-t2">You'll receive it for review shortly. No action needed from you right now.</div></div></div>`;
+    footerHtml = `<button class="btn-grad" onclick="closeActionModal()" style="max-width:140px">Got it</button>`;
+
+  } else if (s === ST.SL_REVIEW) {
+    bodyHtml = sharedContextBlock(cs, c) +
+      `<div class="field-label" style="margin-bottom:8px">Storyline Draft</div>
+      <div class="sl-box">${cs.storyline||'—'}</div>
+      <div class="field-label" style="margin-top:4px;margin-bottom:5px">Feedback (optional)</div>
+      <textarea class="comment-input" id="am-sl-comment" rows="3" placeholder="Add feedback before requesting edits, or leave blank to approve…"></textarea>`;
+    footerHtml = `<button class="am-cancel btn-reject" onclick="rejectSL('${cid}')">${xSvg} Request Edits</button>
+      <button class="btn-grad" onclick="approveSL('${cid}')">${chk} Approve Storyline</button>`;
+
+  } else if (s === ST.SL_REWORK) {
+    bodyHtml = sharedContextBlock(cs, c) + (cs.feedback ? `<div class="rework-box">
+      <div class="rework-header"><div class="rework-icon"><svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+        <span class="rework-label">Your Feedback</span><span class="rework-date">${cs.feedbackDate}</span></div>
+      <div class="rework-text">"${cs.feedback}"</div>
+    </div>
+    <div class="awaiting-box" style="margin-top:4px"><div class="spin" style="width:20px;height:20px;border-width:2px"></div>
+      <div><div class="awaiting-t1">Writer is revising the storyline</div><div class="awaiting-t2">You'll receive an updated version to review soon.</div></div></div>`
+    : `<div class="awaiting-box"><div class="spin"></div><div><div class="awaiting-t1">Revising based on your feedback</div></div></div>`);
+    footerHtml = `<button class="btn-grad" onclick="closeActionModal()" style="max-width:140px">Got it</button>`;
+
+  } else if (s === ST.CR_PENDING) {
+    bodyHtml = `<div class="awaiting-box"><div class="spin" style="width:22px;height:22px;border-width:2px"></div>
+      <div><div class="awaiting-t1">Designer is creating your creative</div>
+      <div class="awaiting-t2">A watermarked preview will arrive for your review soon.</div></div></div>`;
+    footerHtml = `<button class="btn-grad" onclick="closeActionModal()" style="max-width:140px">Got it</button>`;
+
+  } else if (s === ST.CR_REVIEW) {
+    bodyHtml = crReviewBlock(c, cs, sharedContextBlock(cs, c));
+    footerHtml = `<button class="am-cancel btn-reject" onclick="rejectCR('${cid}')">${xSvg} Request Edits</button>
+      <button class="btn-grad" onclick="approveCR('${cid}')">${chk} Approve Creative</button>`;
+
+  } else if (s === ST.CR_REWORK) {
+    const img = cs.image || c.image || '';
+    bodyHtml = sharedContextBlock(cs, c) + (cs.feedback ? `<div class="rework-box">
+      <div class="rework-header"><div class="rework-icon"><svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+        <span class="rework-label">Your Feedback</span><span class="rework-date">${cs.feedbackDate}</span></div>
+      <div class="rework-text">"${cs.feedback}"</div>
+    </div>
+    ${img?`<img src="${img}" style="width:100%;border-radius:10px;margin-top:10px;filter:brightness(.5)">`:''}`
+    : `<div class="awaiting-box"><div class="spin"></div><div><div class="awaiting-t1">Revising creative based on your feedback</div></div></div>`);
+    footerHtml = `<button class="btn-grad" onclick="closeActionModal()" style="max-width:140px">Got it</button>`;
+
+  } else if (s === ST.APPROVED) {
+    bodyHtml = `<div class="approved-box">
+      <div class="approved-icon" style="width:30px;height:30px;border-radius:8px">${chk}</div>
+      <div><div class="approved-t1">Approved on ${cs.approvedDate||'—'}</div>
+      <div class="approved-t2">Final high-resolution file will be delivered shortly.</div></div></div>`;
+    footerHtml = `<button class="btn-grad" onclick="closeActionModal()" style="max-width:140px">Close</button>`;
+
+  } else if (s === ST.DELIVERED) {
+    const img = cs.image || c.image || '';
+    bodyHtml = `<div class="approved-box" style="margin-bottom:14px">
+      <div class="approved-icon" style="width:30px;height:30px;border-radius:8px">${chk}</div>
+      <div><div class="approved-t1">Delivered — ready for download</div><div class="approved-t2">Full-resolution file is available below.</div></div></div>
+      ${img?`<img src="${img}" style="width:100%;border-radius:12px;margin-bottom:12px;display:block">`:''}
+      <button class="dl-btn" onclick="toast('Downloading ${c.name}…','green')">${dlSvg}<div><div class="dl-name">${c.name}</div><div class="dl-sub">${c.format} · Full resolution</div></div></button>`;
+    footerHtml = `<button class="btn-grad" onclick="closeActionModal()" style="max-width:140px">Close</button>`;
+
+  } else if (s === ST.PAYMENT_PENDING) {
+    const img = cs.image || c.image || '';
+    bodyHtml = `${img?`<img src="${img}" style="width:100%;border-radius:12px;margin-bottom:14px;display:block;filter:blur(8px) brightness(.4)">`:''}
+      <div style="text-align:center;padding:16px;background:rgba(251,146,60,.04);border:1px solid rgba(251,146,60,.18);border-radius:12px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Approved on ${cs.approvedDate||'—'}</div>
+        <div style="font-size:11px;color:var(--t2);margin-bottom:16px">Complete payment to unlock the full-resolution download.</div>
+        <button class="btn-grad" onclick="payNow()" style="max-width:200px;margin:0 auto">Pay ${eng.amountDue||''} to Unlock →</button>
+      </div>`;
+    footerHtml = `<button class="am-cancel" onclick="closeActionModal()">Close</button>`;
+  }
+
+  document.getElementById('amBody').innerHTML = bodyHtml;
+  document.getElementById('amFooter').innerHTML = footerHtml;
+  document.getElementById('amOverlay').classList.add('open');
+}
+
+function closeActionModal() {
+  document.getElementById('amOverlay').classList.remove('open');
+  activeCid = null;
+}
+
+// ── ASSET BLOCK ──
+function assetBlock(c) {
+  const cid = c.id;
+  return `
+    <div class="field-gap">
+      <div class="field-label">Product URL</div>
+      <input class="field-input" id="url-${cid}" placeholder="Amazon / website link…" value="${CS[cid].productUrl}">
+    </div>
+    <div class="field-gap">
+      <div class="field-label">Assets</div>
+      <label class="upload-zone" for="file-${cid}">
+        <div class="uz-icon">${uploadSvg}</div>
+        <div><div class="uz-title">Drop files or click to upload</div><div class="uz-sub">JPG, PNG, MP4, MOV · Max 200 MB</div></div>
+      </label>
+      <input type="file" id="file-${cid}" multiple accept="image/*,video/*" onchange="addFiles('${cid}',this.files)">
+      <div class="file-list" id="fl-${cid}">${CS[cid].files.map(f=>fileItem(f,cid)).join('')}</div>
+    </div>
+    <div class="field-gap">
+      <div class="field-label">Your Creative Idea</div>
+      <textarea class="comment-input" id="prod-${cid}" rows="3" placeholder="Share your creative idea, mood, references or anything you'd like us to capture…">${CS[cid].product||''}</textarea>
+    </div>`;
+}
+
+function fileItem(name, cid) {
+  return `<div class="file-item"><div class="fi-icon"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><div class="fi-name">${name}</div><button class="fi-rm" onclick="removeFile('${cid}','${name}')"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
+}
+
+// ── CREATIVE REVIEW BLOCK ──
+function crReviewBlock(c, cs, contextHtml='') {
+  const img = cs.image || c.image || '';
+  return contextHtml + `
+    <div class="cr-review-grid">
+      <div class="cr-img-wrap">
+        ${img
+          ? `<img src="${img}" alt="${c.name}" loading="lazy" style="cursor:zoom-in" onclick="openLightbox('${img}','image')">
+             <div class="wm-overlay" style="pointer-events:none"><div class="wm-text">WATERMARK</div></div>
+             <div class="wm-badge">Preview</div>
+             <button class="fs-expand-btn" onclick="openLightbox('${img}','image')">
+               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+             </button>`
+          : `<div style="aspect-ratio:1/1;background:rgba(111,87,233,.08);display:flex;align-items:center;justify-content:center;border-radius:10px"><svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,.15)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>`}
+      </div>
+      <div>
+        <div class="detail-block">
+          <div class="detail-label">Product</div>
+          <div class="detail-val">${cs.product||c.product||'—'}</div>
+          ${cs.productUrl?`<a class="detail-link" href="${cs.productUrl}" target="_blank"><svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> View product</a>`:''}
+        </div>
+        <div class="detail-block">
+          <div class="detail-label">Format</div>
+          <div class="detail-val">${c.format}</div>
+        </div>
+        <div class="detail-block">
+          <div class="detail-label">Storyboard</div>
+          <div class="sl-box" style="font-size:11px;max-height:120px;margin-bottom:0">${cs.storyline||'—'}</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="field-label" style="margin-bottom:5px">Feedback (optional)</div>
+      <textarea class="comment-input" id="am-cr-comment" rows="2" placeholder="Add feedback before requesting edits, or leave blank to approve…"></textarea>
+    </div>`;
+}
+
+// ── RIGHT PANEL ──
 function renderRight() {
   const ftags = (eng.formats||[]).map(f=>`<span class="brief-tag">${f}</span>`).join('');
-  const ptags = eng.creatives.map(c=>`<span class="brief-tag">${c.product||CS[c.id].product||c.name}</span>`).join('');
   const msgs = (eng.messages||[]).map(m=>`<div class="msg ${m.mine?'mine':'theirs'}">${!m.mine?`<div class="msg-from">${m.from}</div>`:''}<div class="msg-bubble">${m.text}</div><div class="msg-time">${m.time}</div></div>`).join('');
   return `
     <div class="sec">Brief</div>
     <div class="brief-row"><div class="brief-key">Campaign</div><div class="brief-val">${eng.title}</div></div>
-    <div class="brief-row"><div class="brief-key">Creatives</div><div class="brief-tags">${ptags}</div></div>
     <div class="brief-row"><div class="brief-key">Category</div><div class="brief-val">${eng.category}</div></div>
     <div class="brief-row"><div class="brief-key">Formats</div><div class="brief-tags">${ftags}</div></div>
     <div class="brief-row"><div class="brief-key">Tone</div><div class="brief-val">${eng.tone}</div></div>
-    <div class="brief-row"><div class="brief-key">Studio POC</div><div class="brief-val">${eng.poc}</div></div>
-    <div class="brief-row"><div class="brief-key">Started</div><div class="brief-val">${eng.started}</div></div>
+    <div class="brief-row"><div class="brief-key">POC</div><div class="brief-val">${eng.poc}</div></div>
     <div class="brief-row"><div class="brief-key">Delivery</div><div class="brief-val">${eng.delivery}</div></div>
     <div class="chat-wrap">
       <div class="chat-title">Messages</div>
@@ -874,158 +1062,112 @@ function renderRight() {
     </div>`;
 }
 
+// ── MOUNT ──
 function mount() {
-  document.getElementById('leftPanel').innerHTML = renderLeft();
+  document.getElementById('stageNav').innerHTML = renderStageNav();
+  document.getElementById('mobileStgTabs').innerHTML = renderMobileStageTabs();
+  renderContent();
   document.getElementById('rightPanel').innerHTML = renderRight();
   document.getElementById('tbRight').innerHTML = engBadge();
   setTimeout(()=>{const e=document.getElementById('chatMsgs');if(e)e.scrollTop=e.scrollHeight;},50);
 }
 mount();
 
-// ── STATE TRANSITION: animate out → re-render with entrance animations ──
+// ── REFRESH ──
 function refreshAll(leavingCid) {
-  const scrollTop = document.querySelector('.left')?.scrollTop || 0;
-
-  function doRender() {
-    document.getElementById('leftPanel').innerHTML = renderLeft();
-    document.getElementById('tbRight').innerHTML = engBadge();
-    const left = document.querySelector('.left');
-    if (left) left.scrollTop = scrollTop;
-    // Animate all new action cards in
-    document.querySelectorAll('.ac-card').forEach((el, i) => {
-      el.style.opacity = '0';
-      el.style.animation = 'none';
-      setTimeout(() => { el.style.animation = ''; el.classList.add('anim-card-in'); }, i * 60);
-    });
-    // Animate new progress/done rows in
-    document.querySelectorAll('.prog-row, .done-row').forEach((el, i) => {
-      el.style.opacity = '0';
-      setTimeout(() => { el.style.opacity = ''; el.classList.add('anim-row-in'); }, i * 50 + 80);
-    });
-    // Animate section headers in
-    document.querySelectorAll('.action-section-header, .prog-section-header, .done-section .prog-section-header').forEach((el, i) => {
-      el.classList.add('anim-section-in');
-    });
-  }
-
-  if (leavingCid) {
-    const card = document.getElementById(`card-${leavingCid}`);
-    if (card) {
-      card.style.animation = 'cardOut .22s ease forwards';
-      setTimeout(doRender, 200);
-      return;
-    }
-  }
-  doRender();
+  document.getElementById('stageNav').innerHTML = renderStageNav();
+  document.getElementById('mobileStgTabs').innerHTML = renderMobileStageTabs();
+  renderContent();
+  document.getElementById('tbRight').innerHTML = engBadge();
 }
 
 // ── ASSET ACTIONS ──
 function addFiles(cid, files) {
-  Array.from(files).forEach(f => { CS[cid].files.push(f.name); });
-  const el = document.getElementById(`fl-${cid}`);
-  if (el) el.innerHTML = CS[cid].files.map(f=>fileItem(f,cid)).join('');
+  Array.from(files).forEach(f=>{CS[cid].files.push(f.name);});
+  const el=document.getElementById(`fl-${cid}`);
+  if(el)el.innerHTML=CS[cid].files.map(f=>fileItem(f,cid)).join('');
 }
 function removeFile(cid, name) {
-  CS[cid].files = CS[cid].files.filter(f=>f!==name);
-  const el = document.getElementById(`fl-${cid}`);
-  if (el) el.innerHTML = CS[cid].files.map(f=>fileItem(f,cid)).join('');
-}
-function addLink(cid) {
-  const inp = document.getElementById(`linkInput-${cid}`);
-  const url = inp?.value.trim(); if(!url) return;
-  CS[cid].links.push(url); inp.value='';
-  const el = document.getElementById(`ll-${cid}`);
-  if (el) el.innerHTML = CS[cid].links.map(l=>linkItem(l,cid)).join('');
-}
-function removeLink(cid, url) {
-  CS[cid].links = CS[cid].links.filter(l=>l!==url);
-  const el = document.getElementById(`ll-${cid}`);
-  if(el) el.innerHTML = CS[cid].links.map(l=>linkItem(l,cid)).join('');
+  CS[cid].files=CS[cid].files.filter(f=>f!==name);
+  const el=document.getElementById(`fl-${cid}`);
+  if(el)el.innerHTML=CS[cid].files.map(f=>fileItem(f,cid)).join('');
 }
 function submitAssets(cid) {
-  const desc = document.getElementById(`prod-${cid}`)?.value.trim();
-  const url  = document.getElementById(`url-${cid}`)?.value.trim();
-  if (!desc && !url && CS[cid].files.length === 0) {
-    toast('Please add a product URL, upload assets, or add a description.','amber'); return;
+  const desc=document.getElementById(`prod-${cid}`)?.value.trim();
+  const url=document.getElementById(`url-${cid}`)?.value.trim();
+  const hasUrl = !!url;
+  const hasAssets = CS[cid].files.length > 0;
+  if(!hasUrl && !hasAssets){
+    toast('Please add a product link or upload at least one asset to continue.','amber');
+    const urlInput=document.getElementById(`url-${cid}`);
+    const uploadZone=document.querySelector(`label[for="file-${cid}"]`);
+    if(urlInput){urlInput.style.borderColor='rgba(251,146,60,.6)';setTimeout(()=>urlInput.style.borderColor='',2500);}
+    if(uploadZone){uploadZone.style.borderColor='rgba(251,146,60,.6)';setTimeout(()=>uploadZone.style.borderColor='',2500);}
+    return;
   }
-  CS[cid].product = desc||'';
-  CS[cid].productUrl = url||'';
-  CS[cid].stage = ST.ASSET_DONE;
-  if (!CS[cid].storyline) CS[cid].storyline = `Storyline for ${desc||'your product'} is being drafted by our content writer. You'll receive it for review shortly.`;
-  refreshAll(cid);
-  toast('Assets submitted! Our writer will draft the storyline now.','green');
+  CS[cid].product=desc||''; CS[cid].productUrl=url||'';
+  CS[cid].stage=ST.ASSET_DONE;
+  if(!CS[cid].storyline)CS[cid].storyline=`Storyline for ${desc||'your product'} is being drafted by our content writer.`;
+  closeActionModal();
+  currentStage=2;
+  refreshAll();
+  toast('Assets submitted! Our writer will draft the storyline.','green');
 }
 
 // ── STORYLINE ACTIONS ──
-function approveSL(cid) {
-  CS[cid].stage = ST.CR_PENDING;
-  refreshAll(cid);
+function approveSL(cid){
+  CS[cid].stage=ST.CR_PENDING;
+  closeActionModal(); currentStage=3; refreshAll();
   toast('Storyline approved! Designer is now creating your creative.','green');
 }
-function rejectSL(cid) {
-  pendingCid = cid; pendingAction = 'sl-reject';
-  const comment = document.getElementById(`sl-comment-${cid}`)?.value.trim();
+function rejectSL(cid){
+  pendingCid=cid; pendingAction='sl-reject';
+  const comment=document.getElementById('am-sl-comment')?.value.trim();
   openModal('Storyline Revision Request','Tell us what to change and our writer will revise the storyline.',comment,'Send Feedback');
 }
 
 // ── CREATIVE ACTIONS ──
-function approveCR(cid) {
-  CS[cid].approvedDate = timeNow();
-  // Partial-payment engagements hold at PAYMENT_PENDING until paid
-  CS[cid].stage = eng.partialPayment ? ST.PAYMENT_PENDING : ST.APPROVED;
-  refreshAll(cid);
-  if (eng.partialPayment) {
-    toast('Creative approved! Complete payment to unlock the final file.','amber');
-  } else {
-    toast('Creative approved! Final file will be delivered shortly.','green');
-  }
+function approveCR(cid){
+  CS[cid].approvedDate=timeNow();
+  CS[cid].stage=eng.partialPayment?ST.PAYMENT_PENDING:ST.APPROVED;
+  closeActionModal();
+  if(eng.partialPayment){toast('Creative approved! Complete payment to unlock the final file.','amber');}
+  else{currentStage=4;toast('Creative approved! Final file will be delivered shortly.','green');}
+  refreshAll();
 }
-
-function payNow() {
-  // Simulate payment: animate banner out, unlock all PAYMENT_PENDING → DELIVERED
-  const banner = document.getElementById('payBanner');
-  if (banner) { banner.style.animation = 'cardOut .25s ease forwards'; }
-  setTimeout(() => {
-    eng.creatives.forEach(c => {
-      if (CS[c.id].stage === ST.PAYMENT_PENDING) CS[c.id].stage = ST.DELIVERED;
-    });
-    refreshAll();
-    toast('Payment successful! Full-resolution files are now available.','green');
-  }, banner ? 220 : 0);
-}
-function rejectCR(cid) {
-  pendingCid = cid; pendingAction = 'cr-reject';
-  const comment = document.getElementById(`cr-comment-${cid}`)?.value.trim();
+function rejectCR(cid){
+  pendingCid=cid; pendingAction='cr-reject';
+  const comment=document.getElementById('am-cr-comment')?.value.trim();
   openModal('Request Creative Revision','Share what needs to change and our designer will update it.',comment,'Send Feedback');
 }
+function payNow(){
+  closeActionModal();
+  eng.creatives.forEach(c=>{if(CS[c.id].stage===ST.PAYMENT_PENDING)CS[c.id].stage=ST.DELIVERED;});
+  refreshAll();
+  toast('Payment successful! Full-resolution files are now available.','green');
+}
 
-// ── MODAL ──
+// ── CONFIRM MODAL ──
 let pendingCid='', pendingAction='';
-function openModal(title, sub, prefill='', confirmLabel='Confirm') {
+function openModal(title,sub,prefill='',confirmLabel='Confirm'){
   document.getElementById('modalTitle').textContent=title;
   document.getElementById('modalSub').textContent=sub;
-  document.getElementById('modalExtra').innerHTML=`<textarea class="reason-box" id="reasonBox" placeholder="Describe the changes you'd like…">${prefill}</textarea>`;
+  document.getElementById('modalExtra').innerHTML=`<textarea class="reason-box" id="reasonBox" placeholder="Describe the changes you'd like…">${prefill||''}</textarea>`;
   document.getElementById('modalConfirmBtn').textContent=confirmLabel;
   document.getElementById('modalOverlay').classList.add('open');
 }
-function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
 function confirmModal(){
-  const reason = document.getElementById('reasonBox')?.value.trim();
-  if (!reason){ toast('Please add feedback before submitting.','amber'); return; }
+  const reason=document.getElementById('reasonBox')?.value.trim();
+  if(!reason){toast('Please add feedback before submitting.','amber');return;}
   closeModal();
-  const now = timeNow();
-  if (pendingAction==='sl-reject') {
-    CS[pendingCid].stage = ST.SL_REWORK;
-    CS[pendingCid].feedback = reason;
-    CS[pendingCid].feedbackDate = now;
-    refreshAll(pendingCid);
-    toast('Feedback submitted. Writer will revise the storyline.','purple');
-  } else if (pendingAction==='cr-reject') {
-    CS[pendingCid].stage = ST.CR_REWORK;
-    CS[pendingCid].feedback = reason;
-    CS[pendingCid].feedbackDate = now;
-    refreshAll(pendingCid);
-    toast('Revision requested. Designer has been notified.','purple');
+  const now=timeNow();
+  if(pendingAction==='sl-reject'){
+    CS[pendingCid].stage=ST.SL_REWORK; CS[pendingCid].feedback=reason; CS[pendingCid].feedbackDate=now;
+    closeActionModal(); refreshAll(); toast('Feedback submitted. Writer will revise the storyline.','purple');
+  } else if(pendingAction==='cr-reject'){
+    CS[pendingCid].stage=ST.CR_REWORK; CS[pendingCid].feedback=reason; CS[pendingCid].feedbackDate=now;
+    closeActionModal(); refreshAll(); toast('Revision requested. Designer has been notified.','purple');
   }
 }
 
@@ -1038,12 +1180,28 @@ function sendMsg(){
   msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; inp.value=''; inp.style.height='auto';
 }
 
+// ── LIGHTBOX ──
+function openLightbox(src, type) {
+  const inner = document.getElementById('fsInner');
+  inner.innerHTML = type === 'video'
+    ? `<video src="${src}" controls autoplay style="max-width:90vw;max-height:88vh;border-radius:12px"></video>`
+    : `<img src="${src}" style="max-width:90vw;max-height:88vh;border-radius:12px;object-fit:contain">`;
+  document.getElementById('fsOverlay').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('fsOverlay').classList.remove('open');
+  // pause any video
+  const v = document.querySelector('#fsInner video');
+  if (v) v.pause();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
 // ── HELPERS ──
-function timeNow(){ const d=new Date(); return `${d.toLocaleString('default',{month:'short'})} ${d.getDate()} · ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} ${d.getHours()>=12?'PM':'AM'}`; }
+function timeNow(){const d=new Date();return `${d.toLocaleString('default',{month:'short'})} ${d.getDate()} · ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} ${d.getHours()>=12?'PM':'AM'}`;}
 function toast(msg,type='purple'){
   const c={green:'rgba(34,197,94,.88)',purple:'rgba(175,70,253,.88)',amber:'rgba(251,146,60,.88)'};
   const t=document.createElement('div');
-  t.style.cssText=`position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${c[type]};backdrop-filter:blur(12px);color:#fff;padding:11px 22px;border-radius:100px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.4);white-space:nowrap;transition:opacity .3s`;
+  t.style.cssText=`position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:${c[type]};backdrop-filter:blur(12px);color:#fff;padding:10px 22px;border-radius:100px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.4);white-space:nowrap;transition:opacity .3s`;
   t.textContent=msg; document.body.appendChild(t);
   setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300);},3000);
 }
