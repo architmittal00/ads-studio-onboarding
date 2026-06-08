@@ -487,14 +487,53 @@ a{color:inherit;text-decoration:none}
 .rp-empty-title{font-size:15px;font-weight:700;color:var(--t2);margin-bottom:6px}
 .rp-empty-sub{font-size:13px;color:var(--t3);line-height:1.5}
 
+/* ── BOTTOM NAV ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;height:60px;background:rgba(13,12,26,.97);border-top:1px solid rgba(255,255,255,.08);backdrop-filter:blur(20px);align-items:stretch}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;color:rgba(255,255,255,.35);font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:color .15s;padding:0}
+.bn-item svg{width:20px;height:20px}
+.bn-item.active{color:#AF46FD}
+.bn-item.active svg{stroke:#AF46FD}
+.bn-space-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff}
+
+/* ── MY SPACE DRAWER ── */
+.space-backdrop{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}
+.space-backdrop.show{display:block}
+.space-drawer{position:fixed;top:0;right:0;bottom:0;width:288px;z-index:301;background:#0d0c1a;border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.space-drawer.open{transform:translateX(0)}
+.sd-header{display:flex;align-items:center;gap:12px;padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.sd-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}
+.sd-user-info{flex:1;min-width:0}
+.sd-user-name{font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sd-user-ws{font-size:11px;color:rgba(255,255,255,.35);display:flex;align-items:center;gap:5px}
+.sd-user-ws::before{content:'';width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0}
+.sd-close{background:none;border:none;color:rgba(255,255,255,.3);font-size:18px;cursor:pointer;line-height:1;padding:4px;flex-shrink:0;font-family:inherit}
+.sd-ws-card{margin:12px;padding:14px;border-radius:12px;background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);position:relative;overflow:hidden}
+.sd-ws-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)}
+.sd-ws-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#AF46FD;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.sd-ws-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:#AF46FD}
+.sd-ws-name{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px;position:relative;z-index:1}
+.sd-ws-url{font-size:11px;color:rgba(255,255,255,.3);position:relative;z-index:1}
+.sd-section{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.sd-section:last-child{border-bottom:none}
+.sd-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.2);padding:4px 4px 8px}
+.sd-item{width:100%;display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:9px;background:none;border:none;color:rgba(255,255,255,.5);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:left}
+.sd-item svg{width:16px;height:16px;flex-shrink:0}
+.sd-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.sd-item.active-item{color:#fff;background:rgba(175,70,253,.1);border-left:2px solid #AF46FD}
+.sd-item.danger{color:rgba(255,90,90,.6)}
+.sd-item.danger:hover{background:rgba(255,80,80,.07);color:rgba(255,110,110,.9)}
+
 /* ── RESPONSIVE ── */
 @media(max-width:640px){
+  .sb{display:none}
+  .bottom-nav{display:flex}
   .left-panel{display:none}
   .left-panel.mob-show{display:flex;width:100%;border-right:none}
   .mob-back-btn{display:flex}
   .tb-add-btn .tb-add-text{display:none}
   .right-panel{display:flex}
   .right-panel.mob-hide{display:none}
+  .ws-body{padding-bottom:60px}
 }
 @media(max-width:480px){
   .rp-content{padding:16px}
@@ -609,6 +648,98 @@ a{color:inherit;text-decoration:none}
     <div class="modal-fine">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       Read-only scan &nbsp;&#183;&nbsp; No credit card needed
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bn-item" onclick="bottomNav(this);window.location.href='creative_report.html'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </button>
+  <button class="bn-item" onclick="bottomNav(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    Ads
+  </button>
+  <button class="bn-item" onclick="bottomNav(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+    Requests
+  </button>
+  <button class="bn-item active" onclick="bottomNav(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+    Workspaces
+  </button>
+  <button class="bn-item" onclick="openSpaceDrawer()">
+    <div class="bn-space-avatar" style="background:#fff;overflow:hidden"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';this.parentNode.innerHTML='SA'"/></div>
+    My Space
+  </button>
+</nav>
+
+<!-- MY SPACE RIGHT DRAWER -->
+<div class="space-backdrop" id="space-backdrop" onclick="closeSpaceDrawer()"></div>
+<div class="space-drawer" id="space-drawer">
+  <div class="sd-header">
+    <div class="sd-avatar" style="background:#fff;overflow:hidden"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';this.parentNode.innerHTML='SA'"/></div>
+    <div class="sd-user-info">
+      <div class="sd-user-name">Shesha Ayurveda</div>
+      <div class="sd-user-ws">sheshaayurveda.com</div>
+    </div>
+    <button class="sd-close" onclick="closeSpaceDrawer()">✕</button>
+  </div>
+  <div style="overflow-y:auto;flex:1;scrollbar-width:none">
+    <div class="sd-ws-card">
+      <div class="sd-ws-badge">Active Workspace</div>
+      <div class="sd-ws-name" id="sd-active-ws-name">Shesha Ayurveda</div>
+      <div class="sd-ws-url" id="sd-active-ws-url">sheshaayurveda.com</div>
+    </div>
+    <div class="sd-section">
+      <div class="sd-section-label">Switch Workspace</div>
+      <div id="sd-ws-list"></div>
+      <button class="sd-item" style="color:#AF46FD" onclick="closeSpaceDrawer();sessionStorage.setItem('open_add_ws','1');openAddWsModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Workspace
+      </button>
+    </div>
+    <div class="sd-section">
+      <div class="sd-section-label">Navigate</div>
+      <button class="sd-item" onclick="window.location.href='creative_report.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Ads
+      </button>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        Requests
+      </button>
+      <button class="sd-item" onclick="window.location.href='chat.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat
+      </button>
+      <button class="sd-item active-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Workspaces
+      </button>
+    </div>
+    <div class="sd-section">
+      <div class="sd-section-label">Account</div>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+        Profile &amp; Settings
+      </button>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Billing &amp; Plan
+      </button>
+    </div>
+    <div class="sd-section">
+      <button class="sd-item danger" onclick="window.location.href='shiprocket_hero_carousel.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </button>
     </div>
   </div>
 </div>
@@ -1108,6 +1239,49 @@ function pickAccount(dropId, platform, wsIdx, poolIdx) {
     renderDetailPanel();
     renderWorkspaceList();
   }
+}
+
+/* ── BOTTOM NAV + MY SPACE DRAWER ── */
+function bottomNav(el) {
+  document.querySelectorAll('.bn-item').forEach(function(b){ b.classList.remove('active'); });
+  el.classList.add('active');
+}
+function renderSdWsList() {
+  var list = document.getElementById('sd-ws-list');
+  if (!list) return;
+  var html = '';
+  for (var i = 0; i < workspaces.length; i++) {
+    var ws = workspaces[i];
+    html += '<button class="sd-item" onclick="switchWsFromDrawer(' + i + ')" style="' + (ws.active ? 'opacity:1' : 'opacity:.6') + '">';
+    if (ws.logo) {
+      html += '<div style="width:24px;height:24px;border-radius:50%;background:#fff;overflow:hidden;flex-shrink:0;border:1px solid rgba(255,255,255,.1)"><img src="' + ws.logo + '" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.style.background=\'linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)\';this.parentNode.innerHTML=\'' + ws.initial + '\'"/></div>';
+    } else {
+      html += '<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">' + ws.initial + '</div>';
+    }
+    html += '<span style="flex:1;text-align:left">' + ws.name + '</span>';
+    if (ws.active) html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;color:#AF46FD"><polyline points="20 6 9 17 4 12"/></svg>';
+    html += '</button>';
+  }
+  list.innerHTML = html;
+}
+function switchWsFromDrawer(idx) {
+  closeSpaceDrawer();
+  setActiveWorkspace(idx);
+  var nameEl = document.getElementById('sd-active-ws-name');
+  var urlEl = document.getElementById('sd-active-ws-url');
+  if (nameEl) nameEl.textContent = workspaces[idx].name;
+  if (urlEl) urlEl.textContent = workspaces[idx].url;
+}
+function openSpaceDrawer() {
+  renderSdWsList();
+  document.getElementById('space-backdrop').classList.add('show');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    document.getElementById('space-drawer').classList.add('open');
+  }); });
+}
+function closeSpaceDrawer() {
+  document.getElementById('space-drawer').classList.remove('open');
+  setTimeout(function(){ document.getElementById('space-backdrop').classList.remove('show'); }, 280);
 }
 
 /* ── CLOSE POPOVER ON OUTSIDE CLICK ── */

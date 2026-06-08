@@ -184,10 +184,191 @@ a{color:inherit;text-decoration:none}
 .mob-drawer-logout:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.2)}
 .mob-drawer-logout svg{width:16px;height:16px;flex-shrink:0}
 
+/* ── BOTTOM NAV (mobile only) ── */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  height:60px;
+  background:rgba(13,12,26,.97);
+  border-top:1px solid rgba(255,255,255,.08);
+  backdrop-filter:blur(20px);
+  align-items:stretch;
+  display:none;
+}
+.bn-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;background:none;border:none;font-family:inherit;cursor:pointer;
+  color:rgba(255,255,255,.35);transition:color .15s;padding:0;
+  -webkit-tap-highlight-color:transparent;
+}
+.bn-item.active{color:var(--purple)}
+.bn-item svg{width:20px;height:20px;flex-shrink:0}
+.bn-item span{font-size:9.5px;font-weight:600;letter-spacing:.2px}
+
+/* ── ADS POPOVER ── */
+.ads-popover-backdrop{
+  display:none;position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  opacity:0;transition:opacity .2s;
+}
+.ads-popover-backdrop.show{display:block}
+.ads-popover-backdrop.visible{opacity:1}
+.ads-popover{
+  position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);
+  z-index:301;width:calc(100% - 24px);max-width:360px;
+  background:#100d20;border:1px solid rgba(175,70,253,.2);
+  border-radius:18px;padding:6px;
+  box-shadow:0 -4px 40px rgba(0,0,0,.5),0 0 0 1px rgba(175,70,253,.08);
+  opacity:0;transition:opacity .22s ease,transform .22s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;
+}
+.ads-popover::before{
+  content:'';position:absolute;inset:0;border-radius:18px;pointer-events:none;
+  background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(175,70,253,.1),transparent 65%);
+}
+.ads-popover.show{
+  opacity:1;transform:translateX(-50%) translateY(0);pointer-events:all;
+}
+.ap-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:rgba(255,255,255,.2);padding:6px 10px 2px;
+}
+.ap-item{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;
+  border-radius:10px;cursor:pointer;transition:background .15s;
+  border:none;background:none;font-family:inherit;text-align:left;width:100%;
+  position:relative;z-index:1;
+}
+.ap-item:hover{background:rgba(255,255,255,.05)}
+.ap-item:active{background:rgba(175,70,253,.1)}
+.ap-icon{
+  width:32px;height:32px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.ap-text{}
+.ap-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:1px}
+.ap-desc{font-size:10.5px;color:rgba(255,255,255,.3);line-height:1.3}
+.ap-arrow{margin-left:auto;font-size:11px;color:rgba(255,255,255,.18);flex-shrink:0}
+.ap-divider{height:1px;background:rgba(255,255,255,.05);margin:1px 10px}
+
+/* ── MY SPACE RIGHT DRAWER ── */
+.space-backdrop{
+  display:none;position:fixed;inset:0;z-index:400;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  transition:opacity .3s;opacity:0;
+}
+.space-backdrop.show{display:block}
+.space-backdrop.visible{opacity:1}
+.space-drawer{
+  position:fixed;top:0;right:0;bottom:0;width:288px;z-index:401;
+  background:linear-gradient(180deg,#100d20 0%,#0d0b18 100%);
+  border-left:1px solid rgba(175,70,253,.15);
+  display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
+  box-shadow:-8px 0 40px rgba(0,0,0,.5);
+}
+.space-drawer::before{
+  content:'';position:absolute;top:0;right:0;width:100%;height:200px;
+  pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 80% 0%,rgba(175,70,253,.12),transparent 70%);
+}
+.space-drawer.open{transform:translateX(0)}
+
+/* header */
+.sd-header{
+  padding:20px 18px 16px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  display:flex;align-items:center;gap:12px;
+  position:relative;z-index:1;flex-shrink:0;
+}
+.sd-avatar{
+  width:42px;height:42px;border-radius:50%;
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;color:#fff;flex-shrink:0;
+  box-shadow:0 0 0 2px rgba(175,70,253,.35),0 0 16px rgba(175,70,253,.2);
+}
+.sd-user-info{flex:1;min-width:0}
+.sd-user-name{font-size:14px;font-weight:700;color:#fff;line-height:1.2}
+.sd-user-ws{font-size:11px;color:rgba(255,255,255,.3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.sd-user-ws::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sd-close{
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.4);font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;transition:all .2s;font-family:inherit;line-height:1;
+}
+.sd-close:hover{background:rgba(255,255,255,.12);color:#fff}
+
+/* workspace card */
+.sd-ws-card{
+  margin:14px 12px 4px;padding:14px 16px;border-radius:14px;
+  background:rgba(175,70,253,.07);
+  border:1px solid rgba(175,70,253,.18);
+  position:relative;overflow:hidden;
+}
+.sd-ws-card::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 100% 80% at 100% 0%,rgba(175,70,253,.1),transparent 60%);
+}
+.sd-ws-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--purple);margin-bottom:8px;position:relative;z-index:1;
+}
+.sd-ws-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--purple)}
+.sd-ws-name{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px;position:relative;z-index:1}
+.sd-ws-url{font-size:11px;color:rgba(255,255,255,.3);position:relative;z-index:1}
+.sd-ws-switch{
+  margin-top:12px;width:100%;padding:9px;border-radius:9px;
+  background:var(--grad);
+  color:#fff;font-size:12px;font-weight:700;font-family:inherit;
+  border:none;cursor:pointer;transition:opacity .2s;
+  position:relative;z-index:1;
+}
+.sd-ws-switch:hover{opacity:.88}
+
+/* sections */
+.sd-section{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.sd-section:last-child{border-bottom:none}
+.sd-section-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:rgba(255,255,255,.18);padding:8px 6px 6px;
+}
+.sd-item{
+  display:flex;align-items:center;gap:11px;padding:10px 8px;
+  border-radius:10px;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);
+  cursor:pointer;transition:all .15s;border:none;background:none;font-family:inherit;
+  text-align:left;width:100%;position:relative;
+}
+.sd-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.sd-item:hover svg{opacity:1;color:var(--purple)}
+.sd-item svg{width:16px;height:16px;flex-shrink:0;opacity:.5;transition:all .15s}
+.sd-item.active-item{color:#fff;background:rgba(175,70,253,.1)}
+.sd-item.active-item::before{
+  content:'';position:absolute;left:0;top:8px;bottom:8px;
+  width:2.5px;border-radius:0 2px 2px 0;background:var(--grad);
+}
+.sd-item.active-item svg{opacity:1;color:var(--purple)}
+.sd-item.danger{color:rgba(248,113,113,.65)}
+.sd-item.danger svg{color:rgba(248,113,113,.65)}
+.sd-item.danger:hover{background:rgba(248,113,113,.07);color:#F87171}
+.sd-item.danger:hover svg{opacity:1;color:#F87171}
+
+/* bottom nav My Space avatar */
+.bn-space-avatar{
+  width:26px;height:26px;border-radius:50%;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:#fff;
+  box-shadow:0 0 0 2px rgba(175,70,253,.4);
+  margin-bottom:1px;
+}
+
 @media(max-width:640px){
-  .topbar{padding:0 16px;height:56px;gap:0;display:flex;align-items:center}
-  .mob-hamburger{display:flex}
-  .tb-brand{flex:1;justify-content:center}
+  /* topbar */
+  .topbar{padding:0 16px;height:52px;gap:0;display:flex;align-items:center}
+  .mob-hamburger{display:none}
+  .tb-brand{flex:1;justify-content:flex-start}
   .tb-icon{display:none}
   .tb-sub{display:none}
   .tb-title{font-size:14px}
@@ -195,6 +376,36 @@ a{color:inherit;text-decoration:none}
   .tb-logout{display:none}
   .tb-cta{font-size:12px;padding:7px 12px;white-space:nowrap}
   .sb{display:none}
+  .scroll{padding-bottom:80px;padding-left:16px;padding-right:16px}
+
+  /* winner (scale) cards */
+  .winner-card{flex-wrap:wrap;gap:10px}
+  .winner-roas{display:none}
+  .winner-name{font-size:13px;white-space:normal;word-break:break-all}
+  .winner-metrics{flex-wrap:wrap;gap:8px}
+  .winner-action-row{flex-wrap:wrap}
+  .wbtn{flex:1;text-align:center;padding:7px 8px;font-size:11.5px}
+
+  /* pause cards */
+  .pause-card{flex-wrap:wrap;align-items:flex-start}
+  .pause-body{flex-basis:calc(100% - 56px - 10px)}
+  .pause-name{white-space:normal;word-break:break-all}
+  .pause-btn{width:100%;margin-top:6px;padding:8px;text-align:center}
+
+  /* ad grid */
+  .ad-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+
+  /* hero stats */
+  .hero{flex-direction:column;gap:16px;padding:20px}
+  .hero-stats{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hero-divider{display:none}
+  .hero-stat{text-align:center;padding:12px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.07)}
+
+  /* section header */
+  .section-header{flex-wrap:wrap;gap:8px}
+
+  /* bottom nav */
+  .bottom-nav{display:flex}
 }
 
 /* ── BODY ── */
@@ -961,21 +1172,6 @@ a{color:inherit;text-decoration:none}
   /* bottom nav */
   .bottom-nav{display:flex}
 }
-/* bottom nav for mobile */
-.bottom-nav{
-  display:none;
-  position:fixed;bottom:0;left:0;right:0;z-index:50;
-  background:#0d0d1a;border-top:1px solid var(--border);
-  padding:8px 0 max(8px,env(safe-area-inset-bottom));
-  justify-content:space-around;
-}
-.bn-item{
-  display:flex;flex-direction:column;align-items:center;gap:3px;
-  color:var(--t3);cursor:pointer;padding:4px 12px;
-}
-.bn-item.active{color:var(--purple)}
-.bn-item svg{width:20px;height:20px}
-.bn-item span{font-size:9px;font-weight:600}
 </style>
 </head>
 <body>
@@ -1115,9 +1311,6 @@ a{color:inherit;text-decoration:none}
 
     <!-- Topbar -->
     <div class="topbar">
-      <button class="mob-hamburger" id="mob-hamburger" onclick="openMobDrawer()">
-        <span></span><span></span><span></span>
-      </button>
       <div class="tb-brand">
         <div class="tb-icon">📊</div>
         <div>
@@ -1312,25 +1505,6 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
-<!-- Bottom Nav (mobile only) -->
-<div class="bottom-nav">
-  <div class="bn-item active">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    <span>Dashboard</span>
-  </div>
-  <div class="bn-item">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-    <span>Ads</span>
-  </div>
-  <div class="bn-item">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-    <span>Audit</span>
-  </div>
-  <div class="bn-item">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-    <span>Generated</span>
-  </div>
-</div>
 
 <!-- AI Chat Overlay -->
 <div class="ai-chat-overlay" id="ai-chat-overlay">
@@ -1989,5 +2163,177 @@ document.addEventListener('click', function(e) {
 </script>
 <div class="ws-switching-overlay" id="ws-switching-overlay"><div class="ws-switching-spinner"></div></div>
 <div class="ws-switch-toast" id="ws-switch-toast"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="ws-switch-toast-msg">Switched workspace</span></div>
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bn-item active" onclick="bottomNav(this,'dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    <span>Dashboard</span>
+  </button>
+  <button class="bn-item" id="bn-ads-btn" onclick="toggleAdsPopover(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    <span>Ads</span>
+  </button>
+  <button class="bn-item" onclick="bottomNav(this,'requests')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <span>Requests</span>
+  </button>
+  <button class="bn-item" onclick="window.location.href='chat.html'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span>Chat</span>
+  </button>
+  <button class="bn-item" onclick="openSpaceDrawer()">
+    <div class="bn-space-avatar" style="background:#fff;overflow:hidden"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';this.parentNode.innerHTML='SA'"/></div>
+    <span>My Space</span>
+  </button>
+</nav>
+
+<!-- ADS POPOVER -->
+<div class="ads-popover-backdrop" id="ads-popover-backdrop" onclick="closeAdsPopover()"></div>
+<div class="ads-popover" id="ads-popover">
+  <div class="ap-label">Create new ad</div>
+
+  <button class="ap-item" onclick="closeAdsPopover(); window.location.href='chat.html'">
+    <div class="ap-icon" style="background:linear-gradient(135deg,rgba(175,70,253,.2),rgba(244,52,157,.15));border:1px solid rgba(175,70,253,.25)">✦</div>
+    <div class="ap-text">
+      <div class="ap-title">Create with AI</div>
+      <div class="ap-desc">Chat with Studio to brief, script & generate your ad</div>
+    </div>
+    <span class="ap-arrow">›</span>
+  </button>
+
+  <div class="ap-divider"></div>
+
+  <button class="ap-item" onclick="closeAdsPopover(); openBriefModal()">
+    <div class="ap-icon" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">📋</div>
+    <div class="ap-text">
+      <div class="ap-title">Create with Brief</div>
+      <div class="ap-desc">Fill a structured brief and send to creative team</div>
+    </div>
+    <span class="ap-arrow">›</span>
+  </button>
+
+  <div class="ap-divider"></div>
+
+  <button class="ap-item" onclick="closeAdsPopover()">
+    <div class="ap-icon" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">✏️</div>
+    <div class="ap-text">
+      <div class="ap-title">Create Manually</div>
+      <div class="ap-desc">Upload assets and set up your ad from scratch</div>
+    </div>
+    <span class="ap-arrow">›</span>
+  </button>
+</div>
+
+<!-- MY SPACE RIGHT DRAWER -->
+<div class="space-backdrop" id="space-backdrop" onclick="closeSpaceDrawer()"></div>
+<div class="space-drawer" id="space-drawer">
+
+  <div class="sd-header">
+    <div class="sd-avatar" style="background:#fff;overflow:hidden"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';this.parentNode.innerHTML='SA'"/></div>
+    <div class="sd-user-info">
+      <div class="sd-user-name">Shesha Ayurveda</div>
+      <div class="sd-user-ws">sheshaayurveda.com</div>
+    </div>
+    <button class="sd-close" onclick="closeSpaceDrawer()">✕</button>
+  </div>
+
+  <div style="overflow-y:auto;flex:1;scrollbar-width:none">
+
+    <div class="sd-ws-card">
+      <div class="sd-ws-badge">Active Workspace</div>
+      <div class="sd-ws-name">Shesha Ayurveda</div>
+      <div class="sd-ws-url">sheshaayurveda.com</div>
+      <button class="sd-ws-switch" onclick="window.location.href='workspace.html'">Switch workspace →</button>
+    </div>
+
+    <div class="sd-section">
+      <div class="sd-section-label">Navigate</div>
+      <button class="sd-item active-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Ads
+      </button>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Requests
+      </button>
+      <button class="sd-item" onclick="window.location.href='chat.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat
+      </button>
+      <button class="sd-item" onclick="window.location.href='workspace.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Workspaces
+      </button>
+    </div>
+
+    <div class="sd-section">
+      <div class="sd-section-label">Account</div>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+        Profile & Settings
+      </button>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Billing & Plan
+      </button>
+    </div>
+
+    <div class="sd-section">
+      <button class="sd-item danger" onclick="window.location.href='shiprocket_hero_carousel.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function bottomNav(el, tab) {
+  document.querySelectorAll('.bn-item').forEach(function(b){ b.classList.remove('active'); });
+  el.classList.add('active');
+}
+function toggleAdsPopover(el) {
+  var pop = document.getElementById('ads-popover');
+  var bd = document.getElementById('ads-popover-backdrop');
+  if(pop.classList.contains('show')) {
+    closeAdsPopover();
+  } else {
+    document.querySelectorAll('.bn-item').forEach(function(b){ b.classList.remove('active'); });
+    el.classList.add('active');
+    bd.classList.add('show');
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      bd.classList.add('visible');
+      pop.classList.add('show');
+    }); });
+  }
+}
+function closeAdsPopover() {
+  var pop = document.getElementById('ads-popover');
+  var bd = document.getElementById('ads-popover-backdrop');
+  pop.classList.remove('show');
+  bd.classList.remove('visible');
+  setTimeout(function(){ bd.classList.remove('show'); }, 220);
+  document.getElementById('bn-ads-btn').classList.remove('active');
+}
+function openSpaceDrawer() {
+  var bd = document.getElementById('space-backdrop');
+  bd.classList.add('show');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ bd.classList.add('visible'); }); });
+  document.getElementById('space-drawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSpaceDrawer() {
+  var bd = document.getElementById('space-backdrop');
+  bd.classList.remove('visible');
+  document.getElementById('space-drawer').classList.remove('open');
+  setTimeout(function(){ bd.classList.remove('show'); }, 300);
+  document.body.style.overflow = '';
+}
+</script>
 </body>
 </html>

@@ -28,13 +28,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   padding:0 40px;border-bottom:1px solid var(--border);
   background:rgba(11,11,20,.96);backdrop-filter:blur(20px);
   position:relative;z-index:100;flex-shrink:0}
-@media(max-width:600px){.hdr{padding:0 16px}}
+@media(max-width:600px){.hdr{padding:0 16px;height:50px}}
 .hdr-logo{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:#fff}
 .hdr-logo-icon{width:27px;height:27px;border-radius:7px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hdr-logo-icon svg{width:13px;height:13px}
 .hdr-logo-studio{color:var(--purple)}
 .hdr-right{display:flex;align-items:center;gap:10px}
 .hdr-domain{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px}
+@media(max-width:600px){.hdr-domain{display:none}}
 .hdr-domain-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
 .hdr-btn{padding:8px 18px;border-radius:9px;background:var(--grad);color:#fff;font-size:12.5px;font-weight:600;font-family:inherit;border:none;cursor:pointer;transition:opacity .2s}
@@ -42,6 +43,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* ─ LAYOUT ─ */
 .page{display:flex;height:calc(100vh - 56px);overflow:hidden;position:relative;z-index:1}
+@media(max-width:760px){.page{height:calc(100vh - 50px);flex-direction:column}}
 
 /* ─ SIDEBAR ─ */
 .sidebar{width:224px;flex-shrink:0;border-right:1px solid var(--border);
@@ -102,17 +104,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* ─ MOBILE TABS ─ */
 .mob-tabs{display:none;overflow-x:auto;scrollbar-width:none;
   border-bottom:1px solid var(--border);background:rgba(11,11,20,.97);
-  padding:0 16px;position:absolute;top:0;left:0;right:0;z-index:50;flex-shrink:0}
+  padding:0 8px;position:sticky;top:0;left:0;right:0;z-index:50;flex-shrink:0}
 .mob-tabs::-webkit-scrollbar{display:none}
 @media(max-width:760px){.mob-tabs{display:flex}}
-.mob-tab{padding:11px 14px;font-size:12.5px;font-weight:600;font-family:inherit;
+.mob-tab{padding:10px 12px;font-size:12px;font-weight:600;font-family:inherit;
   color:var(--text3);background:transparent;border:none;
   border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;white-space:nowrap}
 .mob-tab.active{color:#fff;border-bottom-color:var(--purple)}
 
 /* ─ CONTENT ─ */
 .content{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
-@media(max-width:760px){.content{padding-top:42px}}
+@media(max-width:760px){.content{padding-top:0}}
 .content::-webkit-scrollbar{width:4px}
 .content::-webkit-scrollbar-track{background:transparent}
 .content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
@@ -131,9 +133,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* ─ GRID ─ */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
-.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .g5{display:flex;gap:8px;margin-bottom:12px}
-@media(max-width:700px){.g2,.g3{grid-template-columns:1fr}}
+@media(max-width:700px){.g2{grid-template-columns:1fr}}
+@media(max-width:400px){.g3{gap:6px}}
 
 /* ─ CARD ─ */
 .card{background:rgba(255,255,255,.04);border:1px solid var(--border);
@@ -155,12 +158,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .chex-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
 
 /* ─ STAT ─ */
-.stat{text-align:center;padding:20px 14px}
-.stat-val{font-size:32px;font-weight:800;line-height:1;
+.stat{text-align:center;padding:16px 8px}
+.stat-val{font-size:clamp(22px,6vw,32px);font-weight:800;line-height:1;
   background:var(--grad-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
   background-clip:text;margin-bottom:4px}
-.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
-.stat-sub{font-size:11.5px;color:var(--text2);margin-top:3px}
+.stat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+.stat-sub{font-size:10.5px;color:var(--text2);margin-top:3px}
 
 /* ─ PRODUCT STRIP ─ */
 .prod-strip{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
@@ -238,9 +241,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   gap:16px;
 }
 @media(max-width:760px){
-  .sticky-cta{left:0;padding:10px 16px;flex-direction:row;align-items:center;gap:10px}
+  .sticky-cta{left:0;padding:10px 12px;flex-direction:column;align-items:stretch;gap:8px}
   .sticky-cta-msg{display:none}
-  .sticky-cta-pct{margin-bottom:0;font-size:11px}
+  .sticky-cta-pct{margin-bottom:0;font-size:11px;text-align:center}
+  .sticky-cta-left{flex:none}
 }
 /* progress bar on top of sticky */
 .sticky-cta::before{
@@ -269,11 +273,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   box-shadow:0 4px 24px rgba(175,70,253,.3);
 }
 .sticky-cta-btn:hover{opacity:.9;transform:translateY(-1px)}
-@media(max-width:760px){.sticky-cta-btn{width:auto;padding:10px 16px;font-size:13px;flex-shrink:0}}
+@media(max-width:760px){.sticky-cta-btn{padding:11px 16px;font-size:13px;flex:1}}
 
 /* nudge content above sticky bar */
 .content{padding-bottom:72px}
-@media(max-width:760px){.content{padding-bottom:80px}}
+@media(max-width:760px){.content{padding-bottom:130px}}
+
+/* mobile button row */
+@media(max-width:760px){
+  .sticky-cta > div:last-child{display:flex;gap:8px;width:100%}
+}
 
 /* ─ GATED ─ */
 .gated{position:relative;border-radius:14px;overflow:hidden;margin-bottom:12px}
@@ -467,17 +476,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="sb-item" onclick="go('messaging')"><span class="sb-icon">✍️</span>Messaging & Tone</button>
       <button class="sb-item" onclick="go('audience')"><span class="sb-icon">👤</span>Audience</button>
       <button class="sb-item" onclick="go('competitive')"><span class="sb-icon">🔍</span>Competitive<span class="sb-lock">Unlock</span></button>
-      <button class="sb-item" onclick="window.location.href='chat.html'" style="margin-top:8px"><span class="sb-icon">💬</span>Chat</button>
-      <button class="sb-item" onclick="window.location.href='workspace.html'" style="margin-top:2px"><span class="sb-icon">⬡</span>Workspaces</button>
+      <button class="sb-item" id="sb-chat-btn" style="margin-top:8px"><span class="sb-icon">💬</span>Chat<span class="sb-lock" id="sb-chat-lock" style="display:none">Unlock</span></button>
+      <button class="sb-item" id="sb-ws-btn" style="margin-top:2px"><span class="sb-icon">⬡</span>Workspaces<span class="sb-lock" id="sb-ws-lock" style="display:none">Unlock</span></button>
     </nav>
-    <div style="margin:4px 10px 0;padding:10px 12px;border-radius:10px;background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.12)">
+    <div id="br-ws-block" style="margin:4px 10px 0;padding:10px 12px;border-radius:10px;background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.12)">
       <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Active Workspace</div>
       <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:2px" id="br-ws-name">Shesha Ayurveda</div>
       <div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:8px" id="br-ws-url">sheshaayurveda.com</div>
       <button onclick="window.location.href='workspace.html'" style="font-size:11px;font-weight:600;color:var(--purple);background:none;border:none;cursor:pointer;font-family:inherit;padding:0">Switch workspace →</button>
     </div>
 
-    <button onclick="window.location.href='shiprocket_hero_carousel.html'" style="margin:8px 10px 16px;padding:9px 12px;border-radius:10px;background:none;border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.3);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .15s;width:calc(100% - 20px)" onmouseover="this.style.color='rgba(255,255,255,.7)';this.style.borderColor='rgba(255,255,255,.2)'" onmouseout="this.style.color='rgba(255,255,255,.3)';this.style.borderColor='rgba(255,255,255,.08)'"><span>⎋</span>Logout</button>
+    <button id="br-logout-btn" onclick="window.location.href='shiprocket_hero_carousel.html'" style="margin:8px 10px 16px;padding:9px 12px;border-radius:10px;background:none;border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.3);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .15s;width:calc(100% - 20px)" onmouseover="this.style.color='rgba(255,255,255,.7)';this.style.borderColor='rgba(255,255,255,.2)'" onmouseout="this.style.color='rgba(255,255,255,.3)';this.style.borderColor='rgba(255,255,255,.08)'"><span>⎋</span>Logout</button>
 
   </aside>
 
@@ -488,6 +497,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="mob-tab" onclick="go('messaging')">✍️ Messaging</button>
     <button class="mob-tab" onclick="go('audience')">👤 Audience</button>
     <button class="mob-tab" onclick="go('competitive')">🔍 Competitive</button>
+    <button class="mob-tab" id="mob-chat-btn">💬 Chat</button>
+    <button class="mob-tab" id="mob-ws-btn">⬡ Workspaces</button>
   </div>
 
   <!-- ── CONTENT ── -->
@@ -702,7 +713,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="sticky-cta-pct">✦ You are viewing 30% of this report</div>
     <div class="sticky-cta-msg">Sign up to see your <strong>creative scores, competitor ad intelligence</strong> and full audience insights.</div>
   </div>
-  <button class="sticky-cta-btn" onclick="seeReport()">See competitive report →</button>
+  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+    <button class="sticky-cta-btn" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);box-shadow:none;color:rgba(255,255,255,.75)" onclick="downloadReport()">⬇ Download PDF</button>
+    <button class="sticky-cta-btn" onclick="seeReport()">See creative report →</button>
+  </div>
 </div>
 
 <!-- AUTH MODAL -->
@@ -716,8 +730,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
         <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
       </div>
-      <h2 class="modal-h">See your competitive report</h2>
-      <p class="modal-sub">Enter your mobile number to unlock competitor intelligence, creative scores and full audience insights.</p>
+      <h2 class="modal-h" id="modal-heading">See your competitive report</h2>
+      <p class="modal-sub" id="modal-subtext">Enter your mobile number to unlock competitor intelligence, creative scores and full audience insights.</p>
       <div class="phone-row">
         <div class="phone-cc"><span class="phone-cc-flag">🇮🇳</span> +91</div>
         <input class="phone-num" id="phone-inp" type="tel" maxlength="10" placeholder="Enter mobile number" onkeydown="if(event.key==='Enter')submitPhone()" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
@@ -767,15 +781,89 @@ function go(id){
   document.getElementById('main-content').scrollTop=0;
 }
 
+function updateSidebarAuthState(){
+  var authed = sessionStorage.getItem('authed')==='1';
+  var wsBlock = document.getElementById('br-ws-block');
+  var logoutBtn = document.getElementById('br-logout-btn');
+  var chatLock = document.getElementById('sb-chat-lock');
+  var chatBtn = document.getElementById('sb-chat-btn');
+  var wsLock = document.getElementById('sb-ws-lock');
+  var wsBtn = document.getElementById('sb-ws-btn');
+
+  var mobChatBtn = document.getElementById('mob-chat-btn');
+  var mobWsBtn = document.getElementById('mob-ws-btn');
+
+  if(authed){
+    wsBlock.style.display = '';
+    logoutBtn.style.display = '';
+    chatLock.style.display = 'none';
+    chatBtn.onclick = function(){ window.location.href='chat.html'; };
+    wsLock.style.display = 'none';
+    wsBtn.onclick = function(){ window.location.href='workspace.html'; };
+    mobChatBtn.textContent = '💬 Chat';
+    mobChatBtn.onclick = function(){ window.location.href='chat.html'; };
+    mobWsBtn.textContent = '⬡ Workspaces';
+    mobWsBtn.onclick = function(){ window.location.href='workspace.html'; };
+  } else {
+    wsBlock.style.display = 'none';
+    logoutBtn.style.display = 'none';
+    chatLock.style.display = '';
+    chatBtn.onclick = function(){ openSignup('chat'); };
+    wsLock.style.display = '';
+    wsBtn.onclick = function(){ openSignup('workspaces'); };
+    mobChatBtn.textContent = '💬 Chat 🔒';
+    mobChatBtn.onclick = function(){ openSignup('chat'); };
+    mobWsBtn.textContent = '⬡ Workspaces 🔒';
+    mobWsBtn.onclick = function(){ openSignup('workspaces'); };
+  }
+}
+
 function seeReport(){
   if(sessionStorage.getItem('authed')==='1'){
     showConnectScreen();
   } else {
-    openSignup();
+    openSignup('report');
   }
 }
 
-function openSignup(){
+function downloadReport(){
+  if(sessionStorage.getItem('authed')==='1'){
+    triggerDownload();
+  } else {
+    openSignup('download');
+  }
+}
+
+function triggerDownload(){
+  // Simulate PDF download by capturing page as a named anchor
+  var link = document.createElement('a');
+  link.href = window.location.href;
+  link.download = 'Shesha-Ayurveda-Brand-Report.pdf';
+  // Show a toast confirmation
+  var toast = document.createElement('div');
+  toast.textContent = '⬇ Downloading brand report…';
+  toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1726;border:1px solid rgba(175,70,253,.3);color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:100px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);white-space:nowrap;font-family:inherit';
+  document.body.appendChild(toast);
+  setTimeout(function(){ toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(function(){ toast.remove(); },400); }, 2500);
+}
+
+function openSignup(source){
+  sessionStorage.setItem('signup_source', source || 'report');
+  var headings = {
+    download: 'Download brand report',
+    chat: 'Unlock AI assistant',
+    workspaces: 'Unlock workspaces',
+    report: 'See your creative report'
+  };
+  var subtexts = {
+    download: 'Enter your mobile number to verify and download the full Shesha Ayurveda brand report as a PDF.',
+    chat: 'Enter your mobile number to unlock the AI assistant and get personalised creative recommendations.',
+    workspaces: 'Enter your mobile number to unlock workspaces and manage all your brands in one place.',
+    report: 'Enter your mobile number to unlock competitor intelligence, creative scores and full audience insights.'
+  };
+  var s = source || 'report';
+  document.getElementById('modal-heading').textContent = headings[s] || headings.report;
+  document.getElementById('modal-subtext').textContent = subtexts[s] || subtexts.report;
   showStep('phone');
   var bg=document.getElementById('modal-bg');
   bg.classList.add('show');
@@ -841,6 +929,7 @@ function startResendTimer(){
 }
 
 document.addEventListener('DOMContentLoaded',function(){
+  updateSidebarAuthState();
   if(sessionStorage.getItem('authed')==='1'){
     var btn=document.getElementById('hdr-login-btn');
     if(btn)btn.style.display='none';
@@ -897,12 +986,39 @@ function submitOTP(){
   setTimeout(function(){
     otpBtn.textContent='Verify OTP →';
     otpBtn.disabled=false;
+    var source = sessionStorage.getItem('signup_source') || 'report';
+    sessionStorage.removeItem('signup_source');
     if(phoneVal==='8888888888'){
       closeSignup();
+      window.location.href='chat.html';
+    } else if(source==='chat'){
+      sessionStorage.setItem('authed','1');
+      closeSignup();
+      updateSidebarAuthState();
+      var btn=document.getElementById('hdr-login-btn');
+      if(btn)btn.style.display='none';
+      window.location.href='chat.html';
+    } else if(source==='workspaces'){
+      sessionStorage.setItem('authed','1');
+      closeSignup();
+      updateSidebarAuthState();
+      var btn=document.getElementById('hdr-login-btn');
+      if(btn)btn.style.display='none';
+      window.location.href='workspace.html';
+    } else if(source==='download'){
+      sessionStorage.setItem('authed','1');
+      closeSignup();
+      updateSidebarAuthState();
+      var btn=document.getElementById('hdr-login-btn');
+      if(btn)btn.style.display='none';
+      triggerDownload();
       window.location.href='chat.html';
     } else {
       sessionStorage.setItem('authed','1');
       closeSignup();
+      updateSidebarAuthState();
+      var btn=document.getElementById('hdr-login-btn');
+      if(btn)btn.style.display='none';
       showConnectScreen();
     }
   },1200);
@@ -1372,15 +1488,6 @@ function updateContinueBtn(){
   var total = selectedAccts.fb.length + selectedAccts.google.length + selectedAccts.shopify.length;
   var btn = document.getElementById('cs-continue-btn');
   btn.classList.toggle('active', total > 0);
-  if(total > 0){
-    var parts = [];
-    if(selectedAccts.fb.length) parts.push(selectedAccts.fb.length + ' Facebook');
-    if(selectedAccts.google.length) parts.push(selectedAccts.google.length + ' Google');
-    if(selectedAccts.shopify.length) parts.push(selectedAccts.shopify.length + ' Shopify');
-    btn.textContent = 'Continue with ' + parts.join(' & ') + ' account' + (total>1?'s':'') + ' →';
-  } else {
-    btn.textContent = 'Continue to my report →';
-  }
 }
 
 // ── FACEBOOK ──
