@@ -57,7 +57,7 @@ a{color:inherit;text-decoration:none}
   font-size:12px;font-weight:700;cursor:pointer;
 }
 .sb-ws-bubble{
-  margin-top:auto;width:32px;height:32px;border-radius:50%;
+  width:32px;height:32px;border-radius:50%;
   background:var(--grad);display:flex;align-items:center;justify-content:center;
   font-size:13px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);
   flex-shrink:0;
@@ -1275,7 +1275,13 @@ a{color:inherit;text-decoration:none}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
       <span>Spaces</span>
     </div>
-    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/></div>
+    <div class="sb-div" style="margin-top:auto"></div>
+    <div class="sb-item" title="Logout" onclick="window.location.href='shiprocket_hero_carousel.html'" style="color:rgba(255,100,100,.5)" onmouseover="this.style.color='rgba(255,100,100,.85)'" onmouseout="this.style.color='rgba(255,100,100,.5)'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>Logout</span>
+    </div>
+    <div style="height:8px;flex-shrink:0"></div>
+    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;margin-bottom:8px"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/></div>
   </div>
   <!-- Workspace Switcher Popover -->
   <div class="ws-switcher-popover" id="ws-switcher-popover">
@@ -1320,7 +1326,6 @@ a{color:inherit;text-decoration:none}
       </div>
       <div class="tb-pill">Shesha Ayurveda ▾</div>
       <button class="tb-cta" onclick="openAIChat('competitor')">👁 See Competitor Playbooks</button>
-      <button class="tb-logout" onclick="window.location.href='shiprocket_hero_carousel.html'">Logout</button>
     </div>
 
     <!-- Body -->
