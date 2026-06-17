@@ -474,7 +474,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="sb-item active" onclick="go('identity')"><span class="sb-icon">🎨</span>Brand Identity</button>
       <button class="sb-item" onclick="go('products')"><span class="sb-icon">📦</span>Products</button>
       <button class="sb-item" onclick="go('messaging')"><span class="sb-icon">✍️</span>Messaging & Tone</button>
-      <button class="sb-item" onclick="go('audience')"><span class="sb-icon">👤</span>Audience</button>
       <button class="sb-item" onclick="go('competitive')"><span class="sb-icon">🔍</span>Competitive<span class="sb-lock">Unlock</span></button>
       <button class="sb-item" id="sb-chat-btn" style="margin-top:8px"><span class="sb-icon">💬</span>Chat<span class="sb-lock" id="sb-chat-lock" style="display:none">Unlock</span></button>
       <button class="sb-item" id="sb-ws-btn" style="margin-top:2px"><span class="sb-icon">⬡</span>Workspaces<span class="sb-lock" id="sb-ws-lock" style="display:none">Unlock</span></button>
@@ -495,7 +494,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="mob-tab active" onclick="go('identity')">🎨 Identity</button>
     <button class="mob-tab" onclick="go('products')">📦 Products</button>
     <button class="mob-tab" onclick="go('messaging')">✍️ Messaging</button>
-    <button class="mob-tab" onclick="go('audience')">👤 Audience</button>
     <button class="mob-tab" onclick="go('competitive')">🔍 Competitive</button>
     <button class="mob-tab" id="mob-chat-btn">💬 Chat</button>
     <button class="mob-tab" id="mob-ws-btn">⬡ Workspaces</button>
@@ -556,6 +554,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <div class="persona-item"><div class="persona-emoji">✨</div><div class="persona-label">Premium</div><div class="persona-desc">Elevated packaging & photography</div></div>
           <div class="persona-item"><div class="persona-emoji">🏆</div><div class="persona-label">Authentic</div><div class="persona-desc">Kerala roots, no-chemical promise</div></div>
         </div>
+      </div>
+
+      <!-- Target Audience -->
+      <div class="card" style="margin-top:12px">
+        <div class="card-label">Target Audience</div>
+        <div class="dr"><span class="dr-k">Gender</span><span class="dr-v"><span class="chip ck">Women 82%</span><span class="chip cb">Men 18%</span></span></div>
+        <div class="dr"><span class="dr-k">Age</span><span class="dr-v"><span class="chip cp">25–35 primary</span><span class="chip ca">35–45</span></span></div>
+        <div class="dr"><span class="dr-k">Tier</span><span class="dr-v"><span class="chip cg">T1 · 58%</span><span class="chip ca">T2 · 32%</span></span></div>
+        <div class="dr" style="border:none;padding-bottom:0"><span class="dr-k">Top cities</span><span class="dr-v">Bengaluru, Mumbai, Delhi, Hyderabad</span></div>
       </div>
     </div>
 
@@ -632,45 +639,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <div class="quote-t">"1,00,000+ women trust Shesha Ayurveda for radiant, chemical-free skin."</div>
           <div class="quote-s">Ad creative · <span class="quote-badge" style="background:rgba(251,146,60,.1);color:var(--amber);border:1px solid rgba(251,146,60,.2)">Social Proof · Scaling</span></div>
         </div>
-      </div>
-    </div>
-
-    <!-- AUDIENCE -->
-    <div class="panel" id="panel-audience">
-      <h1 class="panel-h">Audience</h1>
-      <p class="panel-sub">Who is buying — demographics, psychographics and purchase signals</p>
-
-      <div class="g2">
-        <div class="card" style="margin-bottom:0">
-          <div class="card-label">Demographics</div>
-          <div class="dr"><span class="dr-k">Gender</span><span class="dr-v"><span class="chip ck">Women 82%</span><span class="chip cb">Men 18%</span></span></div>
-          <div class="dr"><span class="dr-k">Age</span><span class="dr-v"><span class="chip cp">25–35 primary</span><span class="chip ca">35–45</span></span></div>
-          <div class="dr"><span class="dr-k">Tier</span><span class="dr-v"><span class="chip cg">T1 · 58%</span><span class="chip ca">T2 · 32%</span></span></div>
-          <div class="dr"><span class="dr-k">Top cities</span><span class="dr-v">Bengaluru, Mumbai, Delhi, Hyderabad</span></div>
-          <div class="dr"><span class="dr-k">Income</span><span class="dr-v">₹6L – ₹15L annually</span></div>
-        </div>
-        <div class="card" style="margin-bottom:0">
-          <div class="card-label">Psychographics</div>
-          <div class="dr"><span class="dr-k">Values</span><span class="dr-v"><span class="chip cg">Natural living</span><span class="chip co">Clean beauty</span></span></div>
-          <div class="dr"><span class="dr-k">Interests</span><span class="dr-v"><span class="chip cb">Yoga</span><span class="chip ca">Skincare</span><span class="chip ck">Ayurveda</span></span></div>
-          <div class="dr"><span class="dr-k">Behaviour</span><span class="dr-v">Reads labels · Researches before buying</span></div>
-          <div class="dr"><span class="dr-k">Pain points</span><span class="dr-v">Pigmentation · harsh chemicals · uneven tone</span></div>
-        </div>
-      </div>
-
-      <!-- Audience breakdown bars -->
-      <div class="card">
-        <div class="card-label">Age Distribution</div>
-        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">18–24</span><span class="aud-bar-val">12%</span></div><div class="aud-track"><div class="aud-fill" style="width:12%;background:var(--grad)"></div></div></div>
-        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">25–34</span><span class="aud-bar-val">48%</span></div><div class="aud-track"><div class="aud-fill" style="width:48%;background:var(--grad)"></div></div></div>
-        <div class="aud-bar"><div class="aud-bar-label"><span class="aud-bar-key">35–44</span><span class="aud-bar-val">29%</span></div><div class="aud-track"><div class="aud-fill" style="width:29%;background:linear-gradient(90deg,#AF46FD,#DA3BC2)"></div></div></div>
-        <div class="aud-bar" style="margin-bottom:0"><div class="aud-bar-label"><span class="aud-bar-key">45+</span><span class="aud-bar-val">11%</span></div><div class="aud-track"><div class="aud-fill" style="width:11%;background:rgba(175,70,253,.5)"></div></div></div>
-      </div>
-
-      <div class="g3">
-        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">2.4x</div><div class="stat-lbl">Repeat Purchase</div><div class="stat-sub">vs 1.8x category</div></div></div>
-        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">68%</div><div class="stat-lbl">Prepaid Orders</div><div class="stat-sub">High buyer intent</div></div></div>
-        <div class="card" style="padding:0;margin-bottom:0"><div class="stat"><div class="stat-val">₹874</div><div class="stat-lbl">Avg Order Value</div><div class="stat-sub">Above category</div></div></div>
       </div>
     </div>
 
@@ -771,7 +739,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <script>
-const PANELS=['identity','products','messaging','audience','competitive'];
+const PANELS=['identity','products','messaging','competitive'];
 function go(id){
   PANELS.forEach(function(p,i){
     document.querySelectorAll('.sb-item')[i].classList.toggle('active',p===id);
