@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Requests · Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.28);
+  --purple:#AF46FD;--pink:#F4349D;--mid:#DA3BC2;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --accent:#6F57E9;--green:#22C55E;--amber:#FB923C;--red:#E54545;
+}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
+a{color:inherit;text-decoration:none}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;width:100%}
+
+/* ── SIDEBAR 64px ── */
+.sb{
+  width:64px;flex-shrink:0;background:#0d0d1a;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;gap:2px;
+}
+.sb-logo{
+  width:36px;height:36px;border-radius:10px;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;flex-shrink:0;
+}
+.sb-logo svg{width:15px;height:15px}
+.sb-item{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;transition:background .15s;color:var(--t3);
+  border:none;background:transparent;text-decoration:none;
+}
+.sb-item:hover{background:var(--card2);color:var(--t2)}
+.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.sb-item svg{width:17px;height:17px}
+.sb-item span{font-size:9px;font-weight:600;letter-spacing:.01em}
+.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0;flex-shrink:0}
+.sb-item-wrap{position:relative;display:flex;justify-content:center;width:100%}
+.sb-hover-panel{
+  position:absolute;left:calc(100% + 10px);top:50%;
+  transform:translateY(-50%) translateX(-6px);
+  background:#13112b;border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;white-space:nowrap;
+  box-shadow:0 6px 24px rgba(0,0,0,.55);
+  opacity:0;pointer-events:none;
+  transition:opacity .15s,transform .15s;
+  z-index:500;padding:7px 13px;
+  font-size:12px;font-weight:600;color:rgba(255,255,255,.85);
+}
+.sb-item-wrap:hover .sb-hover-panel{opacity:1;pointer-events:all;transform:translateY(-50%) translateX(0)}
+.sb-hover-panel::before{content:'';position:absolute;right:100%;top:0;bottom:0;width:14px}
+.sb-hover-panel.sb-hp-multi{padding:6px;min-width:210px;white-space:normal}
+.sb-hp-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.2);padding:4px 8px 4px}
+.sb-hp-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:background .15s;border:none;background:none;font-family:inherit;text-align:left;width:100%}
+.sb-hp-item:hover{background:rgba(255,255,255,.06)}
+.sb-hp-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.sb-hp-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:1px}
+.sb-hp-sub{font-size:10px;color:rgba(255,255,255,.3);line-height:1.3}
+.sb-hp-divider{height:1px;background:rgba(255,255,255,.06);margin:2px 8px}
+.sb-ws-bubble{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);flex-shrink:0;
+}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;height:60px;padding:0 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:rgba(11,11,20,.98);z-index:10;
+}
+.topbar-left{display:flex;flex-direction:column;gap:1px}
+.topbar-title{font-size:16px;font-weight:800}
+.topbar-sub{font-size:11px;color:var(--t3)}
+/* NEW REQUEST BUTTON */
+.new-req-btn{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:10px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:12px;font-weight:700;transition:opacity .15s;white-space:nowrap}
+.new-req-btn:hover{opacity:.85}
+
+/* ── NEW REQUEST MODAL ── */
+.nr-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:600;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.nr-overlay.open{opacity:1;pointer-events:all}
+.nr-modal{background:#0E0E1C;border:1px solid rgba(255,255,255,.12);border-radius:20px;width:520px;max-width:95vw;max-height:92vh;display:flex;flex-direction:column;transform:translateY(16px);transition:transform .22s}
+.nr-overlay.open .nr-modal{transform:translateY(0)}
+
+/* Modal header */
+.nr-head{padding:22px 26px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.nr-head-left{display:flex;align-items:center;gap:10px}
+.nr-step-indicator{display:flex;gap:6px}
+.nr-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15);transition:background .2s}
+.nr-dot.active{background:var(--purple);width:18px;border-radius:3px}
+.nr-dot.done{background:rgba(34,197,94,.5)}
+.nr-title{font-size:16px;font-weight:800}
+.nr-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.nr-close{width:30px;height:30px;border-radius:8px;border:none;background:rgba(255,255,255,.06);color:var(--t2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
+.nr-close:hover{background:rgba(255,255,255,.1)}
+
+/* Steps container */
+.nr-body{overflow-y:auto;padding:20px 26px;flex:1}
+
+/* Step 1 — what + how many */
+.nr-field{margin-bottom:16px}
+.nr-label{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.nr-input{width:100%;height:40px;padding:0 13px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--t1);font-family:inherit;font-size:13px;outline:none;transition:border-color .15s}
+.nr-input::placeholder{color:var(--t3)}
+.nr-input:focus{border-color:rgba(175,70,253,.4)}
+.nr-select{width:100%;height:40px;padding:0 13px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--t1);font-family:inherit;font-size:13px;outline:none;appearance:none;cursor:pointer}
+.nr-select option{background:#0E0E1C}
+
+/* Creative type cards with stepper */
+.creative-type-grid{display:flex;flex-direction:column;gap:8px}
+.ct-card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.02);transition:border-color .15s}
+.ct-card.has-items{border-color:rgba(175,70,253,.3);background:rgba(175,70,253,.04)}
+.ct-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ct-icon.video{background:rgba(175,70,253,.12);color:#C084FC}
+.ct-icon.static{background:rgba(34,211,238,.08);color:#22D3EE}
+.ct-info{flex:1}
+.ct-name{font-size:13px;font-weight:700}
+.ct-price{font-size:11px;color:var(--t3);margin-top:2px}
+.ct-stepper{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.step-btn{width:28px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--t1);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;line-height:1}
+.step-btn:hover{background:rgba(255,255,255,.1)}
+.step-count{width:24px;text-align:center;font-size:15px;font-weight:800}
+
+/* Live price total */
+.price-preview{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:10px;background:rgba(175,70,253,.06);border:1px solid rgba(175,70,253,.15);margin-top:4px}
+.pp-label{font-size:12px;color:var(--t2)}
+.pp-val{font-size:18px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.pp-zero{font-size:18px;font-weight:800;color:var(--t3)}
+
+/* Step 2 — payment */
+.order-lines{display:flex;flex-direction:column;gap:0;margin-bottom:4px}
+.order-line{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.order-line:last-child{border-bottom:none}
+.ol-left{display:flex;align-items:center;gap:10px}
+.ol-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.ol-icon.video{background:rgba(175,70,253,.12);color:#C084FC}
+.ol-icon.static{background:rgba(34,211,238,.08);color:#22D3EE}
+.ol-name{font-size:12px;font-weight:700}
+.ol-qty{font-size:10px;color:var(--t3);margin-top:1px}
+.ol-price{font-size:12px;font-weight:700}
+.order-total{display:flex;align-items:center;justify-content:space-between;padding:14px 0 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px}
+.ot-label{font-size:13px;font-weight:700}
+.ot-val{font-size:20px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* Step 2 processing/success */
+.nr-processing{display:none;flex-direction:column;align-items:center;gap:14px;padding:32px 0;text-align:center}
+.nr-processing.show{display:flex}
+.nr-success{display:none;flex-direction:column;align-items:center;gap:10px;padding:32px 0;text-align:center}
+.nr-success.show{display:flex}
+.nr-success-icon{width:52px;height:52px;border-radius:50%;background:rgba(34,197,94,.12);border:2px solid rgba(34,197,94,.3);display:flex;align-items:center;justify-content:center;color:var(--green)}
+
+/* Footer */
+.nr-footer{padding:16px 26px 22px;border-top:1px solid rgba(255,255,255,.07);display:flex;gap:10px;flex-shrink:0}
+.nr-btn-back{flex:1;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--t2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
+.nr-btn-back:hover{background:rgba(255,255,255,.05)}
+.nr-btn-next{flex:2;padding:11px;border-radius:10px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:13px;font-weight:800;transition:opacity .15s}
+.nr-btn-next:hover{opacity:.85}
+.nr-btn-next:disabled{opacity:.4;cursor:not-allowed}
+
+/* processing spin */
+.nr-spin{width:40px;height:40px;border-radius:50%;border:3px solid rgba(175,70,253,.2);border-top-color:var(--purple);animation:spin 1s linear infinite}
+
+.merchant-chip{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:20px;border:1px solid var(--border2);
+  background:var(--card);font-size:13px;font-weight:600;cursor:pointer;
+  transition:background .15s;
+}
+.merchant-chip:hover{background:var(--card2)}
+.merchant-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.merchant-avatar{width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:28px 32px}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:18px 20px;
+}
+.stat-label{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+.stat-val{font-size:28px;font-weight:800;line-height:1}
+.stat-sub{font-size:11px;color:var(--t2);margin-top:5px}
+.stat-val.grad{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-val.amber{color:var(--amber)}
+.stat-val.green{color:var(--green)}
+.stat-val.cyan{color:#22D3EE}
+
+/* FILTER BAR */
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.chip{
+  padding:5px 14px;border-radius:20px;border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--t3);cursor:pointer;transition:all .15s;
+}
+.chip:hover{border-color:var(--border2);color:var(--t2)}
+.chip.active{background:rgba(175,70,253,.12);border-color:rgba(175,70,253,.35);color:var(--purple)}
+.search-wrap{position:relative;margin-left:auto}
+.search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none}
+.search-input{
+  height:34px;padding:0 12px 0 34px;border-radius:9px;
+  border:1px solid var(--border);background:var(--card);
+  color:var(--t1);font-family:inherit;font-size:12px;width:200px;outline:none;
+  transition:border-color .15s;
+}
+.search-input::placeholder{color:var(--t3)}
+.search-input:focus{border-color:rgba(175,70,253,.4)}
+
+/* ENGAGEMENT CARDS */
+.eng-list{display:flex;flex-direction:column;gap:10px}
+.eng-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:18px 22px;cursor:pointer;transition:border-color .15s,background .15s;
+  display:block;text-decoration:none;color:inherit;
+}
+.eng-card:hover{border-color:rgba(175,70,253,.3);background:rgba(175,70,253,.03)}
+@keyframes payPulse{
+  0%{border-color:rgba(34,197,94,.8);box-shadow:0 0 0 0 rgba(34,197,94,.4);background:rgba(34,197,94,.06)}
+  50%{border-color:rgba(34,197,94,.5);box-shadow:0 0 0 8px rgba(34,197,94,.0);background:rgba(34,197,94,.04)}
+  100%{border-color:rgba(34,197,94,.25);box-shadow:0 0 0 0 rgba(34,197,94,.0);background:rgba(34,197,94,.02)}
+}
+.eng-card.pay-highlight{animation:payPulse 1.2s ease-out 2;border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.03)}
+.pay-success-banner{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.22);border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;animation:payPulse 1.2s ease-out 1}
+.psb-icon{width:34px;height:34px;border-radius:9px;background:rgba(34,197,94,.12);display:flex;align-items:center;justify-content:center;color:#22C55E;flex-shrink:0}
+.psb-title{font-size:13px;font-weight:800;color:#22C55E}
+.psb-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px}
+.psb-close{margin-left:auto;background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;padding:4px;font-size:16px;line-height:1}
+
+.card-row1{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.card-id{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.06em;margin-bottom:3px}
+.card-title{font-size:14px;font-weight:700}
+.card-desc{font-size:12px;color:var(--t2);margin-top:2px}
+.badges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.badge-action{background:rgba(251,146,60,.12);color:var(--amber);border:1px solid rgba(251,146,60,.22)}
+.badge-progress{background:rgba(34,211,238,.08);color:#22D3EE;border:1px solid rgba(34,211,238,.18)}
+.badge-review{background:rgba(175,70,253,.1);color:#C084FC;border:1px solid rgba(175,70,253,.22)}
+.badge-done{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.18)}
+.badge-delivered{background:var(--card2);color:var(--t2);border:1px solid var(--border)}
+
+.action-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;
+}
+.action-pill.amber{background:rgba(251,146,60,.1);color:var(--amber);border:1px solid rgba(251,146,60,.18)}
+.action-pill.purple{background:rgba(175,70,253,.1);color:#C084FC;border:1px solid rgba(175,70,253,.2)}
+
+/* PROGRESS STEPS */
+.steps{display:flex;align-items:center;gap:0;margin-bottom:14px}
+.step-item{display:flex;align-items:center;flex:1}
+.step-label{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:7px;font-size:10px;font-weight:700;white-space:nowrap;
+}
+.step-done{background:rgba(34,197,94,.1);color:var(--green)}
+.step-active{background:rgba(175,70,253,.12);color:#C084FC}
+.step-active.amber{background:rgba(251,146,60,.1);color:var(--amber)}
+.step-pending{background:rgba(255,255,255,.04);color:var(--t3)}
+.step-connector{flex:1;height:1px;background:var(--border);margin:0 5px;min-width:8px}
+
+/* CARD FOOTER */
+.card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid rgba(255,255,255,.05)}
+.creative-types{display:flex;gap:14px}
+.ctype{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t3)}
+.card-footer-right{display:flex;align-items:center;gap:10px}
+.card-date{font-size:11px;color:var(--t3)}
+.card-amount{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--t2)}
+.card-amount-due{color:var(--amber)}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;height:60px;background:rgba(13,12,26,.97);border-top:1px solid rgba(255,255,255,.08);backdrop-filter:blur(20px);align-items:stretch}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;color:rgba(255,255,255,.35);font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:color .15s;padding:0;text-decoration:none}
+.bn-item svg{width:20px;height:20px}
+.bn-item.active,.bn-item.active svg{color:#AF46FD;stroke:#AF46FD}
+.bn-space-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;overflow:hidden}
+/* ── MY SPACE DRAWER ── */
+.space-backdrop{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}
+.space-backdrop.show{display:block}
+.space-drawer{position:fixed;top:0;right:0;bottom:0;width:288px;z-index:301;background:#0d0c1a;border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.space-drawer.open{transform:translateX(0)}
+.sd-header{display:flex;align-items:center;gap:12px;padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.sd-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden}
+.sd-user-info{flex:1;min-width:0}
+.sd-user-name{font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sd-user-ws{font-size:11px;color:rgba(255,255,255,.35);display:flex;align-items:center;gap:5px}
+.sd-user-ws::before{content:'';width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0}
+.sd-close{background:none;border:none;color:rgba(255,255,255,.3);font-size:18px;cursor:pointer;line-height:1;padding:4px;flex-shrink:0;font-family:inherit}
+.sd-ws-card{margin:12px;padding:14px;border-radius:12px;background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);position:relative;overflow:hidden}
+.sd-ws-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)}
+.sd-ws-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#AF46FD;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.sd-ws-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:#AF46FD}
+.sd-ws-name{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px}
+.sd-ws-url{font-size:11px;color:rgba(255,255,255,.3)}
+.sd-section{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.sd-section:last-child{border-bottom:none}
+.sd-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.2);padding:4px 4px 8px}
+.sd-item{width:100%;display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:9px;background:none;border:none;color:rgba(255,255,255,.5);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:left;text-decoration:none}
+.sd-item svg{width:16px;height:16px;flex-shrink:0}
+.sd-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.sd-item.active-item{color:#fff;background:rgba(175,70,253,.1);border-left:2px solid #AF46FD}
+.sd-item.danger{color:rgba(255,90,90,.6)}
+.sd-item.danger:hover{background:rgba(255,80,80,.07);color:rgba(255,110,110,.9)}
+
+/* ── RESPONSIVE (≤640px) ── */
+@media(max-width:640px){
+  .bottom-nav{display:flex}
+  html,body{height:auto;overflow-y:auto}
+  .app{height:auto;min-height:100dvh}
+  .sb{display:none}
+  .main{height:auto;width:100%}
+  body{padding-bottom:60px}
+
+  /* Topbar */
+  .topbar{padding:0 14px;height:54px}
+  .topbar-sub{display:none}
+  .merchant-chip{padding:4px 10px;font-size:12px}
+  .merchant-chip > span{display:none} /* hide company name, keep dot+avatar */
+  .new-req-btn{padding:7px 13px;font-size:12px;gap:5px}
+
+  /* Content */
+  .content{flex:none;overflow-y:visible;padding:14px 14px 20px}
+
+  /* Stats: 2-column */
+  .stats-row{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  .stat-card{padding:13px 13px}
+  .stat-val{font-size:22px}
+  .stat-sub{font-size:10px}
+
+  /* Filter bar */
+  .filter-bar{gap:6px;margin-bottom:14px}
+  .search-wrap{margin-left:0;width:100%;order:10;margin-top:2px}
+  .search-input{width:100%}
+
+  /* Cards */
+  .eng-card{padding:13px 13px}
+  .card-row1{gap:8px}
+  .badges{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-start}
+  .steps{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none;flex-wrap:nowrap}
+  .steps::-webkit-scrollbar{display:none}
+  .step-label{font-size:9px}
+  .card-footer{flex-direction:column;align-items:flex-start;gap:5px}
+
+  /* Modal: bottom sheet */
+  .nr-overlay{align-items:flex-end}
+  .nr-modal{width:100%;max-width:100%;border-radius:24px 24px 0 0;max-height:90dvh}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sb">
+    <div class="sb-logo">
+      <img src="../images/studio-icon.png" style="width:100%;height:100%;object-fit:cover;border-radius:10px"/>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='creative_report.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="sb-hover-panel">Dashboard</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span>Ads</span>
+      </div>
+      <div class="sb-hover-panel sb-hp-multi">
+        <div class="sb-hp-label">Create Ad</div>
+        <button class="sb-hp-item" onclick="window.location.href='chat.html'">
+          <div class="sb-hp-icon" style="background:rgba(175,70,253,.15)">✦</div>
+          <div><div class="sb-hp-title">Create with AI</div><div class="sb-hp-sub">AI-generated copy &amp; visuals</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item">
+          <div class="sb-hp-icon" style="background:rgba(244,52,157,.12)">📋</div>
+          <div><div class="sb-hp-title">Create with Brief</div><div class="sb-hp-sub">Upload brief, we do the rest</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item" onclick="window.location.href='create_ads.html'">
+          <div class="sb-hp-icon" style="background:rgba(255,255,255,.07)">✏️</div>
+          <div><div class="sb-hp-title">Create Manually</div><div class="sb-hp-sub">Full creative control</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <div class="sb-hp-label">Browse</div>
+        <button class="sb-hp-item" onclick="window.location.href='inspiration_hub.html'">
+          <div class="sb-hp-icon" style="background:rgba(175,70,253,.12)">✦</div>
+          <div>
+            <div class="sb-hp-title">Inspiration Hub</div>
+            <div class="sb-hp-sub">Browse ad creative templates</div>
+          </div>
+        </button>
+      </div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span>My</span>
+      </div>
+      <div class="sb-hover-panel">My Creatives</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Alerts" onclick="window.location.href='alerts.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Alerts</span>
+      </div>
+      <div class="sb-hover-panel">Alerts</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item active" onclick="window.location.href='index.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        <span>Requests</span>
+      </div>
+      <div class="sb-hover-panel">Requests</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Audit</span>
+      </div>
+      <div class="sb-hover-panel">Ad Audit</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span>Generated</span>
+      </div>
+      <div class="sb-hover-panel">Generated Ads</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='chat.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Chat</span>
+      </div>
+      <div class="sb-hover-panel">Chat with AI</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='workspace.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>Spaces</span>
+      </div>
+      <div class="sb-hover-panel">Workspaces</div>
+    </div>
+    <div class="sb-div" style="margin-top:auto"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='shiprocket_hero_carousel.html'" style="color:rgba(255,100,100,.5)" onmouseover="this.style.color='rgba(255,100,100,.85)'" onmouseout="this.style.color='rgba(255,100,100,.5)'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </div>
+      <div class="sb-hover-panel" style="color:rgba(255,120,120,.8)">Logout</div>
+    </div>
+    <div style="height:8px;flex-shrink:0"></div>
+    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;margin-bottom:8px">
+      <img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Your Requests</div>
+        <div class="topbar-sub">Track creative projects &amp; review deliverables</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="new-req-btn" onclick="openNewRequest()">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Request
+        </button>
+        <div class="merchant-chip">
+          <div class="merchant-dot"></div>
+          <span>Nykaa Fashion</span>
+          <div class="merchant-avatar">NF</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total</div>
+          <div class="stat-val grad">12</div>
+          <div class="stat-sub">Engagements</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Action Needed</div>
+          <div class="stat-val amber">3</div>
+          <div class="stat-sub">Awaiting your input</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">In Progress</div>
+          <div class="stat-val cyan">5</div>
+          <div class="stat-sub">Team is working</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Delivered</div>
+          <div class="stat-val green">4</div>
+          <div class="stat-sub">Completed</div>
+        </div>
+      </div>
+
+      <!-- FILTERS -->
+      <div class="filter-bar">
+        <div class="chip active" onclick="setFilter(this,'all')">All</div>
+        <div class="chip" onclick="setFilter(this,'action')">Action Needed</div>
+        <div class="chip" onclick="setFilter(this,'progress')">In Progress</div>
+        <div class="chip" onclick="setFilter(this,'delivered')">Delivered</div>
+        <div class="search-wrap">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input class="search-input" placeholder="Search requests…" oninput="search(this.value)">
+        </div>
+      </div>
+
+      <!-- PAYMENT SUCCESS BANNER (shown only after redirect from payment page) -->
+      <div id="paySuccessBanner" style="display:none"></div>
+
+      <!-- CARDS (rendered by JS) -->
+      <div class="eng-list" id="engList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── NEW REQUEST MODAL ── -->
+<div class="nr-overlay" id="nrOverlay" onclick="if(event.target===this)closeNewRequest()">
+  <div class="nr-modal">
+
+    <!-- Header -->
+    <div class="nr-head">
+      <div>
+        <div class="nr-title" id="nrTitle">New Request</div>
+        <div class="nr-sub" id="nrSub">Tell us what you need</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="nr-step-indicator">
+          <div class="nr-dot active" id="nrDot0"></div>
+          <div class="nr-dot" id="nrDot1"></div>
+        </div>
+        <button class="nr-close" onclick="closeNewRequest()">✕</button>
+      </div>
+    </div>
+
+    <!-- Step 1: Details -->
+    <div class="nr-body" id="nrStep1">
+      <div class="nr-field">
+        <div class="nr-label">Campaign Name</div>
+        <input class="nr-input" id="nrCampaign" placeholder="e.g. Diwali Sale 2024" oninput="updateNextBtn()">
+      </div>
+      <div class="nr-field">
+        <div class="nr-label">What do you need?</div>
+        <div class="creative-type-grid">
+          <div class="ct-card" id="ctVideo">
+            <div class="ct-icon video">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </div>
+            <div class="ct-info">
+              <div class="ct-name">Video Ads</div>
+              <div class="ct-price">₹5,500 per video · Reels / Stories / Feed</div>
+            </div>
+            <div class="ct-stepper">
+              <button class="step-btn" onclick="stepChange('video',-1)">−</button>
+              <div class="step-count" id="videoCount">0</div>
+              <button class="step-btn" onclick="stepChange('video',1)">+</button>
+            </div>
+          </div>
+          <div class="ct-card" id="ctStatic">
+            <div class="ct-icon static">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            </div>
+            <div class="ct-info">
+              <div class="ct-name">Static Ads</div>
+              <div class="ct-price">₹3,000 per static · Feed / Stories / Banner</div>
+            </div>
+            <div class="ct-stepper">
+              <button class="step-btn" onclick="stepChange('static',-1)">−</button>
+              <div class="step-count" id="staticCount">0</div>
+              <button class="step-btn" onclick="stepChange('static',1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="price-preview">
+        <div class="pp-label">Estimated Total</div>
+        <div class="pp-zero" id="priceTotal">Add creatives above</div>
+      </div>
+    </div>
+
+    <!-- Step 2: Payment -->
+    <div class="nr-body" id="nrStep2" style="display:none">
+      <div id="nrOrderLines"></div>
+      <div id="nrProcessingView" class="nr-processing">
+        <div class="nr-spin"></div>
+        <div style="font-size:14px;font-weight:800">Processing payment…</div>
+        <div style="font-size:11px;color:var(--t3)">Please don't close this window</div>
+      </div>
+      <div id="nrSuccessView" class="nr-success">
+        <div class="nr-success-icon"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg></div>
+        <div style="font-size:16px;font-weight:800">Request Created!</div>
+        <div style="font-size:12px;color:var(--t2);max-width:280px;line-height:1.6">Your campaign is live. Our team will reach out within 24 hours to kick off production.</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="nr-footer" id="nrFooter">
+      <button class="nr-btn-back" id="nrBackBtn" style="display:none" onclick="nrGoBack()">← Back</button>
+      <button class="nr-btn-next" id="nrNextBtn" disabled onclick="nrNext()">Review & Pay →</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottom-nav">
+  <a class="bn-item" href="./creative_report.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </a>
+  <a class="bn-item" href="#">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    Ads
+  </a>
+  <a class="bn-item active" href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+    Requests
+  </a>
+  <a class="bn-item" href="./chat.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Chat
+  </a>
+  <button class="bn-item" onclick="openSpaceDrawer()">
+    <div class="bn-space-avatar"><img src="../images/nykaa-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';this.parentNode.innerHTML='NF'"/></div>
+    My Space
+  </button>
+</nav>
+
+<!-- MY SPACE RIGHT DRAWER -->
+<div class="space-backdrop" id="space-backdrop" onclick="closeSpaceDrawer()"></div>
+<div class="space-drawer" id="space-drawer">
+  <div class="sd-header">
+    <div class="sd-avatar"><img src="../images/nykaa-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';this.parentNode.innerHTML='NF'"/></div>
+    <div class="sd-user-info">
+      <div class="sd-user-name">Nykaa Fashion</div>
+      <div class="sd-user-ws">nykaa.com</div>
+    </div>
+    <button class="sd-close" onclick="closeSpaceDrawer()">✕</button>
+  </div>
+  <div style="overflow-y:auto;flex:1;scrollbar-width:none">
+    <div class="sd-ws-card">
+      <div class="sd-ws-badge">Active Workspace</div>
+      <div class="sd-ws-name">Nykaa Fashion</div>
+      <div class="sd-ws-url">nykaa.com</div>
+    </div>
+    <div class="sd-section">
+      <div class="sd-section-label">Navigate</div>
+      <a class="sd-item" href="./creative_report.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a class="sd-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Ads
+      </a>
+      <a class="sd-item active-item" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        Requests
+      </a>
+      <a class="sd-item" href="./chat.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat
+      </a>
+      <a class="sd-item" href="./workspace.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Workspaces
+      </a>
+    </div>
+    <div class="sd-section">
+      <div class="sd-section-label">Account</div>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+        Profile &amp; Settings
+      </button>
+      <button class="sd-item" onclick="closeSpaceDrawer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Billing &amp; Plan
+      </button>
+    </div>
+    <div class="sd-section">
+      <a class="sd-item danger" href="./shiprocket_hero_carousel.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+function openSpaceDrawer() {
+  document.getElementById('space-backdrop').classList.add('show');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    document.getElementById('space-drawer').classList.add('open');
+  }); });
+}
+function closeSpaceDrawer() {
+  document.getElementById('space-drawer').classList.remove('open');
+  setTimeout(function(){ document.getElementById('space-backdrop').classList.remove('show'); }, 280);
+}
+// ── DATA ── (single source of truth, shared via sessionStorage so engagement.html can read it)
+const ENGAGEMENTS = [
+  {
+    id:'ENG-2024-001', title:'Diwali Sale Campaign',
+    desc:'Ethnic Wear Collection', deliverables:'2 Videos · 3 Statics',
+    videos:2, statics:3,
+    stage:1, // 0=Brief,1=Assets,2=Storyline,3=Creative,4=Delivered
+    status:'action', actionLabel:'Upload product assets', actionType:'amber',
+    amount:32000,
+    started:'Nov 12, 2024', poc:'Riya Sharma',
+    category:'Ethnic Wear', formats:['Instagram Feed','Stories','Reels'],
+    tone:'Festive, warm, celebratory', delivery:'Nov 20, 2024',
+    messages:[
+      {from:'Riya · Studio',text:'Hi! Your Diwali Campaign is set up. Please upload product images or share product links.',time:'Nov 12 · 10:31 AM',mine:false},
+      {from:'Riya · Studio',text:'We need: product shots, brand logo (SVG/PNG), and any reference ads you like.',time:'Nov 12 · 10:33 AM',mine:false},
+      {from:'You',text:'Got it! Will upload today. Should be 5–6 product images + our logo.',time:'Nov 12 · 11:05 AM',mine:true},
+    ]
+  },
+  {
+    id:'ENG-2024-002', title:'Winter Collection Launch',
+    desc:'Outerwear &amp; Accessories', deliverables:'1 Video · 5 Statics',
+    videos:1, statics:5,
+    stage:2,
+    status:'action', actionLabel:'Review storyline', actionType:'purple',
+    amount:24500,
+    started:'Nov 8, 2024', poc:'Aditya Mehta',
+    category:'Outerwear', formats:['Instagram Feed','Facebook'],
+    tone:'Premium, sophisticated, minimal', delivery:'Nov 18, 2024',
+    storyline:`Scene 1 — Opening (0–3s)\nFrost particles drift across dark fabric. Camera reveals a structured overcoat.\nText fades in: "Wear the season."
+
+Scene 2 — Product Showcase (3–10s)\nSlow cuts through the collection — coats, scarves, boots arranged on a snowy backdrop. Model walking in statement outerwear.
+
+Scene 3 — CTA (10–12s)\nBold text: "Shop Winter Edit"\nNykaa Fashion logo lockup.`,
+    messages:[
+      {from:'Aditya · Studio',text:'Winter Collection engagement is live. Assets received — thank you!',time:'Nov 8 · 2:10 PM',mine:false},
+      {from:'Aditya · Studio',text:'Our content writer has drafted the storyline. Please review and approve or share feedback.',time:'Nov 10 · 9:00 AM',mine:false},
+    ]
+  },
+  {
+    id:'ENG-2024-003', title:'Jewellery Brand Awareness',
+    desc:'Gold &amp; Diamond Collection', deliverables:'4 Statics',
+    videos:0, statics:4,
+    stage:3,
+    status:'action', actionLabel:'Review creatives', actionType:'purple',
+    amount:18000,
+    started:'Nov 5, 2024', poc:'Sneha Gupta',
+    category:'Jewellery', formats:['Instagram Feed','Stories'],
+    tone:'Luxury, elegant, aspirational', delivery:'Nov 15, 2024',
+    creatives:[
+      {name:'Static Ad 1',type:'Image · 1080×1080',tag:'Feed'},
+      {name:'Static Ad 2',type:'Image · 1080×1920',tag:'Stories'},
+      {name:'Static Ad 3',type:'Image · 1200×628',tag:'Facebook'},
+      {name:'Static Ad 4',type:'Image · 1080×1080',tag:'Feed'},
+    ],
+    messages:[
+      {from:'Sneha · Studio',text:'Creatives are ready for your review! Please check the watermarked versions and share feedback.',time:'Nov 13 · 4:30 PM',mine:false},
+    ]
+  },
+  {
+    id:'ENG-2024-004', title:'Year End Sale Push',
+    desc:'Apparel &amp; Footwear', deliverables:'3 Videos · 6 Statics',
+    videos:3, statics:6,
+    stage:3,
+    status:'progress',
+    amount:47000,
+    started:'Oct 28, 2024', poc:'Riya Sharma',
+    category:'Apparel & Footwear', formats:['Instagram Feed','Stories','Reels','YouTube'],
+    tone:'Energetic, bold, sale-driven', delivery:'Nov 25, 2024',
+    messages:[
+      {from:'Riya · Studio',text:'Designer has started on your creatives. Expected preview in 2 days.',time:'Nov 11 · 11:00 AM',mine:false},
+    ]
+  },
+  {
+    id:'ENG-2024-005', title:'Navratri Special — Ethnic',
+    desc:'Ethnic Collection', deliverables:'2 Videos · 2 Statics',
+    videos:2, statics:2,
+    stage:4,
+    status:'delivered',
+    amount:21000,
+    started:'Oct 1, 2024', poc:'Aditya Mehta',
+    category:'Ethnic Wear', formats:['Instagram Feed','Stories'],
+    tone:'Celebratory, vibrant, cultural', delivery:'Oct 12, 2024',
+    messages:[
+      {from:'Aditya · Studio',text:'All creatives have been delivered. Hope the campaign performs well!',time:'Oct 12 · 6:00 PM',mine:false},
+    ]
+  },
+  {
+    id:'ENG-2024-006', title:'Beauty Must-Haves — Skincare',
+    desc:'Skincare Range', deliverables:'3 Statics',
+    videos:0, statics:3,
+    stage:4,
+    status:'payment',
+    amount:19000, amountDue:12500,
+    started:'Nov 14, 2024', poc:'Sneha Gupta',
+    category:'Beauty & Skincare', formats:['Instagram Feed','Facebook'],
+    tone:'Clean, fresh, dermatologist-trusted', delivery:'Nov 22, 2024',
+    messages:[
+      {from:'Sneha · Studio',text:'2 creatives approved! Complete payment to unlock full-resolution downloads.',time:'Nov 20 · 11:00 AM',mine:false},
+    ]
+  },
+];
+
+// Store so engagement.html can access
+sessionStorage.setItem('engagements', JSON.stringify(ENGAGEMENTS));
+
+// ── RENDER ──
+const STAGE_LABELS = ['Brief Shared','Asset Upload','Storyline','Creative Review','Delivered'];
+const STATUS_BADGE = {
+  action:`<span class="badge badge-action"><span class="dot"></span>Action Needed</span>`,
+  progress:`<span class="badge badge-progress"><span class="dot"></span>In Progress</span>`,
+  delivered:`<span class="badge badge-done"><span class="dot"></span>Delivered</span>`,
+  review:`<span class="badge badge-review"><span class="dot"></span>Review Required</span>`,
+  payment:`<span class="badge" style="background:rgba(251,146,60,.1);color:#FB923C;border:1px solid rgba(251,146,60,.22)"><span class="dot"></span>Payment Pending</span>`,
+};
+
+function stepClass(i, activeStage) {
+  if (i < activeStage) return 'step-done';
+  if (i === activeStage) return 'step-active' + (activeStage === 1 ? ' amber' : '');
+  return 'step-pending';
+}
+function checkSVG(){ return `<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>`; }
+function clockSVG(){ return `<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`; }
+
+function renderCard(eng) {
+  const stepsHtml = STAGE_LABELS.map((label, i) => {
+    const cls = stepClass(i, eng.stage);
+    const icon = cls === 'step-done' ? checkSVG() : (cls.includes('step-active') ? clockSVG() : '');
+    const connector = i < STAGE_LABELS.length - 1 ? `<div class="step-connector"></div>` : '';
+    return `<div class="step-item"><div class="step-label ${cls}">${icon}${label}</div>${connector}</div>`;
+  }).join('');
+
+  const badgeHtml = eng.status === 'action'
+    ? STATUS_BADGE.action
+    : eng.status === 'progress'
+    ? STATUS_BADGE.progress
+    : eng.status === 'payment'
+    ? STATUS_BADGE.payment
+    : STATUS_BADGE.delivered;
+
+  const actionPill = eng.actionLabel
+    ? `<div class="action-pill ${eng.actionType}">
+        <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+        ${eng.actionLabel}
+      </div>` : '';
+
+  const videoTag = eng.videos > 0
+    ? `<div class="ctype"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>${eng.videos} Video${eng.videos>1?'s':''}</div>` : '';
+  const staticTag = eng.statics > 0
+    ? `<div class="ctype"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>${eng.statics} Static${eng.statics>1?'s':''}</div>` : '';
+
+  return `
+    <a class="eng-card" href="engagement.html?id=${eng.id}" data-status="${eng.status}">
+      <div class="card-row1">
+        <div>
+          <div class="card-id">${eng.id}</div>
+          <div class="card-title">${eng.title}</div>
+          <div class="card-desc">${eng.desc} · ${eng.deliverables}</div>
+        </div>
+        <div class="badges">${badgeHtml}${actionPill}</div>
+      </div>
+      <div class="steps">${stepsHtml}</div>
+      <div class="card-footer">
+        <div class="creative-types">${videoTag}${staticTag}</div>
+        <div class="card-footer-right">
+          ${eng.amount ? `<div class="card-amount${eng.status==='payment'?' card-amount-due':''}">
+            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 9h1.5a1.5 1.5 0 010 3H9m0-3v6m0-3h4.5"/></svg>
+            ${eng.status==='payment' && eng.amountDue ? '₹'+eng.amountDue.toLocaleString('en-IN')+' due' : '₹'+eng.amount.toLocaleString('en-IN')}
+          </div>` : ''}
+          <div class="card-date">Started ${eng.started}</div>
+        </div>
+      </div>
+    </a>`;
+}
+
+let currentFilter = 'all';
+
+function renderAll(filter = currentFilter, query = '') {
+  const list = document.getElementById('engList');
+  const filtered = ENGAGEMENTS.filter(e => {
+    const matchFilter = filter === 'all' || e.status === filter
+      || (filter === 'action' && e.status === 'action')
+      || (filter === 'progress' && e.status === 'progress')
+      || (filter === 'delivered' && e.status === 'delivered');
+    const matchSearch = !query || (e.title + e.desc + e.id).toLowerCase().includes(query.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+  list.innerHTML = filtered.map(renderCard).join('') || `<div style="text-align:center;padding:60px 0;color:var(--t3);font-size:13px">No engagements found</div>`;
+}
+
+function setFilter(el, filter) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = filter;
+  renderAll(filter);
+}
+
+function search(q) { renderAll(currentFilter, q); }
+
+renderAll();
+
+// ── NEW REQUEST MODAL ──
+const PRICES = { video: 5500, static: 3000 };
+let nrVideos = 0, nrStatics = 0, nrStep = 1;
+
+function openNewRequest() {
+  nrVideos = 0; nrStatics = 0; nrStep = 1;
+  document.getElementById('nrCampaign').value = '';
+  document.getElementById('videoCount').textContent = '0';
+  document.getElementById('staticCount').textContent = '0';
+  document.getElementById('ctVideo').classList.remove('has-items');
+  document.getElementById('ctStatic').classList.remove('has-items');
+  document.getElementById('priceTotal').className = 'pp-zero';
+  document.getElementById('priceTotal').textContent = 'Add creatives above';
+  document.getElementById('nrStep1').style.display = '';
+  document.getElementById('nrStep2').style.display = 'none';
+  document.getElementById('nrBackBtn').style.display = 'none';
+  document.getElementById('nrNextBtn').textContent = 'Review & Pay →';
+  document.getElementById('nrNextBtn').disabled = true;
+  document.getElementById('nrTitle').textContent = 'New Request';
+  document.getElementById('nrSub').textContent = 'Tell us what you need';
+  document.getElementById('nrDot0').className = 'nr-dot active';
+  document.getElementById('nrDot1').className = 'nr-dot';
+  document.getElementById('nrProcessingView').className = 'nr-processing';
+  document.getElementById('nrSuccessView').className = 'nr-success';
+  document.getElementById('nrOverlay').classList.add('open');
+}
+
+function closeNewRequest() {
+  document.getElementById('nrOverlay').classList.remove('open');
+}
+
+function stepChange(type, delta) {
+  if (type === 'video') {
+    nrVideos = Math.max(0, nrVideos + delta);
+    document.getElementById('videoCount').textContent = nrVideos;
+    document.getElementById('ctVideo').classList.toggle('has-items', nrVideos > 0);
+  } else {
+    nrStatics = Math.max(0, nrStatics + delta);
+    document.getElementById('staticCount').textContent = nrStatics;
+    document.getElementById('ctStatic').classList.toggle('has-items', nrStatics > 0);
+  }
+  const total = nrVideos * PRICES.video + nrStatics * PRICES.static;
+  const el = document.getElementById('priceTotal');
+  if (total > 0) {
+    el.className = 'pp-val';
+    el.textContent = '₹' + total.toLocaleString('en-IN');
+  } else {
+    el.className = 'pp-zero';
+    el.textContent = 'Add creatives above';
+  }
+  updateNextBtn();
+}
+
+function updateNextBtn() {
+  const campaign = document.getElementById('nrCampaign').value.trim();
+  const hasCreatives = nrVideos + nrStatics > 0;
+  document.getElementById('nrNextBtn').disabled = !(campaign && hasCreatives);
+}
+
+function nrNext() {
+  if (nrStep === 1) {
+    // Move to step 2: payment review
+    nrStep = 2;
+    document.getElementById('nrStep1').style.display = 'none';
+    document.getElementById('nrStep2').style.display = '';
+    document.getElementById('nrBackBtn').style.display = '';
+    document.getElementById('nrTitle').textContent = 'Payment Summary';
+    document.getElementById('nrSub').textContent = 'Review your order and pay';
+    document.getElementById('nrNextBtn').textContent = 'Pay Now →';
+    document.getElementById('nrNextBtn').disabled = false;
+    document.getElementById('nrDot0').className = 'nr-dot done';
+    document.getElementById('nrDot1').className = 'nr-dot active';
+
+    const videoSvg = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
+    const imgSvg   = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+    const campaign = document.getElementById('nrCampaign').value.trim();
+    const category = 'General';
+    const delivery = 'TBD';
+
+    let lines = '';
+    if (nrVideos > 0) lines += `
+      <div class="order-line">
+        <div class="ol-left"><div class="ol-icon video">${videoSvg}</div><div><div class="ol-name">Video Ads</div><div class="ol-qty">${nrVideos} × ₹${PRICES.video.toLocaleString('en-IN')}</div></div></div>
+        <div class="ol-price">₹${(nrVideos * PRICES.video).toLocaleString('en-IN')}</div>
+      </div>`;
+    if (nrStatics > 0) lines += `
+      <div class="order-line">
+        <div class="ol-left"><div class="ol-icon static">${imgSvg}</div><div><div class="ol-name">Static Ads</div><div class="ol-qty">${nrStatics} × ₹${PRICES.static.toLocaleString('en-IN')}</div></div></div>
+        <div class="ol-price">₹${(nrStatics * PRICES.static).toLocaleString('en-IN')}</div>
+      </div>`;
+    const subtotal = nrVideos * PRICES.video + nrStatics * PRICES.static;
+    const gst = Math.round(subtotal * 0.18);
+    const grandTotal = subtotal + gst;
+
+    lines += `
+      <div class="order-line">
+        <div class="ol-left"><div style="font-size:12px;color:var(--t3);padding-left:38px">GST (18%)</div></div>
+        <div class="ol-price" style="color:var(--t3)">₹${gst.toLocaleString('en-IN')}</div>
+      </div>`;
+
+    document.getElementById('nrOrderLines').innerHTML = `
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:4px 14px;margin-bottom:14px">
+        <div style="padding:10px 0 8px;border-bottom:1px solid rgba(255,255,255,.07)">
+          <div style="font-size:13px;font-weight:800">${campaign}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${category} · Delivery ${delivery}</div>
+        </div>
+        <div class="order-lines">${lines}</div>
+        <div class="order-total">
+          <div class="ot-label">Total</div>
+          <div class="ot-val">₹${grandTotal.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+      <div style="background:rgba(175,70,253,.04);border:1px solid rgba(175,70,253,.12);border-radius:10px;padding:10px 13px;font-size:11px;color:var(--t2);line-height:1.6;display:flex;gap:8px;align-items:flex-start">
+        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#C084FC" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+        Our team will reach out within 24 hours to collect product assets and kick off your campaign.
+      </div>`;
+    // store for creating engagement
+    window._nrData = { campaign, category, delivery, videos: nrVideos, statics: nrStatics, total: grandTotal };
+  } else {
+    // Pay
+    document.getElementById('nrOrderLines').style.display = 'none';
+    document.getElementById('nrBackBtn').style.display = 'none';
+    document.getElementById('nrNextBtn').style.display = 'none';
+    document.getElementById('nrProcessingView').classList.add('show');
+    setTimeout(nrPaySuccess, 2000);
+  }
+}
+
+function nrGoBack() {
+  nrStep = 1;
+  document.getElementById('nrStep1').style.display = '';
+  document.getElementById('nrStep2').style.display = 'none';
+  document.getElementById('nrBackBtn').style.display = 'none';
+  document.getElementById('nrTitle').textContent = 'New Request';
+  document.getElementById('nrSub').textContent = 'Tell us what you need';
+  document.getElementById('nrNextBtn').textContent = 'Review & Pay →';
+  document.getElementById('nrDot0').className = 'nr-dot active';
+  document.getElementById('nrDot1').className = 'nr-dot';
+}
+
+function nrPaySuccess() {
+  document.getElementById('nrProcessingView').classList.remove('show');
+  document.getElementById('nrSuccessView').classList.add('show');
+
+  // Create new engagement and add to list
+  const d = window._nrData;
+  const newId = 'ENG-2024-' + String(ENGAGEMENTS.length + 1).padStart(3, '0');
+  const today = new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  const newEng = {
+    id: newId,
+    title: d.campaign,
+    desc: d.category,
+    deliverables: `${d.videos > 0 ? d.videos + ' Video' + (d.videos > 1 ? 's' : '') : ''}${d.videos > 0 && d.statics > 0 ? ' · ' : ''}${d.statics > 0 ? d.statics + ' Static' + (d.statics > 1 ? 's' : '') : ''}`,
+    videos: d.videos, statics: d.statics,
+    stage: 1, status: 'action',
+    started: today, poc: 'Studio Team',
+    category: d.category, formats: ['Instagram Feed'],
+    tone: 'TBD', delivery: d.delivery,
+    actionLabel: 'Upload product assets',
+    messages: [{from:'Studio Team', text:`Your campaign "${d.campaign}" is live! Please upload product assets for each creative to get started.`, time:'Just now', mine:false}]
+  };
+  ENGAGEMENTS.unshift(newEng);
+  sessionStorage.setItem('engagements', JSON.stringify(ENGAGEMENTS));
+
+  setTimeout(() => {
+    closeNewRequest();
+    renderAll();
+    // Highlight the new card
+    setTimeout(() => {
+      const cards = document.querySelectorAll('.eng-card');
+      if (cards[0]) {
+        cards[0].classList.add('pay-highlight');
+        cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => cards[0].classList.remove('pay-highlight'), 3000);
+      }
+      // Show success banner
+      const banner = document.getElementById('paySuccessBanner');
+      if (banner) {
+        banner.style.display = 'block';
+        banner.innerHTML = `
+          <div class="pay-success-banner">
+            <div class="psb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg></div>
+            <div>
+              <div class="psb-title">Request created — payment confirmed!</div>
+              <div class="psb-sub">${d.campaign} · Our team will reach out within 24 hours.</div>
+            </div>
+            <button class="psb-close" onclick="this.closest('.pay-success-banner').style.opacity='0';setTimeout(()=>document.getElementById('paySuccessBanner').style.display='none',300)">✕</button>
+          </div>`;
+      }
+    }, 100);
+  }, 1200);
+}
+
+// ── PAYMENT SUCCESS FLAG ──
+// Reads ?payment_success=1&highlight=ENG-XXXX from payment.html redirect
+(function handlePaymentSuccess() {
+  const urlParams = new URLSearchParams(location.search);
+  const isPaymentSuccess = urlParams.get('payment_success') === '1';
+  const highlightId = urlParams.get('highlight');
+  if (!isPaymentSuccess || !highlightId) return;
+
+  // Show success banner
+  const eng = ENGAGEMENTS.find(e => e.id === highlightId);
+  const banner = document.getElementById('paySuccessBanner');
+  if (banner && eng) {
+    banner.style.display = 'block';
+    banner.innerHTML = `
+      <div class="pay-success-banner">
+        <div class="psb-icon">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div>
+          <div class="psb-title">Payment successful — creatives unlocked!</div>
+          <div class="psb-sub">${eng.title} · Full-resolution files are now available for download.</div>
+        </div>
+        <button class="psb-close" onclick="this.closest('.pay-success-banner').style.opacity='0';setTimeout(()=>document.getElementById('paySuccessBanner').style.display='none',300)">✕</button>
+      </div>`;
+  }
+
+  // Highlight the matching engagement card after a short delay (DOM needs to render first)
+  setTimeout(() => {
+    const cards = document.querySelectorAll('.eng-card');
+    cards.forEach(card => {
+      if (card.href && card.href.includes(highlightId)) {
+        card.classList.add('pay-highlight');
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Remove highlight class after animation completes
+        setTimeout(() => card.classList.remove('pay-highlight'), 3000);
+      }
+    });
+  }, 150);
+
+  // Clean the URL so refreshing doesn't retrigger
+  history.replaceState({}, '', location.pathname);
+})();
+</script>
+</body>
+</html>

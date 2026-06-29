@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment · Shiprocket Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.13);
+  --t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.3);
+  --purple:#AF46FD;--pink:#F4349D;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --green:#22C55E;--amber:#FB923C;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
+
+/* PAGE */
+.page{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 20px 60px}
+
+/* HEADER */
+.hdr{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;margin-bottom:36px}
+.hdr-logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:34px;height:34px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:14px;height:14px}
+.logo-name{font-size:15px;font-weight:800}
+.logo-sub{font-size:10px;color:var(--t3);margin-top:1px}
+.secure-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.18);font-size:10px;font-weight:700;color:var(--green)}
+
+/* MAIN CARD */
+.card{width:100%;max-width:520px;background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:20px;overflow:hidden}
+
+/* CARD TOP — campaign info */
+.card-top{padding:24px 26px;border-bottom:1px solid var(--border)}
+.sent-by{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+.poc-avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.sent-text{font-size:12px;color:var(--t2)}
+.sent-name{font-size:12px;font-weight:700;color:var(--t1)}
+.campaign-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.campaign-meta{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:10px}
+.campaign-meta span{display:flex;align-items:center;gap:4px}
+
+/* DELIVERABLES */
+.section{padding:20px 26px;border-bottom:1px solid var(--border)}
+.sec-label{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+.deliverable-list{display:flex;flex-direction:column;gap:8px}
+.deliverable-item{display:flex;align-items:center;gap:12px;padding:11px 14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px}
+.del-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.del-icon.video{background:rgba(175,70,253,.12);color:#C084FC}
+.del-icon.static{background:rgba(34,211,238,.08);color:#22D3EE}
+.del-name{flex:1}
+.del-title{font-size:12px;font-weight:700}
+.del-spec{font-size:10px;color:var(--t3);margin-top:2px}
+.del-price{font-size:12px;font-weight:700;color:var(--t2);flex-shrink:0}
+
+/* PAYMENT BREAKDOWN */
+.breakdown-list{display:flex;flex-direction:column;gap:0}
+.breakdown-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.breakdown-row:last-child{border-bottom:none}
+.br-label{font-size:12px;color:var(--t2)}
+.br-val{font-size:12px;font-weight:700}
+.br-val.green{color:var(--green)}
+.br-val.amber{color:var(--amber)}
+.br-val.muted{color:var(--t3);text-decoration:line-through;font-weight:500}
+.total-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0 0;border-top:1px solid var(--border2);margin-top:4px}
+.total-label{font-size:13px;font-weight:700}
+.total-val{font-size:20px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* NOTE */
+.note-box{background:rgba(175,70,253,.05);border:1px solid rgba(175,70,253,.15);border-radius:10px;padding:11px 14px;display:flex;align-items:flex-start;gap:9px;margin-top:14px}
+.note-icon{flex-shrink:0;color:#C084FC;margin-top:1px}
+.note-text{font-size:11px;color:var(--t2);line-height:1.6}
+
+/* CTA */
+.cta-section{padding:22px 26px}
+.pay-btn{width:100%;padding:15px;border-radius:12px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:9px;transition:opacity .15s;margin-bottom:12px}
+.pay-btn:hover{opacity:.88}
+.pay-btn:active{opacity:.75;transform:scale(.99)}
+.pay-btn svg{width:16px;height:16px}
+.trust-row{display:flex;align-items:center;justify-content:center;gap:16px}
+.trust-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3)}
+.trust-item svg{width:11px;height:11px;color:var(--t3)}
+
+/* PROCESSING OVERLAY */
+.processing{display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 26px;text-align:center}
+.processing.show{display:flex}
+.proc-spinner{width:48px;height:48px;border-radius:50%;border:3px solid rgba(175,70,253,.2);border-top-color:var(--purple);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-title{font-size:16px;font-weight:800}
+.proc-sub{font-size:12px;color:var(--t2)}
+
+/* SUCCESS OVERLAY */
+.success-view{display:none;flex-direction:column;align-items:center;padding:40px 26px;text-align:center;gap:12px}
+.success-view.show{display:flex}
+.success-icon{width:60px;height:60px;border-radius:50%;background:rgba(34,197,94,.12);border:2px solid rgba(34,197,94,.3);display:flex;align-items:center;justify-content:center;color:var(--green);margin-bottom:4px}
+.success-title{font-size:18px;font-weight:800}
+.success-sub{font-size:12px;color:var(--t2);line-height:1.6;max-width:300px}
+.redirect-btn{margin-top:8px;padding:12px 28px;border-radius:10px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-family:inherit;font-size:13px;font-weight:800;transition:opacity .15s}
+.redirect-btn:hover{opacity:.85}
+.countdown{font-size:11px;color:var(--t3);margin-top:4px}
+
+/* FOOTER */
+.footer{margin-top:28px;text-align:center;font-size:11px;color:var(--t3)}
+.footer a{color:rgba(175,70,253,.7)}
+
+/* ── RESPONSIVE (≤640px) ── */
+@media(max-width:640px){
+  .page{padding:20px 14px 48px}
+  .hdr{margin-bottom:20px}
+  .card-top{padding:18px 18px}
+  .section{padding:16px 18px}
+  .cta-section{padding:18px 18px}
+  .campaign-title{font-size:18px}
+  .trust-row{flex-wrap:wrap;gap:8px;justify-content:center}
+  .campaign-meta{flex-wrap:wrap;gap:6px}
+  .processing{padding:32px 18px}
+  .success-view{padding:32px 18px}
+}
+
+/* ── APP LAYOUT ── */
+.app{display:flex;height:100vh;width:100%;overflow:hidden}
+.app-content{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+
+/* ── CANONICAL SIDEBAR ── */
+.sb{
+  width:64px;flex-shrink:0;background:#0d0d1a;
+  border-right:1px solid rgba(255,255,255,.08);
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;gap:2px;
+}
+.sb-logo{
+  width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;overflow:hidden;
+}
+.sb .sb-item{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;transition:background .15s;color:rgba(255,255,255,.28);
+  background:none;border:none;font-family:inherit;
+}
+.sb .sb-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.55)}
+.sb .sb-item.active{background:rgba(175,70,253,.12);color:#AF46FD}
+.sb .sb-item svg{width:17px;height:17px}
+.sb .sb-item span{font-size:9px;font-weight:600}
+.sb-div{width:32px;height:1px;background:rgba(255,255,255,.08);margin:4px 0}
+.sb-item-wrap{position:relative;display:flex;justify-content:center;width:100%}
+.sb-hover-panel{
+  position:absolute;left:calc(100% + 10px);top:50%;
+  transform:translateY(-50%) translateX(-6px);
+  background:#13112b;border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;white-space:nowrap;
+  box-shadow:0 6px 24px rgba(0,0,0,.55);
+  opacity:0;pointer-events:none;
+  transition:opacity .15s,transform .15s;z-index:500;
+  padding:7px 13px;font-size:12px;font-weight:600;color:rgba(255,255,255,.85);
+}
+.sb-item-wrap:hover .sb-hover-panel{opacity:1;pointer-events:all;transform:translateY(-50%) translateX(0)}
+.sb-hover-panel::before{content:'';position:absolute;right:100%;top:0;bottom:0;width:14px}
+.sb-hover-panel.sb-hp-multi{padding:6px;min-width:210px;white-space:normal}
+.sb-hp-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.2);padding:4px 8px}
+.sb-hp-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:background .15s;border:none;background:none;font-family:inherit;text-align:left;width:100%}
+.sb-hp-item:hover{background:rgba(255,255,255,.06)}
+.sb-hp-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.sb-hp-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:1px}
+.sb-hp-sub{font-size:10px;color:rgba(255,255,255,.3);line-height:1.3}
+.sb-hp-divider{height:1px;background:rgba(255,255,255,.06);margin:2px 8px}
+.sb-ws-bubble{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);
+  flex-shrink:0;overflow:hidden;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sb">
+    <div class="sb-logo">
+      <img src="../images/studio-icon.png" style="width:100%;height:100%;object-fit:cover;border-radius:10px"/>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='creative_report.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="sb-hover-panel">Dashboard</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span>Ads</span>
+      </div>
+      <div class="sb-hover-panel sb-hp-multi">
+        <div class="sb-hp-label">Create Ad</div>
+        <button class="sb-hp-item" onclick="window.location.href='chat.html'">
+          <div class="sb-hp-icon" style="background:rgba(175,70,253,.15)">✦</div>
+          <div><div class="sb-hp-title">Create with AI</div><div class="sb-hp-sub">AI-generated copy &amp; visuals</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item">
+          <div class="sb-hp-icon" style="background:rgba(244,52,157,.12)">📋</div>
+          <div><div class="sb-hp-title">Create with Brief</div><div class="sb-hp-sub">Upload brief, we do the rest</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item" onclick="window.location.href='create_ads.html'">
+          <div class="sb-hp-icon" style="background:rgba(255,255,255,.07)">✏️</div>
+          <div><div class="sb-hp-title">Create Manually</div><div class="sb-hp-sub">Full creative control</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <div class="sb-hp-label">Browse</div>
+        <button class="sb-hp-item" onclick="window.location.href='inspiration_hub.html'">
+          <div class="sb-hp-icon" style="background:rgba(175,70,253,.12)">✦</div>
+          <div>
+            <div class="sb-hp-title">Inspiration Hub</div>
+            <div class="sb-hp-sub">Browse ad creative templates</div>
+          </div>
+        </button>
+      </div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span>My</span>
+      </div>
+      <div class="sb-hover-panel">My Creatives</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Alerts" onclick="window.location.href='alerts.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Alerts</span>
+      </div>
+      <div class="sb-hover-panel">Alerts</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item active" onclick="window.location.href='index.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        <span>Requests</span>
+      </div>
+      <div class="sb-hover-panel">Requests</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Audit</span>
+      </div>
+      <div class="sb-hover-panel">Ad Audit</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span>Generated</span>
+      </div>
+      <div class="sb-hover-panel">Generated Ads</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='chat.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Chat</span>
+      </div>
+      <div class="sb-hover-panel">Chat with AI</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='workspace.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>Spaces</span>
+      </div>
+      <div class="sb-hover-panel">Workspaces</div>
+    </div>
+    <div class="sb-div" style="margin-top:auto"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='shiprocket_hero_carousel.html'" style="color:rgba(255,100,100,.5)" onmouseover="this.style.color='rgba(255,100,100,.85)'" onmouseout="this.style.color='rgba(255,100,100,.5)'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </div>
+      <div class="sb-hover-panel" style="color:rgba(255,120,120,.8)">Logout</div>
+    </div>
+    <div style="height:8px;flex-shrink:0"></div>
+    <div class="sb-ws-bubble" id="sb-ws-bubble" title="Switch Workspace" style="background:#fff;overflow:hidden;margin-bottom:8px">
+      <img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/>
+    </div>
+  </div>
+  <div class="app-content">
+
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-logo">
+      <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+      <div><div class="logo-name">Shiprocket Studio</div><div class="logo-sub">Creative Services</div></div>
+    </div>
+    <div class="secure-badge">
+      <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Secure Payment
+    </div>
+  </div>
+
+  <!-- MAIN CARD -->
+  <div class="card" id="mainCard">
+
+    <!-- TOP: Campaign info -->
+    <div class="card-top" id="cardTop">
+      <div class="sent-by">
+        <div class="poc-avatar" id="pocAvatar">SG</div>
+        <div><div class="sent-text">Payment request from</div><div class="sent-name" id="pocName">Sneha Gupta · Shiprocket Studio</div></div>
+      </div>
+      <div class="campaign-title" id="campaignTitle">—</div>
+      <div class="campaign-meta">
+        <span id="campaignCategory">—</span>
+        <span>·</span>
+        <span id="campaignDelivery">Due —</span>
+      </div>
+    </div>
+
+    <!-- DELIVERABLES -->
+    <div class="section" id="deliverablesSection">
+      <div class="sec-label">Deliverables</div>
+      <div class="deliverable-list" id="deliverableList"></div>
+    </div>
+
+    <!-- PAYMENT BREAKDOWN -->
+    <div class="section" id="breakdownSection">
+      <div class="sec-label">Payment Summary</div>
+      <div class="breakdown-list" id="breakdownList"></div>
+      <div class="total-row">
+        <div class="total-label">Amount Due Now</div>
+        <div class="total-val" id="totalDue">—</div>
+      </div>
+      <div class="note-box">
+        <div class="note-icon"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg></div>
+        <div class="note-text" id="noteText">You've already reviewed and approved the creatives. This payment unlocks full-resolution files for download.</div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-section" id="ctaSection">
+      <button class="pay-btn" id="payBtn" onclick="initiatePayment()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <span id="payBtnLabel">Pay Securely</span>
+      </button>
+      <div class="trust-row">
+        <div class="trust-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>256-bit SSL encryption</div>
+        <div class="trust-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>PCI DSS compliant</div>
+        <div class="trust-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Instant confirmation</div>
+      </div>
+    </div>
+
+    <!-- PROCESSING STATE -->
+    <div class="processing" id="processingView">
+      <div class="proc-spinner"></div>
+      <div class="proc-title">Processing payment…</div>
+      <div class="proc-sub">Please don't close this page</div>
+    </div>
+
+    <!-- SUCCESS STATE -->
+    <div class="success-view" id="successView">
+      <div class="success-icon">
+        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <div class="success-title">Payment Successful!</div>
+      <div class="success-sub">Your full-resolution creatives are now ready. Redirecting you to your requests…</div>
+      <button class="redirect-btn" onclick="goToRequests()">Go to My Requests →</button>
+      <div class="countdown" id="countdown">Redirecting in 4s</div>
+    </div>
+
+  </div><!-- /card -->
+
+  <div class="footer">Powered by <a href="#">Shiprocket Studio</a> · Questions? Contact your Studio POC</div>
+
+</div><!-- /page -->
+
+<script>
+// ── ENGAGEMENT DATA (same as index / engagement page) ──
+const ENGAGEMENTS = [
+  {
+    id:'ENG-2024-001', title:'Diwali Sale Campaign',
+    poc:'Riya Sharma', pocInitials:'RS', category:'Ethnic Wear',
+    delivery:'Nov 20, 2024',
+    deliverables:[
+      {type:'video', name:'Video Ad 1', spec:'1080×1920 · Reels', price:4500},
+      {type:'video', name:'Video Ad 2', spec:'1080×1920 · Stories', price:4500},
+      {type:'static', name:'Static Ad 1', spec:'1080×1080 · Feed', price:2000},
+    ],
+    totalAmount:11000, amountPaid:0, amountDue:11000,
+    note:'This covers creative production for your Diwali campaign. Payment unlocks project start.',
+  },
+  {
+    id:'ENG-2024-006', title:'Beauty Must-Haves — Skincare',
+    poc:'Sneha Gupta', pocInitials:'SG', category:'Beauty & Skincare',
+    delivery:'Nov 22, 2024',
+    deliverables:[
+      {type:'video', name:'Video Ad 1', spec:'1080×1920 · Reels', price:5500},
+      {type:'video', name:'Video Ad 2', spec:'1080×1920 · Stories', price:5500},
+      {type:'static', name:'Static Ad 1', spec:'1080×1080 · Feed', price:3000},
+    ],
+    totalAmount:19000, amountPaid:6500, amountDue:12500,
+    note:'You\'ve already reviewed and approved the creatives. This payment unlocks full-resolution files for download.',
+  },
+];
+
+// ── READ URL PARAMS ──
+const params = new URLSearchParams(location.search);
+const engId = params.get('id') || 'ENG-2024-006';
+const eng = ENGAGEMENTS.find(e => e.id === engId) || ENGAGEMENTS[1];
+
+// ── POPULATE PAGE ──
+document.getElementById('pocAvatar').textContent = eng.pocInitials;
+document.getElementById('pocName').textContent = eng.poc + ' · Shiprocket Studio';
+document.getElementById('campaignTitle').textContent = eng.title;
+document.getElementById('campaignCategory').textContent = eng.category;
+document.getElementById('campaignDelivery').textContent = 'Due ' + eng.delivery;
+document.getElementById('noteText').textContent = eng.note;
+document.getElementById('payBtnLabel').textContent = `Pay ₹${eng.amountDue.toLocaleString('en-IN')} Securely`;
+document.getElementById('totalDue').textContent = '₹' + eng.amountDue.toLocaleString('en-IN');
+
+// Deliverables
+const videoSvg = `<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
+const imgSvg   = `<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+
+document.getElementById('deliverableList').innerHTML = eng.deliverables.map(d => `
+  <div class="deliverable-item">
+    <div class="del-icon ${d.type}">${d.type === 'video' ? videoSvg : imgSvg}</div>
+    <div class="del-name">
+      <div class="del-title">${d.name}</div>
+      <div class="del-spec">${d.spec}</div>
+    </div>
+    <div class="del-price">₹${d.price.toLocaleString('en-IN')}</div>
+  </div>`).join('');
+
+// Payment breakdown
+const rows = [];
+const subtotal = eng.deliverables.reduce((s, d) => s + d.price, 0);
+rows.push({label:'Subtotal', val:`₹${subtotal.toLocaleString('en-IN')}`, cls:''});
+if (eng.amountPaid > 0) {
+  rows.push({label:'Advance Paid', val:`−₹${eng.amountPaid.toLocaleString('en-IN')}`, cls:'green'});
+}
+rows.push({label:'GST (18%)', val:`₹${Math.round((eng.amountDue) * 0.18 / 1.18).toLocaleString('en-IN')}`, cls:''});
+
+document.getElementById('breakdownList').innerHTML = rows.map(r => `
+  <div class="breakdown-row">
+    <div class="br-label">${r.label}</div>
+    <div class="br-val ${r.cls}">${r.val}</div>
+  </div>`).join('');
+
+// ── PAYMENT FLOW ──
+function initiatePayment() {
+  // Hide form, show processing
+  ['cardTop','deliverablesSection','breakdownSection','ctaSection'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('processingView').classList.add('show');
+
+  // Simulate 2.2s processing → success
+  setTimeout(showSuccess, 2200);
+}
+
+function showSuccess() {
+  document.getElementById('processingView').classList.remove('show');
+  document.getElementById('successView').classList.add('show');
+
+  // Countdown redirect
+  let secs = 4;
+  const countEl = document.getElementById('countdown');
+  const interval = setInterval(() => {
+    secs--;
+    countEl.textContent = `Redirecting in ${secs}s`;
+    if (secs <= 0) { clearInterval(interval); goToRequests(); }
+  }, 1000);
+}
+
+function goToRequests() {
+  // Pass payment_success flag + engagement ID so index.html can highlight the card
+  window.location.href = `index.html?payment_success=1&highlight=${eng.id}`;
+}
+</script>
+  </div><!-- /app-content -->
+</div><!-- /app -->
+</body>
+</html>
