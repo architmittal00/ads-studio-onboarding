@@ -1078,6 +1078,23 @@ function submitRegen(idx) {
 function toggleWsSwitcher() {
   document.getElementById('ws-switcher-popover').classList.toggle('open');
 }
+
+(function loadInspoFromHub() {
+  var raw = sessionStorage.getItem('inspo_urls');
+  if (!raw) return;
+  sessionStorage.removeItem('inspo_urls');
+  var urls;
+  try { urls = JSON.parse(raw); } catch(e) { return; }
+  Promise.all(urls.map(function(url) {
+    return fetch(url).then(function(r){ return r.blob(); }).then(function(blob) {
+      return new File([blob], url.split('/').pop(), {type: blob.type || 'image/jpeg'});
+    });
+  })).then(function(files) {
+    inspoFiles = files;
+    renderInspo();
+    updateGenBtn();
+  });
+})();
 </script>
 </body>
 </html>

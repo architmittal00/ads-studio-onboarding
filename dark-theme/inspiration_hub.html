@@ -736,8 +736,12 @@ function clearSelection() {
 
 function generateAds() {
   if (selected.size === 0) return;
-  sessionStorage.setItem('inspo_count', selected.size);
-  window.location.href = 'chat.html';
+  var filtered = window._filteredImgs || [];
+  var urls = Array.from(selected).map(function(i) {
+    return imgBase + filtered[i].src;
+  });
+  sessionStorage.setItem('inspo_urls', JSON.stringify(urls));
+  window.location.href = 'create_ads.html';
 }
 
 function setFilter(el, val) {
