@@ -505,48 +505,32 @@ body{height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta 
       <img src="../images/studio-icon.png" style="width:100%;height:100%;object-fit:cover;border-radius:10px"/>
     </div>
     <div class="sb-item-wrap">
-      <div class="sb-item" title="Overview">
+      <div class="sb-item" onclick="window.location.href='creative_report.html'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        <span>Overview</span>
+        <span>Dashboard</span>
       </div>
-      <div class="sb-hover-panel">Overview</div>
+      <div class="sb-hover-panel">Dashboard</div>
     </div>
     <div class="sb-item-wrap">
-      <div class="sb-item" title="Analysis">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span>Analysis</span>
-      </div>
-      <div class="sb-hover-panel">Analysis</div>
-    </div>
-    <div class="sb-item-wrap">
-      <div class="sb-item" title="Create">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        <span>Create</span>
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span>Ads</span>
       </div>
       <div class="sb-hover-panel sb-hp-multi">
         <div class="sb-hp-label">Create Ad</div>
-        <button class="sb-hp-item">
+        <button class="sb-hp-item" onclick="window.location.href='chat.html'">
           <div class="sb-hp-icon" style="background:rgba(175,70,253,.15)">✦</div>
-          <div>
-            <div class="sb-hp-title">Create with AI</div>
-            <div class="sb-hp-sub">AI-generated copy &amp; visuals</div>
-          </div>
+          <div><div class="sb-hp-title">Create with AI</div><div class="sb-hp-sub">AI-generated copy &amp; visuals</div></div>
         </button>
         <div class="sb-hp-divider"></div>
         <button class="sb-hp-item">
           <div class="sb-hp-icon" style="background:rgba(244,52,157,.12)">📋</div>
-          <div>
-            <div class="sb-hp-title">Create with Brief</div>
-            <div class="sb-hp-sub">Upload brief, we do the rest</div>
-          </div>
+          <div><div class="sb-hp-title">Create with Brief</div><div class="sb-hp-sub">Upload brief, we do the rest</div></div>
         </button>
         <div class="sb-hp-divider"></div>
         <button class="sb-hp-item" onclick="window.location.href='create_ads.html'">
           <div class="sb-hp-icon" style="background:rgba(255,255,255,.07)">✏️</div>
-          <div>
-            <div class="sb-hp-title">Create Manually</div>
-            <div class="sb-hp-sub">Full creative control</div>
-          </div>
+          <div><div class="sb-hp-title">Create Manually</div><div class="sb-hp-sub">Full creative control</div></div>
         </button>
         <div class="sb-hp-divider"></div>
         <div class="sb-hp-label">Browse</div>
@@ -560,14 +544,14 @@ body{height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta 
       </div>
     </div>
     <div class="sb-item-wrap">
-      <div class="sb-item" title="Report">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        <span>Report</span>
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span>My</span>
       </div>
-      <div class="sb-hover-panel">Creative Report</div>
+      <div class="sb-hover-panel">My Creatives</div>
     </div>
     <div class="sb-item-wrap">
-      <div class="sb-item" title="Alerts" onclick="window.location.href='alerts.html'">
+      <div class="sb-item" onclick="window.location.href='alerts.html'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span>Alerts</span>
       </div>
@@ -575,7 +559,7 @@ body{height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta 
     </div>
     <div class="sb-div"></div>
     <div class="sb-item-wrap">
-      <div class="sb-item" title="Requests" onclick="window.location.href='index.html'" style="cursor:pointer">
+      <div class="sb-item" onclick="window.location.href='index.html'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
         <span>Requests</span>
       </div>
@@ -583,7 +567,22 @@ body{height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta 
     </div>
     <div class="sb-div"></div>
     <div class="sb-item-wrap">
-      <div class="sb-item active" title="Chat">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Audit</span>
+      </div>
+      <div class="sb-hover-panel">Ad Audit</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span>Generated</span>
+      </div>
+      <div class="sb-hover-panel">Generated Ads</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>AI</span>
       </div>
@@ -591,7 +590,7 @@ body{height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta 
     </div>
     <div class="sb-div"></div>
     <div class="sb-item-wrap">
-      <div class="sb-item" title="Workspaces" onclick="window.location.href='workspace.html'">
+      <div class="sb-item" onclick="window.location.href='workspace.html'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
         <span>Spaces</span>
       </div>
@@ -599,14 +598,16 @@ body{height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta 
     </div>
     <div class="sb-div" style="margin-top:auto"></div>
     <div class="sb-item-wrap">
-      <div class="sb-item" title="Logout" onclick="window.location.href='shiprocket_hero_carousel.html'" style="color:rgba(255,100,100,.5)" onmouseover="this.style.color='rgba(255,100,100,.85)'" onmouseout="this.style.color='rgba(255,100,100,.5)'">
+      <div class="sb-item" onclick="window.location.href='shiprocket_hero_carousel.html'" style="color:rgba(255,100,100,.5)" onmouseover="this.style.color='rgba(255,100,100,.85)'" onmouseout="this.style.color='rgba(255,100,100,.5)'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         <span>Logout</span>
       </div>
       <div class="sb-hover-panel" style="color:rgba(255,120,120,.8)">Logout</div>
     </div>
     <div style="height:8px;flex-shrink:0"></div>
-    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;margin-bottom:8px"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/></div>
+    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;margin-bottom:8px">
+      <img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/>
+    </div>
   </div>
   <!-- Workspace Switcher Popover -->
   <div class="ws-switcher-popover" id="ws-switcher-popover">
