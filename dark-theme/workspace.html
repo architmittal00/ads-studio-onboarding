@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="background:#0B0B14">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Workspace Management · Shiprocket Studio</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>if(new URLSearchParams(location.search).get('upgrade')==='1'){document.documentElement.style.opacity='0';}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -116,6 +117,17 @@ a{color:inherit;text-decoration:none}
   z-index:10;
 }
 .topbar-title{font-size:16px;font-weight:800;color:var(--t1)}
+.tb-add-btn-wrap{position:relative;display:inline-flex}
+.tb-add-btn-wrap .tb-limit-tip{
+  display:none;
+  position:absolute;top:calc(100% + 8px);right:0;
+  background:#1A1A2E;border:1px solid rgba(175,70,253,.3);
+  color:rgba(175,70,253,.9);font-size:11px;font-weight:500;
+  padding:10px 14px;border-radius:8px;max-width:280px;
+  white-space:normal;line-height:1.5;z-index:300;
+  box-shadow:0 4px 16px rgba(0,0,0,.4);
+  pointer-events:auto;
+}
 .tb-add-btn{
   padding:9px 20px;border-radius:9px;
   background:var(--grad);color:#fff;border:none;
@@ -154,7 +166,20 @@ a{color:inherit;text-decoration:none}
   padding:14px;border-radius:12px;
   background:var(--card);border:1px solid var(--border);
   cursor:pointer;transition:all .15s;margin-bottom:8px;
+  position:relative;
 }
+.ws-card-remove{
+  position:absolute;top:10px;right:10px;
+  width:20px;height:20px;border-radius:50%;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;
+  padding:0;line-height:1;
+  cursor:pointer;transition:all .15s;opacity:0;
+}
+.ws-card:hover .ws-card-remove{opacity:1}
+.ws-card-remove:hover{background:rgba(220,50,50,.2);border-color:rgba(220,50,50,.4)}
+.ws-card-remove:hover svg{stroke:#ff6b6b}
+.ws-card-remove svg{stroke:rgba(255,255,255,.35);display:block}
 .ws-card:hover{background:var(--card2);border-color:var(--border2)}
 .ws-card.selected{
   background:rgba(175,70,253,.06);
@@ -164,9 +189,20 @@ a{color:inherit;text-decoration:none}
 .ws-card-info{flex:1;min-width:0}
 .ws-card-name{font-size:13px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ws-card-url{font-size:11px;color:var(--t3);margin-top:2px}
-.ws-card-active-badge{
-  font-size:10px;font-weight:700;
-  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+.ws-card-active-badge,.ws-card-inactive-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10px;font-weight:600;
+  margin-top:5px;
+}
+.ws-card-active-badge{color:#22C55E;}
+.ws-card-active-badge::before{
+  content:'';width:5px;height:5px;border-radius:50%;
+  background:#22C55E;flex-shrink:0;
+}
+.ws-card-inactive-badge{color:rgba(255,255,255,.3);}
+.ws-card-inactive-badge::before{
+  content:'';width:5px;height:5px;border-radius:50%;
+  background:rgba(255,255,255,.2);flex-shrink:0;
 }
 .ws-card-chips{display:flex;gap:6px;flex-wrap:wrap}
 .ws-chip{
@@ -187,6 +223,25 @@ a{color:inherit;text-decoration:none}
   margin-bottom:8px;
 }
 .ws-add-card:hover{background:rgba(175,70,253,.07);border-color:rgba(175,70,253,.5);color:var(--purple)}
+/* limit reached card */
+.ws-limit-card{
+  padding:14px 16px;border-radius:12px;
+  border:1px solid rgba(175,70,253,.15);
+  background:rgba(175,70,253,.04);
+  margin-bottom:8px;font-size:12px;line-height:1.5;
+}
+.ws-limit-icon{font-size:16px;margin-bottom:6px}
+.ws-limit-text{color:rgba(255,255,255,.45);margin-bottom:6px}
+.ws-limit-link{
+  display:inline-block;font-size:11.5px;font-weight:700;
+  color:#af46fd;text-decoration:none;cursor:pointer;
+}
+.ws-limit-link:hover{text-decoration:underline}
+/* disabled add btn state */
+.ws-limit-btn{
+  opacity:.35;cursor:not-allowed !important;
+  pointer-events:none;
+}
 
 /* ── RIGHT PANEL ── */
 .right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -199,6 +254,36 @@ a{color:inherit;text-decoration:none}
 .rp-info{flex:1;min-width:0}
 .rp-ws-name{font-size:20px;font-weight:800;color:var(--t1);margin-bottom:3px}
 .rp-ws-url{font-size:13px;color:var(--t3);margin-bottom:8px}
+.rp-ws-url-link{display:inline-flex;align-items:center;gap:4px;cursor:pointer;text-decoration:none;transition:color .15s}
+.rp-ws-url-link:hover{color:var(--purple)}
+.plat-toggle{background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 4px;border-radius:6px;display:flex;align-items:center;margin-left:4px;transition:color .15s}
+.plat-toggle:hover{color:var(--t2)}
+.plat-toggle svg{transition:transform .2s}
+.plat-toggle.closed svg{transform:rotate(-90deg)}
+.plat-change-btn{
+  background:none;border:1px solid rgba(255,255,255,.1);border-radius:6px;
+  color:rgba(255,255,255,.35);font-size:11px;font-weight:600;font-family:inherit;
+  padding:3px 9px;cursor:pointer;transition:all .15s;margin-left:auto;flex-shrink:0;
+}
+.plat-change-btn:hover{border-color:rgba(175,70,253,.4);color:var(--purple);background:rgba(175,70,253,.06)}
+.reauth-reason-card{
+  padding:14px 16px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  cursor:pointer;transition:all .15s;
+}
+.reauth-reason-card:hover{background:rgba(175,70,253,.08);border-color:rgba(175,70,253,.35)}
+.meta-nudge{
+  margin-top:8px;padding:10px 12px 10px 36px;border-radius:8px;
+  background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.22);
+  font-size:11px;color:rgba(255,130,130,.85);line-height:1.55;cursor:pointer;
+  transition:background .15s;position:relative;
+}
+.meta-nudge::before{
+  content:'⚠';position:absolute;left:11px;top:10px;
+  font-size:12px;color:rgba(239,68,68,.7);line-height:1;
+}
+.meta-nudge:hover{background:rgba(239,68,68,.11)}
+.meta-nudge strong{font-weight:700;display:block;margin-bottom:2px;color:rgba(255,150,150,.95)}
 .rp-active-pill{
   display:inline-flex;align-items:center;gap:5px;
   padding:4px 10px;border-radius:20px;
@@ -207,20 +292,48 @@ a{color:inherit;text-decoration:none}
 }
 .rp-active-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
 .rp-header-actions{display:flex;gap:8px;margin-left:auto;align-items:flex-start}
-.rp-set-active-btn{
+
+/* ── CONFIRM REMOVE MODAL ── */
+.confirm-modal-backdrop{
+  position:fixed;inset:0;z-index:800;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(10px);
+  display:none;opacity:0;transition:opacity .25s;
+  align-items:center;justify-content:center;padding:20px;
+}
+.confirm-modal-backdrop.open{display:flex}
+.confirm-modal-backdrop.visible{opacity:1}
+.confirm-modal{
+  background:#0f0e1e;border:1px solid rgba(255,80,80,.2);
+  border-radius:16px;padding:28px 28px 24px;width:100%;max-width:360px;
+}
+.confirm-modal-icon{font-size:28px;margin-bottom:10px}
+.confirm-modal-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:6px}
+.confirm-modal-sub{font-size:13px;color:rgba(255,255,255,.45);line-height:1.5;margin-bottom:22px}
+.confirm-modal-ws{font-weight:700;color:rgba(255,255,255,.75)}
+.confirm-modal-actions{display:flex;gap:10px}
+.confirm-cancel-btn{
+  flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;
+  font-family:inherit;cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.6);
+  transition:all .15s;
+}
+.confirm-cancel-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.confirm-remove-btn{
+  flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;
+  font-family:inherit;cursor:pointer;
+  background:rgba(255,60,60,.12);border:1px solid rgba(255,80,80,.3);color:rgba(255,110,110,.9);
+  transition:all .15s;
+}
+.confirm-remove-btn:hover{background:rgba(255,60,60,.22);border-color:rgba(255,80,80,.55);color:#ff8080}
+
+/* ── REMOVE BUTTON ── */
+.rp-remove-btn{
   padding:8px 16px;border-radius:8px;
-  background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.25);
-  color:var(--purple);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
+  background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.2);
+  color:rgba(255,110,110,.8);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:all .15s;white-space:nowrap;
 }
-.rp-set-active-btn:hover{background:rgba(175,70,253,.22)}
-.rp-inactive-btn{
-  padding:8px 16px;border-radius:8px;
-  background:transparent;border:1px solid rgba(255,255,255,.1);
-  color:var(--t3);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
-  transition:all .15s;white-space:nowrap;
-}
-.rp-inactive-btn:hover{border-color:rgba(255,80,80,.3);color:rgba(255,100,100,.7)}
+.rp-remove-btn:hover{background:rgba(255,80,80,.16);border-color:rgba(255,80,80,.4);color:rgba(255,130,130,1)}
 
 /* name edit */
 .rp-name-wrap{display:flex;align-items:center;gap:8px}
@@ -243,6 +356,16 @@ a{color:inherit;text-decoration:none}
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
   font-size:11px;font-weight:600;color:var(--t3);
 }
+
+.rp-brand-report-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  margin-left:0;
+  font-size:10px;font-weight:600;color:var(--purple);
+  text-decoration:underline;text-underline-offset:3px;
+  text-decoration-color:rgba(175,70,253,.4);
+  transition:color .15s,text-decoration-color .15s;
+}
+.rp-brand-report-btn:hover{color:#fff;text-decoration-color:rgba(255,255,255,.5)}
 
 /* switch loader overlay */
 .rp-switch-loader{
@@ -304,6 +427,19 @@ a{color:inherit;text-decoration:none}
 .plat-status-dot.connected{background:var(--green)}
 .plat-status-dot.disconnected{background:var(--t3)}
 .platform-body{padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* ── META SUB-SECTIONS ── */
+.meta-body{padding:0 16px 6px;display:flex;flex-direction:column}
+.meta-sub{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.meta-sub:last-child{border-bottom:none}
+.meta-sub-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.meta-sub-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px}
+.meta-sub-badge{
+  font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;
+}
+.meta-sub-badge.limit{background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:rgba(175,70,253,.8)}
+.meta-sub-badge.full{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:rgba(34,197,94,.8)}
+.meta-sub-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 
 /* workspace logo */
 .ws-card-logo{
@@ -392,6 +528,10 @@ a{color:inherit;text-decoration:none}
   transform:translateY(16px);transition:transform .35s cubic-bezier(.4,0,.2,1);
 }
 .modal-overlay.visible .modal-box{transform:translateY(0)}
+.sl-input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:9px 12px;font-size:13px;color:#fff;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color .15s}
+.sl-input:focus{border-color:#af46fd}
+.sl-input option{background:#1a1a2e;color:#fff}
+@keyframes spin{to{transform:rotate(360deg)}}
 .modal-box::before{
   content:'';position:absolute;inset:0;border-radius:20px;pointer-events:none;
   background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(175,70,253,.12),transparent 65%);
@@ -561,6 +701,29 @@ a{color:inherit;text-decoration:none}
   .rp-content{padding:16px}
   .topbar{padding:0 16px}
 }
+/* ── PAYMENT METHOD TABS ── */
+.pay-tab{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.45);white-space:nowrap}
+.pay-tab.active{background:rgba(175,70,253,.15);border-color:rgba(175,70,253,.4);color:#af46fd}
+.pay-section{display:flex;flex-direction:column;gap:12px;margin-bottom:18px}
+.bank-option,.wallet-option{padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);text-align:center;user-select:none}
+.bank-option:hover,.wallet-option:hover{background:rgba(255,255,255,.09);color:#fff;border-color:rgba(255,255,255,.2)}
+.bank-option.selected,.wallet-option.selected{background:rgba(175,70,253,.15);border-color:rgba(175,70,253,.45);color:#af46fd}
+/* ── UPGRADE MODAL 2-PANEL LAYOUT ── */
+.upgrade-body{display:flex;flex:1;overflow:hidden;min-height:0}
+.upgrade-left{flex:1;overflow-y:auto;padding:20px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+.upgrade-left::-webkit-scrollbar{width:4px}
+.upgrade-left::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+.upgrade-right{width:300px;flex-shrink:0;border-left:1px solid rgba(255,255,255,.07);overflow-y:auto;padding:20px;background:rgba(7,6,16,.6);display:flex;flex-direction:column}
+.upgrade-plan-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.plan-card-sel{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.plan-card-sel:hover{border-color:rgba(175,70,253,.7) !important}
+.plan-card-sel.card-selected{border-color:#af46fd !important;box-shadow:0 0 0 3px rgba(175,70,253,.14) !important}
+@media(max-width:780px){
+  .upgrade-body{flex-direction:column}
+  .upgrade-left{overflow:visible;padding:16px}
+  .upgrade-plan-grid{grid-template-columns:1fr}
+  .upgrade-right{width:100%;border-left:none;border-top:1px solid rgba(255,255,255,.07);min-height:auto}
+}
 </style>
 </head>
 <body>
@@ -619,6 +782,13 @@ a{color:inherit;text-decoration:none}
         <span>My</span>
       </div>
       <div class="sb-hover-panel">My Creatives</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Alerts" onclick="window.location.href='alerts.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Alerts</span>
+      </div>
+      <div class="sb-hover-panel">Alerts</div>
     </div>
     <div class="sb-div"></div>
     <div class="sb-item-wrap">
@@ -679,7 +849,7 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="ws-sw-list" id="ws-sw-popover-list"></div>
     <div class="ws-sw-footer">
-      <button class="ws-sw-add-btn" onclick="toggleWsSwitcher();openAddWsModal()">+ Add Workspace</button>
+      <button class="ws-sw-add-btn" id="ws-sw-add-btn" onclick="toggleWsSwitcher();openAddWsModal()">+ Add Workspace</button>
     </div>
   </div>
 
@@ -689,9 +859,12 @@ a{color:inherit;text-decoration:none}
     <!-- Topbar -->
     <div class="topbar">
       <div class="topbar-title">Workspace Management</div>
-      <button class="tb-add-btn" onclick="openAddWsModal()">
-        + <span class="tb-add-text">Add Workspace</span>
-      </button>
+      <div class="tb-add-btn-wrap" id="tb-add-btn-wrap">
+        <button class="tb-add-btn" id="tb-add-btn" onclick="openAddWsModal()">
+          + <span class="tb-add-text">Add Workspace</span>
+        </button>
+        <div class="tb-limit-tip" id="tb-limit-tip" style="display:none">You&#x2019;ve reached the maximum number of workspaces on your current plan. <span onclick="showUpgradeModal()" style="color:#af46fd;text-decoration:underline;cursor:pointer;font-weight:700;white-space:nowrap">Upgrade your plan &#8594;</span></div>
+      </div>
     </div>
 
     <!-- Body -->
@@ -776,7 +949,7 @@ a{color:inherit;text-decoration:none}
     <div class="sd-section">
       <div class="sd-section-label">Switch Workspace</div>
       <div id="sd-ws-list"></div>
-      <button class="sd-item" style="color:#AF46FD" onclick="closeSpaceDrawer();sessionStorage.setItem('open_add_ws','1');openAddWsModal()">
+      <button class="sd-item" id="sd-add-ws-btn" style="color:#AF46FD" onclick="closeSpaceDrawer();sessionStorage.setItem('open_add_ws','1');openAddWsModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add Workspace
       </button>
@@ -839,6 +1012,243 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
+<!-- ── CONFIRM REMOVE MODAL ── -->
+<div class="confirm-modal-backdrop" id="confirm-remove-modal" onclick="if(event.target===this)closeConfirmRemove()">
+  <div class="confirm-modal">
+    <div class="confirm-modal-icon">🗑️</div>
+    <div class="confirm-modal-title">Remove Workspace?</div>
+    <div class="confirm-modal-sub">Are you sure you want to remove <span class="confirm-modal-ws" id="confirm-ws-name">this workspace</span>? This action cannot be undone.</div>
+    <div class="confirm-modal-actions">
+      <button class="confirm-cancel-btn" onclick="closeConfirmRemove()">Cancel</button>
+      <button class="confirm-remove-btn" id="confirm-remove-btn" onclick="confirmRemove()">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── REAUTH MODAL ── -->
+<div class="modal-overlay" id="reauth-modal" onclick="if(event.target===this)closeReauthModal()" style="z-index:750">
+  <div class="modal-box" style="max-width:440px">
+    <button class="modal-close" onclick="closeReauthModal()">&#215;</button>
+
+    <!-- Step 1: Reason selection -->
+    <div id="reauth-step-connect">
+      <div id="reauth-plat-icon" style="margin-bottom:14px;display:flex;justify-content:center"></div>
+      <div class="modal-title" id="reauth-title" style="margin-bottom:6px">Reconnect Platform</div>
+      <div class="modal-sub" style="margin-bottom:20px">Why do you want to reconnect?</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        <div class="reauth-reason-card" onclick="startReauth('refresh')">
+          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px">Refresh <span class="reauth-plat-label-s">platform</span> connection</div>
+          <div style="font-size:12px;color:var(--t3)">Refresh all entities that are under your <span class="reauth-plat-label">platform</span> connection.</div>
+        </div>
+        <div class="reauth-reason-card" onclick="showReauthForm()">
+          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px">Connect a different account</div>
+          <div style="font-size:12px;color:var(--t3)">Switch to a different <span class="reauth-plat-label">platform</span> account or business.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 1b: Account details form (for "Connect a different account") -->
+    <div id="reauth-step-form" style="display:none">
+      <div id="reauth-plat-icon-form" style="margin-bottom:14px;display:flex;justify-content:center"></div>
+      <div class="modal-title" style="margin-bottom:6px">Connect a different account</div>
+      <div class="modal-sub" style="margin-bottom:20px">Enter your <span id="reauth-form-plat-label">platform</span> account details to continue.</div>
+
+      <!-- Meta fields -->
+      <div id="reauth-fields-meta" style="display:none;flex-direction:column;gap:12px;margin-bottom:20px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Business Manager ID</div>
+          <input class="modal-input" id="rf-meta-biz" type="text" placeholder="e.g. 123456789012345" style="margin-bottom:0">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Account email</div>
+          <input class="modal-input" id="rf-meta-email" type="email" placeholder="you@example.com" style="margin-bottom:0" onkeydown="if(event.key==='Enter')submitReauthForm()">
+        </div>
+      </div>
+
+      <!-- Google fields -->
+      <div id="reauth-fields-google" style="display:none;flex-direction:column;gap:12px;margin-bottom:20px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Google account email</div>
+          <input class="modal-input" id="rf-google-email" type="email" placeholder="you@gmail.com" style="margin-bottom:0">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Customer ID</div>
+          <input class="modal-input" id="rf-google-id" type="text" placeholder="e.g. 123-456-7890" style="margin-bottom:0" onkeydown="if(event.key==='Enter')submitReauthForm()">
+        </div>
+      </div>
+
+      <!-- Shopify fields -->
+      <div id="reauth-fields-shopify" style="display:none;flex-direction:column;gap:12px;margin-bottom:20px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Store URL</div>
+          <input class="modal-input" id="rf-shopify-url" type="text" placeholder="yourstore.myshopify.com" style="margin-bottom:0" onkeydown="if(event.key==='Enter')submitReauthForm()">
+        </div>
+      </div>
+
+      <button class="modal-btn" onclick="submitReauthForm()">Continue to <span id="reauth-form-plat-btn">Platform</span> →</button>
+      <button style="display:block;width:100%;margin-top:10px;background:none;border:none;color:var(--t3);font-size:12px;font-family:inherit;cursor:pointer;padding:4px" onclick="backToReauthReasons()">← Back</button>
+    </div>
+
+    <!-- Step 2: Loading -->
+    <div id="reauth-step-loading" style="display:none;text-align:center;padding:20px 0">
+      <div id="reauth-plat-icon-2" style="margin-bottom:14px;display:flex;justify-content:center"></div>
+      <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px" id="reauth-loading-title">Refreshing connection…</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:20px" id="reauth-loading-sub">Syncing all entities from your platform connection</div>
+      <div style="width:100%;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden">
+        <div id="reauth-progress-bar" style="height:100%;width:0%;background:var(--grad);border-radius:2px;transition:width 1.4s ease"></div>
+      </div>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div id="reauth-step-success" style="display:none;text-align:center;padding:8px 0">
+      <div style="font-size:40px;margin-bottom:12px">✅</div>
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px" id="reauth-success-title">Refreshed successfully!</div>
+      <div style="font-size:13px;color:var(--t3);margin-bottom:24px" id="reauth-success-msg">All entities under your Meta Ads connection have been refreshed. New ad accounts, pixels, and pages are now available to add from the workspace.</div>
+      <button class="modal-btn" onclick="closeReauthModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── UPGRADE PLAN MODAL ── -->
+<div class="modal-overlay" id="upgrade-modal" onclick="if(event.target===this)closeUpgradeModal()" style="z-index:700">
+  <div class="modal-box" style="max-width:920px;width:calc(100vw - 32px);padding:0;background:#100e1f;overflow:hidden;position:relative">
+
+    <!-- Redirect overlay (shown briefly on Buy Now) -->
+    <div id="upgrade-redirect-overlay" style="display:none;position:absolute;inset:0;background:rgba(16,14,31,.96);z-index:10;flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:inherit">
+      <div style="width:44px;height:44px;border:3px solid rgba(175,70,253,.2);border-top-color:#af46fd;border-radius:50%;animation:spin .8s linear infinite"></div>
+      <div style="font-size:15px;font-weight:700;color:#fff">Redirecting to checkout...</div>
+      <div id="upgrade-redirect-label" style="font-size:12px;color:rgba(255,255,255,.4)">Pro Plan · ₹2,999/mo</div>
+    </div>
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.2px">Choose Your Plan</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px">Upgrade anytime · Cancel anytime</div>
+      </div>
+      <button class="modal-close" onclick="closeUpgradeModal()" style="position:static;margin:0">&#215;</button>
+    </div>
+
+    <!-- Plan grid -->
+    <div style="padding:16px 24px 24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+
+      <!-- STARTER (CURRENT) -->
+      <div style="border:1.5px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;background:rgba(13,11,30,.6);display:flex;flex-direction:column;opacity:.72">
+        <div style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;align-self:flex-start"><span style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3)"></span>CURRENT PLAN</div>
+        <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">STARTER</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><span style="font-size:36px;font-weight:900;color:#fff;line-height:1">Free</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:18px">Basic features included</div>
+        <div style="height:1px;background:rgba(255,255,255,.07);margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;flex:1;margin-bottom:22px">
+          <div style="font-size:13px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,.35);flex-shrink:0">✓</span>3 workspaces</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,.35);flex-shrink:0">✓</span>Basic analytics</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,.35);flex-shrink:0">✓</span>Brand report</div>
+        </div>
+        <button disabled style="width:100%;padding:14px;border-radius:10px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);font-size:14px;font-weight:700;font-family:inherit;cursor:not-allowed">✓ Current Plan</button>
+      </div>
+
+      <!-- PRO -->
+      <div style="border:1.5px solid rgba(175,70,253,.45);border-radius:16px;padding:24px;background:rgba(13,11,30,.95);display:flex;flex-direction:column;position:relative">
+        <div style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(90deg,#af46fd,#f4349d);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.5px;margin-bottom:14px;align-self:flex-start">✦ MOST POPULAR</div>
+        <div style="font-size:13px;font-weight:800;color:#af46fd;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">PRO</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><span style="font-size:36px;font-weight:900;color:#fff;line-height:1">₹2,999</span><span style="font-size:13px;color:rgba(255,255,255,.45);font-weight:500">/mo</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:18px">Billed monthly · cancel anytime</div>
+        <div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;flex:1;margin-bottom:22px">
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(175,70,253,.25);border:1.5px solid rgba(175,70,253,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#af46fd;flex-shrink:0">✓</span>5 workspaces</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(175,70,253,.25);border:1.5px solid rgba(175,70,253,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#af46fd;flex-shrink:0">✓</span>Connect Meta &amp; Google Ads</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(175,70,253,.25);border:1.5px solid rgba(175,70,253,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#af46fd;flex-shrink:0">✓</span>Full creative performance report</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(175,70,253,.25);border:1.5px solid rgba(175,70,253,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#af46fd;flex-shrink:0">✓</span>3 competitors tracked</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(175,70,253,.25);border:1.5px solid rgba(175,70,253,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#af46fd;flex-shrink:0">✓</span>Performance alerts</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(175,70,253,.25);border:1.5px solid rgba(175,70,253,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#af46fd;flex-shrink:0">✓</span>₹500 ad credits on signup</div>
+        </div>
+        <button class="modal-btn" style="background:linear-gradient(90deg,#af46fd,#f4349d);border:none;color:#fff;font-weight:700;font-size:14px;padding:14px;cursor:pointer;border-radius:10px;font-family:inherit" onclick="goToCheckout('pro')">Buy Now →</button>
+      </div>
+
+      <!-- PREMIUM -->
+      <div style="border:1.5px solid rgba(218,59,194,.4);border-radius:16px;padding:24px;background:rgba(13,11,30,.95);display:flex;flex-direction:column;position:relative">
+        <div style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(90deg,#af46fd,#DA3BC2,#f4349d);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;color:#fff;letter-spacing:.5px;margin-bottom:14px;align-self:flex-start">✦ BEST VALUE</div>
+        <div style="font-size:13px;font-weight:800;color:#DA3BC2;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">PREMIUM</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><span style="font-size:36px;font-weight:900;color:#fff;line-height:1">₹4,999</span><span style="font-size:13px;color:rgba(255,255,255,.45);font-weight:500">/mo</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:18px">Billed monthly · cancel anytime</div>
+        <div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:18px"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;flex:1;margin-bottom:22px">
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>10 workspaces</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>All ad platforms</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>Full creative performance report</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>Unlimited competitors</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>Performance alerts</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>₹2,000 ad credits on signup</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>Shiprocket order attribution</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>Ads AI Agent (24/7)</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:rgba(218,59,194,.2);border:1.5px solid rgba(218,59,194,.5);display:flex;align-items:center;justify-content:center;font-size:9px;color:#DA3BC2;flex-shrink:0">✓</span>Priority support</div>
+        </div>
+        <button class="modal-btn" style="background:linear-gradient(90deg,#af46fd,#DA3BC2,#f4349d);border:none;color:#fff;font-weight:700;font-size:14px;padding:14px;cursor:pointer;border-radius:10px;font-family:inherit" onclick="goToCheckout('premium')">Buy Now →</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── SALES LEAD FORM MODAL ── -->
+<div class="modal-overlay" id="sales-modal" onclick="if(event.target===this)closeSalesModal()" style="z-index:710">
+  <div class="modal-box" style="max-width:480px;width:calc(100vw - 32px);padding:0;background:#100e1f;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#fff">Talk to Sales</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px">Our team will reach out within 24 hours</div>
+      </div>
+      <button class="modal-close" onclick="closeSalesModal()" style="position:static;margin:0">&#215;</button>
+    </div>
+    <div id="sales-form-wrap" style="padding:20px 24px 24px;max-height:70vh;overflow-y:auto">
+      <form id="sales-lead-form" onsubmit="submitSalesLead(event)" novalidate style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><label style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">Full Name <span style="color:#ef4444">*</span></label><input id="sl-name" type="text" required placeholder="Riya Sharma" class="sl-input"></div>
+          <div><label style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">Company Name <span style="color:#ef4444">*</span></label><input id="sl-company" type="text" required placeholder="Nykaa Ltd." class="sl-input"></div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">Work Email <span style="color:#ef4444">*</span></label>
+          <input id="sl-email" type="email" required placeholder="riya@company.com" class="sl-input">
+          <div id="sl-email-err" style="font-size:11px;color:#ef4444;margin-top:4px;display:none">Please enter a valid email address.</div>
+        </div>
+        <div><label style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">Phone Number <span style="color:#ef4444">*</span></label><input id="sl-phone" type="tel" required placeholder="+91 98765 43210" class="sl-input"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">Monthly Ad Spend <span style="color:#ef4444">*</span></label>
+            <select id="sl-spend" required class="sl-input" style="cursor:pointer;appearance:none">
+              <option value="" disabled selected>Select range</option>
+              <option value="under-1l">Under ₹1L</option>
+              <option value="1l-5l">₹1L – ₹5L</option>
+              <option value="5l-20l">₹5L – ₹20L</option>
+              <option value="20l-plus">₹20L+</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">No. of Brands/Stores <span style="color:#ef4444">*</span></label>
+            <select id="sl-brands" required class="sl-input" style="cursor:pointer;appearance:none">
+              <option value="" disabled selected>Select</option>
+              <option value="1">1</option>
+              <option value="2-5">2 – 5</option>
+              <option value="6-15">6 – 15</option>
+              <option value="15-plus">15+</option>
+            </select>
+          </div>
+        </div>
+        <div><label style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">Message <span style="color:rgba(255,255,255,.3);font-weight:400">(optional)</span></label><textarea id="sl-message" rows="3" placeholder="Tell us about your use case..." class="sl-input" style="resize:vertical"></textarea></div>
+        <div id="sl-general-err" style="font-size:12px;color:#ef4444;display:none;padding:8px 12px;background:rgba(239,68,68,.08);border-radius:8px;border:1px solid rgba(239,68,68,.2)"></div>
+        <button type="submit" id="sl-submit-btn" style="background:linear-gradient(90deg,#af46fd,#f4349d);border:none;color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:10px;cursor:pointer;font-family:inherit;transition:opacity .2s;width:100%">Submit →</button>
+      </form>
+      <div id="sales-success" style="display:none;text-align:center;padding:32px 0">
+        <div style="width:52px;height:52px;border-radius:50%;background:rgba(74,222,128,.15);border:2px solid #4ade80;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 16px">✓</div>
+        <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px">Request Received!</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.5);line-height:1.6">Our team will contact you shortly.</div>
+        <button onclick="closeSalesModal()" style="margin-top:20px;background:linear-gradient(90deg,#af46fd,#f4349d);border:none;color:#fff;font-weight:700;font-size:13px;padding:11px 28px;border-radius:10px;cursor:pointer;font-family:inherit">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- checkout-modal removed; payment is now in the upgrade modal sidebar -->
 <!-- ── CONNECT ACCOUNTS MODAL ── -->
 <div class="modal-overlay" id="connect-modal">
   <div class="modal-box">
@@ -858,22 +1268,69 @@ var platformIcons = {
   shopify: '<div style="width:38px;height:38px;border-radius:10px;background:rgba(149,191,71,.08);border:1px solid rgba(149,191,71,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="#95BF47"><path d="M15.337 23.979l7.216-1.561s-2.597-17.566-2.617-17.7c-.019-.133-.133-.218-.256-.218-.124 0-2.345-.047-2.345-.047s-1.542-1.495-1.713-1.656v21.182zm-2.489.521l-6.477-1.8v-1.333h-1.09v-15.498l1.5-.408S8.3 4.2 8.357 4.017c.057-.189.208-.256.35-.218.133.038 2.86.883 2.86.883L15.337 24l-2.489.5zM9.75 4.463l-1.165.322s-.18-1.165-.854-1.75c.673.067 1.154.711 1.154 1.154l.865-.246V4.463zm-.865 0l-.5.133v-.133s0-.865-.5-1.363c.5.133.979.597 1 1.363zm-.5.133l-1 .284s.067-.5.067-1.1c.394.246.755.559.933.816z"/></svg></div>'
 };
 
+/* ── BRAND LOGO HELPERS ── */
+// Primary source: Clearbit Logo API (high-quality brand logos, no auth required)
+// Fallback 1: Google Favicon S2 API (128 px)
+// Fallback 2: Gradient bubble with initial letter (handled via onerror in each img)
+function getBrandLogo(domain) {
+  return 'https://logo.clearbit.com/' + domain;
+}
+
+// Returns an <img> tag with a two-stage onerror fallback chain.
+// stage 1: Clearbit fails → try Google favicon
+// stage 2: Google favicon fails → replace container with initial-letter bubble
+function logoImgHtml(ws, inlineStyle) {
+  var domain = ws.url || '';
+  var initial = ws.initial || (ws.name ? ws.name.charAt(0).toUpperCase() : '?');
+  var src = ws.logo || getBrandLogo(domain);
+  var googleFallback = 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128';
+  var style = inlineStyle || 'width:100%;height:100%;object-fit:cover';
+  // Escape single quotes for the inline handler
+  var safeInitial = initial.replace(/'/g, "\\'");
+  var onerror = "if(this.src.indexOf('clearbit')!==-1){" +
+    "this.onerror=function(){" +
+      "this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';" +
+      "this.parentNode.innerHTML='" + safeInitial + "'" +
+    "};" +
+    "this.src='" + googleFallback + "'" +
+  "}else{" +
+    "this.parentNode.style.background='linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)';" +
+    "this.parentNode.innerHTML='" + safeInitial + "'" +
+  "}";
+  return '<img src="' + src + '" alt="' + initial + '" style="' + style + '" onerror="' + onerror + '"/>';
+}
+
+/* ── PLAN LIMITS ── */
+var WS_LIMIT_FREE  = 3;
+var WS_LIMIT_PRO   = 5;
+var WS_LIMIT_SCALE = 10;
+var _userPlan = 'free';
+var WS_LIMIT = WS_LIMIT_FREE;
+function atWsLimit() { return workspaces.length >= WS_LIMIT; }
+
 /* ── MOCK ACCOUNT POOLS ── */
 var mockAccountPools = {
   meta: ['Meta Ads Main', 'Instagram Shopping', 'Facebook Catalog', 'Meta Retargeting', 'Lookalike Audience'],
+  metaPixel: ['Main Pixel', 'Checkout Pixel', 'Retargeting Pixel'],
+  fbPage: ['Official Facebook Page', 'Brand Community Page', 'Product Showcase Page'],
+  igPage: ['@brand_official', '@brand_wellness', '@brand_store'],
   google: ['Google Search', 'Performance Max', 'Google Shopping', 'YouTube Ads', 'Display Network'],
+  googleMerchant: ['Main Merchant Centre', 'B2B Merchant Centre', 'International Merchant Centre'],
+  googleTagManager: ['GTM - Main Container', 'GTM - App Container', 'GTM - Staging Container'],
   shopify: ['Primary Store', 'Wholesale Store', 'B2B Portal', 'International Store', 'Pop-up Store']
 };
 
 /* ── STATE ── */
-var workspaces = [
+var DEFAULT_WORKSPACES = [
   {
     id:1, name:'Shesha Ayurveda', url:'sheshaayurveda.com', initial:'S',
-    logo:'../images/shesha-logo.svg',
+    logo:'../images/shesha-logo.avif',
     active:true,
     accounts:{
       meta:['Shesha_Main_IN','Shesha_D2C_2024'],
+      metaPixel:[],fbPage:[],igPage:[],
       google:['Shesha-Google-Ads'],
+      googleMerchant:[],googleTagManager:[],
       shopify:['shesha-store.myshopify.com']
     }
   },
@@ -883,14 +1340,41 @@ var workspaces = [
     active:true,
     accounts:{
       meta:['Nykaa_Meta_Main'],
-      google:[],
+      metaPixel:[],fbPage:[],igPage:[],
+      google:[],googleMerchant:[],googleTagManager:[],
       shopify:['nykaa.myshopify.com']
     }
   }
 ];
+
+function saveWorkspaces() {
+  try { localStorage.setItem('ws_list', JSON.stringify(workspaces)); } catch(e) {}
+}
+
+function loadWorkspaces() {
+  try {
+    var saved = localStorage.getItem('ws_list');
+    if (saved) {
+      var parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_WORKSPACES)); // deep copy of defaults
+}
+
+var workspaces = loadWorkspaces();
 var selectedWs = 0;
 var pendingDomain = '';
 var connectState = {meta:false,google:false,shopify:false};
+
+/* ── ACTIVE STATUS: computed from accounts ── */
+function isWorkspaceActive(ws) {
+  var a = ws.accounts || {};
+  return (a.meta||[]).length > 0 || (a.metaPixel||[]).length > 0 ||
+         (a.fbPage||[]).length > 0 || (a.igPage||[]).length > 0 ||
+         (a.google||[]).length > 0 || (a.googleMerchant||[]).length > 0 ||
+         (a.googleTagManager||[]).length > 0 || (a.shopify||[]).length > 0;
+}
 
 /* ── RENDER WORKSPACE LIST ── */
 function renderWorkspaceList() {
@@ -900,21 +1384,22 @@ function renderWorkspaceList() {
   for (var i = 0; i < workspaces.length; i++) {
     var ws = workspaces[i];
     var selectedClass = (i === selectedWs) ? ' selected' : '';
-    var metaConnected = ws.accounts.meta.length > 0;
-    var googleConnected = ws.accounts.google.length > 0;
+    var metaConnected = ws.accounts.meta.length > 0 || ws.accounts.metaPixel.length > 0 || ws.accounts.fbPage.length > 0 || ws.accounts.igPage.length > 0;
+    var googleConnected = ws.accounts.google.length > 0 || (ws.accounts.googleMerchant||[]).length > 0 || (ws.accounts.googleTagManager||[]).length > 0;
     var shopifyConnected = ws.accounts.shopify.length > 0;
     html += '<div class="ws-card' + selectedClass + '" onclick="selectWorkspace(' + i + ')">';
+    html += '<button class="ws-card-remove" onclick="event.stopPropagation();removeWorkspace(' + i + ')" title="Remove workspace"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke-width="1.8" stroke-linecap="round"><line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/></svg></button>';
     html += '<div class="ws-card-top">';
-    if (ws.logo) {
-      html += '<div class="ws-card-logo"><img src="' + ws.logo + '" alt="' + ws.initial + '"/></div>';
-    } else {
-      html += '<div class="ws-card-bubble">' + ws.initial + '</div>';
-    }
+    html += '<div class="ws-card-logo">' + logoImgHtml(ws) + '</div>';
+    var wsActive = isWorkspaceActive(ws);
     html += '<div class="ws-card-info">';
-    html += '<div class="ws-card-name">' + ws.name;
-    if (ws.active) html += '<span class="ws-card-active-badge">Active</span>';
-    html += '</div>';
+    html += '<div class="ws-card-name">' + ws.name + '</div>';
     html += '<div class="ws-card-url">' + ws.url + '</div>';
+    if (wsActive) {
+      html += '<div class="ws-card-active-badge">Active</div>';
+    } else {
+      html += '<div class="ws-card-inactive-badge">Inactive</div>';
+    }
     html += '</div></div>';
     html += '<div class="ws-card-chips">';
     html += '<span class="ws-chip ' + (metaConnected ? 'connected' : 'disconnected') + '">Meta</span>';
@@ -923,16 +1408,20 @@ function renderWorkspaceList() {
     html += '</div>';
     html += '</div>';
   }
-  html += '<div class="ws-add-card" onclick="openAddWsModal()"><span>+</span><span>Add New Workspace</span></div>';
+  if (atWsLimit()) {
+    html += '<div class="ws-limit-card"><div class="ws-limit-icon">🔒</div><div class="ws-limit-text">You\'ve reached the maximum number of workspaces on your current plan.</div><a class="ws-limit-link" onclick="showUpgradeModal()">Upgrade your plan →</a></div>';
+  } else {
+    html += '<div class="ws-add-card" onclick="openAddWsModal()"><span>+</span><span>Add New Workspace</span></div>';
+  }
   container.innerHTML = html;
   var countEl = document.getElementById('lp-count');
   if (countEl) countEl.textContent = workspaces.length;
+  applyWorkspaceLimit();
 }
 
 /* ── SELECT WORKSPACE ── */
 function selectWorkspace(idx) {
   if (idx === selectedWs) return;
-  // show loader
   var content = document.getElementById('rp-content');
   if (content) {
     var loader = document.createElement('div');
@@ -943,8 +1432,10 @@ function selectWorkspace(idx) {
   }
   setTimeout(function(){
     selectedWs = idx;
+    updateSidebarBubble();
     renderWorkspaceList();
     renderDetailPanel();
+    renderWsPopover();
     if (window.innerWidth <= 640) showMobDetail();
     showSwitchToast(workspaces[idx].name);
   }, 400);
@@ -959,28 +1450,46 @@ function showSwitchToast(name) {
   setTimeout(function(){ toast.classList.remove('show'); }, 2200);
 }
 
-/* ── SET ACTIVE / INACTIVE WORKSPACE ── */
+/* ── SET ACTIVE WORKSPACE (used by switcher popover) ── */
 function setActiveWorkspace(idx) {
-  workspaces[idx].active = true;
   selectedWs = idx;
-  var bubble = document.getElementById('sb-ws-bubble');
-  if (bubble) {
-    if (workspaces[idx].logo) {
-      bubble.style.background = '#fff';
-      bubble.style.overflow = 'hidden';
-      bubble.innerHTML = '<img src="' + workspaces[idx].logo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent=\'' + workspaces[idx].initial + '\';this.parentNode.style.background=\'\'"/>';
-    } else {
-      bubble.style.background = '';
-      bubble.style.overflow = '';
-      bubble.innerHTML = workspaces[idx].initial;
-    }
-  }
+  updateSidebarBubble();
   renderWorkspaceList();
   renderDetailPanel();
   renderWsPopover();
 }
-function markInactive(idx) {
-  workspaces[idx].active = false;
+
+/* ── REMOVE WORKSPACE ── */
+var _pendingRemoveIdx = -1;
+
+function removeWorkspace(idx) {
+  // Show confirmation modal instead of removing immediately
+  _pendingRemoveIdx = idx;
+  var nameEl = document.getElementById('confirm-ws-name');
+  if (nameEl) nameEl.textContent = workspaces[idx] ? '"' + workspaces[idx].name + '"' : 'this workspace';
+  var m = document.getElementById('confirm-remove-modal');
+  if (m) {
+    m.classList.add('open');
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ m.classList.add('visible'); }); });
+  }
+}
+
+function closeConfirmRemove() {
+  var m = document.getElementById('confirm-remove-modal');
+  if (m) {
+    m.classList.remove('visible');
+    setTimeout(function(){ m.classList.remove('open'); }, 250);
+  }
+  _pendingRemoveIdx = -1;
+}
+
+function confirmRemove() {
+  if (_pendingRemoveIdx === -1) return;
+  var idx = _pendingRemoveIdx;
+  closeConfirmRemove();
+  workspaces.splice(idx, 1);
+  if (selectedWs >= workspaces.length) selectedWs = Math.max(0, workspaces.length - 1);
+  saveWorkspaces();
   renderWorkspaceList();
   renderDetailPanel();
   renderWsPopover();
@@ -1003,6 +1512,7 @@ function startEditName(idx) {
       workspaces[idx].name = val;
       if (!workspaces[idx].logo) workspaces[idx].initial = val.charAt(0).toUpperCase();
     }
+    saveWorkspaces();
     renderWorkspaceList();
     renderDetailPanel();
   }
@@ -1016,6 +1526,7 @@ function startEditName(idx) {
 /* ── REMOVE ACCOUNT ── */
 function removeAccount(wsIdx, platform, accountIdx) {
   workspaces[wsIdx].accounts[platform].splice(accountIdx, 1);
+  saveWorkspaces();
   renderDetailPanel();
   renderWorkspaceList();
 }
@@ -1024,20 +1535,70 @@ function removeAccount(wsIdx, platform, accountIdx) {
 function addWorkspace(domain) {
   var cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
   var initial = cleanDomain.charAt(0).toUpperCase();
+  var wsName = cleanDomain.split('.')[0];
+  wsName = wsName.charAt(0).toUpperCase() + wsName.slice(1);
   var newWs = {
     id: workspaces.length + 1,
-    name: cleanDomain,
+    name: wsName,
     url: cleanDomain,
     initial: initial,
     active: false,
-    accounts:{meta:[],google:[],shopify:[]}
+    logo: getBrandLogo(cleanDomain),
+    accounts:{meta:[],metaPixel:[],fbPage:[],igPage:[],google:[],googleMerchant:[],googleTagManager:[],shopify:[]}
   };
   workspaces.push(newWs);
   selectedWs = workspaces.length - 1;
+  saveWorkspaces();
   renderWorkspaceList();
   renderDetailPanel();
   renderWsPopover();
 }
+
+/* ── RENDER SUB-SECTION (generic, used by Meta / Google / Shopify) ── */
+function renderMetaSubSection(ws, wsIdx, subKey, label, limit, nudgeHtml) {
+  var accs = ws.accounts[subKey] || [];
+  var isFull = accs.length >= limit;
+  var pool = mockAccountPools[subKey] || [];
+  var dropId = 'dd-' + wsIdx + '-' + subKey;
+
+  var h = '<div class="meta-sub">';
+  h += '<div class="meta-sub-header">';
+  h += '<span class="meta-sub-label">' + label + '</span>';
+  h += '<span class="meta-sub-badge limit" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:rgba(255,255,255,.3)">' + accs.length + '/' + limit + '</span>';
+  h += '</div>';
+  h += '<div class="meta-sub-chips">';
+  for (var a = 0; a < accs.length; a++) {
+    h += '<div class="account-chip">';
+    h += '<span>' + accs[a] + '</span>';
+    h += '<button class="chip-remove" onclick="removeAccount(' + wsIdx + ',\'' + subKey + '\',' + a + ')" title="Remove">&#215;</button>';
+    h += '</div>';
+  }
+  if (!isFull) {
+    h += '<div class="add-acct-wrap">';
+    h += '<button class="add-account-btn" onclick="toggleAcctDropdown(event,\'' + dropId + '\',\'' + subKey + '\',' + wsIdx + ')">+ Add</button>';
+    h += '<div class="add-acct-dropdown" id="' + dropId + '">';
+    for (var o = 0; o < pool.length; o++) {
+      if (accs.indexOf(pool[o]) === -1) {
+        h += '<div class="add-acct-option" onclick="pickAccount(\'' + dropId + '\',\'' + subKey + '\',' + wsIdx + ',' + o + ',' + limit + ')">' + pool[o] + '</div>';
+      }
+    }
+    if (nudgeHtml) h += nudgeHtml;
+    h += '</div></div>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
+/* ── PLATFORM COLLAPSE STATE ── */
+var platformOpen = {};
+function isPlatOpen(wsIdx, key) {
+  return platformOpen[wsIdx + '-' + key] === true;
+}
+function togglePlatform(wsIdx, key) {
+  platformOpen[wsIdx + '-' + key] = !isPlatOpen(wsIdx, key);
+  renderDetailPanel();
+}
+var chevronSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>';
 
 /* ── RENDER DETAIL PANEL ── */
 function renderDetailPanel() {
@@ -1052,29 +1613,24 @@ function renderDetailPanel() {
 
   // Header
   html += '<div class="rp-header">';
-  if (ws.logo) {
-    html += '<div class="rp-logo"><img src="' + ws.logo + '" alt="' + ws.initial + '"/></div>';
-  } else {
-    html += '<div class="rp-bubble">' + ws.initial + '</div>';
-  }
+  html += '<div class="rp-logo">' + logoImgHtml(ws) + '</div>';
   html += '<div class="rp-info">';
   html += '<div class="rp-name-wrap">';
   html += '<div class="rp-ws-name" id="rp-ws-name-' + selectedWs + '">' + ws.name + '</div>';
   html += '<button class="rp-edit-btn" onclick="startEditName(' + selectedWs + ')" title="Edit name"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
   html += '</div>';
-  html += '<div class="rp-ws-url">' + ws.url + '</div>';
-  if (ws.active) {
+  html += '<div class="rp-ws-url"><a class="rp-ws-url-link" href="https://' + ws.url + '" target="_blank" rel="noopener">' + ws.url + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></div>';
+  html += '<div style="display:flex;align-items:center;gap:14px;margin-top:6px">';
+  if (isWorkspaceActive(ws)) {
     html += '<div class="rp-active-pill"><span class="rp-active-dot"></span>Active</div>';
   } else {
     html += '<div class="rp-inactive-pill">Inactive</div>';
   }
+  html += '<a class="rp-brand-report-btn" href="brand_summary.html" target="_blank">↗ View Brand Report</a>';
+  html += '</div>';
   html += '</div>';
   html += '<div class="rp-header-actions">';
-  if (!ws.active) {
-    html += '<button class="rp-set-active-btn" onclick="setActiveWorkspace(' + selectedWs + ')">Set Active</button>';
-  } else {
-    html += '<button class="rp-inactive-btn" onclick="markInactive(' + selectedWs + ')">Mark Inactive</button>';
-  }
+  html += '<button class="rp-remove-btn" onclick="removeWorkspace(' + selectedWs + ')">Remove workspace</button>';
   html += '</div>';
   html += '</div>';
 
@@ -1087,61 +1643,140 @@ function renderDetailPanel() {
 
   for (var p = 0; p < platforms.length; p++) {
     var plat = platforms[p];
-    var accs = ws.accounts[plat.key];
-    var isConn = accs.length > 0;
-    html += '<div class="platform-section">';
-    html += '<div class="platform-header">';
-    html += '<span class="platform-icon">' + (platformIcons[plat.key] || '') + '</span>';
-    html += '<span class="platform-name">' + plat.label + '</span>';
-    html += '<span class="platform-count">' + accs.length + '/3</span>';
-    html += '<div class="platform-status ' + (isConn ? 'connected' : 'disconnected') + '">';
-    html += '<span class="plat-status-dot ' + (isConn ? 'connected' : 'disconnected') + '"></span>';
-    html += isConn ? 'Connected' : 'Not connected';
-    html += '</div>';
-    html += '</div>';
-    html += '<div class="platform-body">';
-    for (var a = 0; a < accs.length; a++) {
-      html += '<div class="account-chip">';
-      html += '<span>' + accs[a] + '</span>';
-      html += '<button class="chip-remove" onclick="removeAccount(' + selectedWs + ',\'' + plat.key + '\',' + a + ')" title="Remove">&#215;</button>';
+
+    if (plat.key === 'meta') {
+      // Meta gets special sub-section rendering
+      var accs = ws.accounts.meta;
+      var totalConnected = accs.length + (ws.accounts.metaPixel||[]).length + (ws.accounts.fbPage||[]).length + (ws.accounts.igPage||[]).length;
+      var isConn = totalConnected > 0;
+      var metaIsOpen = isPlatOpen(selectedWs, 'meta');
+      html += '<div class="platform-section">';
+      html += '<div class="platform-header" style="cursor:pointer" onclick="togglePlatform(' + selectedWs + ',\'meta\')">';
+      html += '<span class="platform-icon">' + (platformIcons['meta'] || '') + '</span>';
+      html += '<span class="platform-name">Meta Ads</span>';
+      html += '<button class="plat-change-btn" onclick="event.stopPropagation();openReauthModal(' + selectedWs + ',\'meta\')">Reconnect</button>';
+      html += '<div class="platform-status ' + (isConn ? 'connected' : 'disconnected') + '" style="margin-left:auto">';
+      html += '<span class="plat-status-dot ' + (isConn ? 'connected' : 'disconnected') + '"></span>';
+      html += isConn ? 'Connected' : 'Not connected';
       html += '</div>';
-    }
-    if (accs.length < 3) {
-      var dropId = 'dd-' + plat.key;
-      // build available options (not already added)
-      var pool = mockAccountPools[plat.key] || [];
-      html += '<div class="add-acct-wrap">';
-      html += '<button class="add-account-btn" onclick="toggleAcctDropdown(event,\'' + dropId + '\',\'' + plat.key + '\',' + selectedWs + ')">+ Add Account</button>';
-      html += '<div class="add-acct-dropdown" id="' + dropId + '">';
-      for (var o = 0; o < pool.length; o++) {
-        if (accs.indexOf(pool[o]) === -1) {
-          html += '<div class="add-acct-option" onclick="pickAccount(\'' + dropId + '\',\'' + plat.key + '\',' + selectedWs + ',' + o + ')">' + pool[o] + '</div>';
+      html += '<button class="plat-toggle ' + (metaIsOpen ? '' : 'closed') + '" onclick="event.stopPropagation();togglePlatform(' + selectedWs + ',\'meta\')">' + chevronSvg + '</button>';
+      html += '</div>';
+      html += '<div class="meta-body"' + (metaIsOpen ? '' : ' style="display:none"') + '>';
+
+      // Ad Accounts sub-section
+      var metaAccs = ws.accounts.meta;
+      var metaFull = metaAccs.length >= 3;
+      var metaDropId = 'dd-' + selectedWs + '-meta';
+      html += '<div class="meta-sub">';
+      html += '<div class="meta-sub-header"><span class="meta-sub-label">Ad Accounts</span><span class="meta-sub-badge limit" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:rgba(255,255,255,.3)">' + metaAccs.length + '/3</span></div>';
+      html += '<div class="meta-sub-chips">';
+      for (var a = 0; a < metaAccs.length; a++) {
+        html += '<div class="account-chip"><span>' + metaAccs[a] + '</span><button class="chip-remove" onclick="removeAccount(' + selectedWs + ',\'meta\',' + a + ')" title="Remove">&#215;</button></div>';
+      }
+      if (!metaFull) {
+        html += '<div class="add-acct-wrap"><button class="add-account-btn" onclick="toggleAcctDropdown(event,\'' + metaDropId + '\',\'meta\',' + selectedWs + ')">+ Add Account</button><div class="add-acct-dropdown" id="' + metaDropId + '">';
+        var pool = mockAccountPools['meta'] || [];
+        for (var o = 0; o < pool.length; o++) {
+          if (metaAccs.indexOf(pool[o]) === -1) {
+            html += '<div class="add-acct-option" onclick="pickAccount(\'' + metaDropId + '\',\'meta\',' + selectedWs + ',' + o + ',3)">' + pool[o] + '</div>';
+          }
         }
+        html += '<div class="meta-nudge" onclick="event.stopPropagation();openReauthModal(' + selectedWs + ',\'meta\')"><strong>Not seeing an account?</strong>If you\'ve recently added a new ad account in Meta, reauthenticate your connection to make it visible here.</div>';
+        html += '</div></div>';
       }
       html += '</div></div>';
+
+      // Meta Pixel sub-section (limit 1)
+      html += renderMetaSubSection(ws, selectedWs, 'metaPixel', 'Meta Pixel', 1);
+      // Facebook Pages sub-section
+      html += renderMetaSubSection(ws, selectedWs, 'fbPage', 'Facebook Page', 3);
+      // Instagram Pages sub-section
+      html += renderMetaSubSection(ws, selectedWs, 'igPage', 'Instagram Page', 3);
+
+      html += '</div></div>';
+
+    } else if (plat.key === 'google') {
+      // Google Ads — sub-sections: Ad Accounts, Merchant Centre, Tag Manager
+      var gAccs = ws.accounts.google;
+      var totalGConn = gAccs.length + (ws.accounts.googleMerchant||[]).length + (ws.accounts.googleTagManager||[]).length;
+      var gIsConn = totalGConn > 0;
+      var gIsOpen = isPlatOpen(selectedWs, 'google');
+      html += '<div class="platform-section">';
+      html += '<div class="platform-header" style="cursor:pointer" onclick="togglePlatform(' + selectedWs + ',\'google\')">';
+      html += '<span class="platform-icon">' + platformIcons['google'] + '</span>';
+      html += '<span class="platform-name">Google Ads</span>';
+      html += '<button class="plat-change-btn" onclick="event.stopPropagation();openReauthModal(' + selectedWs + ',\'google\')">Reconnect</button>';
+      html += '<div class="platform-status ' + (gIsConn ? 'connected' : 'disconnected') + '" style="margin-left:auto"><span class="plat-status-dot ' + (gIsConn ? 'connected' : 'disconnected') + '"></span>' + (gIsConn ? 'Connected' : 'Not connected') + '</div>';
+      html += '<button class="plat-toggle ' + (gIsOpen ? '' : 'closed') + '" onclick="event.stopPropagation();togglePlatform(' + selectedWs + ',\'google\')">' + chevronSvg + '</button>';
+      html += '</div>';
+      html += '<div class="meta-body"' + (gIsOpen ? '' : ' style="display:none"') + '>';
+      // Ad Accounts sub-section
+      var gFull = gAccs.length >= 3;
+      var gDropId = 'dd-' + selectedWs + '-google';
+      html += '<div class="meta-sub"><div class="meta-sub-header"><span class="meta-sub-label">Ad Accounts</span><span class="meta-sub-badge limit" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:rgba(255,255,255,.3)">' + gAccs.length + '/3</span></div><div class="meta-sub-chips">';
+      for (var a = 0; a < gAccs.length; a++) {
+        html += '<div class="account-chip"><span>' + gAccs[a] + '</span><button class="chip-remove" onclick="removeAccount(' + selectedWs + ',\'google\',' + a + ')">&#215;</button></div>';
+      }
+      if (!gFull) {
+        html += '<div class="add-acct-wrap"><button class="add-account-btn" onclick="toggleAcctDropdown(event,\'' + gDropId + '\',\'google\',' + selectedWs + ')">+ Add Account</button><div class="add-acct-dropdown" id="' + gDropId + '">';
+        var gPool = mockAccountPools['google'] || [];
+        for (var o = 0; o < gPool.length; o++) { if (gAccs.indexOf(gPool[o]) === -1) html += '<div class="add-acct-option" onclick="pickAccount(\'' + gDropId + '\',\'google\',' + selectedWs + ',' + o + ',3)">' + gPool[o] + '</div>'; }
+        html += '<div class="meta-nudge" onclick="event.stopPropagation();openReauthModal(' + selectedWs + ',\'google\')"><strong>Not seeing an account?</strong>If you\'ve recently added a new ad account in Google, reauthenticate your connection to make it visible here.</div>';
+        html += '</div></div>';
+      }
+      html += '</div></div>';
+      html += renderMetaSubSection(ws, selectedWs, 'googleMerchant', 'Merchant Centre', 3);
+      html += renderMetaSubSection(ws, selectedWs, 'googleTagManager', 'Tag Manager', 1);
+      html += '</div></div>';
+
+    } else {
+      // Shopify — sub-section: Stores
+      var sIsConn = ws.accounts.shopify.length > 0;
+      var sIsOpen = isPlatOpen(selectedWs, 'shopify');
+      html += '<div class="platform-section">';
+      html += '<div class="platform-header" style="cursor:pointer" onclick="togglePlatform(' + selectedWs + ',\'shopify\')">';
+      html += '<span class="platform-icon">' + platformIcons['shopify'] + '</span>';
+      html += '<span class="platform-name">Shopify</span>';
+      html += '<button class="plat-change-btn" onclick="event.stopPropagation();openReauthModal(' + selectedWs + ',\'shopify\')">Reconnect</button>';
+      html += '<div class="platform-status ' + (sIsConn ? 'connected' : 'disconnected') + '" style="margin-left:auto"><span class="plat-status-dot ' + (sIsConn ? 'connected' : 'disconnected') + '"></span>' + (sIsConn ? 'Connected' : 'Not connected') + '</div>';
+      html += '<button class="plat-toggle ' + (sIsOpen ? '' : 'closed') + '" onclick="event.stopPropagation();togglePlatform(' + selectedWs + ',\'shopify\')">' + chevronSvg + '</button>';
+      html += '</div>';
+      html += '<div class="meta-body"' + (sIsOpen ? '' : ' style="display:none"') + '>';
+      html += renderMetaSubSection(ws, selectedWs, 'shopify', 'Stores', 3, '<div class="meta-nudge" onclick="event.stopPropagation();openReauthModal(' + selectedWs + ',\'shopify\')"><strong>Not seeing a store?</strong>If you\'ve recently added a new store in Shopify, reauthenticate your connection to make it visible here.</div>');
+      html += '</div></div>';
     }
-    html += '</div>';
-    html += '</div>';
   }
 
   container.innerHTML = html;
 }
 
 /* ── WS SWITCHER POPOVER ── */
+function updateSidebarBubble() {
+  var bubble = document.getElementById('sb-ws-bubble');
+  if (!bubble || !workspaces[selectedWs]) return;
+  var ws = workspaces[selectedWs];
+  bubble.style.background = '#fff';
+  bubble.style.overflow = 'hidden';
+  bubble.innerHTML = logoImgHtml(ws, 'width:100%;height:100%;object-fit:cover;border-radius:50%');
+}
+
 function renderWsPopover() {
   var list = document.getElementById('ws-sw-popover-list');
   if (!list) return;
   var html = '';
   for (var i = 0; i < workspaces.length; i++) {
     var ws = workspaces[i];
-    html += '<div class="ws-sw-item" onclick="switchWsFromPopover(' + i + ')">';
-    if (ws.logo) {
-      html += '<div class="ws-sw-logo"><img src="' + ws.logo + '" alt="' + ws.initial + '"/></div>';
-    } else {
-      html += '<div class="ws-sw-bubble">' + ws.initial + '</div>';
-    }
-    html += '<div class="ws-sw-info"><div class="ws-sw-name">' + ws.name + '</div><div class="ws-sw-url">' + ws.url + '</div></div>';
-    if (ws.active) html += '<span class="ws-sw-check">&#10003;</span>';
+    var isActive = (i === selectedWs);
+    var rowStyle = isActive
+      ? 'background:rgba(175,70,253,.12);border-left:3px solid #af46fd;padding-left:11px;'
+      : 'border-left:3px solid transparent;padding-left:11px;';
+    html += '<div class="ws-sw-item" onclick="switchWsFromPopover(' + i + ')" style="' + rowStyle + '">';
+    html += '<div class="ws-sw-logo">' + logoImgHtml(ws) + '</div>';
+    html += '<div class="ws-sw-info">';
+    html += '<div class="ws-sw-name" style="' + (isActive ? 'color:#af46fd;font-weight:700' : '') + '">' + ws.name + '</div>';
+    html += '<div class="ws-sw-url">' + ws.url + '</div>';
+    html += '</div>';
+    if (isActive) html += '<span class="ws-sw-check" style="color:#af46fd;font-size:16px;font-weight:700">&#10003;</span>';
     html += '</div>';
   }
   list.innerHTML = html;
@@ -1158,7 +1793,258 @@ function toggleWsSwitcher() {
 }
 
 /* ── MODAL: ADD WORKSPACE ── */
+/* ── WORKSPACE LIMIT ENFORCEMENT ── */
+function applyWorkspaceLimit() {
+  var limited = atWsLimit();
+  var limitMsg = '<span style="font-size:11px;color:#af46fd;cursor:pointer;font-weight:600" onclick="showUpgradeModal()">Limit reached — Upgrade →</span>';
+
+  // Topbar button
+  var tbBtn = document.getElementById('tb-add-btn');
+  var tbTip = document.getElementById('tb-limit-tip');
+  if (tbBtn) {
+    if (limited) {
+      tbBtn.disabled = true;
+      tbBtn.style.opacity = '0.35';
+      tbBtn.style.cursor = 'not-allowed';
+      tbBtn.style.pointerEvents = 'none';
+      if (tbTip) tbTip.setAttribute('data-limit-active','1');
+    } else {
+      tbBtn.disabled = false;
+      tbBtn.style.opacity = '';
+      tbBtn.style.cursor = '';
+      tbBtn.style.pointerEvents = '';
+      if (tbTip) { tbTip.removeAttribute('data-limit-active'); tbTip.style.display = 'none'; }
+    }
+  }
+
+  // Switcher popover button
+  var swBtn = document.getElementById('ws-sw-add-btn');
+  if (swBtn) {
+    if (limited) {
+      swBtn.disabled = true;
+      swBtn.style.opacity = '0.35';
+      swBtn.style.cursor = 'not-allowed';
+      swBtn.style.pointerEvents = 'none';
+      swBtn.textContent = '🔒 Workspace limit reached';
+    } else {
+      swBtn.disabled = false;
+      swBtn.style.opacity = '';
+      swBtn.style.cursor = '';
+      swBtn.style.pointerEvents = '';
+      swBtn.textContent = '+ Add Workspace';
+    }
+  }
+
+  // Space drawer button
+  var sdBtn = document.getElementById('sd-add-ws-btn');
+  if (sdBtn) {
+    if (limited) {
+      sdBtn.style.opacity = '0.35';
+      sdBtn.style.color = '#af46fd';
+      sdBtn.style.pointerEvents = 'none';
+      sdBtn.querySelector('svg').style.display = 'none';
+      sdBtn.childNodes[sdBtn.childNodes.length - 1].textContent = ' Workspace limit reached';
+    } else {
+      sdBtn.style.opacity = '';
+      sdBtn.style.color = '#AF46FD';
+      sdBtn.style.pointerEvents = '';
+    }
+  }
+}
+
+/* ── TOOLTIP HOVER PERSISTENCE ── */
+(function(){
+  var wrap = document.getElementById('tb-add-btn-wrap');
+  var tip  = document.getElementById('tb-limit-tip');
+  var timer;
+  function showTip(){ if(tip && tip.getAttribute('data-limit-active')==='1'){ clearTimeout(timer); tip.style.display='block'; } }
+  function hideTip(){ timer=setTimeout(function(){ if(tip) tip.style.display='none'; },120); }
+  if(wrap){ wrap.addEventListener('mouseenter',showTip); wrap.addEventListener('mouseleave',hideTip); }
+  if(tip){  tip.addEventListener('mouseenter',function(){ clearTimeout(timer); }); tip.addEventListener('mouseleave',hideTip); }
+})();
+
+/* ── PAYMENT METHOD STATE ── */
+var _payMethod = 'upi';
+var _selectedBank = '';
+var _selectedWallet = '';
+
+function selectPayMethod(method) {
+  _payMethod = method;
+  document.querySelectorAll('.pay-tab').forEach(function(t){ t.classList.remove('active'); });
+  var tab = document.getElementById('ptab-' + method);
+  if (tab) tab.classList.add('active');
+  document.querySelectorAll('.pay-section').forEach(function(s){ s.style.display = 'none'; });
+  var section = document.getElementById('pay-' + method);
+  if (section) section.style.display = 'flex';
+  var err = document.getElementById('co-err');
+  if (err) err.style.display = 'none';
+}
+
+function selectBank(bankKey, el) {
+  _selectedBank = bankKey;
+  document.querySelectorAll('.bank-option').forEach(function(b){ b.classList.remove('selected'); });
+  if (el) el.classList.add('selected');
+  var sel = document.getElementById('co-bank');
+  if (sel) sel.value = '';
+}
+
+function selectBankFromDropdown(bankKey) {
+  if (!bankKey) return;
+  _selectedBank = bankKey;
+  document.querySelectorAll('.bank-option').forEach(function(b){ b.classList.remove('selected'); });
+}
+
+function selectWallet(walletKey, el) {
+  _selectedWallet = walletKey;
+  document.querySelectorAll('.wallet-option').forEach(function(w){ w.classList.remove('selected'); });
+  if (el) el.classList.add('selected');
+}
+
+/* ── CHECKOUT FLOW ── */
+var _checkoutPlan = { key: 'pro', label: 'Pro Plan', price: '₹2,999', wsLimit: 5 };
+
+/* goToCheckout: called by Buy Now buttons — navigates to dedicated checkout page */
+function goToCheckout(planKey) {
+  var plans = {
+    pro:     { key:'pro',     label:'Pro Plan',     price:'₹2,999', wsLimit:WS_LIMIT_PRO   },
+    premium: { key:'premium', label:'Premium Plan',  price:'₹4,999', wsLimit:WS_LIMIT_SCALE }
+  };
+  var plan = plans[planKey] || plans['pro'];
+  _checkoutPlan = plan;
+
+  // Show brief redirect overlay for visual feedback
+  var overlay = document.getElementById('upgrade-redirect-overlay');
+  var label   = document.getElementById('upgrade-redirect-label');
+  if (label)   label.textContent = plan.label + ' · ' + plan.price + '/mo';
+  if (overlay) overlay.style.display = 'flex';
+
+  // Navigate to checkout page after short visual feedback
+  setTimeout(function(){
+    window.location.href = 'checkout.html?plan=' + planKey;
+  }, 550);
+}
+
+/* buyPlan: backward-compat alias */
+function buyPlan(planKey) {
+  if (planKey === 'scale') planKey = 'premium';
+  goToCheckout(planKey);
+}
+
+/* activatePlan: updates plan state after successful payment (called from checkout page flow) */
+function activatePlan() {
+  _userPlan = _checkoutPlan.key;
+  WS_LIMIT  = _checkoutPlan.wsLimit;
+  applyWorkspaceLimit();
+  renderWorkspaceList();
+  var toast = document.getElementById('ws-switch-toast');
+  var msg   = document.getElementById('ws-switch-toast-msg');
+  var planName = _checkoutPlan.key === 'premium' ? 'Premium' : 'Pro';
+  if (msg) msg.textContent = '🎉 Welcome to ' + planName + '! Your plan is now active.';
+  if (toast) { toast.classList.add('show'); setTimeout(function(){ toast.classList.remove('show'); }, 3500); }
+}
+
+/* Stubs kept for backward compatibility */
+function closeCheckout()  { closeUpgradeModal(); }
+function retryCheckout()  {}
+function selectPlan(k)    { goToCheckout(k); }
+function clearPlanSelection() {}
+function formatCard(el) {
+  var v = el.value.replace(/\D/g,'').substring(0,16);
+  el.value = v.replace(/(\d{4})(?=\d)/g,'$1 ');
+}
+function formatExpiry(el) {
+  var v = el.value.replace(/\D/g,'').substring(0,4);
+  if (v.length >= 3) v = v.substring(0,2) + '/' + v.substring(2);
+  el.value = v;
+}
+function processPayment() { goToCheckout(_checkoutPlan.key || 'pro'); }
+
+/* ── SALES LEAD FORM ── */
+var _salesSubmitting = false;
+function openSalesForm() {
+  var m = document.getElementById('sales-modal');
+  if (!m) return;
+  m.classList.add('open');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ m.classList.add('visible'); }); });
+}
+function closeSalesModal() {
+  var m = document.getElementById('sales-modal');
+  if (!m) return;
+  m.classList.remove('visible');
+  setTimeout(function(){
+    m.classList.remove('open');
+    // Reset form
+    var form = document.getElementById('sales-lead-form');
+    var success = document.getElementById('sales-success');
+    var err = document.getElementById('sl-general-err');
+    var emailErr = document.getElementById('sl-email-err');
+    if (form) { form.reset(); form.style.display = 'flex'; }
+    if (success) success.style.display = 'none';
+    if (err) err.style.display = 'none';
+    if (emailErr) emailErr.style.display = 'none';
+    _salesSubmitting = false;
+  }, 320);
+}
+function submitSalesLead(e) {
+  e.preventDefault();
+  if (_salesSubmitting) return;
+  var name = (document.getElementById('sl-name')||{}).value||'';
+  var company = (document.getElementById('sl-company')||{}).value||'';
+  var email = (document.getElementById('sl-email')||{}).value||'';
+  var phone = (document.getElementById('sl-phone')||{}).value||'';
+  var spend = (document.getElementById('sl-spend')||{}).value||'';
+  var brands = (document.getElementById('sl-brands')||{}).value||'';
+  var emailErr = document.getElementById('sl-email-err');
+  var genErr = document.getElementById('sl-general-err');
+  var submitBtn = document.getElementById('sl-submit-btn');
+  // Reset errors
+  if (emailErr) emailErr.style.display = 'none';
+  if (genErr) genErr.style.display = 'none';
+  // Validate
+  var valid = true;
+  if (!name.trim() || !company.trim() || !phone.trim() || !spend || !brands) {
+    if (genErr) { genErr.textContent = 'Please fill in all required fields.'; genErr.style.display = 'block'; }
+    valid = false;
+  }
+  var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(email)) {
+    if (emailErr) emailErr.style.display = 'block';
+    valid = false;
+  }
+  if (!valid) return;
+  // Submit
+  _salesSubmitting = true;
+  if (submitBtn) { submitBtn.textContent = 'Submitting…'; submitBtn.style.opacity = '.6'; submitBtn.style.pointerEvents = 'none'; }
+  setTimeout(function(){
+    var form = document.getElementById('sales-lead-form');
+    var success = document.getElementById('sales-success');
+    if (form) form.style.display = 'none';
+    if (success) success.style.display = 'block';
+    if (submitBtn) { submitBtn.textContent = 'Submit →'; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+    _salesSubmitting = false;
+  }, 1500);
+}
+
+function showUpgradeModal() {
+  var m = document.getElementById('upgrade-modal');
+  if (!m) return;
+  m.classList.add('open');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ m.classList.add('visible'); }); });
+}
+function closeUpgradeModal() {
+  var m = document.getElementById('upgrade-modal');
+  if (!m) return;
+  m.classList.remove('visible');
+  setTimeout(function(){
+    m.classList.remove('open');
+    // Hide redirect overlay so it's fresh next open
+    var overlay = document.getElementById('upgrade-redirect-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }, 320);
+}
+
 function openAddWsModal() {
+  if (atWsLimit()) { showUpgradeModal(); return; }
   var m = document.getElementById('add-ws-modal');
   if (!m) return;
   m.classList.add('open');
@@ -1182,21 +2068,30 @@ function submitAddWs() {
   if (!inp) return;
   var val = inp.value.trim();
   if (!val) { inp.focus(); return; }
-  var domain = val.replace('https://','').replace('http://','').split('/')[0].replace('www.','').trim();
-  var initial = domain.charAt(0).toUpperCase();
-  var wsName = domain.split('.')[0];
+  // Persist workspace data in localStorage so DOMContentLoaded can pick it up on return.
+  // Neither shiprocket_hero_carousel.html nor brand_report.html writes the new workspace
+  // to storage — workspace.html must save it before navigating away.
+  var cleanDomain = val.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  var initial = cleanDomain.charAt(0).toUpperCase();
+  var wsName = cleanDomain.split('.')[0];
   wsName = wsName.charAt(0).toUpperCase() + wsName.slice(1);
   try {
-    localStorage.setItem('ws_pending', JSON.stringify({name: wsName, url: domain, initial: initial, timestamp: Date.now()}));
+    localStorage.setItem('ws_pending', JSON.stringify({
+      name: wsName,
+      url: cleanDomain,
+      initial: initial,
+      logo: getBrandLogo(cleanDomain),
+      timestamp: Date.now()
+    }));
   } catch(e) {}
   sessionStorage.setItem('ws_add_flow', '1');
-  sessionStorage.setItem('ws_add_url', domain);
-  sessionStorage.setItem('authed', '1');
+  sessionStorage.setItem('ws_add_url', val);
   closeAddWsModal();
-  setTimeout(function(){ window.location.href = 'shiprocket_hero_carousel.html'; }, 320);
+  window.location.href = 'shiprocket_hero_carousel.html';
 }
 
 /* ── EXTRACTION ANIMATION ── */
+var extractionRunId = 0; // incremented to cancel stale callbacks
 var extractionSteps = [
   {label:'Fetching website content',icon:'&#127758;'},
   {label:'Extracting brand identity',icon:'&#127775;'},
@@ -1209,6 +2104,7 @@ function runExtraction(domain) {
   var stepsEl = document.getElementById('ext-steps');
   var domainLabel = document.getElementById('ext-domain-label');
   if (!overlay || !stepsEl) return;
+  var myRunId = ++extractionRunId; // stamp this run; ESC will increment to cancel
   if (domainLabel) domainLabel.textContent = 'Analysing ' + domain + '...';
   var html = '';
   for (var i = 0; i < extractionSteps.length; i++) {
@@ -1219,17 +2115,17 @@ function runExtraction(domain) {
   }
   stepsEl.innerHTML = html;
   overlay.classList.add('open');
-  var currentStep = 0;
   function activateStep(idx) {
+    if (extractionRunId !== myRunId) return; // cancelled — don't proceed
     if (idx >= extractionSteps.length) {
       overlay.classList.remove('open');
-      // Redirect to brand_report.html where the connect accounts screen lives
-      window.location.href = 'brand_report.html';
+      showConnectModal();
       return;
     }
     var stepEl = document.getElementById('ext-step-' + idx);
     if (stepEl) stepEl.classList.add('active');
     setTimeout(function() {
+      if (extractionRunId !== myRunId) return;
       if (stepEl) { stepEl.classList.remove('active'); stepEl.classList.add('done'); }
       activateStep(idx + 1);
     }, 900);
@@ -1239,8 +2135,40 @@ function runExtraction(domain) {
 
 /* ── CONNECT MODAL ── */
 connectState = {meta:false,google:false,shopify:false};
+// Track which platforms were already connected before this workspace
+var preConnectedState = {meta:false,google:false,shopify:false};
+
+function isPlatformAlreadyConnected(key) {
+  // Returns true if any existing workspace has this platform connected
+  for (var i = 0; i < workspaces.length; i++) {
+    var accts = workspaces[i].accounts || {};
+    var platKey = key; // meta, google, shopify
+    // Check main platform key and sub-keys
+    if (platKey === 'meta') {
+      if ((accts.meta && accts.meta.length > 0) || (accts.metaPixel && accts.metaPixel.length > 0) ||
+          (accts.fbPage && accts.fbPage.length > 0) || (accts.igPage && accts.igPage.length > 0)) return true;
+    } else if (platKey === 'google') {
+      if ((accts.google && accts.google.length > 0) || (accts.googleMerchant && accts.googleMerchant.length > 0)) return true;
+    } else if (platKey === 'shopify') {
+      if (accts.shopify && accts.shopify.length > 0) return true;
+    }
+  }
+  return false;
+}
+
 function showConnectModal() {
-  connectState = {meta:false,google:false,shopify:false};
+  // Pre-connect platforms that already have an active session in another workspace
+  preConnectedState = {
+    meta:    isPlatformAlreadyConnected('meta'),
+    google:  isPlatformAlreadyConnected('google'),
+    shopify: isPlatformAlreadyConnected('shopify')
+  };
+  // Start with pre-connected ones already checked
+  connectState = {
+    meta:    preConnectedState.meta,
+    google:  preConnectedState.google,
+    shopify: preConnectedState.shopify
+  };
   renderConnectPlatforms();
   var m = document.getElementById('connect-modal');
   if (m) m.classList.add('open');
@@ -1262,8 +2190,14 @@ function renderConnectPlatforms() {
   for (var i = 0; i < platforms.length; i++) {
     var p = platforms[i];
     var connected = connectState[p.key];
+    var preConn = preConnectedState[p.key];
     html += '<div class="connect-platform" id="cp-' + p.key + '">';
-    html += '<div class="connect-platform-left"><span class="connect-platform-icon">' + p.icon + '</span><span class="connect-platform-name">' + p.label + '</span></div>';
+    html += '<div class="connect-platform-left"><span class="connect-platform-icon">' + p.icon + '</span>';
+    html += '<div><span class="connect-platform-name">' + p.label + '</span>';
+    if (preConn) {
+      html += '<div style="font-size:11px;color:var(--green);margin-top:2px">Using existing connection</div>';
+    }
+    html += '</div></div>';
     if (connected) {
       html += '<button class="connect-btn connected-btn">&#10003; Connected</button>';
     } else {
@@ -1280,7 +2214,26 @@ function connectPlatform(key) {
 function finalizeNewWorkspace() {
   var m = document.getElementById('connect-modal');
   if (m) m.classList.remove('open');
-  addWorkspace(pendingDomain);
+  if (!pendingDomain) return;
+  // Workspace already added in submitAddWs — just apply any connected platforms
+  var wsIdx = -1;
+  for (var i = 0; i < workspaces.length; i++) {
+    if (workspaces[i].url === pendingDomain) { wsIdx = i; break; }
+  }
+  if (wsIdx === -1) {
+    addWorkspace(pendingDomain); // fallback if somehow missing
+  } else {
+    if (connectState.meta && workspaces[wsIdx].accounts.meta.length === 0)
+      workspaces[wsIdx].accounts.meta = ['Meta Ads Main'];
+    if (connectState.google && workspaces[wsIdx].accounts.google.length === 0)
+      workspaces[wsIdx].accounts.google = ['Google Search'];
+    if (connectState.shopify && workspaces[wsIdx].accounts.shopify.length === 0)
+      workspaces[wsIdx].accounts.shopify = ['Primary Store'];
+    saveWorkspaces();
+    renderWorkspaceList();
+    renderDetailPanel();
+  }
+  pendingDomain = '';
 }
 
 /* ── MOBILE HELPERS ── */
@@ -1309,13 +2262,14 @@ function toggleAcctDropdown(e, dropId, platform, wsIdx) {
   dd.classList.toggle('open');
   activeDropdown = dd.classList.contains('open') ? dd : null;
 }
-function pickAccount(dropId, platform, wsIdx, poolIdx) {
+function pickAccount(dropId, platform, wsIdx, poolIdx, limit) {
   var pool = mockAccountPools[platform] || [];
   var existing = workspaces[wsIdx].accounts[platform];
   var acct = pool[poolIdx];
-  if (acct && existing.indexOf(acct) === -1 && existing.length < 3) {
+  if (acct && existing.indexOf(acct) === -1 && existing.length < limit) {
     workspaces[wsIdx].accounts[platform].push(acct);
     activeDropdown = null;
+    saveWorkspaces();
     renderDetailPanel();
     renderWorkspaceList();
   }
@@ -1333,11 +2287,7 @@ function renderSdWsList() {
   for (var i = 0; i < workspaces.length; i++) {
     var ws = workspaces[i];
     html += '<button class="sd-item" onclick="switchWsFromDrawer(' + i + ')" style="' + (ws.active ? 'opacity:1' : 'opacity:.6') + '">';
-    if (ws.logo) {
-      html += '<div style="width:24px;height:24px;border-radius:50%;background:#fff;overflow:hidden;flex-shrink:0;border:1px solid rgba(255,255,255,.1)"><img src="' + ws.logo + '" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.style.background=\'linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D)\';this.parentNode.innerHTML=\'' + ws.initial + '\'"/></div>';
-    } else {
-      html += '<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">' + ws.initial + '</div>';
-    }
+    html += '<div style="width:24px;height:24px;border-radius:50%;background:#fff;overflow:hidden;flex-shrink:0;border:1px solid rgba(255,255,255,.1)">' + logoImgHtml(ws, 'width:100%;height:100%;object-fit:cover') + '</div>';
     html += '<span style="flex:1;text-align:left">' + ws.name + '</span>';
     if (ws.active) html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;color:#AF46FD"><polyline points="20 6 9 17 4 12"/></svg>';
     html += '</button>';
@@ -1366,32 +2316,154 @@ function closeSpaceDrawer() {
 
 /* ── CLOSE POPOVER ON OUTSIDE CLICK ── */
 document.addEventListener('click', function(e) {
-  // close workspace switcher
   var pop = document.getElementById('ws-switcher-popover');
   var bubble = document.getElementById('sb-ws-bubble');
   if (pop && pop.classList.contains('open') && !pop.contains(e.target) && !bubble.contains(e.target)) {
     pop.classList.remove('open');
   }
-  // close account dropdown
   if (activeDropdown && !activeDropdown.closest('.add-acct-wrap').contains(e.target)) {
     activeDropdown.classList.remove('open');
     activeDropdown = null;
   }
 });
 
-/* ── KEYBOARD: ESC TO CLOSE MODALS ── */
+/* ── KEYBOARD: ESC CLOSES MODALS ONLY — NO SIDE EFFECTS ── */
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeAddWsModal();
-    closeConnectModal();
+    closeConfirmRemove();
+    closeReauthModal();
+    // Cancel any running extraction so its callbacks don't reopen modals
+    extractionRunId++;
+    // Close connect modal UI only — do NOT call finalizeNewWorkspace
+    var cm = document.getElementById('connect-modal');
+    if (cm) {
+      cm.classList.remove('visible');
+      setTimeout(function(){ cm.classList.remove('open'); }, 300);
+    }
     var extOv = document.getElementById('extraction-overlay');
     if (extOv) extOv.classList.remove('open');
   }
 });
 
-/* ── ENTER KEY IN URL INPUT ── */
+/* ── REAUTH / CHANGE PLATFORM ── */
+var _reauthWsIdx = -1;
+var _reauthPlat = '';
+var _reauthReason = '';
+var platNames = { meta:'Meta Ads', google:'Google Ads', shopify:'Shopify' };
+
+// Platform-specific sync entity labels
+var reauthSyncEntities = {
+  meta:    'Syncing ad accounts, pixels, Facebook Pages, and Instagram Pages',
+  google:  'Syncing ad accounts, Merchant Center, and Tag Manager',
+  shopify: 'Syncing stores'
+};
+
+// Platform-specific form fields — each platform gets its own array of fields
+var reauthFormFields = {
+  meta: [
+    { id: 'rf-meta-biz',   label: 'Business Manager ID', type: 'text',  placeholder: 'e.g. 123456789012345' },
+    { id: 'rf-meta-email', label: 'Account email',        type: 'email', placeholder: 'you@example.com' }
+  ],
+  google: [
+    { id: 'rf-google-email', label: 'Google account email', type: 'email', placeholder: 'you@gmail.com' },
+    { id: 'rf-google-id',    label: 'Customer ID',          type: 'text',  placeholder: 'e.g. 123-456-7890' }
+  ],
+  shopify: [
+    { id: 'rf-shopify-url', label: 'Store URL', type: 'text', placeholder: 'yourstore.myshopify.com' }
+  ]
+};
+
+function openReauthModal(wsIdx, plat) {
+  _reauthWsIdx = wsIdx;
+  _reauthPlat = plat;
+  var name = platNames[plat] || plat;
+  document.getElementById('reauth-title').textContent = 'Reconnect ' + name;
+  document.getElementById('reauth-plat-icon').innerHTML = platformIcons[plat] || '';
+  document.querySelectorAll('.reauth-plat-label').forEach(function(el){ el.textContent = name; });
+  document.querySelectorAll('.reauth-plat-label-s').forEach(function(el){ el.textContent = name; });
+  document.getElementById('reauth-step-connect').style.display = '';
+  document.getElementById('reauth-step-form').style.display = 'none';
+  document.getElementById('reauth-step-loading').style.display = 'none';
+  document.getElementById('reauth-step-success').style.display = 'none';
+  var m = document.getElementById('reauth-modal');
+  m.classList.add('open');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ m.classList.add('visible'); }); });
+}
+
+function closeReauthModal() {
+  var m = document.getElementById('reauth-modal');
+  m.classList.remove('visible');
+  setTimeout(function(){ m.classList.remove('open'); }, 250);
+}
+
+function showReauthForm() {
+  var name = platNames[_reauthPlat] || _reauthPlat;
+  document.getElementById('reauth-plat-icon-form').innerHTML = platformIcons[_reauthPlat] || '';
+  document.getElementById('reauth-form-plat-label').textContent = name;
+  document.getElementById('reauth-form-plat-btn').textContent = name;
+  // Show only the fields for this platform
+  ['meta','google','shopify'].forEach(function(p) {
+    var el = document.getElementById('reauth-fields-' + p);
+    if (el) el.style.display = (p === _reauthPlat) ? 'flex' : 'none';
+  });
+  document.getElementById('reauth-step-connect').style.display = 'none';
+  document.getElementById('reauth-step-form').style.display = '';
+}
+
+function backToReauthReasons() {
+  document.getElementById('reauth-step-form').style.display = 'none';
+  document.getElementById('reauth-step-connect').style.display = '';
+}
+
+function submitReauthForm() {
+  _reauthReason = 'change';
+  var name = platNames[_reauthPlat] || _reauthPlat;
+  document.getElementById('reauth-step-form').style.display = 'none';
+  _showReauthLoading('change');
+}
+
+function startReauth(reason) {
+  _reauthReason = reason;
+  document.getElementById('reauth-step-connect').style.display = 'none';
+  _showReauthLoading(reason);
+}
+
+function _showReauthLoading(reason) {
+  var name = platNames[_reauthPlat] || _reauthPlat;
+  document.getElementById('reauth-step-loading').style.display = '';
+  document.getElementById('reauth-plat-icon-2').innerHTML = platformIcons[_reauthPlat] || '';
+  if (reason === 'refresh') {
+    document.getElementById('reauth-loading-title').textContent = 'Refreshing ' + name + ' connection…';
+    document.getElementById('reauth-loading-sub').textContent = reauthSyncEntities[_reauthPlat] || 'Syncing all entities';
+  } else {
+    document.getElementById('reauth-loading-title').textContent = 'Connecting to ' + name + '…';
+    document.getElementById('reauth-loading-sub').textContent = 'Completing authentication, please wait';
+  }
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      document.getElementById('reauth-progress-bar').style.width = '100%';
+    });
+  });
+  setTimeout(function() {
+    document.getElementById('reauth-step-loading').style.display = 'none';
+    document.getElementById('reauth-step-success').style.display = '';
+    if (reason === 'refresh') {
+      var name = platNames[_reauthPlat] || _reauthPlat;
+      document.getElementById('reauth-success-title').textContent = 'Refreshed successfully!';
+      document.getElementById('reauth-success-msg').textContent = 'All entities under your ' + name + ' connection have been refreshed.';
+    } else {
+      document.getElementById('reauth-success-title').textContent = 'Connected successfully!';
+      document.getElementById('reauth-success-msg').textContent = 'Platform reconnected. You can now add accounts from the updated connection in the workspace.';
+    }
+    document.getElementById('reauth-progress-bar').style.transition = 'none';
+    document.getElementById('reauth-progress-bar').style.width = '0%';
+    setTimeout(function(){ document.getElementById('reauth-progress-bar').style.transition = 'width 1.4s ease'; }, 50);
+  }, 1600);
+}
+
+/* ── INIT ── */
 document.addEventListener('DOMContentLoaded', function() {
-  // Load any pending workspace from localStorage (added via Add Workspace flow)
   try {
     var pending = localStorage.getItem('ws_pending');
     if (pending) {
@@ -1402,11 +2474,24 @@ document.addEventListener('DOMContentLoaded', function() {
           name: p.name,
           url: p.url,
           initial: p.initial,
+          logo: p.logo || getBrandLogo(p.url),
           active: false,
-          accounts: { meta: [], google: [], shopify: [] }
+          accounts: { meta: [], metaPixel: [], fbPage: [], igPage: [], google: [], googleMerchant: [], googleTagManager: [], shopify: [] }
         });
       }
       localStorage.removeItem('ws_pending');
+    }
+  } catch(e) {}
+
+  try {
+    var newBrand = localStorage.getItem('ws_new_brand');
+    if (newBrand) {
+      var brand = JSON.parse(newBrand);
+      localStorage.removeItem('ws_new_brand');
+      if (brand && brand.url) {
+        var exists = workspaces.some(function(w){ return w.url === brand.url; });
+        if (!exists) addWorkspace(brand.url); // addWorkspace calls saveWorkspaces + render
+      }
     }
   } catch(e) {}
 
@@ -1416,9 +2501,65 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.key === 'Enter') submitAddWs();
     });
   }
+  // ── Handle return from checkout page ──
+  (function() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var payStatus = params.get('payment');
+      var returnPlan = params.get('plan');
+      if (payStatus === 'success' && returnPlan) {
+        var planMap = {
+          pro:     { key:'pro',     wsLimit:WS_LIMIT_PRO,   label:'Pro',     price:'₹2,999' },
+          premium: { key:'premium', wsLimit:WS_LIMIT_SCALE, label:'Premium', price:'₹4,999' }
+        };
+        var p = planMap[returnPlan] || planMap['pro'];
+        _checkoutPlan = { key:p.key, label:p.label+' Plan', price:p.price, wsLimit:p.wsLimit };
+        _userPlan     = p.key;
+        WS_LIMIT      = p.wsLimit;
+        // Clean URL before rendering so refresh doesn't re-trigger
+        history.replaceState({}, '', window.location.pathname);
+        // Show success toast after slight delay so UI is ready
+        setTimeout(function() {
+          var toast = document.getElementById('ws-switch-toast');
+          var msg   = document.getElementById('ws-switch-toast-msg');
+          if (msg)   msg.textContent = '🎉 Welcome to ' + p.label + '! Your plan is now active.';
+          if (toast) { toast.classList.add('show'); setTimeout(function(){ toast.classList.remove('show'); }, 4000); }
+        }, 600);
+      }
+      // ── Handle return from checkout "Back to Plans" ──
+      if (params.get('upgrade') === '1') {
+        history.replaceState({}, '', window.location.pathname);
+        var m   = document.getElementById('upgrade-modal');
+        var box = m ? m.querySelector('.modal-box') : null;
+        if (m) {
+          // Freeze CSS transitions so the modal snaps to its final state
+          // immediately — no opacity fade, no translateY slide.
+          m.style.transition   = 'none';
+          if (box) box.style.transition = 'none';
+          // Open modal at full opacity/position in the same JS task.
+          m.classList.add('open', 'visible');
+        }
+        // Restore page visibility in the same synchronous task.
+        // All three mutations (transition:none, open+visible, opacity:1)
+        // batch into a single browser paint — zero intermediate frames.
+        document.documentElement.style.opacity = '1';
+        // Re-enable transitions after the first paint so close/reopen
+        // animations work normally.
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            if (m)   m.style.transition   = '';
+            if (box) box.style.transition = '';
+          });
+        });
+      }
+    } catch(e) {}
+  })();
+
   renderWorkspaceList();
   renderDetailPanel();
-  // Auto-open Add Workspace modal if redirected here from another page
+  renderWsPopover();
+  updateSidebarBubble();
+  saveWorkspaces(); // persist defaults so other pages (e.g. creative_report) can read ws_list
   if (sessionStorage.getItem('open_add_ws') === '1') {
     sessionStorage.removeItem('open_add_ws');
     setTimeout(function(){ openAddWsModal(); }, 400);

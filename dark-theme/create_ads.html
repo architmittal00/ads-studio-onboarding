@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Ads · Shiprocket Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;
+  --card:rgba(255,255,255,.04);
+  --card2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);
+  --border2:rgba(255,255,255,.14);
+  --t1:#fff;
+  --t2:rgba(255,255,255,.55);
+  --t3:rgba(255,255,255,.28);
+  --purple:#AF46FD;
+  --pink:#F4349D;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;overflow:hidden}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;width:100%;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sb{
+  width:64px;flex-shrink:0;background:#0d0d1a;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;gap:2px;
+}
+.sb-logo{
+  width:36px;height:36px;border-radius:10px;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;
+}
+.sb-logo svg{width:15px;height:15px}
+.sb-item{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;transition:background .15s;color:var(--t3);
+}
+.sb-item:hover{background:var(--card2);color:var(--t2)}
+.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.sb-item svg{width:17px;height:17px}
+.sb-item span{font-size:9px;font-weight:600}
+.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0}
+.sb-item-wrap{position:relative;display:flex;justify-content:center;width:100%}
+.sb-hover-panel{
+  position:absolute;left:calc(100% + 10px);top:50%;
+  transform:translateY(-50%) translateX(-6px);
+  background:#13112b;border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;white-space:nowrap;
+  box-shadow:0 6px 24px rgba(0,0,0,.55);
+  opacity:0;pointer-events:none;
+  transition:opacity .15s,transform .15s;z-index:500;
+  padding:7px 13px;font-size:12px;font-weight:600;color:rgba(255,255,255,.85);
+}
+.sb-item-wrap:hover .sb-hover-panel{opacity:1;pointer-events:all;transform:translateY(-50%) translateX(0)}
+.sb-hover-panel::before{content:'';position:absolute;right:100%;top:0;bottom:0;width:14px}
+.sb-hover-panel.sb-hp-multi{padding:6px;min-width:210px;white-space:normal}
+.sb-hp-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.2);padding:4px 8px}
+.sb-hp-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:background .15s;border:none;background:none;font-family:inherit;text-align:left;width:100%}
+.sb-hp-item:hover{background:rgba(255,255,255,.06)}
+.sb-hp-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.sb-hp-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:1px}
+.sb-hp-sub{font-size:10px;color:rgba(255,255,255,.3);line-height:1.3}
+.sb-hp-divider{height:1px;background:rgba(255,255,255,.06);margin:2px 8px}
+.sb-ws-bubble{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--grad);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);
+  flex-shrink:0;
+}
+.ws-switcher-popover{
+  position:fixed;left:68px;bottom:20px;z-index:300;width:240px;
+  background:#0d0c1a;border:1px solid rgba(255,255,255,.1);border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);display:none;flex-direction:column;overflow:hidden;
+}
+.ws-switcher-popover.open{display:flex}
+.ws-sw-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,.07)}
+.ws-sw-title{font-size:12px;font-weight:700;color:rgba(255,255,255,.7)}
+.ws-sw-close{background:none;border:none;color:rgba(255,255,255,.35);font-size:18px;cursor:pointer;line-height:1;padding:0;font-family:inherit}
+.ws-sw-footer{padding:8px 10px 10px;border-top:1px solid rgba(255,255,255,.07)}
+.ws-sw-add{width:100%;padding:9px;border-radius:8px;background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:var(--purple);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+
+/* ── MAIN SHELL ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;height:60px;padding:0 28px;
+  display:flex;align-items:center;gap:12px;
+  border-bottom:1px solid var(--border);
+  background:rgba(11,11,20,.98);backdrop-filter:blur(16px);z-index:10;
+}
+.tb-brand{display:flex;align-items:center;gap:10px;flex:1}
+.tb-icon{
+  width:34px;height:34px;border-radius:8px;
+  background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.25);
+  display:flex;align-items:center;justify-content:center;font-size:15px;
+}
+.tb-title{font-size:15px;font-weight:700}
+.tb-sub{font-size:11px;color:var(--t3);margin-top:1px}
+.tb-pill{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:var(--card);border:1px solid var(--border2);font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap;}
+.tb-pill:hover{border-color:rgba(255,255,255,.22);color:#fff}
+.tb-logout{background:none;border:none;color:rgba(255,255,255,.35);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;padding:4px 2px;transition:color .15s}
+.tb-logout:hover{color:rgba(255,255,255,.7)}
+
+/* ── BODY ── */
+.body{display:flex;flex:1;overflow:hidden}
+
+/* ── DEMO BANNER ── */
+.demo-banner{
+  flex-shrink:0;
+  display:flex;align-items:center;gap:10px;
+  padding:0 18px;height:46px;
+  background:linear-gradient(90deg,rgba(111,87,233,.18) 0%,rgba(175,46,253,.12) 100%);
+  border-bottom:1px solid rgba(111,87,233,.2);
+}
+.demo-banner-icon{
+  width:22px;height:22px;border-radius:6px;
+  background:rgba(111,87,233,.2);border:1px solid rgba(111,87,233,.35);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.demo-banner-icon svg{width:12px;height:12px;color:#AF46FD}
+.demo-banner-text{font-size:12.5px;color:rgba(255,255,255,.75);flex:1;font-weight:500}
+.demo-banner-cta{
+  height:28px;padding:0 14px;border-radius:7px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:12px;font-weight:700;transition:opacity .15s;flex-shrink:0;
+}
+.demo-banner-cta:hover{opacity:.88}
+.demo-banner-close{
+  width:24px;height:24px;border-radius:6px;background:none;border:none;
+  color:rgba(255,255,255,.3);font-size:14px;display:flex;align-items:center;justify-content:center;
+  transition:color .15s;flex-shrink:0;
+}
+.demo-banner-close:hover{color:rgba(255,255,255,.7)}
+
+/* ── LEFT PANEL ── */
+.left-panel{
+  width:380px;flex-shrink:0;
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--border);
+  overflow:hidden;
+}
+.left-scroll{
+  flex:1;overflow-y:auto;padding:20px 20px 0;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;
+}
+.left-scroll::-webkit-scrollbar{width:3px}
+.left-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+
+/* section label */
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sec-label{font-size:13px;font-weight:700;color:#fff}
+.sec-count{font-size:12px;color:var(--t3);font-weight:500}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone{
+  border:1.5px solid rgba(255,255,255,.14);
+  border-radius:14px;background:rgba(255,255,255,.03);
+  margin-bottom:20px;position:relative;
+  transition:border-color .18s,background .18s;
+  overflow:hidden;
+}
+/* Empty state — centred */
+.upload-zone.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:32px 20px;cursor:pointer;min-height:130px;
+}
+.upload-zone.empty:hover{border-color:rgba(175,70,253,.45);background:rgba(175,70,253,.03)}
+.upload-zone.empty input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1}
+/* Filled state — no click-through on the zone itself */
+.upload-zone.filled{padding:10px;}
+
+.upload-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.upload-icon svg{width:18px;height:18px;color:var(--purple)}
+.upload-label{font-size:13px;font-weight:600;color:rgba(255,255,255,.75)}
+.upload-sub{font-size:11px;color:var(--t3)}
+
+/* product upload empty */
+.upload-zone.product.empty{padding:26px 20px}
+.upload-zone.product.empty .upload-icon{background:rgba(244,52,157,.08);border-color:rgba(244,52,157,.18)}
+.upload-zone.product.empty .upload-icon svg{color:var(--pink)}
+
+/* ── INSPIRATION HORIZONTAL SCROLL ── */
+.inspo-filled-wrap{display:flex;gap:10px;align-items:flex-start}
+.inspo-scroll{
+  display:flex;gap:10px;flex:1;min-width:0;
+  overflow-x:auto;overflow-y:hidden;
+  padding-bottom:2px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;
+}
+.inspo-scroll::-webkit-scrollbar{height:3px}
+.inspo-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+
+.inspo-thumb{
+  width:130px;height:86px;border-radius:10px;overflow:visible;
+  position:relative;flex-shrink:0;background:#1a1726;
+}
+.inspo-thumb>img{width:100%;height:100%;object-fit:cover;border-radius:10px;display:block;}
+/* inspo-thumb>img handled by override above */
+.inspo-thumb .rm-btn{
+  position:absolute;top:-8px;right:-8px;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(20,16,36,.92);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:3;transition:background .12s;line-height:1;padding:0;
+}
+.inspo-thumb .rm-btn:hover{background:rgba(220,30,60,.85)}
+
+.add-more-btn{
+  width:86px;height:86px;border-radius:10px;flex-shrink:0;
+  border:1.5px dashed rgba(175,70,253,.45);background:rgba(175,70,253,.04);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  cursor:pointer;transition:all .15s;position:relative;
+}
+.add-more-btn:hover{border-color:rgba(175,70,253,.75);background:rgba(175,70,253,.09)}
+.add-more-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.add-more-btn .plus{font-size:26px;color:var(--purple);font-weight:300;line-height:1}
+.add-more-btn .add-lbl{font-size:12px;font-weight:600;color:var(--purple)}
+
+/* ── UPLOADED PRODUCT ── */
+.product-thumb{
+  width:130px;height:86px;border-radius:10px;overflow:visible;
+  position:relative;flex-shrink:0;background:#1a1726;
+}
+.product-thumb>img{width:100%;height:100%;object-fit:cover;border-radius:10px;display:block;}
+.product-thumb .rm-btn{
+  position:absolute;top:-8px;right:-8px;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(20,16,36,.92);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:3;line-height:1;padding:0;
+}
+.product-thumb .rm-btn:hover{background:rgba(220,30,60,.85)}
+
+/* ── LIGHTBOX ── */
+.lightbox{
+  position:fixed;inset:0;z-index:900;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.lightbox.show{opacity:1;pointer-events:all}
+.lightbox-img{
+  max-width:80vw;max-height:80vh;
+  border-radius:14px;object-fit:contain;
+  box-shadow:0 24px 80px rgba(0,0,0,.7);
+  transform:scale(.95);transition:transform .2s;
+}
+.lightbox.show .lightbox-img{transform:scale(1)}
+.lightbox-close{
+  position:absolute;top:24px;right:28px;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .15s;
+}
+.lightbox-close:hover{background:rgba(255,255,255,.2)}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-12px);
+  z-index:1000;
+  background:#fff;color:#111;border-radius:100px;
+  padding:10px 20px;
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;font-weight:600;
+  box-shadow:0 4px 24px rgba(0,0,0,.2);
+  opacity:0;pointer-events:none;
+  transition:opacity .22s,transform .22s;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast-dot{width:18px;height:18px;border-radius:50%;background:#22C55E;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.toast-dot svg{width:11px;height:11px}
+
+/* ── ASPECT RATIO ── */
+.aspect-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  margin-bottom:20px;
+}
+.ratio-btn{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;
+  border-radius:10px;background:rgba(255,255,255,.04);
+  border:1.5px solid rgba(255,255,255,.08);
+  cursor:pointer;transition:all .15s;
+}
+.ratio-btn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15)}
+.ratio-btn.active{background:transparent;border-color:rgba(255,255,255,.55)}
+.ratio-icon{flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.ratio-label{font-size:12px;font-weight:600;color:var(--t2)}
+.ratio-btn.active .ratio-label{color:#fff}
+.ratio-name{font-size:11px;color:var(--t3);margin-left:2px}
+.ratio-btn.active .ratio-name{color:rgba(255,255,255,.5)}
+
+/* ratio shape icons */
+.ri-square{width:16px;height:16px;border:2px solid currentColor;border-radius:2px}
+.ri-portrait{width:13px;height:16px;border:2px solid currentColor;border-radius:2px}
+.ri-vertical{width:10px;height:16px;border:2px solid currentColor;border-radius:2px}
+.ri-landscape{width:22px;height:14px;border:2px solid currentColor;border-radius:2px}
+
+/* ── GENERATE BUTTON ── */
+.gen-footer{
+  flex-shrink:0;padding:14px 20px;
+  border-top:1px solid var(--border);background:rgba(11,11,20,.95);
+}
+.gen-btn{
+  width:100%;height:48px;border-radius:12px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:14px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:opacity .15s;
+}
+.gen-btn:hover{opacity:.88}
+.gen-btn:disabled{opacity:.4;cursor:not-allowed}
+.gen-btn svg{width:16px;height:16px}
+
+/* ── RIGHT PANEL ── */
+.right-panel{
+  flex:1;display:flex;flex-direction:column;
+  overflow:hidden;background:#0d0c1a;
+}
+.right-inner{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:40px;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state{display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;max-width:340px}
+.empty-icon{
+  width:80px;height:80px;border-radius:22px;
+  background:linear-gradient(135deg,rgba(175,70,253,.3),rgba(244,52,157,.2));
+  border:1px solid rgba(175,70,253,.25);
+  display:flex;align-items:center;justify-content:center;
+}
+.empty-icon svg{width:34px;height:34px}
+.empty-title{font-size:22px;font-weight:800;color:#fff;line-height:1.2}
+.empty-sub{font-size:13px;color:var(--t2);line-height:1.6}
+
+/* ── LEFT PANEL GENERATING OVERLAY ── */
+.left-panel{position:relative}
+.left-generating{
+  position:absolute;inset:0;z-index:20;
+  background:rgba(11,11,20,.72);backdrop-filter:blur(4px);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+}
+.left-generating.show{display:flex}
+.gen-spinner{
+  width:32px;height:32px;border-radius:50%;
+  border:3px solid rgba(175,70,253,.2);
+  border-top-color:var(--purple);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gen-overlay-label{font-size:13px;font-weight:600;color:rgba(255,255,255,.7)}
+
+/* ── GENERATED ADS PANEL ── */
+.gen-area{
+  flex:1;overflow-y:auto;padding:24px;
+  display:none;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;
+}
+.gen-area::-webkit-scrollbar{width:4px}
+.gen-area::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:4px}
+.gen-area.show{display:block}
+
+/* gen-area header */
+.gen-area-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.gen-area-title{font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+.gen-area-title span{font-size:16px}
+.gen-area-actions{display:flex;align-items:center;gap:10px}
+.gen-dl-btn{
+  display:flex;align-items:center;gap:7px;padding:0 16px;height:38px;border-radius:10px;
+  background:transparent;border:1px solid rgba(255,255,255,.12);
+  color:rgba(255,255,255,.8);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.gen-dl-btn:hover{border-color:rgba(255,255,255,.25);color:#fff}
+.gen-done-btn{
+  height:38px;padding:0 20px;border-radius:10px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s;
+}
+.gen-done-btn:hover{opacity:.88}
+
+/* per-inspiration card */
+.inspo-result-card{
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;padding:24px;margin-bottom:16px;
+  max-width:760px;
+}
+.irc-header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.irc-badge{
+  width:34px;height:34px;border-radius:10px;
+  background:var(--grad);color:#fff;
+  font-size:14px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.irc-title{font-size:14px;font-weight:700;color:#fff}
+/* source narrow, generated wider */
+.irc-cols{display:grid;grid-template-columns:140px 1fr;gap:24px;align-items:start}
+.irc-col-label{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:600;color:var(--t3);margin-bottom:8px;
+}
+.irc-col-label::before{content:'';width:6px;height:6px;border-radius:50%;background:rgba(175,70,253,.7);flex-shrink:0}
+.irc-col-label.pink::before{background:rgba(244,52,157,.7)}
+
+/* Source image */
+.irc-src-wrap{position:relative}
+.irc-src-img{
+  width:100%;aspect-ratio:3/4;border-radius:10px;
+  object-fit:cover;display:block;
+}
+.irc-overlay-btn{
+  position:absolute;
+  width:32px;height:32px;border-radius:9px;
+  background:rgba(10,8,20,.82);border:1px solid rgba(255,255,255,.18);
+  color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .12s;
+}
+.irc-overlay-btn:hover{background:rgba(30,24,50,.92)}
+.irc-expand-btn{top:8px;right:8px}
+.irc-bookmark-btn{bottom:8px;right:8px;font-size:13px}
+
+/* Generated ad slot */
+.irc-gen-wrap{position:relative;max-width:360px}
+.irc-gen-slot{
+  width:100%;aspect-ratio:3/4;border-radius:12px;
+  border:1.5px dashed rgba(244,52,157,.45);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(244,52,157,.03);
+}
+.irc-gen-slot.done{
+  border:2px solid rgba(244,52,157,.65);
+  background:transparent;padding:0;overflow:hidden;
+  display:flex;align-items:stretch;
+}
+.irc-gen-slot.done img{width:100%;height:100%;object-fit:cover;display:block;border-radius:10px;}
+.irc-sparkle-icon{
+  width:52px;height:52px;border-radius:16px;
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+}
+.irc-gen-label{font-size:13px;font-weight:700;color:#fff}
+.irc-gen-sub{font-size:11px;color:var(--t3)}
+
+/* Chips/buttons on generated ad */
+.irc-original-chip{
+  position:absolute;top:10px;left:10px;
+  padding:6px 14px;border-radius:8px;
+  background:rgba(10,8,20,.88);border:1px solid rgba(255,255,255,.18);
+  color:#fff;font-size:13px;font-weight:700;pointer-events:none;
+}
+.irc-gen-expand{top:10px;right:10px}
+.irc-gen-edit{
+  bottom:10px;left:10px;
+  width:36px;height:36px;border-radius:10px;
+}
+.irc-gen-edit svg{width:15px;height:15px}
+
+/* Regenerate pill — centered below generated ad */
+.irc-regen-row{display:flex;justify-content:center;margin-top:16px;max-width:360px}
+.irc-regen-btn{
+  display:flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);
+  color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.irc-regen-btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22)}
+
+/* Regenerate panel */
+.irc-regen-panel{
+  margin-top:14px;border-radius:14px;
+  border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.03);
+  overflow:hidden;
+  display:none;
+}
+.irc-regen-panel.show{display:block}
+.irc-regen-panel-header{
+  display:flex;align-items:center;gap:8px;
+  padding:14px 16px 12px;
+  font-size:13px;font-weight:700;color:#fff;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.irc-regen-warning{
+  display:flex;align-items:flex-start;gap:10px;
+  margin:14px 16px;padding:10px 14px;
+  background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.18);
+  border-radius:10px;font-size:12px;color:rgba(255,255,255,.65);line-height:1.5;
+}
+.irc-regen-warning svg{flex-shrink:0;margin-top:1px;color:var(--purple)}
+.irc-regen-input{
+  margin:0 16px 14px;width:calc(100% - 32px);
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;padding:12px 14px;
+  color:#fff;font-size:13px;font-family:inherit;resize:none;outline:none;
+}
+.irc-regen-input::placeholder{color:rgba(255,255,255,.28)}
+.irc-regen-input:focus{border-color:rgba(175,70,253,.4)}
+.irc-regen-footer{
+  display:flex;align-items:center;justify-content:flex-end;gap:10px;
+  padding:0 16px 14px;
+}
+.irc-regen-cancel{
+  padding:0 18px;height:38px;border-radius:10px;
+  background:transparent;border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.6);font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .15s;
+}
+.irc-regen-cancel:hover{border-color:rgba(255,255,255,.2);color:#fff}
+.irc-regen-submit{
+  padding:0 20px;height:38px;border-radius:10px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:13px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;gap:7px;transition:opacity .15s;
+}
+.irc-regen-submit:hover{opacity:.88}
+
+/* Side-by-side ad slots */
+.irc-ad-slots{display:flex;gap:12px;align-items:flex-start}
+.irc-ad-slots .irc-gen-wrap{flex:1}
+.irc-new-slot{
+  width:100%;aspect-ratio:3/4;border-radius:12px;
+  border:2px solid #22C55E;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(34,197,94,.04);
+}
+.irc-new-slot.done{
+  border:2px solid #22C55E;
+  background:transparent;padding:0;overflow:hidden;
+  display:flex;align-items:stretch;
+}
+.irc-new-slot.done img{width:100%;height:100%;object-fit:cover;display:block;border-radius:10px;}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .sb{display:none}
+  .left-panel{width:100%}
+  .right-panel{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sb">
+    <div class="sb-logo">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='creative_report.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="sb-hover-panel">Dashboard</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span>Ads</span>
+      </div>
+      <div class="sb-hover-panel sb-hp-multi">
+        <div class="sb-hp-label">Create Ad</div>
+        <button class="sb-hp-item" onclick="window.location.href='chat.html'">
+          <div class="sb-hp-icon" style="background:rgba(175,70,253,.15)">✦</div>
+          <div><div class="sb-hp-title">Create with AI</div><div class="sb-hp-sub">AI-generated copy &amp; visuals</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item">
+          <div class="sb-hp-icon" style="background:rgba(244,52,157,.12)">📋</div>
+          <div><div class="sb-hp-title">Create with Brief</div><div class="sb-hp-sub">Upload brief, we do the rest</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item" onclick="window.location.href='create_ads.html'">
+          <div class="sb-hp-icon" style="background:rgba(255,255,255,.07)">✏️</div>
+          <div><div class="sb-hp-title">Create Manually</div><div class="sb-hp-sub">Full creative control</div></div>
+        </button>
+      </div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span>My</span>
+      </div>
+      <div class="sb-hover-panel">My Creatives</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Alerts" onclick="window.location.href='alerts.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Alerts</span>
+      </div>
+      <div class="sb-hover-panel">Alerts</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='../merchant-portal/index.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        <span>Requests</span>
+      </div>
+      <div class="sb-hover-panel">Requests</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Audit</span>
+      </div>
+      <div class="sb-hover-panel">Ad Audit</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span>Generated</span>
+      </div>
+      <div class="sb-hover-panel">Generated Ads</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='chat.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Chat</span>
+      </div>
+      <div class="sb-hover-panel">Chat with AI</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='workspace.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>Spaces</span>
+      </div>
+      <div class="sb-hover-panel">Workspaces</div>
+    </div>
+    <div class="sb-div" style="margin-top:auto"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" onclick="window.location.href='shiprocket_hero_carousel.html'" style="color:rgba(255,100,100,.5)" onmouseover="this.style.color='rgba(255,100,100,.85)'" onmouseout="this.style.color='rgba(255,100,100,.5)'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </div>
+      <div class="sb-hover-panel" style="color:rgba(255,120,120,.8)">Logout</div>
+    </div>
+    <div style="height:8px;flex-shrink:0"></div>
+    <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;margin-bottom:8px">
+      <img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/>
+    </div>
+  </div>
+
+  <!-- Workspace Switcher -->
+  <div class="ws-switcher-popover" id="ws-switcher-popover">
+    <div class="ws-sw-header"><span class="ws-sw-title">Switch Workspace</span><button class="ws-sw-close" onclick="toggleWsSwitcher()">×</button></div>
+    <div style="padding:8px 0"><div style="display:flex;align-items:center;gap:10px;padding:9px 14px"><div style="width:30px;height:30px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">S</div><div><div style="font-size:12px;font-weight:600;color:#fff">Shesha Ayurveda</div><div style="font-size:10px;color:rgba(255,255,255,.35)">shesha.shiprocket.com</div></div><div style="margin-left:auto;color:var(--purple);font-size:14px">✓</div></div></div>
+    <div class="ws-sw-footer"><button class="ws-sw-add">+ Add Workspace</button></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="tb-brand">
+        <div class="tb-icon">✦</div>
+        <div>
+          <div class="tb-title">Create Ads</div>
+          <div class="tb-sub">Upload inspiration &amp; product images · AI generates your ad</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+      <!-- Demo Banner (spans full body) -->
+      <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+
+        <!-- Two-panel layout -->
+        <div style="display:flex;flex:1;overflow:hidden">
+
+          <!-- LEFT PANEL -->
+          <div class="left-panel">
+            <div class="left-scroll" id="left-scroll">
+
+              <!-- Inspiration Images -->
+              <div class="sec-header">
+                <span class="sec-label">Inspiration Images</span>
+                <span class="sec-count" id="inspo-count">0 Images added</span>
+              </div>
+              <div class="upload-zone empty" id="inspo-zone" ondragover="event.preventDefault()" ondrop="handleDrop(event,'inspo')">
+                <input type="file" accept="image/*" multiple onchange="handleFiles(this.files,'inspo')">
+                <div class="upload-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div class="upload-label">Upload Inspiration Images</div>
+                <div class="upload-sub">Click or drag multiple files</div>
+              </div>
+
+              <!-- Product Image -->
+              <div class="sec-header">
+                <span class="sec-label">Product Image</span>
+              </div>
+              <div class="upload-zone product empty" id="product-zone" ondragover="event.preventDefault()" ondrop="handleDrop(event,'product')">
+                <input type="file" accept="image/*" onchange="handleFiles(this.files,'product')">
+                <div class="upload-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <div class="upload-label">Upload Single Product Images</div>
+                <div class="upload-sub">Click or drag files</div>
+              </div>
+
+              <!-- Aspect Ratio -->
+              <div class="sec-header">
+                <span class="sec-label">Aspect Ratio</span>
+              </div>
+              <div class="aspect-grid">
+                <button class="ratio-btn active" onclick="selectRatio(this,'1:1')">
+                  <div class="ratio-icon"><div class="ri-square" style="color:currentColor"></div></div>
+                  <div><span class="ratio-label">1:1</span> <span class="ratio-name">Square</span></div>
+                </button>
+                <button class="ratio-btn" onclick="selectRatio(this,'4:5')">
+                  <div class="ratio-icon"><div class="ri-portrait" style="color:currentColor"></div></div>
+                  <div><span class="ratio-label">4:5</span> <span class="ratio-name">Portrait</span></div>
+                </button>
+                <button class="ratio-btn" onclick="selectRatio(this,'9:16')">
+                  <div class="ratio-icon"><div class="ri-vertical" style="color:currentColor"></div></div>
+                  <div><span class="ratio-label">9:16</span> <span class="ratio-name">Vertical</span></div>
+                </button>
+                <button class="ratio-btn" onclick="selectRatio(this,'16:9')">
+                  <div class="ratio-icon"><div class="ri-landscape" style="color:currentColor"></div></div>
+                  <div><span class="ratio-label">16:9</span> <span class="ratio-name">Landscape</span></div>
+                </button>
+              </div>
+
+            </div><!-- /left-scroll -->
+
+            <!-- Generate button -->
+            <div class="gen-footer">
+              <button class="gen-btn" id="gen-btn" disabled>
+                ✦
+                Generate <span id="gen-label">0 Ads</span>
+              </button>
+            </div>
+            <!-- Generating overlay -->
+            <div class="left-generating" id="left-generating">
+              <div class="gen-spinner"></div>
+              <div class="gen-overlay-label">Generating Ads...</div>
+            </div>
+          </div><!-- /left-panel -->
+
+          <!-- RIGHT PANEL -->
+          <div class="right-panel">
+
+            <!-- Empty state -->
+            <div class="right-inner" id="empty-state">
+              <div class="empty-state">
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="url(#grad1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <defs>
+                      <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#AF46FD"/>
+                        <stop offset="100%" stop-color="#F4349D"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+                  </svg>
+                </div>
+                <div class="empty-title">Ready to create magic?</div>
+                <div class="empty-sub">Upload inspiration images and product images,<br>then click generate to create AI-powered ads</div>
+              </div>
+            </div>
+
+            <!-- Generated ads area -->
+            <div class="gen-area" id="gen-area">
+              <div class="gen-area-header">
+                <div class="gen-area-title"><span>✦</span> Generated Ads</div>
+                <div class="gen-area-actions">
+                  <button class="gen-dl-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download All
+                  </button>
+                  <button class="gen-done-btn">Done</button>
+                </div>
+              </div>
+              <div id="gen-cards"></div>
+            </div>
+
+          </div><!-- /right-panel -->
+
+        </div>
+      </div>
+
+    </div><!-- /body -->
+  </div><!-- /main -->
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-dot"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+  Image uploaded successfully!
+</div>
+
+</div><!-- /app -->
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox();event.stopPropagation()">✕</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="" onclick="event.stopPropagation()"/>
+</div>
+
+<script>
+var inspoFiles = [];
+var productFile = null;
+var selectedRatio = '1:1';
+var toastTimer = null;
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.childNodes[2].textContent = msg || ' Image uploaded successfully!';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2800);
+}
+
+function handleFiles(files, type) {
+  if (type === 'inspo') {
+    inspoFiles = inspoFiles.concat(Array.from(files));
+    renderInspo();
+  } else {
+    productFile = files[0] || null;
+    renderProduct();
+  }
+  updateGenBtn();
+  showToast('Image uploaded successfully!');
+}
+
+function handleDrop(e, type) {
+  e.preventDefault();
+  handleFiles(e.dataTransfer.files, type);
+}
+
+function removeInspo(i) {
+  inspoFiles.splice(i, 1);
+  renderInspo();
+  updateGenBtn();
+}
+
+function renderInspo() {
+  var zone = document.getElementById('inspo-zone');
+  var count = inspoFiles.length;
+  document.getElementById('inspo-count').textContent = count + ' Image' + (count !== 1 ? 's' : '') + ' added';
+
+  if (count === 0) {
+    zone.className = 'upload-zone empty';
+    zone.innerHTML =
+      '<input type="file" accept="image/*" multiple onchange="handleFiles(this.files,\'inspo\')" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1">' +
+      '<div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>' +
+      '<div class="upload-label">Upload Inspiration Images</div>' +
+      '<div class="upload-sub">Click or drag multiple files</div>';
+    return;
+  }
+
+  zone.className = 'upload-zone filled';
+  var thumbsHtml = '';
+  inspoFiles.forEach(function(f, i) {
+    var url = URL.createObjectURL(f);
+    thumbsHtml +=
+      '<div class="inspo-thumb">' +
+        '<img src="' + url + '" alt="" style="cursor:zoom-in" onclick="openLightbox(\'' + url + '\');event.stopPropagation()"/>' +
+        '<button class="rm-btn" onclick="removeInspo(' + i + ');event.stopPropagation()">✕</button>' +
+      '</div>';
+  });
+  var scrollHtml =
+    '<div class="inspo-filled-wrap">' +
+      '<div class="inspo-scroll">' + thumbsHtml + '</div>' +
+      '<div class="add-more-btn">' +
+        '<input type="file" accept="image/*" multiple onchange="handleFiles(this.files,\'inspo\')">' +
+        '<div class="plus">+</div>' +
+        '<div class="add-lbl">Add more</div>' +
+      '</div>' +
+    '</div>';
+  zone.innerHTML = scrollHtml;
+}
+
+function renderProduct() {
+  var zone = document.getElementById('product-zone');
+  if (!productFile) {
+    zone.className = 'upload-zone product empty';
+    zone.innerHTML =
+      '<input type="file" accept="image/*" onchange="handleFiles(this.files,\'product\')" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1">' +
+      '<div class="upload-icon" style="background:rgba(244,52,157,.08);border-color:rgba(244,52,157,.18)"><svg viewBox="0 0 24 24" fill="none" stroke="#F4349D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>' +
+      '<div class="upload-label">Upload Single Product Images</div>' +
+      '<div class="upload-sub">Click or drag files</div>';
+    return;
+  }
+  zone.className = 'upload-zone product filled';
+  var url = URL.createObjectURL(productFile);
+  zone.innerHTML =
+    '<div class="inspo-scroll">' +
+      '<div class="product-thumb">' +
+        '<img src="' + url + '" alt="" style="cursor:zoom-in" onclick="openLightbox(\'' + url + '\');event.stopPropagation()"/>' +
+        '<button class="rm-btn" onclick="productFile=null;renderProduct();updateGenBtn();event.stopPropagation()">✕</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function updateGenBtn() {
+  var btn = document.getElementById('gen-btn');
+  var count = inspoFiles.length;
+  var ready = count > 0 && !!productFile;
+  btn.disabled = !ready;
+  btn.onclick = ready ? startGenerate : null;
+  document.getElementById('gen-label').textContent = count + ' Ad' + (count !== 1 ? 's' : '');
+}
+
+function startGenerate() {
+  // Show generating overlay on left panel
+  document.getElementById('left-generating').classList.add('show');
+
+  // Hide empty state, show gen area
+  document.getElementById('empty-state').style.display = 'none';
+  var genArea = document.getElementById('gen-area');
+  genArea.classList.add('show');
+
+  // Build a card per inspiration image (all in loading state)
+  var cards = document.getElementById('gen-cards');
+  cards.innerHTML = '';
+  inspoFiles.forEach(function(f, i) {
+    var srcUrl = URL.createObjectURL(f);
+    var card = document.createElement('div');
+    card.className = 'inspo-result-card';
+    card.id = 'irc-' + i;
+    card.innerHTML =
+      '<div class="irc-header">' +
+        '<div class="irc-badge">' + (i + 1) + '</div>' +
+        '<div class="irc-title">Inspiration Style</div>' +
+      '</div>' +
+      '<div class="irc-cols">' +
+        '<div>' +
+          '<div class="irc-col-label">Source Inspiration</div>' +
+          '<div class="irc-src-wrap">' +
+            '<img class="irc-src-img" src="' + srcUrl + '" alt=""/>' +
+            '<button class="irc-overlay-btn irc-expand-btn" onclick="openLightbox(\'' + srcUrl + '\')">⤢</button>' +
+            '<button class="irc-overlay-btn irc-bookmark-btn">🔖</button>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div class="irc-col-label pink">Generated Ad</div>' +
+          '<div class="irc-gen-wrap">' +
+            '<div class="irc-gen-slot" id="slot-' + i + '">' +
+              '<div class="irc-sparkle-icon">✦</div>' +
+              '<div class="irc-gen-label">Generating your ad</div>' +
+              '<div class="irc-gen-sub">This may take a moment...</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="irc-regen-row" id="regen-' + i + '" style="display:none">' +
+            '<button class="irc-regen-btn" onclick="openRegenPanel(' + i + ')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Regenerate with AI ✦</button>' +
+          '</div>' +
+          '<div class="irc-regen-panel" id="regen-panel-' + i + '">' +
+            '<div class="irc-regen-panel-header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Regenerate with AI</div>' +
+            '<div class="irc-regen-warning"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>Running this will replace your current regenerated version. Make sure to save or download it first if you want to keep it.</div>' +
+            '<textarea class="irc-regen-input" id="regen-input-' + i + '" rows="3" placeholder="Describe how you want to modify the image..."></textarea>' +
+            '<div class="irc-regen-footer">' +
+              '<button class="irc-regen-cancel" onclick="closeRegenPanel(' + i + ')">Cancel</button>' +
+              '<button class="irc-regen-submit" onclick="submitRegen(' + i + ')">✦ Regenerate</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    cards.appendChild(card);
+
+    // Simulate generation completing staggered per card
+    setTimeout(function(idx, url) {
+      var slot = document.getElementById('slot-' + idx);
+      if (slot) {
+        var wrap = slot.parentNode;
+        slot.className = 'irc-gen-slot done';
+        slot.innerHTML = '<img src="' + url + '" alt="generated ad"/>';
+        // Add overlay buttons on generated ad
+        wrap.innerHTML +=
+          '<div class="irc-original-chip">Original</div>' +
+          '<button class="irc-overlay-btn irc-gen-expand" onclick="openLightbox(\'' + url + '\')">⤢</button>' +
+          '<button class="irc-overlay-btn irc-gen-edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+        // Show regenerate row
+        var regenRow = document.getElementById('regen-' + idx);
+        if (regenRow) regenRow.style.display = 'flex';
+      }
+      // Remove overlay after last card
+      if (idx === inspoFiles.length - 1) {
+        document.getElementById('left-generating').classList.remove('show');
+      }
+    }.bind(null, i, srcUrl), 3000 + i * 1500);
+  });
+}
+
+function selectRatio(el, ratio) {
+  document.querySelectorAll('.ratio-btn').forEach(function(b){ b.classList.remove('active'); });
+  el.classList.add('active');
+  selectedRatio = ratio;
+}
+
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('show');
+  document.getElementById('lightbox-img').src = '';
+}
+
+function openRegenPanel(idx) {
+  document.getElementById('regen-panel-' + idx).classList.add('show');
+  document.getElementById('regen-' + idx).style.display = 'none';
+}
+
+function closeRegenPanel(idx) {
+  document.getElementById('regen-panel-' + idx).classList.remove('show');
+  document.getElementById('regen-' + idx).style.display = 'flex';
+  document.getElementById('regen-input-' + idx).value = '';
+}
+
+function submitRegen(idx) {
+  var panel = document.getElementById('regen-panel-' + idx);
+  panel.classList.remove('show');
+
+  // Show generating state in a new slot next to the original
+  var wrap = document.getElementById('slot-' + idx).parentNode;
+  // Wrap existing slot + new slot side by side
+  var existing = wrap.querySelector('.irc-gen-slot, .irc-new-slot');
+  if (!wrap.classList.contains('irc-ad-slots')) {
+    wrap.className = 'irc-ad-slots irc-gen-wrap';
+    var origWrap = document.createElement('div');
+    origWrap.className = 'irc-gen-wrap';
+    // Move existing slot children into origWrap
+    while (wrap.childNodes.length > 0) {
+      origWrap.appendChild(wrap.firstChild);
+    }
+    wrap.appendChild(origWrap);
+  }
+  var newWrap = document.createElement('div');
+  newWrap.className = 'irc-gen-wrap';
+  newWrap.innerHTML =
+    '<div class="irc-new-slot" id="new-slot-' + idx + '">' +
+      '<div class="irc-sparkle-icon">✦</div>' +
+      '<div class="irc-gen-label">Generating your ad</div>' +
+      '<div class="irc-gen-sub">This may take a moment...</div>' +
+    '</div>';
+  wrap.appendChild(newWrap);
+
+  // After 3s resolve the new slot
+  setTimeout(function() {
+    var newSlot = document.getElementById('new-slot-' + idx);
+    if (newSlot && inspoFiles[idx]) {
+      var url = URL.createObjectURL(inspoFiles[idx]);
+      newSlot.className = 'irc-new-slot done';
+      newSlot.innerHTML = '<img src="' + url + '" alt="regenerated"/>';
+    }
+  }, 3000);
+}
+
+function toggleWsSwitcher() {
+  document.getElementById('ws-switcher-popover').classList.toggle('open');
+}
+</script>
+</body>
+</html>

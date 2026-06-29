@@ -635,6 +635,8 @@ a{color:inherit;text-decoration:none}
   background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.18);
   font-size:10px;font-weight:700;color:#22C55E;width:fit-content;
 }
+.playbook-step-metric-label{font-size:9.5px;color:var(--t3);font-weight:500;margin-top:-3px;text-transform:uppercase;letter-spacing:.3px}
+.playbook-step-compare{font-size:9.5px;color:rgba(255,255,255,.3);margin-top:3px;line-height:1.3}
 /* connector arrow between steps */
 .playbook-arrow{
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
@@ -1333,6 +1335,13 @@ a{color:inherit;text-decoration:none}
       </div>
       <div class="sb-hover-panel">My Creatives</div>
     </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Alerts" onclick="window.location.href='alerts.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Alerts</span>
+      </div>
+      <div class="sb-hover-panel">Alerts</div>
+    </div>
     <div class="sb-div"></div>
     <div class="sb-item-wrap">
       <div class="sb-item" title="Requests" onclick="window.location.href='../merchant-portal/index.html'" style="cursor:pointer">
@@ -1507,43 +1516,64 @@ a{color:inherit;text-decoration:none}
             <div class="playbook-step">
               <div class="playbook-step-icon">🎣</div>
               <div class="playbook-step-label">Hook</div>
-              <div class="playbook-step-value">Problem Statement</div>
-              <div class="playbook-step-stat">3.8x ROAS</div>
+              <div class="playbook-step-value">Testimonial Snippet</div>
+              <div class="playbook-step-metric-label">CTR</div>
+              <div class="playbook-step-stat">5.68%</div>
+              <div class="playbook-step-compare">+106% vs 2.76% avg</div>
             </div>
             <div class="playbook-arrow">›</div>
             <div class="playbook-step">
-              <div class="playbook-step-icon">🎬</div>
+              <div class="playbook-step-icon">📖</div>
               <div class="playbook-step-label">Story</div>
-              <div class="playbook-step-value">Before / After</div>
-              <div class="playbook-step-stat">2.4x conversions</div>
+              <div class="playbook-step-value">Testimonial / Social Proof</div>
+              <div class="playbook-step-metric-label">ROAS</div>
+              <div class="playbook-step-stat">3.79x</div>
+              <div class="playbook-step-compare">+57% vs product demo (2.41x)</div>
             </div>
             <div class="playbook-arrow">›</div>
             <div class="playbook-step">
               <div class="playbook-step-icon">📱</div>
               <div class="playbook-step-label">Format</div>
-              <div class="playbook-step-value">Raw UGC · 9:16 · 20–35s</div>
-              <div class="playbook-step-stat">Best CTR</div>
+              <div class="playbook-step-value">Raw UGC · 9:16 · 15–30s</div>
+              <div class="playbook-step-metric-label">ATC Rate</div>
+              <div class="playbook-step-stat">6.33%</div>
+              <div class="playbook-step-compare">15–30s beats 30–60s by 2.1x</div>
             </div>
             <div class="playbook-arrow">›</div>
             <div class="playbook-step">
               <div class="playbook-step-icon">👤</div>
               <div class="playbook-step-label">Creator</div>
-              <div class="playbook-step-value">Female · 24–34</div>
-              <div class="playbook-step-stat">Top 3 ads</div>
+              <div class="playbook-step-value">Female · Upper body</div>
+              <div class="playbook-step-metric-label">CTR</div>
+              <div class="playbook-step-stat">5.68%</div>
+              <div class="playbook-step-compare">2.3x vs no-person ads (2.44%)</div>
             </div>
             <div class="playbook-arrow">›</div>
             <div class="playbook-step">
               <div class="playbook-step-icon">🎯</div>
               <div class="playbook-step-label">Offer</div>
-              <div class="playbook-step-value">Price in first 5s</div>
-              <div class="playbook-step-stat">+22% CTR</div>
+              <div class="playbook-step-value">Limited-time offer</div>
+              <div class="playbook-step-metric-label">CPR</div>
+              <div class="playbook-step-stat">₹472</div>
+              <div class="playbook-step-compare">17% cheaper than no-offer (₹566)</div>
+            </div>
+            <div class="playbook-arrow">›</div>
+            <div class="playbook-step">
+              <div class="playbook-step-icon">🔗</div>
+              <div class="playbook-step-label">Structure</div>
+              <div class="playbook-step-value">Testimonial → Demo → CTA</div>
+              <div class="playbook-step-metric-label">Conv. Rate</div>
+              <div class="playbook-step-stat">0.98%</div>
+              <div class="playbook-step-compare">2.4x vs demo → benefits → CTA</div>
             </div>
             <div class="playbook-arrow">›</div>
             <div class="playbook-step">
               <div class="playbook-step-icon">🔊</div>
               <div class="playbook-step-label">Audio</div>
-              <div class="playbook-step-value">Voiceover + soft BGM</div>
-              <div class="playbook-step-stat">+38% watch time</div>
+              <div class="playbook-step-value">Creator talking-head</div>
+              <div class="playbook-step-metric-label">LPV Rate</div>
+              <div class="playbook-step-stat">66.8%</div>
+              <div class="playbook-step-compare">+5pts vs BGM-only (61.4%)</div>
             </div>
           </div>
         </div>

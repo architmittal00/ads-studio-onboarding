@@ -46,6 +46,26 @@ a{color:inherit;text-decoration:none}
 .sb-item span{font-size:9px;font-weight:600}
 .sb-div{width:32px;height:1px;background:var(--border);margin:4px 0}
 .sb-spacer{flex:1}
+.sb-item-wrap{position:relative;display:flex;justify-content:center;width:100%}
+.sb-hover-panel{
+  position:absolute;left:calc(100% + 10px);top:50%;
+  transform:translateY(-50%) translateX(-6px);
+  background:#13122a;border:1px solid rgba(255,255,255,.1);border-radius:10px;
+  padding:8px 12px;white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .15s,transform .15s;z-index:400;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+  font-size:12px;font-weight:600;color:rgba(255,255,255,.85);
+}
+.sb-item-wrap:hover .sb-hover-panel{opacity:1;pointer-events:all;transform:translateY(-50%) translateX(0)}
+.sb-hover-panel::before{content:'';position:absolute;right:100%;top:0;bottom:0;width:14px}
+.sb-hover-panel.sb-hp-multi{padding:6px;min-width:210px;white-space:normal}
+.sb-hp-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.2);padding:4px 8px 4px}
+.sb-hp-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:background .15s;border:none;background:none;font-family:inherit;text-align:left;width:100%}
+.sb-hp-item:hover{background:rgba(255,255,255,.06)}
+.sb-hp-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.sb-hp-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:1px}
+.sb-hp-sub{font-size:10px;color:rgba(255,255,255,.3);line-height:1.3}
+.sb-hp-divider{height:1px;background:rgba(255,255,255,.06);margin:2px 8px}
 .sb-ws-bubble{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);}
 
 /* ── MAIN ── */
@@ -696,34 +716,106 @@ a{color:inherit;text-decoration:none}
 <div class="app">
 
   <!-- SIDEBAR -->
-  <nav class="sb">
+  <div class="sb">
     <div class="sb-logo">
-      <svg viewBox="0 0 20 20" fill="none"><path d="M10 3L17 7V13L10 17L3 13V7L10 3Z" fill="white" opacity=".9"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
     </div>
-    <div class="sb-item" title="Home">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M7 18v-6h6v6"/></svg>
-      <span>Home</span>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Dashboard" onclick="window.location.href='creative_report.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="sb-hover-panel">Dashboard</div>
     </div>
-    <div class="sb-item" title="Campaigns">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="14" height="12" rx="2"/><path d="M7 5V4a1 1 0 012 0v1M11 5V4a1 1 0 012 0v1"/><path d="M3 9h14"/></svg>
-      <span>Ads</span>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Ads">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span>Ads</span>
+      </div>
+      <div class="sb-hover-panel sb-hp-multi">
+        <div class="sb-hp-label">Create Ad</div>
+        <button class="sb-hp-item" onclick="window.location.href='chat.html'">
+          <div class="sb-hp-icon" style="background:rgba(175,70,253,.15)">✦</div>
+          <div><div class="sb-hp-title">Create with AI</div><div class="sb-hp-sub">AI-generated copy &amp; visuals</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item">
+          <div class="sb-hp-icon" style="background:rgba(244,52,157,.12)">📋</div>
+          <div><div class="sb-hp-title">Create with Brief</div><div class="sb-hp-sub">Upload brief, we do the rest</div></div>
+        </button>
+        <div class="sb-hp-divider"></div>
+        <button class="sb-hp-item" onclick="window.location.href='create_ads.html'">
+          <div class="sb-hp-icon" style="background:rgba(255,255,255,.07)">✏️</div>
+          <div><div class="sb-hp-title">Create Manually</div><div class="sb-hp-sub">Full creative control</div></div>
+        </button>
+      </div>
     </div>
-    <div class="sb-item active" title="Alerts">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 2a6 6 0 016 6c0 3.5 1.5 5 1.5 5h-15S4 11.5 4 8a6 6 0 016-6z"/><path d="M8.5 15a1.5 1.5 0 003 0"/></svg>
-      <span>Alerts</span>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="My">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span>My</span>
+      </div>
+      <div class="sb-hover-panel">My Creatives</div>
     </div>
-    <div class="sb-item" title="Analytics">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 15l4-5 4 3 4-7 2 2"/><circle cx="17" cy="8" r="1" fill="currentColor"/></svg>
-      <span>Stats</span>
+    <div class="sb-item-wrap">
+      <div class="sb-item active" title="Alerts" onclick="window.location.href='alerts.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Alerts</span>
+      </div>
+      <div class="sb-hover-panel">Alerts</div>
     </div>
     <div class="sb-div"></div>
-    <div class="sb-item" title="Creatives">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
-      <span>Creative</span>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Requests" onclick="window.location.href='../merchant-portal/index.html'" style="cursor:pointer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        <span>Requests</span>
+      </div>
+      <div class="sb-hover-panel">Requests</div>
     </div>
-    <div class="sb-spacer"></div>
-    <div class="sb-ws-bubble">S</div>
-  </nav>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Audit</span>
+      </div>
+      <div class="sb-hover-panel">Ad Audit</div>
+    </div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Generated">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span>Generated</span>
+      </div>
+      <div class="sb-hover-panel">Generated Ads</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Chat" onclick="window.location.href='chat.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Chat</span>
+      </div>
+      <div class="sb-hover-panel">Chat with AI</div>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Workspaces" onclick="window.location.href='workspace.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>Spaces</span>
+      </div>
+      <div class="sb-hover-panel">Workspaces</div>
+    </div>
+    <div class="sb-div" style="margin-top:auto"></div>
+    <div class="sb-item-wrap">
+      <div class="sb-item" title="Logout" onclick="window.location.href='shiprocket_hero_carousel.html'" style="color:rgba(255,100,100,.5)" onmouseover="this.style.color='rgba(255,100,100,.85)'" onmouseout="this.style.color='rgba(255,100,100,.5)'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </div>
+      <div class="sb-hover-panel" style="color:rgba(255,120,120,.8)">Logout</div>
+    </div>
+    <div style="height:8px;flex-shrink:0"></div>
+    <div class="sb-ws-bubble" style="background:#fff;overflow:hidden;margin-bottom:8px"><img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background='var(--grad)'"/></div>
+  </div>
 
   <!-- MAIN -->
   <div class="main">
