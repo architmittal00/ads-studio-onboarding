@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#0B0B14">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alerts · Shiprocket Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;
+  --card:rgba(255,255,255,.04);
+  --card2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);
+  --border2:rgba(255,255,255,.14);
+  --t1:#fff;
+  --t2:rgba(255,255,255,.55);
+  --t3:rgba(255,255,255,.28);
+  --purple:#AF46FD;
+  --pink:#F4349D;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --green:#22C55E;
+  --amber:#F59E0B;
+  --red:#EF4444;
+  --blue:#60A5FA;
+}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;width:100%}
+
+/* ── SIDEBAR ── */
+.sb{
+  width:64px;flex-shrink:0;background:#0d0d1a;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;gap:2px;
+}
+.sb-logo{width:36px;height:36px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;margin-bottom:18px;flex-shrink:0;}
+.sb-logo svg{width:15px;height:15px}
+.sb-item{width:44px;height:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:background .15s;color:var(--t3);border:none;background:transparent;}
+.sb-item:hover{background:var(--card2);color:var(--t2)}
+.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.sb-item svg{width:17px;height:17px}
+.sb-item span{font-size:9px;font-weight:600}
+.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0}
+.sb-spacer{flex:1}
+.sb-ws-bubble{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;height:60px;padding:0 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:rgba(11,11,20,.98);z-index:200;
+}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-title{font-size:16px;font-weight:800}
+.alert-total-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.25);color:var(--purple);}
+.topbar-right{display:flex;align-items:center;gap:10px}
+
+/* ── ACCOUNT SELECTOR ── */
+.acc-selector-wrap{position:relative}
+.acc-selector-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 12px;border-radius:9px;background:var(--card);border:1px solid var(--border);
+  cursor:pointer;transition:all .15s;user-select:none;
+}
+.acc-selector-btn:hover,.acc-selector-btn.open{border-color:rgba(175,70,253,.4);background:rgba(175,70,253,.06)}
+.acc-selector-avatars{display:flex;align-items:center}
+.acc-avatar{
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;border:1.5px solid #0B0B14;
+  margin-left:-5px;flex-shrink:0;
+}
+.acc-avatar:first-child{margin-left:0}
+.acc-avatar.a{background:linear-gradient(135deg,#AF46FD,#F4349D)}
+.acc-avatar.b{background:linear-gradient(135deg,#F59E0B,#EF4444)}
+.acc-avatar.c{background:linear-gradient(135deg,#22C55E,#60A5FA)}
+.acc-avatar.d{background:linear-gradient(135deg,#60A5FA,#AF46FD)}
+.acc-selector-label{font-size:12px;font-weight:600;color:var(--t2)}
+.acc-selector-chevron{color:var(--t3);transition:transform .2s;flex-shrink:0}
+.acc-selector-btn.open .acc-selector-chevron{transform:rotate(180deg)}
+
+/* ── ACCOUNT DROPDOWN PANEL ── */
+.acc-dropdown{
+  position:absolute;top:calc(100% + 8px);right:0;
+  width:320px;background:#0d0c1a;
+  border:1px solid rgba(255,255,255,.1);border-radius:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6);
+  z-index:500;overflow:hidden;
+  opacity:0;pointer-events:none;transform:translateY(-6px);
+  transition:opacity .15s,transform .15s;
+}
+.acc-dropdown.open{opacity:1;pointer-events:all;transform:translateY(0)}
+
+.acc-drop-header{
+  padding:14px 16px 10px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.acc-drop-title{font-size:12px;font-weight:700;color:rgba(255,255,255,.5)}
+.acc-drop-actions{display:flex;gap:8px}
+.acc-drop-link{font-size:11px;font-weight:600;color:var(--purple);cursor:pointer;background:none;border:none;font-family:inherit;padding:0}
+.acc-drop-link:hover{text-decoration:underline}
+
+.acc-drop-search{
+  padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);
+}
+.acc-drop-search-inner{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border-radius:8px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+}
+.acc-drop-search-inner svg{width:13px;height:13px;color:var(--t3);flex-shrink:0}
+.acc-drop-search-inner input{
+  flex:1;background:none;border:none;outline:none;
+  font-family:inherit;font-size:12px;color:var(--t1);
+}
+.acc-drop-search-inner input::placeholder{color:var(--t3)}
+
+.acc-drop-list{padding:8px 8px;max-height:280px;overflow-y:auto}
+.acc-drop-list::-webkit-scrollbar{width:3px}
+.acc-drop-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07)}
+
+.acc-drop-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:9px;cursor:pointer;
+  transition:background .12s;
+}
+.acc-drop-item:hover{background:rgba(255,255,255,.05)}
+.acc-drop-item.selected{background:rgba(175,70,253,.08)}
+
+.acc-drop-avatar{
+  width:34px;height:34px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;flex-shrink:0;
+}
+.acc-drop-avatar.a{background:linear-gradient(135deg,#AF46FD,#F4349D)}
+.acc-drop-avatar.b{background:linear-gradient(135deg,#F59E0B,#EF4444)}
+.acc-drop-avatar.c{background:linear-gradient(135deg,#22C55E,#60A5FA)}
+.acc-drop-avatar.d{background:linear-gradient(135deg,#60A5FA,#AF46FD)}
+
+.acc-drop-info{flex:1;min-width:0}
+.acc-drop-name{font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acc-drop-meta{font-size:10.5px;color:var(--t3);margin-top:1px;display:flex;align-items:center;gap:6px}
+.acc-drop-alerts{
+  margin-left:auto;flex-shrink:0;
+  padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;
+  background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.2);color:#EF4444;
+}
+.acc-drop-alerts.none{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);color:var(--t3)}
+
+/* custom checkbox */
+.acc-drop-check{
+  width:18px;height:18px;border-radius:5px;flex-shrink:0;
+  border:1.5px solid rgba(255,255,255,.15);background:transparent;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.acc-drop-item.selected .acc-drop-check{
+  background:var(--purple);border-color:var(--purple);
+}
+.acc-drop-check svg{display:none;width:10px;height:10px}
+.acc-drop-item.selected .acc-drop-check svg{display:block}
+
+.acc-drop-footer{
+  padding:10px 16px;border-top:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.acc-drop-selected-label{font-size:11px;color:var(--t3)}
+.acc-drop-apply{
+  padding:7px 18px;border-radius:8px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;transition:opacity .15s;
+}
+.acc-drop-apply:hover{opacity:.85}
+
+/* ── APPROVE ALL BTN ── */
+.approve-all-btn{
+  padding:8px 18px;border-radius:9px;background:var(--grad);color:#fff;border:none;
+  font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;transition:opacity .15s;
+}
+.approve-all-btn:hover{opacity:.85}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:28px}
+.content::-webkit-scrollbar{width:3px}
+.content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07)}
+
+/* ── ACCOUNT BLOCK (wraps one account's content) ── */
+.account-block{margin-bottom:44px}
+.account-block+.account-block{
+  padding-top:36px;
+  border-top:1px solid var(--border);
+}
+
+/* ── ACCOUNT HEADER ── */
+.account-header{display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+.acc-logo{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:800;flex-shrink:0;
+}
+.acc-logo.a{background:linear-gradient(135deg,#AF46FD,#F4349D)}
+.acc-logo.b{background:rgba(175,70,253,.25);border:1px solid rgba(175,70,253,.3)}
+.acc-logo.c{background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.2)}
+.acc-logo.d{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.acc-info{flex:1}
+.acc-name{font-size:18px;font-weight:800;margin-bottom:2px}
+.acc-meta{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:10px}
+.acc-meta-dot{width:3px;height:3px;border-radius:50%;background:var(--t3)}
+.acc-summary{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.acc-summary-chip{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;}
+.acc-summary-chip.red{background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:rgba(175,70,253,.9)}
+.acc-summary-chip.amber{background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.15);color:rgba(200,130,255,.8)}
+.acc-summary-chip.blue{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--t2)}
+
+/* ── STATS BAR ── */
+.stats-bar{display:flex;gap:12px;margin-bottom:28px;}
+.stat-card{flex:1;padding:16px 18px;border-radius:12px;background:var(--card);border:1px solid var(--border);}
+.stat-card-label{font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.stat-card-val{font-size:22px;font-weight:800;line-height:1}
+.stat-card-val.amber{color:var(--purple)}
+.stat-card-val.red{color:rgba(200,140,255,.8)}
+.stat-card-val.green{color:rgba(255,255,255,.85)}
+.stat-card-sub{font-size:11px;color:var(--t3);margin-top:4px}
+
+/* ── SECTION ── */
+.section{margin-bottom:28px}
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.section-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.section-icon.amber{background:rgba(175,70,253,.1)}
+.section-icon.red{background:rgba(175,70,253,.1)}
+.section-icon.blue{background:rgba(175,70,253,.1)}
+.section-icon svg{width:15px;height:15px}
+.section-title{font-size:13px;font-weight:800;color:var(--t1)}
+.section-count{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.section-count.amber{background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:var(--purple)}
+.section-count.red{background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:var(--purple)}
+.section-count.blue{background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:var(--purple)}
+.section-approve-all{
+  margin-left:auto;padding:5px 13px;border-radius:7px;
+  background:transparent;border:1px solid rgba(255,255,255,.1);
+  color:var(--t2);font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.section-approve-all:hover{border-color:rgba(34,197,94,.4);color:#22C55E;background:rgba(34,197,94,.06)}
+
+/* ── ALERT CARD ── */
+.alert-card{
+  border-radius:12px;background:var(--card);border:1px solid var(--border);
+  padding:16px 18px;margin-bottom:8px;transition:all .2s;
+  display:flex;align-items:flex-start;gap:14px;
+}
+.alert-card:hover{background:var(--card2);border-color:var(--border2)}
+.alert-accent{width:3px;min-height:48px;border-radius:3px;flex-shrink:0;margin-top:2px;align-self:stretch;}
+.alert-accent.amber{background:linear-gradient(180deg,rgba(175,70,253,.7),rgba(175,70,253,.1))}
+.alert-accent.red{background:linear-gradient(180deg,rgba(175,70,253,.5),rgba(175,70,253,.05))}
+.alert-accent.blue{background:linear-gradient(180deg,rgba(175,70,253,.35),rgba(175,70,253,.03))}
+.alert-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.alert-icon.amber{background:rgba(175,70,253,.12)}
+.alert-icon.red{background:rgba(175,70,253,.1)}
+.alert-icon.blue{background:rgba(175,70,253,.07)}
+.alert-icon svg{width:16px;height:16px}
+.alert-body{flex:1;min-width:0}
+.alert-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.alert-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.3}
+.alert-tag{padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0;}
+.alert-tag.boost{background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.25);color:var(--purple)}
+.alert-tag.pause{background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.15);color:rgba(200,140,255,.8)}
+.alert-tag.move{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--t2)}
+.alert-reason{font-size:11.5px;color:var(--t2);line-height:1.55;margin-bottom:8px}
+.alert-metrics{display:flex;gap:0;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.alert-metrics::-webkit-scrollbar{height:3px}
+.alert-metrics::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+.alert-metric{flex-shrink:0;padding-right:20px;border-right:1px solid rgba(255,255,255,.07);margin-right:20px}
+.alert-metric:last-child{border-right:none;margin-right:0;padding-right:0}
+.alert-metric-div{display:none}
+.alert-metric{display:flex;flex-direction:column;gap:2px}
+.alert-metric-label{font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.alert-metric-val{font-size:13px;font-weight:700;color:var(--t1)}
+.alert-metric-val.up{color:#fff}
+.alert-metric-val.down{color:rgba(255,255,255,.45)}
+.alert-metric-val.muted{color:var(--t2)}
+.alert-action-row{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:9px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+}
+.alert-action-text{flex:1;font-size:11.5px;color:var(--t2);line-height:1.4}
+.alert-action-text strong{color:var(--t1);font-weight:700}
+.alert-ctas{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;}
+.btn-reject{
+  padding:7px 14px;border-radius:8px;
+  background:transparent;border:1px solid rgba(255,255,255,.1);
+  color:var(--t3);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.btn-reject:hover{border-color:rgba(239,68,68,.4);color:#EF4444;background:rgba(239,68,68,.06)}
+.btn-approve{
+  padding:7px 16px;border-radius:8px;
+  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);
+  color:#22C55E;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:all .15s;display:flex;align-items:center;gap:5px;
+}
+.btn-approve:hover{background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.5)}
+.btn-approve svg{width:12px;height:12px}
+.alert-done-banner{
+  display:none;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:8px;margin-top:8px;font-size:12px;font-weight:600;
+}
+.alert-done-banner.approved{background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.2);color:var(--purple);}
+.alert-done-banner.rejected{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:var(--t3);}
+
+/* ── APPROVE PROGRESS BAR ── */
+.approve-progress{
+  display:none;margin-top:10px;border-radius:9px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  padding:12px 14px;
+}
+.approve-progress.show{display:block}
+.approve-progress-label{font-size:11.5px;color:var(--t2);margin-bottom:8px;display:flex;align-items:center;gap:7px}
+.approve-progress-label svg{width:13px;height:13px;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.approve-progress-track{height:4px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.approve-progress-fill{height:100%;border-radius:4px;background:var(--grad);width:0%;transition:width .05s linear}
+
+/* ── FEEDBACK NUDGE (bottom-left floating) ── */
+.feedback-nudge{
+  position:fixed;bottom:24px;left:88px;z-index:600;
+  width:300px;background:#13112b;
+  border:1px solid rgba(175,70,253,.25);border-radius:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  transform:translateY(20px);opacity:0;pointer-events:none;
+  transition:opacity .25s, transform .25s;
+}
+.feedback-nudge.show{opacity:1;transform:translateY(0);pointer-events:all}
+.feedback-nudge.hide{opacity:0;transform:translateY(20px);pointer-events:none}
+.nudge-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:14px 14px 0;gap:10px;
+}
+.nudge-emoji{font-size:18px;line-height:1;flex-shrink:0;margin-top:1px}
+.nudge-text{flex:1}
+.nudge-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:3px;line-height:1.3}
+.nudge-sub{font-size:11px;color:rgba(255,255,255,.4);line-height:1.4}
+.nudge-close{
+  background:none;border:none;color:rgba(255,255,255,.25);
+  font-size:16px;cursor:pointer;padding:0;line-height:1;flex-shrink:0;
+  font-family:inherit;transition:color .12s;
+}
+.nudge-close:hover{color:rgba(255,255,255,.6)}
+.nudge-body{padding:10px 14px 14px}
+.nudge-textarea{
+  width:100%;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.09);border-radius:8px;
+  padding:9px 11px;resize:none;height:62px;
+  font-family:inherit;font-size:12px;color:#fff;outline:none;
+  transition:border-color .15s;line-height:1.5;
+}
+.nudge-textarea::placeholder{color:rgba(255,255,255,.2)}
+.nudge-textarea:focus{border-color:rgba(175,70,253,.4)}
+.nudge-actions{display:flex;gap:8px;margin-top:8px}
+.nudge-btn-skip{
+  flex:1;padding:7px;border-radius:8px;background:transparent;
+  border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.3);
+  font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.nudge-btn-skip:hover{color:rgba(255,255,255,.55);border-color:rgba(255,255,255,.14)}
+.nudge-btn-send{
+  flex:2;padding:7px;border-radius:8px;
+  background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.3);
+  color:var(--purple);font-size:11.5px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.nudge-btn-send:hover{background:rgba(175,70,253,.25)}
+
+/* nudge countdown bar */
+.nudge-timer-track{
+  height:3px;border-radius:0 0 14px 14px;
+  background:rgba(255,255,255,.06);overflow:hidden;
+}
+.nudge-timer-fill{
+  height:100%;width:100%;border-radius:0 0 14px 14px;
+  background:rgba(175,70,253,.5);
+  transform-origin:left;
+  transition:none;
+}
+
+/* ── EMPTY / NO ACCOUNTS ── */
+.no-accounts{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:80px 20px;text-align:center;
+}
+.no-accounts-icon{
+  width:56px;height:56px;border-radius:16px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+}
+.no-accounts-icon svg{width:24px;height:24px;color:var(--t3)}
+.no-accounts h3{font-size:15px;font-weight:700;color:var(--t2)}
+.no-accounts p{font-size:12px;color:var(--t3);max-width:280px;line-height:1.6}
+.no-accounts-btn{
+  padding:9px 20px;border-radius:9px;
+  background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.25);
+  color:var(--purple);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:all .15s;margin-top:4px;
+}
+.no-accounts-btn:hover{background:rgba(175,70,253,.2)}
+
+/* ── ACCOUNT SELECTION SCREEN ── */
+.acc-select-screen{
+  position:absolute;left:0;right:0;bottom:0;top:60px;z-index:100;
+  background:var(--bg);
+  display:flex;overflow:hidden;
+  transition:opacity .4s, transform .4s;
+}
+.acc-select-screen.exit{opacity:0;transform:translateY(-12px);pointer-events:none}
+
+/* left panel — copy */
+.asc-left{
+  width:300px;flex-shrink:0;
+  padding:36px 32px;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;justify-content:center;
+  background:linear-gradient(160deg,rgba(175,70,253,.06) 0%,transparent 60%);
+}
+.asc-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:20px;margin-bottom:28px;
+  background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);
+  font-size:11px;font-weight:700;color:var(--purple);width:fit-content;
+}
+.asc-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--purple);animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.asc-headline{font-size:28px;font-weight:800;line-height:1.25;margin-bottom:14px;color:#fff}
+.asc-headline span{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.asc-sub{font-size:13.5px;color:var(--t2);line-height:1.7;margin-bottom:36px;max-width:320px}
+
+/* stat pills */
+.asc-stats{display:flex;flex-direction:column;gap:12px;margin-bottom:40px}
+.asc-stat{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 16px;border-radius:12px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+}
+.asc-stat-icon{
+  width:36px;height:36px;border-radius:10px;flex-shrink:0;
+  background:rgba(175,70,253,.1);
+  display:flex;align-items:center;justify-content:center;
+}
+.asc-stat-icon svg{width:16px;height:16px;stroke:var(--purple)}
+.asc-stat-val{font-size:16px;font-weight:800;color:#fff;margin-bottom:1px}
+.asc-stat-label{font-size:11px;color:var(--t3)}
+.asc-testimonial{
+  font-size:11.5px;color:var(--t3);line-height:1.6;
+  padding-left:14px;border-left:2px solid rgba(175,70,253,.3);
+  font-style:italic;
+}
+
+/* right panel — account list */
+.asc-right{
+  flex:1;display:flex;flex-direction:column;
+  padding:36px 28px;overflow-y:auto;min-width:0;
+}
+.asc-right::-webkit-scrollbar{width:3px}
+.asc-right::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07)}
+.asc-right-title{font-size:15px;font-weight:800;margin-bottom:4px}
+.asc-right-sub{font-size:12px;color:var(--t3);margin-bottom:24px}
+
+.asc-acc-list{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.asc-acc-item{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;border-radius:12px;
+  background:var(--card);border:1.5px solid var(--border);
+  cursor:pointer;transition:all .15s;user-select:none;min-width:0;
+}
+.asc-acc-item:hover{background:var(--card2);border-color:var(--border2)}
+.asc-acc-item.selected{background:rgba(175,70,253,.07);border-color:rgba(175,70,253,.35)}
+.asc-acc-avatar{
+  width:40px;height:40px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:800;flex-shrink:0;
+}
+.asc-acc-avatar.a{background:linear-gradient(135deg,#AF46FD,#F4349D)}
+.asc-acc-avatar.b{background:rgba(175,70,253,.25);border:1px solid rgba(175,70,253,.3)}
+.asc-acc-avatar.c{background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.2)}
+.asc-acc-avatar.d{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.asc-acc-info{flex:1;min-width:0;overflow:hidden}
+.asc-acc-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asc-acc-meta{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asc-acc-alerts{
+  padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;flex-shrink:0;
+  background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);color:var(--purple);
+}
+.asc-acc-alerts.none{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);color:var(--t3)}
+.asc-acc-check{
+  width:20px;height:20px;border-radius:6px;flex-shrink:0;
+  border:1.5px solid rgba(255,255,255,.15);background:transparent;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.asc-acc-item.selected .asc-acc-check{background:var(--purple);border-color:var(--purple)}
+.asc-acc-check svg{display:none;width:11px;height:11px}
+.asc-acc-item.selected .asc-acc-check svg{display:block}
+
+.asc-cta-wrap{margin-top:auto;padding-top:16px}
+.asc-cta{
+  width:100%;padding:14px;border-radius:11px;
+  background:var(--grad);color:#fff;border:none;
+  font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.asc-cta:hover{opacity:.88}
+.asc-cta:disabled{opacity:.35;cursor:not-allowed}
+.asc-cta-sub{font-size:11px;color:var(--t3);text-align:center;margin-top:8px}
+
+/* ── LOADING SCREEN ── */
+.loading-screen{
+  position:absolute;left:0;right:0;bottom:0;top:60px;z-index:99;
+  background:var(--bg);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  overflow:hidden;
+}
+.loading-screen.show{display:flex}
+.loading-screen.exit{opacity:0;transition:opacity .5s}
+
+/* ambient glow backdrop */
+.loading-screen::before{
+  content:'';position:absolute;width:480px;height:480px;border-radius:50%;
+  background:radial-gradient(circle, rgba(175,70,253,.12) 0%, transparent 70%);
+  animation:backdropPulse 2.4s ease-in-out infinite;pointer-events:none;
+}
+@keyframes backdropPulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.15);opacity:1}}
+
+/* orb wrapper with orbit ring */
+.loading-orb-wrap{position:relative;width:100px;height:100px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.loading-orbit{
+  position:absolute;inset:0;border-radius:50%;
+  border:1.5px solid transparent;
+  border-top-color:rgba(175,70,253,.7);
+  border-right-color:rgba(244,52,157,.4);
+  animation:orbitSpin 1.6s linear infinite;
+}
+.loading-orbit-2{
+  position:absolute;inset:8px;border-radius:50%;
+  border:1px solid transparent;
+  border-bottom-color:rgba(175,70,253,.4);
+  border-left-color:rgba(218,59,194,.3);
+  animation:orbitSpin 2.4s linear infinite reverse;
+}
+@keyframes orbitSpin{to{transform:rotate(360deg)}}
+.loading-orb{
+  width:72px;height:72px;border-radius:22px;
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  animation:orbPulse 1.8s ease-in-out infinite;
+  box-shadow:0 0 0 0 rgba(175,70,253,.5);
+  position:relative;z-index:1;
+}
+@keyframes orbPulse{
+  0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(175,70,253,.4),0 0 0 0 rgba(175,70,253,.2)}
+  50%{transform:scale(1.06);box-shadow:0 0 40px rgba(175,70,253,.6),0 0 0 12px rgba(175,70,253,0)}
+}
+.loading-orb svg{width:32px;height:32px}
+
+/* floating particles */
+.loading-particles{position:absolute;inset:-30px;pointer-events:none}
+.lp{position:absolute;border-radius:50%;animation:floatUp linear infinite}
+.lp:nth-child(1){width:4px;height:4px;background:rgba(175,70,253,.6);left:48%;animation-duration:3.2s;animation-delay:0s}
+.lp:nth-child(2){width:3px;height:3px;background:rgba(244,52,157,.5);left:32%;animation-duration:2.8s;animation-delay:.6s}
+.lp:nth-child(3){width:5px;height:5px;background:rgba(175,70,253,.4);left:65%;animation-duration:3.6s;animation-delay:1.1s}
+.lp:nth-child(4){width:3px;height:3px;background:rgba(218,59,194,.5);left:22%;animation-duration:2.4s;animation-delay:1.8s}
+.lp:nth-child(5){width:4px;height:4px;background:rgba(175,70,253,.35);left:78%;animation-duration:3.0s;animation-delay:.3s}
+.lp:nth-child(6){width:2px;height:2px;background:rgba(244,52,157,.6);left:56%;animation-duration:2.6s;animation-delay:2.1s}
+@keyframes floatUp{0%{transform:translateY(60px);opacity:0}20%{opacity:1}80%{opacity:.6}100%{transform:translateY(-60px);opacity:0}}
+
+.loading-text-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.loading-title{font-size:17px;font-weight:800;color:#fff;letter-spacing:-.3px}
+.loading-sub{font-size:12px;color:var(--t3);font-weight:500}
+
+.loading-steps{display:flex;flex-direction:column;gap:10px;min-width:280px}
+.loading-step{
+  display:flex;align-items:center;gap:10px;
+  font-size:12.5px;color:var(--t3);
+  transition:color .4s, opacity .4s;
+  opacity:.5;
+}
+.loading-step.active{color:var(--t1);opacity:1}
+.loading-step.done{color:rgba(175,70,253,.9);opacity:1}
+.loading-step-icon{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.step-spinner{width:15px;height:15px;border:2px solid rgba(175,70,253,.15);border-top-color:var(--purple);border-radius:50%;animation:spin .65s linear infinite}
+.step-check{width:18px;height:18px;border-radius:50%;background:rgba(175,70,253,.18);display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(175,70,253,.4)}
+.step-check svg{width:9px;height:9px;stroke:var(--purple)}
+.step-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.12);margin:auto}
+
+.loading-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;width:280px}
+.loading-bar-track{width:100%;height:3px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.loading-bar-fill{height:100%;border-radius:3px;background:var(--grad);width:0%;transition:width .5s cubic-bezier(.4,0,.2,1);box-shadow:0 0 8px rgba(175,70,253,.5)}
+.loading-pct{font-size:11px;font-weight:700;color:var(--t3)}
+
+/* ── BOTTOM NAV (mobile only) ── */
+.bottom-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;z-index:300;
+  background:rgba(13,13,26,.97);border-top:1px solid var(--border);
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+}
+.bottom-nav-inner{display:flex;justify-content:space-around;align-items:center}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 16px;border-radius:10px;color:var(--t3);border:none;background:none;font-family:inherit;cursor:pointer;transition:color .15s}
+.bn-item.active{color:var(--purple)}
+.bn-item svg{width:20px;height:20px}
+.bn-item span{font-size:9px;font-weight:600}
+
+/* ── MOBILE BREAKPOINT ── */
+@media(max-width:640px){
+
+  /* hide desktop sidebar, show bottom nav */
+  .sb{display:none}
+  .bottom-nav{display:block}
+
+  /* main takes full width, account for bottom nav */
+  .main{padding-bottom:64px}
+
+  /* topbar */
+  .topbar{padding:0 16px;gap:8px}
+  .topbar-title{font-size:15px}
+  .alert-total-badge{padding:2px 8px;font-size:10px}
+.approve-all-btn{padding:7px 12px;font-size:11px}
+  .acc-selector-label{display:none}
+  .acc-selector-btn{padding:6px 8px;gap:6px}
+
+  /* account dropdown full-width */
+  .acc-dropdown{width:calc(100vw - 24px);right:-8px;left:auto}
+
+  /* content padding */
+  .content{padding:16px}
+
+  /* account header */
+  .account-header{flex-wrap:wrap;gap:10px}
+  .acc-summary{margin-left:0;width:100%;justify-content:flex-start;margin-top:2px}
+  .acc-name{font-size:16px}
+
+  /* stats bar — 2x2 grid */
+  .stats-bar{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat-card{padding:13px 14px}
+  .stat-card-val{font-size:18px}
+
+  /* section header */
+  .section-header{gap:8px}
+  .section-title{font-size:12px}
+
+  /* alert card */
+  .alert-card{padding:14px 14px;gap:10px}
+  .alert-accent{display:none}
+  .alert-icon{width:30px;height:30px;border-radius:8px}
+  .alert-icon svg{width:14px;height:14px}
+  .alert-name{font-size:12.5px}
+
+  /* metrics — 2×4 grid on mobile, no borders */
+  .alert-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;overflow:visible;margin-bottom:12px}
+  .alert-metric{flex-shrink:unset;padding-right:0;border-right:none;margin-right:0;padding:8px 0 8px 10px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(255,255,255,.05)}
+  .alert-metric:last-child{border-right:none;padding-right:0;margin-right:0}
+  .alert-metric-label{font-size:9px;letter-spacing:.3px}
+  .alert-metric-val{font-size:12px}
+
+  /* action row — stack on mobile */
+  .alert-action-row{flex-direction:column;align-items:stretch;gap:10px}
+  .alert-ctas{margin-left:0;justify-content:flex-end}
+
+  /* feedback nudge — full-width at bottom */
+  .feedback-nudge{left:12px;right:12px;bottom:76px;width:auto}
+
+  /* account selection screen — stacked */
+  .acc-select-screen{flex-direction:column;overflow:auto;bottom:64px}
+  .asc-left{
+    width:100%;flex-shrink:0;
+    border-right:none;border-bottom:1px solid var(--border);
+    padding:28px 20px;
+  }
+  .asc-stat-cards{display:flex;flex-direction:row;gap:10px;overflow-x:auto;padding-bottom:4px}
+  .asc-stat-card{min-width:160px;flex-shrink:0}
+  .asc-quote{display:none}
+  .asc-right{padding:20px;flex:1;overflow:visible}
+  .asc-cta-wrap{margin-top:16px;padding-top:12px;padding-bottom:4px}
+
+  /* loading screen */
+  .loading-screen{padding:0 24px;bottom:64px}
+  .loading-steps{min-width:0;width:100%}
+  .loading-bar-wrap{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <nav class="sb">
+    <div class="sb-logo">
+      <svg viewBox="0 0 20 20" fill="none"><path d="M10 3L17 7V13L10 17L3 13V7L10 3Z" fill="white" opacity=".9"/></svg>
+    </div>
+    <div class="sb-item" title="Home">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M7 18v-6h6v6"/></svg>
+      <span>Home</span>
+    </div>
+    <div class="sb-item" title="Campaigns">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="14" height="12" rx="2"/><path d="M7 5V4a1 1 0 012 0v1M11 5V4a1 1 0 012 0v1"/><path d="M3 9h14"/></svg>
+      <span>Ads</span>
+    </div>
+    <div class="sb-item active" title="Alerts">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 2a6 6 0 016 6c0 3.5 1.5 5 1.5 5h-15S4 11.5 4 8a6 6 0 016-6z"/><path d="M8.5 15a1.5 1.5 0 003 0"/></svg>
+      <span>Alerts</span>
+    </div>
+    <div class="sb-item" title="Analytics">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 15l4-5 4 3 4-7 2 2"/><circle cx="17" cy="8" r="1" fill="currentColor"/></svg>
+      <span>Stats</span>
+    </div>
+    <div class="sb-div"></div>
+    <div class="sb-item" title="Creatives">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
+      <span>Creative</span>
+    </div>
+    <div class="sb-spacer"></div>
+    <div class="sb-ws-bubble">S</div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-title">Alerts</span>
+        <span class="alert-total-badge" id="totalBadge" style="display:none">Loading…</span>
+      </div>
+      <div class="topbar-right" id="topbarRight" style="display:none">
+
+        <!-- ACCOUNT SELECTOR -->
+        <div class="acc-selector-wrap" id="accSelectorWrap">
+          <div class="acc-selector-btn" id="accSelectorBtn" onclick="toggleDropdown()">
+            <div class="acc-selector-avatars" id="selectorAvatars"></div>
+            <span class="acc-selector-label" id="selectorLabel">Select accounts</span>
+            <svg class="acc-selector-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4.5l3 3 3-3"/></svg>
+          </div>
+
+          <!-- DROPDOWN -->
+          <div class="acc-dropdown" id="accDropdown">
+            <div class="acc-drop-header">
+              <span class="acc-drop-title">AD ACCOUNTS</span>
+              <div class="acc-drop-actions">
+                <button class="acc-drop-link" onclick="selectAll()">Select all</button>
+                <span style="color:rgba(255,255,255,.15)">·</span>
+                <button class="acc-drop-link" onclick="clearAll()">Clear</button>
+              </div>
+            </div>
+            <div class="acc-drop-search">
+              <div class="acc-drop-search-inner">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="7" r="4"/><path d="M10.5 10.5l2.5 2.5"/></svg>
+                <input type="text" placeholder="Search accounts…" oninput="filterAccounts(this.value)" id="accSearch">
+              </div>
+            </div>
+            <div class="acc-drop-list" id="accDropList"></div>
+            <div class="acc-drop-footer">
+              <span class="acc-drop-selected-label" id="dropSelectedLabel">0 accounts selected</span>
+              <button class="acc-drop-apply" onclick="applySelection()">View Alerts</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="approve-all-btn" onclick="approveAllVisible()">Approve All</button>
+      </div>
+    </div>
+
+    <!-- ACCOUNT SELECTION SCREEN -->
+    <div class="acc-select-screen" id="accSelectScreen">
+      <!-- left: copy -->
+      <div class="asc-left">
+        <div class="asc-badge"><div class="asc-badge-dot"></div> Live Intelligence</div>
+        <div class="asc-headline">Stop leaking<br>ad spend.<br><span>Every single day.</span></div>
+        <div class="asc-sub">Alerts scan your campaigns in real time and surface exactly what to fix — before the budget drains.</div>
+        <div class="asc-stats">
+          <div class="asc-stat">
+            <div class="asc-stat-icon"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.8"><path d="M8 2v12M5 5l3-3 3 3"/></svg></div>
+            <div>
+              <div class="asc-stat-val">₹5.2L+</div>
+              <div class="asc-stat-label">wasted spend prevented across accounts last month</div>
+            </div>
+          </div>
+          <div class="asc-stat">
+            <div class="asc-stat-icon"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.8"><circle cx="8" cy="8" r="5"/><path d="M8 5v3.5l2 2"/></svg></div>
+            <div>
+              <div class="asc-stat-val">5–10%</div>
+              <div class="asc-stat-label">average ad spend saved by brands acting on alerts</div>
+            </div>
+          </div>
+          <div class="asc-stat">
+            <div class="asc-stat-icon"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.8"><path d="M3 13l4-5 3 3 5-7"/></svg></div>
+            <div>
+              <div class="asc-stat-val">2.3x</div>
+              <div class="asc-stat-label">higher ROAS for brands that review alerts weekly</div>
+            </div>
+          </div>
+        </div>
+        <div class="asc-testimonial">"We recovered ₹80K in the first week just by pausing the ads Studio flagged." — Growth lead, D2C brand</div>
+      </div>
+
+      <!-- right: account list -->
+      <div class="asc-right">
+        <div class="asc-right-title">Select accounts to analyse</div>
+        <div class="asc-right-sub">Choose one or more ad accounts. We'll scan for alerts instantly.</div>
+        <div class="asc-acc-list" id="ascAccList"></div>
+        <div class="asc-cta-wrap">
+          <button class="asc-cta" id="ascCtaBtn" disabled onclick="startLoadingAlerts()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l3.5 3.5L10 3"/></svg>
+            <span id="ascCtaLabel">Select accounts to continue</span>
+          </button>
+          <div class="asc-cta-sub">Alerts update automatically every 6 hours</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOADING SCREEN -->
+    <div class="loading-screen" id="loadingScreen">
+      <div class="loading-orb-wrap">
+        <div class="loading-orbit"></div>
+        <div class="loading-orbit-2"></div>
+        <div class="loading-particles">
+          <div class="lp"></div><div class="lp"></div><div class="lp"></div>
+          <div class="lp"></div><div class="lp"></div><div class="lp"></div>
+        </div>
+        <div class="loading-orb">
+          <svg viewBox="0 0 28 28" fill="none"><path d="M14 4L24 9V19L14 24L4 19V9L14 4Z" fill="white" opacity=".9"/></svg>
+        </div>
+      </div>
+      <div class="loading-text-wrap">
+        <div class="loading-title">Scanning your accounts…</div>
+        <div class="loading-sub" id="loadingSub">Connecting to your ad platforms</div>
+      </div>
+      <div class="loading-steps" id="loadingSteps">
+        <div class="loading-step" id="ls1"><div class="loading-step-icon"><div class="step-dot"></div></div><span>Connecting to ad platforms</span></div>
+        <div class="loading-step" id="ls2"><div class="loading-step-icon"><div class="step-dot"></div></div><span>Fetching campaign performance</span></div>
+        <div class="loading-step" id="ls3"><div class="loading-step-icon"><div class="step-dot"></div></div><span>Analysing budget efficiency</span></div>
+        <div class="loading-step" id="ls4"><div class="loading-step-icon"><div class="step-dot"></div></div><span>Generating alert recommendations</span></div>
+      </div>
+      <div class="loading-bar-wrap">
+        <div class="loading-bar-track"><div class="loading-bar-fill" id="loadingBarFill"></div></div>
+        <div class="loading-pct" id="loadingPct">0%</div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content" id="mainContent" style="display:none">
+      <!-- rendered by JS -->
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- BOTTOM NAV (mobile) -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bn-item">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M7 18v-6h6v6"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="bn-item">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="14" height="12" rx="2"/><path d="M7 5V4a1 1 0 012 0v1M11 5V4a1 1 0 012 0v1"/><path d="M3 9h14"/></svg>
+      <span>Ads</span>
+    </button>
+    <button class="bn-item active">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 2a6 6 0 016 6c0 3.5 1.5 5 1.5 5h-15S4 11.5 4 8a6 6 0 016-6z"/><path d="M8.5 15a1.5 1.5 0 003 0"/></svg>
+      <span>Alerts</span>
+    </button>
+    <button class="bn-item">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 15l4-5 4 3 4-7 2 2"/></svg>
+      <span>Stats</span>
+    </button>
+    <button class="bn-item">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
+      <span>Creative</span>
+    </button>
+  </div>
+</nav>
+
+<!-- FEEDBACK NUDGE -->
+<div class="feedback-nudge" id="feedbackNudge">
+  <div class="nudge-header">
+    <div class="nudge-emoji">💬</div>
+    <div class="nudge-text">
+      <div class="nudge-title">Help us improve</div>
+      <div class="nudge-sub">Why did you reject this suggestion? Takes 10 seconds.</div>
+    </div>
+    <button class="nudge-close" onclick="dismissNudge()">✕</button>
+  </div>
+  <div class="nudge-body">
+    <textarea class="nudge-textarea" id="nudgeTextarea" placeholder="e.g. Already handled, not relevant, budget constraints…"></textarea>
+    <div class="nudge-actions">
+      <button class="nudge-btn-skip" onclick="dismissNudge()">Skip</button>
+      <button class="nudge-btn-send" onclick="sendNudgeFeedback()">Send feedback</button>
+    </div>
+  </div>
+  <div class="nudge-timer-track"><div class="nudge-timer-fill" id="nudgeTimerFill"></div></div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────
+   DATA
+───────────────────────────────────────── */
+const ACCOUNTS = [
+  {
+    id:'acc-x', label:'Account X', initial:'X', color:'a',
+    platform:'Meta Ads', campaigns:12, spend:'₹2.4L / month',
+    alerts:{ budget:3, pause:4, move:2 },
+    cards:{
+      budget:[
+        { id:'bx1', name:'Diwali Sale — Broad Reach', metrics:{ roas7:'4.2x', roas30:'3.9x', cpa7:'₹182', ctr7:'2.1%', spend7:'₹35,000', conv7:'192', convTotal:'840', convVal:'₹34,944', trend:'up' }, action:'Increase daily budget to ₹8,000 (+60%)' },
+        { id:'bx2', name:'Retargeting — Checkout Abandoners', metrics:{ roas7:'6.8x', roas30:'5.1x', cpa7:'₹148', ctr7:'3.4%', spend7:'₹17,500', conv7:'118', convTotal:'490', convVal:'₹17,464', trend:'up' }, action:'Scale budget to ₹5,000/day' },
+        { id:'bx3', name:'New Customer Acquisition — Lookalike 2%', metrics:{ roas7:'3.6x', roas30:'2.4x', cpa7:'₹280', ctr7:'1.8%', spend7:'₹21,000', conv7:'75', convTotal:'210', convVal:'₹27,000', trend:'up' }, action:'Increase to ₹6,000/day' },
+      ],
+      pause:[
+        { id:'px1', name:'Ad: "Flat 50% Off Banner" — Static v1', metrics:{ roas7:'0.0x', roas30:'0.1x', cpa7:'—', ctr7:'0.3%', spend7:'₹4,760', conv7:'0', convTotal:'2', convVal:'₹0', trend:'down' }, action:'Pause this ad' },
+        { id:'px2', name:'Ad: "Shop Now" — Carousel v3', metrics:{ roas7:'0.8x', roas30:'1.4x', cpa7:'₹940', ctr7:'0.6%', spend7:'₹8,200', conv7:'9', convTotal:'38', convVal:'₹6,840', trend:'down' }, action:'Pause this ad' },
+        { id:'px3', name:'Ad: "Monsoon Sale" — Video 30s', metrics:{ roas7:'1.1x', roas30:'2.2x', cpa7:'₹610', ctr7:'0.4%', spend7:'₹4,800', conv7:'8', convTotal:'62', convVal:'₹5,280', trend:'down' }, action:'Pause this ad' },
+        { id:'px4', name:'Ad: "Free Delivery" — Story Format', metrics:{ roas7:'1.1x', roas30:'1.8x', cpa7:'₹890', ctr7:'0.9%', spend7:'₹6,100', conv7:'7', convTotal:'44', convVal:'₹6,710', trend:'down' }, action:'Pause this ad' },
+      ],
+      move:[
+        { id:'mx1', name:'Ad: "Product Demo" — Video 15s', metrics:{ roas7:'3.1x', roas30:'2.8x', cpa7:'₹320', ctr7:'2.6%', spend7:'₹14,200', conv7:'44', convTotal:'180', convVal:'₹44,020', trend:'up' }, action:'Move to Ad Set "25-34 Interest Overlap"' },
+        { id:'mx2', name:'Ad: "Limited Stock" — Static v4', metrics:{ roas7:'0.8x', roas30:'1.1x', cpa7:'₹1,240', ctr7:'1.2%', spend7:'₹8,400', conv7:'7', convTotal:'29', convVal:'₹6,720', trend:'down' }, action:'Move to Ad Set "Retargeting — 30d Visitors"' },
+      ]
+    }
+  },
+  {
+    id:'acc-y', label:'Shiprocket B2B', initial:'B', color:'b',
+    platform:'Google Ads', campaigns:8, spend:'₹1.1L / month',
+    alerts:{ budget:1, pause:2, move:1 },
+    cards:{
+      budget:[
+        { id:'by1', name:'Brand Keywords Campaign', metrics:{ roas7:'4.4x', roas30:'4.1x', cpa7:'₹224', ctr7:'6.2%', spend7:'₹28,000', conv7:'125', convTotal:'510', convVal:'₹1,23,200', trend:'up' }, action:'Increase budget to ₹7,000/day' },
+      ],
+      pause:[
+        { id:'py1', name:'Display — Generic Banners v2', metrics:{ roas7:'0.2x', roas30:'0.4x', cpa7:'₹3,100', ctr7:'0.04%', spend7:'₹3,080', conv7:'1', convTotal:'8', convVal:'₹616', trend:'down' }, action:'Pause this ad' },
+        { id:'py2', name:'PMAX — Product Feed Auto', metrics:{ roas7:'0.9x', roas30:'1.2x', cpa7:'₹1,240', ctr7:'0.8%', spend7:'₹11,000', conv7:'9', convTotal:'41', convVal:'₹9,900', trend:'down' }, action:'Pause PMAX and reallocate to manual campaigns' },
+      ],
+      move:[
+        { id:'my1', name:'Ad: "Enterprise Plan" — Responsive', metrics:{ roas7:'3.8x', roas30:'2.9x', cpa7:'₹380', ctr7:'4.8%', spend7:'₹9,500', conv7:'25', convTotal:'88', convVal:'₹36,100', trend:'up' }, action:'Move to "Enterprise Logistics" ad group' },
+      ]
+    }
+  },
+  {
+    id:'acc-z', label:'Shiprocket D2C', initial:'D', color:'c',
+    platform:'Meta Ads', campaigns:6, spend:'₹80K / month',
+    alerts:{ budget:0, pause:1, move:0 },
+    cards:{
+      budget:[],
+      pause:[
+        { id:'pz1', name:'Ad: "Festive Bundle Offer" — Static', metrics:{ roas7:'1.2x', roas30:'—', cpa7:'₹860', ctr7:'1.1%', spend7:'₹6,020', conv7:'7', convTotal:'7', convVal:'₹7,224', trend:'down' }, action:'Pause and consolidate with a stable ad set' },
+      ],
+      move:[]
+    }
+  },
+  {
+    id:'acc-w', label:'Shiprocket Intl', initial:'I', color:'d',
+    platform:'Meta Ads', campaigns:4, spend:'₹45K / month',
+    alerts:{ budget:0, pause:0, move:0 },
+    cards:{ budget:[], pause:[], move:[] }
+  }
+];
+
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+let selected = new Set(['acc-x']); // default: Account X
+let applied  = new Set(['acc-x']);
+let actionState = {}; // cardId -> 'approved'|'rejected'
+
+/* ─────────────────────────────────────────
+   DROPDOWN
+───────────────────────────────────────── */
+function toggleDropdown(){
+  const btn  = document.getElementById('accSelectorBtn');
+  const drop = document.getElementById('accDropdown');
+  const open = drop.classList.contains('open');
+  if(open){ closeDropdown(); return; }
+  // sync selected to current applied before opening
+  selected = new Set(applied);
+  renderDropList('');
+  updateDropFooter();
+  btn.classList.add('open');
+  drop.classList.add('open');
+}
+function closeDropdown(){
+  document.getElementById('accSelectorBtn').classList.remove('open');
+  document.getElementById('accDropdown').classList.remove('open');
+  document.getElementById('accSearch').value = '';
+}
+document.addEventListener('click', e => {
+  if(!document.getElementById('accSelectorWrap').contains(e.target)) closeDropdown();
+});
+
+function renderDropList(query){
+  const list = document.getElementById('accDropList');
+  const q = query.toLowerCase();
+  const filtered = ACCOUNTS.filter(a => a.label.toLowerCase().includes(q));
+  list.innerHTML = filtered.map(a => {
+    const total = a.alerts.budget + a.alerts.pause + a.alerts.move;
+    const sel = selected.has(a.id);
+    return `
+    <div class="acc-drop-item${sel?' selected':''}" onclick="toggleAccount('${a.id}')">
+      <div class="acc-drop-avatar ${a.color}">${a.initial}</div>
+      <div class="acc-drop-info">
+        <div class="acc-drop-name">${a.label}</div>
+        <div class="acc-drop-meta">${a.platform} · ${a.campaigns} campaigns</div>
+      </div>
+      <div class="acc-drop-alerts${total===0?' none':''}">${total===0?'No alerts':total+' alerts'}</div>
+      <div class="acc-drop-check">
+        <svg viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="2"><path d="M1.5 5l2.5 2.5 4.5-4.5"/></svg>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterAccounts(q){ renderDropList(q); }
+
+function toggleAccount(id){
+  if(selected.has(id)) selected.delete(id);
+  else selected.add(id);
+  renderDropList(document.getElementById('accSearch').value);
+  updateDropFooter();
+}
+
+function selectAll(){
+  ACCOUNTS.forEach(a => selected.add(a.id));
+  renderDropList(document.getElementById('accSearch').value);
+  updateDropFooter();
+}
+function clearAll(){
+  selected.clear();
+  renderDropList(document.getElementById('accSearch').value);
+  updateDropFooter();
+}
+
+function updateDropFooter(){
+  const n = selected.size;
+  document.getElementById('dropSelectedLabel').textContent = n===0?'No accounts selected':`${n} account${n>1?'s':''} selected`;
+}
+
+function applySelection(){
+  if(selected.size===0) return;
+  applied = new Set(selected);
+  renderSelectorBtn();
+  renderContent();
+  closeDropdown();
+}
+
+function renderSelectorBtn(){
+  const avatarsEl = document.getElementById('selectorAvatars');
+  const labelEl   = document.getElementById('selectorLabel');
+  const accs = ACCOUNTS.filter(a => applied.has(a.id));
+  if(accs.length===0){
+    avatarsEl.innerHTML='';
+    labelEl.textContent='Select accounts';
+    return;
+  }
+  // show up to 3 avatars
+  avatarsEl.innerHTML = accs.slice(0,3).map(a => `<div class="acc-avatar ${a.color}">${a.initial}</div>`).join('');
+  if(accs.length===1) labelEl.textContent = accs[0].label;
+  else labelEl.textContent = `${accs.length} accounts`;
+}
+
+/* ─────────────────────────────────────────
+   RENDER CONTENT
+───────────────────────────────────────── */
+function renderContent(){
+  const el = document.getElementById('mainContent');
+  const accs = ACCOUNTS.filter(a => applied.has(a.id));
+
+  if(accs.length===0){
+    el.innerHTML = `
+    <div class="no-accounts">
+      <div class="no-accounts-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-5-5.917V4a1 1 0 10-2 0v1.083A6 6 0 006 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>
+      <h3>No accounts selected</h3>
+      <p>Select one or more ad accounts from the dropdown above to view their alerts.</p>
+      <button class="no-accounts-btn" onclick="toggleDropdown()">Choose Accounts</button>
+    </div>`;
+    document.getElementById('totalBadge').textContent = '—';
+    return;
+  }
+
+  let totalPending = 0;
+  accs.forEach(a => {
+    const all = [...a.cards.budget, ...a.cards.pause, ...a.cards.move];
+    all.forEach(c => { if(!actionState[c.id]) totalPending++; });
+  });
+  document.getElementById('totalBadge').textContent = totalPending + ' pending';
+
+  el.innerHTML = accs.map(a => renderAccount(a)).join('');
+}
+
+function renderAccount(a){
+  const budgetCards = a.cards.budget;
+  const pauseCards  = a.cards.pause;
+  const moveCards   = a.cards.move;
+  const total = budgetCards.length + pauseCards.length + moveCards.length;
+  const budgetPending = budgetCards.filter(c=>!actionState[c.id]).length;
+  const pausePending  = pauseCards.filter(c=>!actionState[c.id]).length;
+  const movePending   = moveCards.filter(c=>!actionState[c.id]).length;
+
+  // stats
+  const wastedSpends = {a:'₹38,400',b:'₹9,300',c:'₹4,200',d:'₹0'};
+  const revGains = {a:'₹1.2L',b:'₹48K',c:'₹18K',d:'—'};
+
+  return `
+  <div class="account-block" id="block-${a.id}">
+    <div class="account-header">
+      <div class="acc-logo ${a.color}">${a.initial}</div>
+      <div class="acc-info">
+        <div class="acc-name">${a.label}</div>
+        <div class="acc-meta">
+          <span>${a.platform}</span>
+          <div class="acc-meta-dot"></div>
+          <span>${a.campaigns} active campaigns</span>
+          <div class="acc-meta-dot"></div>
+          <span>${a.spend}</span>
+        </div>
+      </div>
+      <div class="acc-summary">
+        ${budgetCards.length?`<div class="acc-summary-chip amber">${budgetCards.length} budget alert${budgetCards.length>1?'s':''}</div>`:''}
+        ${pauseCards.length?`<div class="acc-summary-chip red">${pauseCards.length} ad${pauseCards.length>1?'s':''} to pause</div>`:''}
+        ${moveCards.length?`<div class="acc-summary-chip blue">${moveCards.length} move suggestion${moveCards.length>1?'s':''}</div>`:''}
+        ${total===0?`<div style="font-size:12px;color:var(--t3)">No alerts — all good!</div>`:''}
+      </div>
+    </div>
+
+    ${total===0?'':`
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-card-label">Total Alerts</div>
+        <div class="stat-card-val amber" id="stat-total-${a.id}">${total}</div>
+        <div class="stat-card-sub">across ${[budgetCards.length,pauseCards.length,moveCards.length].filter(n=>n>0).length} categories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Est. Wasted Spend</div>
+        <div class="stat-card-val red">${wastedSpends[a.color]||'—'}</div>
+        <div class="stat-card-sub">if no action taken</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Est. Revenue Gain</div>
+        <div class="stat-card-val green">${revGains[a.color]||'—'}</div>
+        <div class="stat-card-sub">on approving all suggestions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Approved Today</div>
+        <div class="stat-card-val" id="stat-approved-${a.id}" style="color:#fff">0</div>
+        <div class="stat-card-sub">actions executed</div>
+      </div>
+    </div>
+
+    ${budgetCards.length?`
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon amber"><svg viewBox="0 0 16 16" fill="none" stroke="#AF46FD" stroke-width="1.8"><path d="M8 2v12M5 5l3-3 3 3M5 11l3 3 3-3"/></svg></div>
+        <span class="section-title">Campaigns — Increase Budget</span>
+        <span class="section-count amber" id="sc-budget-${a.id}">${budgetPending}</span>
+        <button class="section-approve-all" onclick="approveSection('${a.id}','budget')">Approve all</button>
+      </div>
+      ${budgetCards.map(c=>renderCard(c,'amber','boost',a.id)).join('')}
+    </div>`:''}
+
+    ${pauseCards.length?`
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon red"><svg viewBox="0 0 16 16" fill="none" stroke="rgba(175,70,253,.7)" stroke-width="1.8"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg></div>
+        <span class="section-title">Ads — Pause Underperformers</span>
+        <span class="section-count red" id="sc-pause-${a.id}">${pausePending}</span>
+        <button class="section-approve-all" onclick="approveSection('${a.id}','pause')">Approve all</button>
+      </div>
+      ${pauseCards.map(c=>renderCard(c,'red','pause',a.id)).join('')}
+    </div>`:''}
+
+    ${moveCards.length?`
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon blue"><svg viewBox="0 0 16 16" fill="none" stroke="rgba(175,70,253,.5)" stroke-width="1.8"><path d="M3 8h10M10 5l3 3-3 3"/><path d="M3 4v8"/></svg></div>
+        <span class="section-title">Ads — Move to Different Ad Set</span>
+        <span class="section-count blue" id="sc-move-${a.id}">${movePending}</span>
+        <button class="section-approve-all" onclick="approveSection('${a.id}','move')">Approve all</button>
+      </div>
+      ${moveCards.map(c=>renderCard(c,'blue','move',a.id)).join('')}
+    </div>`:''}
+    `}
+  </div>`;
+}
+
+function renderCard(c, color, tag, accId){
+  const done = actionState[c.id];
+  const iconSvg = {
+    amber:`<svg viewBox="0 0 16 16" fill="none" stroke="#AF46FD" stroke-width="1.8"><path d="M8 2v12M5 5l3-3 3 3"/></svg>`,
+    red:`<svg viewBox="0 0 16 16" fill="none" stroke="rgba(175,70,253,.7)" stroke-width="1.8"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>`,
+    blue:`<svg viewBox="0 0 16 16" fill="none" stroke="rgba(175,70,253,.5)" stroke-width="1.8"><path d="M3 8h10M10 5l3 3-3 3"/><path d="M3 4v8"/></svg>`,
+  }[color];
+  const tagLabels = {boost:'Budget Boost',pause:'Pause Ad',move:'Move Ad'};
+
+  const m = c.metrics;
+  const roas7Cls = m.trend==='up' ? 'up' : 'down';
+  const metricsHtml = `
+    <div class="alert-metric">
+      <span class="alert-metric-label">ROAS (7d)</span>
+      <span class="alert-metric-val ${roas7Cls}">${m.roas7}</span>
+    </div>
+    <div class="alert-metric">
+      <span class="alert-metric-label">ROAS (30d)</span>
+      <span class="alert-metric-val muted">${m.roas30}</span>
+    </div>
+    <div class="alert-metric">
+      <span class="alert-metric-label">CPA (7d)</span>
+      <span class="alert-metric-val">${m.cpa7}</span>
+    </div>
+    <div class="alert-metric">
+      <span class="alert-metric-label">CTR (7d)</span>
+      <span class="alert-metric-val">${m.ctr7}</span>
+    </div>
+    <div class="alert-metric">
+      <span class="alert-metric-label">Spend (7d)</span>
+      <span class="alert-metric-val">${m.spend7}</span>
+    </div>
+    <div class="alert-metric-div"></div>
+    <div class="alert-metric">
+      <span class="alert-metric-label">Conv. (7d)</span>
+      <span class="alert-metric-val">${m.conv7}</span>
+    </div>
+    <div class="alert-metric">
+      <span class="alert-metric-label">Total Conv.</span>
+      <span class="alert-metric-val">${m.convTotal}</span>
+    </div>
+    <div class="alert-metric">
+      <span class="alert-metric-label">Conv. Value</span>
+      <span class="alert-metric-val">${m.convVal}</span>
+    </div>`;
+
+  const isDone = !!done;
+
+  const ctasHtml = isDone ? '' : `
+    <div class="alert-ctas">
+      <button class="btn-reject" onclick="startReject('${c.id}','${accId}')">Reject</button>
+      <button class="btn-approve" onclick="startApprove('${c.id}','${accId}')">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
+        Approve
+      </button>
+    </div>`;
+
+  const approveProgressHtml = isDone && done==='approved' ? '' : `
+    <div class="approve-progress" id="prog-${c.id}">
+      <div class="approve-progress-label">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg>
+        <span>Applying changes…</span>
+      </div>
+      <div class="approve-progress-track"><div class="approve-progress-fill" id="fill-${c.id}"></div></div>
+    </div>`;
+
+  const rejectFeedbackHtml = '';
+
+  const doneBannerHtml = isDone ? `
+    <div class="alert-done-banner ${done}" style="display:flex;margin-top:10px">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l3.5 3.5L12 3"/></svg>
+      <span>${done==='approved'?'Action approved — changes applied':'Action rejected'+(rejectReasons[c.id]?' · "'+rejectReasons[c.id]+'"':'')}</span>
+    </div>` : '';
+
+  return `
+  <div class="alert-card" id="card-${c.id}">
+    <div class="alert-accent ${color}"></div>
+    <div class="alert-icon ${color}">${iconSvg}</div>
+    <div class="alert-body">
+      <div class="alert-top">
+        <span class="alert-name">${c.name}</span>
+        <span class="alert-tag ${tag}">${tagLabels[tag]}</span>
+      </div>
+      <div class="alert-metrics">${metricsHtml}</div>
+      <div class="alert-action-row">
+        <div class="alert-action-text">Suggested action: <strong>${c.action}</strong></div>
+        ${ctasHtml}
+      </div>
+      ${isDone ? doneBannerHtml : approveProgressHtml + rejectFeedbackHtml + doneBannerHtml}
+    </div>
+  </div>`;
+}
+
+/* ─────────────────────────────────────────
+   ACTIONS
+───────────────────────────────────────── */
+const rejectReasons = {};
+
+function startApprove(cardId, accId){
+  // hide buttons
+  const card = document.getElementById('card-'+cardId);
+  card.querySelectorAll('.alert-ctas').forEach(el=>el.style.display='none');
+  // show progress bar
+  const prog = document.getElementById('prog-'+cardId);
+  if(!prog) return;
+  prog.classList.add('show');
+  const fill = document.getElementById('fill-'+cardId);
+  let pct = 0;
+  const iv = setInterval(()=>{
+    pct += Math.random()*18 + 4;
+    if(pct >= 100){
+      pct = 100;
+      clearInterval(iv);
+      fill.style.width = '100%';
+      setTimeout(()=>{
+        actionState[cardId] = 'approved';
+        refreshCard(cardId);
+        recalcStats(accId);
+        recalcTotalBadge();
+      }, 320);
+    } else {
+      fill.style.width = pct+'%';
+    }
+  }, 120);
+}
+
+let nudgeTimer = null;
+let nudgeRemaining = 5000;
+const NUDGE_DURATION = 5000;
+
+function startReject(cardId, accId){
+  actionState[cardId] = 'rejected';
+  refreshCard(cardId);
+  recalcStats(accId);
+  recalcTotalBadge();
+  showNudge();
+}
+
+function showNudge(){
+  const nudge = document.getElementById('feedbackNudge');
+  const ta   = document.getElementById('nudgeTextarea');
+  const fill = document.getElementById('nudgeTimerFill');
+  ta.value = '';
+  nudgeRemaining = NUDGE_DURATION;
+  nudge.classList.remove('hide');
+  nudge.classList.add('show');
+  clearTimeout(nudgeTimer);
+
+  // reset bar then animate shrink
+  fill.style.transition = 'none';
+  fill.style.transform  = 'scaleX(1)';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    fill.style.transition = `transform ${NUDGE_DURATION}ms linear`;
+    fill.style.transform  = 'scaleX(0)';
+  }));
+
+  nudgeTimer = setTimeout(()=>dismissNudge(), NUDGE_DURATION);
+
+  nudge.onmouseenter = ()=>{
+    if(!nudgeTimer) return;
+    clearTimeout(nudgeTimer);
+    nudgeTimer = null;
+    const m = new DOMMatrix(getComputedStyle(fill).transform);
+    const scale = Math.max(0, m.a);
+    fill.style.transition = 'none';
+    fill.style.transform  = `scaleX(${scale})`;
+    nudgeRemaining = scale * NUDGE_DURATION;
+  };
+  nudge.onmouseleave = ()=>{
+    if(nudgeTimer) return;
+    fill.style.transition = `transform ${nudgeRemaining}ms linear`;
+    fill.style.transform  = 'scaleX(0)';
+    nudgeTimer = setTimeout(()=>dismissNudge(), nudgeRemaining);
+  };
+}
+
+function dismissNudge(){
+  clearTimeout(nudgeTimer);
+  nudgeTimer = null;
+  const nudge = document.getElementById('feedbackNudge');
+  nudge.onmouseenter = null;
+  nudge.onmouseleave = null;
+  nudge.classList.remove('show');
+  nudge.classList.add('hide');
+  nudgeRemaining = NUDGE_DURATION;
+}
+
+function sendNudgeFeedback(){
+  // In production this would send to backend — for now just dismiss
+  dismissNudge();
+}
+
+function refreshCard(cardId){
+  // find account + section for this card
+  for(const a of ACCOUNTS){
+    const allCards = [...a.cards.budget,...a.cards.pause,...a.cards.move];
+    const c = allCards.find(x=>x.id===cardId);
+    if(!c) continue;
+    const color = a.cards.budget.includes(c)?'amber':a.cards.pause.includes(c)?'red':'blue';
+    const tag   = a.cards.budget.includes(c)?'boost':a.cards.pause.includes(c)?'pause':'move';
+    const el = document.getElementById('card-'+cardId);
+    if(el) el.outerHTML = renderCard(c, color, tag, a.id);
+    // update section count
+    if(a.cards.budget.includes(c)) updateSectionCount(a.id,'budget');
+    if(a.cards.pause.includes(c))  updateSectionCount(a.id,'pause');
+    if(a.cards.move.includes(c))   updateSectionCount(a.id,'move');
+    break;
+  }
+}
+
+function updateSectionCount(accId, sec){
+  const a = ACCOUNTS.find(x=>x.id===accId);
+  if(!a) return;
+  const cards = a.cards[sec];
+  const pending = cards.filter(c=>!actionState[c.id]).length;
+  const el = document.getElementById(`sc-${sec}-${accId}`);
+  if(el) el.textContent = pending;
+}
+
+function recalcStats(accId){
+  const a = ACCOUNTS.find(x=>x.id===accId);
+  if(!a) return;
+  const all = [...a.cards.budget,...a.cards.pause,...a.cards.move];
+  const approvedCount = all.filter(c=>actionState[c.id]==='approved').length;
+  const pending = all.filter(c=>!actionState[c.id]).length;
+  const tEl = document.getElementById(`stat-total-${accId}`);
+  const aEl = document.getElementById(`stat-approved-${accId}`);
+  if(tEl) tEl.textContent = pending;
+  if(aEl) aEl.textContent = approvedCount;
+}
+
+function recalcTotalBadge(){
+  let total = 0;
+  ACCOUNTS.filter(a=>applied.has(a.id)).forEach(a=>{
+    [...a.cards.budget,...a.cards.pause,...a.cards.move].forEach(c=>{
+      if(!actionState[c.id]) total++;
+    });
+  });
+  const badge = document.getElementById('totalBadge');
+  badge.textContent = total + ' pending';
+  badge.style.display = '';
+}
+
+function approveSection(accId, sec){
+  const a = ACCOUNTS.find(x=>x.id===accId);
+  if(!a) return;
+  a.cards[sec].forEach(c=>{ if(!actionState[c.id]){ actionState[c.id]='approved'; refreshCard(c.id); }});
+  recalcStats(accId);
+  recalcTotalBadge();
+}
+
+function approveAllVisible(){
+  ACCOUNTS.filter(a=>applied.has(a.id)).forEach(a=>{
+    [...a.cards.budget,...a.cards.pause,...a.cards.move].forEach(c=>{
+      if(!actionState[c.id]){ actionState[c.id]='approved'; refreshCard(c.id); }
+    });
+    recalcStats(a.id);
+  });
+  recalcTotalBadge();
+}
+
+/* ─────────────────────────────────────────
+   ACCOUNT SELECTION SCREEN
+───────────────────────────────────────── */
+let ascSelected = new Set();
+
+function renderAscList(){
+  const el = document.getElementById('ascAccList');
+  el.innerHTML = ACCOUNTS.map(a => {
+    const total = a.alerts.budget + a.alerts.pause + a.alerts.move;
+    const sel = ascSelected.has(a.id);
+    return `
+    <div class="asc-acc-item${sel?' selected':''}" onclick="toggleAscAccount('${a.id}')">
+      <div class="asc-acc-avatar ${a.color}">${a.initial}</div>
+      <div class="asc-acc-info">
+        <div class="asc-acc-name">${a.label}</div>
+        <div class="asc-acc-meta">${a.platform} · ${a.campaigns} campaigns · ${a.spend}</div>
+      </div>
+      <div class="asc-acc-check">
+        <svg viewBox="0 0 11 11" fill="none" stroke="white" stroke-width="2.2"><path d="M1.5 5.5l2.5 2.5 5-5"/></svg>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleAscAccount(id){
+  if(ascSelected.has(id)) ascSelected.delete(id);
+  else ascSelected.add(id);
+  renderAscList();
+  updateAscCta();
+}
+
+function updateAscCta(){
+  const btn   = document.getElementById('ascCtaBtn');
+  const label = document.getElementById('ascCtaLabel');
+  const n = ascSelected.size;
+  if(n===0){
+    btn.disabled = true;
+    label.textContent = 'Select accounts to continue';
+  } else {
+    btn.disabled = false;
+    label.textContent = `Scan ${n} account${n>1?'s':''} for alerts`;
+  }
+}
+
+function startLoadingAlerts(){
+  // hide selection screen
+  const selScreen = document.getElementById('accSelectScreen');
+  selScreen.classList.add('exit');
+
+  // show loading screen
+  const loadScreen = document.getElementById('loadingScreen');
+  loadScreen.classList.add('show');
+
+  const steps = ['ls1','ls2','ls3','ls4'];
+  const durations = [900, 1100, 1000, 800];
+  let total = durations.reduce((a,b)=>a+b,0);
+  let elapsed = 0;
+
+  const bar = document.getElementById('loadingBarFill');
+
+  function activateStep(i){
+    if(i >= steps.length){
+      // done — transition to content
+      bar.style.width = '100%';
+      const pctEl2 = document.getElementById('loadingPct');
+      if(pctEl2) pctEl2.textContent = '100%';
+      const subEl2 = document.getElementById('loadingSub');
+      if(subEl2) subEl2.textContent = 'All done! Loading your alerts';
+      setTimeout(()=>{
+        loadScreen.classList.add('exit');
+        setTimeout(()=>{
+          loadScreen.classList.remove('show');
+          applied = new Set(ascSelected);
+          selScreen.style.display = 'none';
+          loadScreen.style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          document.getElementById('topbarRight').style.display = '';
+          renderSelectorBtn();
+          renderContent();
+        }, 350);
+      }, 400);
+      return;
+    }
+    const stepEl = document.getElementById(steps[i]);
+    // mark previous done
+    if(i>0){
+      const prev = document.getElementById(steps[i-1]);
+      prev.classList.remove('active');
+      prev.classList.add('done');
+      prev.querySelector('.loading-step-icon').innerHTML = `<div class="step-check"><svg viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4.5l2.5 2.5 4.5-4.5"/></svg></div>`;
+    }
+    stepEl.classList.add('active');
+    stepEl.querySelector('.loading-step-icon').innerHTML = `<div class="step-spinner"></div>`;
+    elapsed += durations[i];
+    const pct = Math.round(elapsed/total*100);
+    bar.style.width = pct+'%';
+    const pctEl = document.getElementById('loadingPct');
+    if(pctEl) pctEl.textContent = pct+'%';
+    const subTexts = ['Connecting to your ad platforms','Pulling campaign metrics','Crunching the numbers','Finalising your alerts'];
+    const subEl = document.getElementById('loadingSub');
+    if(subEl) subEl.textContent = subTexts[i] || '';
+    setTimeout(()=>activateStep(i+1), durations[i]);
+  }
+
+  setTimeout(()=>activateStep(0), 300);
+}
+
+/* ─────────────────────────────────────────
+   INIT
+───────────────────────────────────────── */
+renderAscList();
+renderSelectorBtn();
+</script>
+</body>
+</html>
