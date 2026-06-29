@@ -296,6 +296,10 @@
     .product-gen-row select:focus { border-color:#7c6dff; }
     .btn-amber { background:linear-gradient(135deg,#92400e,#b45309); color:#fff; border:1px solid #d97706; }
     .btn-amber:hover:not(:disabled) { background:linear-gradient(135deg,#b45309,#d97706); }
+    /* ⚠ TESTING ONLY — comment out before shipping to production */
+    .btn-dummy { background:rgba(234,179,8,.1); border:1px dashed #ca8a04; color:#eab308; border-radius:6px; padding:4px 10px; font-size:11px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .btn-dummy:hover { background:rgba(234,179,8,.2); }
+    /* END TESTING ONLY */
     .new-frame-scene { margin-top:8px; border:1px solid #1e1e30; border-radius:10px; padding:12px; }
     .new-frame-scene-title { font-size:11px; color:#7c6dff; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:.05em; }
     .new-frame-compare { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -316,17 +320,94 @@
     .scene-prod-body { padding:10px 12px; display:flex; flex-direction:column; gap:8px; background:#09091a; }
     .scene-prod-upload-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .reject-frames-btn:hover { border-color:#888; color:#aaa; }
+    /* Stitch scene list */
+    .stitch-item { display:flex; align-items:center; gap:10px; background:#0d0d1c; border:1px solid #1e1e30; border-radius:8px; padding:8px 12px; cursor:grab; user-select:none; }
+    .stitch-item.dragging { opacity:.4; }
+    .stitch-item.drag-over { border-color:#7c6dff; background:#1a1535; }
+    .stitch-item-handle { color:#333; font-size:14px; cursor:grab; }
+    .stitch-item-thumb { width:52px; height:32px; object-fit:cover; border-radius:4px; background:#07070f; flex-shrink:0; }
+    .stitch-item-info { flex:1; min-width:0; }
+    .stitch-item-title { font-size:12px; font-weight:600; color:#e2e2f0; }
+    .stitch-item-meta { font-size:10px; color:#555; }
+    .stitch-item-status { font-size:10px; }
+    .stitch-item-status.ok { color:#22c55e; }
+    .stitch-item-status.missing { color:#f87171; }
+    /* Editor buttons */
+    .editor-btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+    .editor-btn { display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:8px; border:1px solid #222238; background:#13132a; color:#b8a4ff; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; transition:all .15s; }
+    .editor-btn:hover { border-color:#7c6dff; color:#fff; background:#1a1535; }
+
+    /* ── Script to Video ───────────────────────────────────────── */
+    .stv-steps { display:flex; align-items:center; gap:0; margin:24px 0 20px; overflow-x:auto; padding-bottom:4px; }
+    .stv-step { display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; }
+    .stv-dot { width:28px; height:28px; border-radius:50%; background:#1a1a2e; border:1.5px solid #2a2a45; color:#555; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+    .stv-step span { font-size:9px; font-weight:600; color:#555; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+    .stv-step.active .stv-dot { background:#7c6dff; border-color:#7c6dff; color:#fff; }
+    .stv-step.active span { color:#a78bfa; }
+    .stv-step.done .stv-dot { background:#22c55e; border-color:#22c55e; color:#fff; }
+    .stv-step.done span { color:#22c55e; }
+    .stv-step-line { flex:1; height:1.5px; background:#1e1e30; min-width:20px; max-width:60px; }
+    .stv-panel { background:#0a0a18; border:1px solid #1e1e30; border-radius:14px; padding:20px; margin-bottom:20px; }
+    .stv-panel-title { font-size:15px; font-weight:700; color:#e8e6f0; margin-bottom:6px; }
+    .stv-panel-sub { font-size:12px; color:#555; margin-bottom:14px; line-height:1.5; }
+    .stv-textarea { width:100%; background:#07070f; border:1px solid #1e1e30; border-radius:8px; color:#e0dff0; font-size:12px; padding:10px 12px; outline:none; font-family:inherit; resize:vertical; line-height:1.6; }
+    .stv-textarea:focus { border-color:#7c6dff; }
+    .stv-textarea.stv-json { font-family:'Courier New',monospace; font-size:11px; color:#a78bfa; }
+    .stv-select { height:30px; background:#0f0f1a; border:1px solid #1e1e30; border-radius:6px; color:#ccc; font-size:11px; padding:0 8px; outline:none; cursor:pointer; }
+    .stv-select:focus { border-color:#7c6dff; }
+    .stv-prod-upload { border:1.5px dashed #1e1e30; border-radius:10px; padding:16px; text-align:center; cursor:pointer; transition:border-color .15s; }
+    .stv-prod-upload:hover { border-color:#7c6dff; }
+    .stv-frames-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:10px; }
+    .stv-frame-card { background:#07070f; border:1px solid #1e1e30; border-radius:10px; overflow:hidden; }
+    .stv-frame-card-header { padding:8px 12px; font-size:11px; font-weight:700; color:#a78bfa; border-bottom:1px solid #1e1e30; }
+    .stv-frame-row { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+    .stv-frame-cell { position:relative; aspect-ratio:9/16; overflow:hidden; background:#07070f; }
+    .stv-frame-cell img { width:100%; height:100%; object-fit:cover; display:block; }
+    .stv-frame-label { position:absolute; bottom:5px; left:5px; background:rgba(0,0,0,.7); border-radius:4px; padding:2px 6px; font-size:9px; font-weight:600; color:#ccc; }
+    .stv-frame-status { padding:8px 12px; font-size:10px; color:#555; }
 
   </style>
 </head>
 <body>
 
+<!-- ════ LANDING SCREEN ════ -->
+<div id="landingScreen" style="
+  position:fixed;inset:0;background:#07070f;z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;
+">
+  <div style="text-align:center;margin-bottom:8px">
+    <div style="font-size:36px;margin-bottom:10px">🎬</div>
+    <h1 style="font-size:22px;font-weight:800;color:#e8e6f0;margin-bottom:6px">Studio</h1>
+    <p style="font-size:13px;color:#555;max-width:340px">How do you want to create your video?</p>
+  </div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+    <button onclick="choosePath('video')" style="
+      width:200px;padding:24px 20px;border-radius:16px;border:1.5px solid #1e1e30;
+      background:#0f0f1a;color:#e8e6f0;cursor:pointer;text-align:left;
+      transition:border-color .15s,background .15s;
+    " onmouseover="this.style.borderColor='#7c6dff';this.style.background='#141428'" onmouseout="this.style.borderColor='#1e1e30';this.style.background='#0f0f1a'">
+      <div style="font-size:28px;margin-bottom:12px">🎞</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">Video to Video</div>
+      <div style="font-size:11px;color:#555;line-height:1.5">Upload a video, detect scenes, and generate a new version with a different product.</div>
+    </button>
+    <button onclick="choosePath('script')" style="
+      width:200px;padding:24px 20px;border-radius:16px;border:1.5px solid #1e1e30;
+      background:#0f0f1a;color:#e8e6f0;cursor:pointer;text-align:left;
+      transition:border-color .15s,background .15s;
+    " onmouseover="this.style.borderColor='#7c6dff';this.style.background='#141428'" onmouseout="this.style.borderColor='#1e1e30';this.style.background='#0f0f1a'">
+      <div style="font-size:28px;margin-bottom:12px">✍️</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">Script to Video</div>
+      <div style="font-size:11px;color:#555;line-height:1.5">Write a script, structure it into scenes, generate a storyboard, then create your video.</div>
+    </button>
+  </div>
+</div>
 
 <header>
   <div class="logo">🎬</div>
-  <h1>Scene Detector</h1>
+  <h1>Studio</h1>
   <nav class="tab-nav">
-    <button class="tab-btn active" data-tab="detector">🎞 Detector</button>
+    <button class="tab-btn active" data-tab="detector">🎞 Video to Video</button>
+    <button class="tab-btn" data-tab="script">✍️ Script to Video</button>
     <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
   </nav>
 </header>
@@ -423,6 +504,114 @@
   </div>
 
   <div class="scenes-list" id="scenesList"></div>
+
+</div>
+</div>
+
+<!-- ════ SCRIPT TAB ════ -->
+<div class="tab-panel" id="tab-script">
+<div class="wrap">
+
+<!-- STEP INDICATOR -->
+<div class="stv-steps" id="stvSteps">
+  <div class="stv-step active" id="stvStep1"><div class="stv-dot">1</div><span>Script</span></div>
+  <div class="stv-step-line"></div>
+  <div class="stv-step" id="stvStep2"><div class="stv-dot">2</div><span>Structure</span></div>
+  <div class="stv-step-line"></div>
+  <div class="stv-step" id="stvStep3"><div class="stv-dot">3</div><span>Storyboard</span></div>
+  <div class="stv-step-line"></div>
+  <div class="stv-step" id="stvStep4"><div class="stv-dot">4</div><span>Frames</span></div>
+  <div class="stv-step-line"></div>
+  <div class="stv-step" id="stvStep5"><div class="stv-dot">5</div><span>Generate</span></div>
+</div>
+
+<!-- STEP 1: RAW SCRIPT -->
+<div class="stv-panel" id="stvPanel1">
+  <div class="stv-panel-title">Write Your Script</div>
+  <p class="stv-panel-sub">Describe your video scene by scene — e.g. "Scene 1: A woman wakes up, stretches, looks at sunrise. Scene 2: She makes coffee…"</p>
+  <textarea id="stvRawScript" class="stv-textarea" rows="10" placeholder="Paste or write your script here…"></textarea>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px">
+    <label style="font-size:11px;color:#666;white-space:nowrap">LLM Provider</label>
+    <select id="stvLlmProvider" class="stv-select">
+      <option value="">— select provider —</option>
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai">OpenAI (GPT)</option>
+      <option value="grok">xAI (Grok)</option>
+      <option value="gemini">Google (Gemini)</option>
+    </select>
+    <select id="stvLlmModel" class="stv-select" disabled>
+      <option value="">— select provider first —</option>
+    </select>
+    <button class="btn btn-purple" id="stvStructureBtn" onclick="stvStructureScript()" disabled>✦ Structure Script</button>
+  </div>
+  <div id="stvStep1Status" style="margin-top:8px;font-size:11px;color:#666"></div>
+</div>
+
+<!-- STEP 2: STRUCTURED JSON -->
+<div class="stv-panel" id="stvPanel2" style="display:none">
+  <div class="stv-panel-title">Review & Edit Structured Script</div>
+  <p class="stv-panel-sub">This JSON will be used for all subsequent steps. Edit directly if needed.</p>
+  <textarea id="stvJsonEditor" class="stv-textarea stv-json" rows="16" spellcheck="false"></textarea>
+  <div id="stvJsonError" style="font-size:11px;color:#f87171;margin-top:6px;display:none"></div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn btn-ghost btn-sm" onclick="stvGoBack(1)">← Back</button>
+    <button class="btn btn-purple" onclick="stvConfirmJson()">Confirm Structure →</button>
+  </div>
+</div>
+
+<!-- STEP 3: STORYBOARD -->
+<div class="stv-panel" id="stvPanel3" style="display:none">
+  <div class="stv-panel-title">Generate Storyboard</div>
+  <p class="stv-panel-sub">Upload product/reference photos, then generate a storyboard image showing all scenes.</p>
+
+  <!-- Product upload -->
+  <div class="stv-prod-upload" id="stvProdUploadArea" onclick="document.getElementById('stvProdInput').click()">
+    <input type="file" id="stvProdInput" accept="image/*" multiple style="display:none" onchange="stvHandleProdFiles(this.files)">
+    <div style="font-size:20px">📦</div>
+    <div style="font-size:12px;color:#555;margin-top:4px" id="stvProdUploadLabel">Click to upload product / reference photos (optional)</div>
+  </div>
+  <div class="product-thumbs" id="stvProdThumbs" style="margin-top:8px"></div>
+
+  <!-- Image gen provider -->
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px">
+    <label style="font-size:11px;color:#666;white-space:nowrap">Image Gen</label>
+    <select id="stvImgProvider" class="stv-select" onchange="stvOnImgProviderChange()">
+      <option value="">— select provider —</option>
+      <option value="openai">OpenAI (DALL·E / GPT-4o)</option>
+      <option value="grok">xAI (Grok Aurora)</option>
+      <option value="gemini">Google (Gemini Imagen)</option>
+    </select>
+    <select id="stvImgModel" class="stv-select" disabled>
+      <option value="">— select provider first —</option>
+    </select>
+    <button class="btn btn-purple" id="stvGenStoryboardBtn" onclick="stvGenStoryboard()" disabled>✦ Generate Storyboard</button>
+  </div>
+  <div id="stvStep3Status" style="margin-top:10px;font-size:11px;color:#666"></div>
+  <div id="stvStoryboardResult" style="margin-top:12px"></div>
+  <div id="stvStep3Actions" style="display:none;margin-top:12px;display:flex;gap:8px">
+    <button class="btn btn-ghost btn-sm" onclick="stvGoBack(2)">← Back</button>
+    <button class="btn btn-teal" onclick="stvApproveStoryboard()">✓ Approve Storyboard →</button>
+  </div>
+</div>
+
+<!-- STEP 4: FIRST & LAST FRAMES -->
+<div class="stv-panel" id="stvPanel4" style="display:none">
+  <div class="stv-panel-title">Generate Scene Frames</div>
+  <p class="stv-panel-sub">Generating first &amp; last frame for each scene using the image gen model selected above.</p>
+  <div id="stvFramesGrid" class="stv-frames-grid"></div>
+  <div id="stvStep4Status" style="margin-top:10px;font-size:11px;color:#666"></div>
+  <div style="display:none;margin-top:12px;gap:8px" id="stvStep4Actions">
+    <button class="btn btn-ghost btn-sm" onclick="stvGoBack(3)">← Back</button>
+    <button class="btn btn-teal" id="stvToVideoBtn" onclick="stvGoToVideo()">🎬 Create Video →</button>
+  </div>
+</div>
+
+<!-- STEP 5: handed off to existing video gen modal -->
+<div class="stv-panel" id="stvPanel5" style="display:none">
+  <div class="stv-panel-title">Ready to Generate Video</div>
+  <p class="stv-panel-sub" style="margin-bottom:16px">Frames are ready. Click below to open the video generation panel with all scenes pre-loaded.</p>
+  <button class="btn btn-purple" onclick="stvLaunchVideoGen()">🎬 Open Video Generator</button>
+</div>
 
 </div>
 </div>
@@ -678,18 +867,51 @@
           <option value="21:9">21:9</option>
         </select>
         <button class="btn btn-purple btn-sm" id="shared-gen-btn" disabled onclick="generateAllScenes()">▶ Generate All</button>
+        <!-- ⚠ TESTING ONLY — comment out before shipping to production -->
+        <button class="btn btn-dummy btn-sm" onclick="insertDummyVideos()">🎲 Create Dummy</button>
+        <!-- END TESTING ONLY -->
       </div>
       <div id="shared-gen-note"></div>
     </div>
 
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" id="briefModalClose2">Close</button>
+      <button class="btn btn-purple btn-sm" id="stitchBtn" disabled onclick="stitchAndEdit()">✂ Stitch & Edit</button>
       <button class="btn btn-teal btn-sm" id="briefDownloadZip" disabled onclick="downloadBriefZip()">⬇ Download ZIP</button>
     </div>
   </div>
 </div>
 
 <div id="toast"></div>
+
+<!-- Stitch & Edit overlay -->
+<div class="modal-overlay" id="stitchOverlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div>
+        <h2>✂ Stitch & Edit</h2>
+        <p>Combine generated clips into one video, then open in an editor</p>
+      </div>
+      <button class="modal-close" id="stitchOverlayClose">✕</button>
+    </div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
+      <!-- Scene order -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#7c6dff;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Clip order (drag to reorder)</div>
+        <div id="stitchSceneList" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+      <!-- Stitch progress -->
+      <div id="stitchStatus"></div>
+      <!-- Result -->
+      <div id="stitchResult"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" id="stitchOverlayClose2">Close</button>
+      <button class="btn btn-purple btn-sm" id="doStitchBtn" onclick="doStitch()">▶ Stitch Clips</button>
+    </div>
+  </div>
+</div>
+
 <canvas id="cvs"></canvas>
 <canvas id="recordCanvas"></canvas>
 <video id="vid" style="display:none" preload="auto" muted playsinline></video>
@@ -772,6 +994,8 @@
       { value: 'claude-opus-4-6',            label: 'Claude Opus 4.6 — most capable' },
     ],
     openai: [
+      { value: 'gpt-5.4-mini',  label: 'GPT-5.4 Mini — fast, scale' },
+      { value: 'gpt-5.5',       label: 'GPT-5.5 — highest quality' },
       { value: 'gpt-4.1-nano',  label: 'GPT-4.1 Nano — fastest & cheapest' },
       { value: 'gpt-4.1-mini',  label: 'GPT-4.1 Mini — fast & cheap' },
       { value: 'gpt-4.1',       label: 'GPT-4.1 — balanced' },
@@ -1549,6 +1773,9 @@
     if (!zipBtn) return;
     const hasAny = _briefScenes.some(sc => sc.generatedVideoBlob || sc.generatedVideoUrl);
     zipBtn.disabled = !hasAny;
+    const hasMultiple = _briefScenes.filter(sc => sc.generatedVideoBlob || sc.generatedVideoUrl).length >= 1;
+    const stitchBtn = document.getElementById('stitchBtn');
+    if (stitchBtn) stitchBtn.disabled = !hasMultiple;
   }
 
   async function downloadBriefZip() {
@@ -1581,6 +1808,47 @@
     showToast('ZIP downloaded', 'ok');
   }
 
+  // ⚠ TESTING ONLY — comment out before shipping to production
+  function insertDummyVideos() {
+    if (!_briefScenes || _briefScenes.length === 0) { showToast('No scenes detected yet', 'err'); return; }
+    const dummyPaths = ['Videos/1.mp4', 'Videos/2.mp4', 'Videos/3.mp4'];
+    for (let i = 0; i < _briefScenes.length; i++) {
+      const sc = _briefScenes[i];
+      const path = dummyPaths[i % dummyPaths.length];
+      sc.generatedVideoUrl = path;
+      sc.generatedVideoBlob = null;
+      // Capture thumb in background — don't block the main flow
+      captureVideoThumb(path).then(thumb => { sc.generatedThumb = thumb; });
+      const resultEl = document.getElementById(`gen-result-${sc.index}`);
+      if (resultEl) resultEl.innerHTML = renderVideoResult(path, sc.index);
+      const statusEl = document.getElementById(`gen-status-${sc.index}`);
+      if (statusEl) statusEl.innerHTML = `<span style="color:#22c55e;font-size:11px">✔ Dummy video loaded</span>`;
+    }
+    updateBriefZipBtn();
+    showToast('Dummy videos inserted', 'ok');
+  }
+  // END TESTING ONLY
+
+  function captureVideoThumb(url) {
+    return new Promise(resolve => {
+      const done = (val) => { clearTimeout(timer); resolve(val); };
+      const timer = setTimeout(() => resolve(''), 5000);
+      const v = document.createElement('video');
+      v.src = url; v.muted = true; v.playsInline = true;
+      v.onloadeddata = () => { v.currentTime = 0.1; };
+      v.onseeked = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = v.videoWidth || 320; c.height = v.videoHeight || 180;
+          c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+          done(c.toDataURL('image/jpeg', 0.7));
+        } catch(_) { done(''); }
+      };
+      v.onerror = () => done('');
+      v.load();
+    });
+  }
+
   // ── Video Generation ──────────────────────────────────────────────────────
   const VIDEO_GEN_MODELS = {
     runway: [
@@ -1601,8 +1869,9 @@
       { value: 'grok-imagine-video',     label: 'Grok Imagine Video — image + reference frame' },
     ],
     gemini_video: [
-      { value: 'veo-3.1',      label: 'Veo 3.1 — latest' },
-      { value: 'veo-3.1-fast', label: 'Veo 3.1 Fast — fast & cheap' },
+      { value: 'models/veo-3.1-generate-preview',      label: 'Veo 3.1 Cinematic — 4K, highest quality' },
+      { value: 'models/veo-3.1-fast-generate-preview', label: 'Veo 3.1 Fast — speed & scale' },
+      { value: 'models/veo-3.1-lite-generate-preview', label: 'Veo 3.1 Lite — cost efficient' },
     ],
   };
 
@@ -1721,13 +1990,24 @@
 
       // ── Google Veo ───────────────────────────────────────────────────────
       else if (provider === 'gemini_video') {
-        const veoEp = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateVideo`;
-        const veoBody = { prompt: { text: prompt }, image: { bytesBase64Encoded: '[base64]', mimeType: 'image/jpeg' }, lastFrame: { bytesBase64Encoded: '[base64]', mimeType: 'image/jpeg' }, durationSeconds: snapDur, aspectRatio };
-        const res = await fetch(`${veoEp}?key=${key}`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ ...veoBody, image: { bytesBase64Encoded: sc.firstFrame.split(',')[1], mimeType: 'image/jpeg' }, lastFrame: { bytesBase64Encoded: sc.lastFrame.split(',')[1], mimeType: 'image/jpeg' } })
-        });
+        const veoEp = `https://generativelanguage.googleapis.com/v1beta/${model}:predictLongRunning`;
+        const veoInstance = {
+          prompt,
+          image:     { inlineData: { mimeType: 'image/jpeg', data: sc.firstFrame.split(',')[1] } },
+          lastFrame: { inlineData: { mimeType: 'image/jpeg', data: sc.lastFrame.split(',')[1]  } },
+        };
+        const veoParams = { aspectRatio };
+        const veoBody = { instances: [{ ...veoInstance, image: { inlineData: { mimeType: 'image/jpeg', data: '[base64]' } }, lastFrame: { inlineData: { mimeType: 'image/jpeg', data: '[base64]' } } }], parameters: veoParams };
+        let res;
+        try {
+          res = await fetch(`${veoEp}?key=${key}`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ instances: [veoInstance], parameters: veoParams })
+          });
+        } catch (fetchErr) {
+          throw new Error(`Google Veo request failed — this API may not support browser CORS requests. (${fetchErr.message})`);
+        }
         const veoData = await res.json();
         logApi(`Video Gen — Gemini Veo (${model})`, veoEp, veoBody, veoData, res.status);
         if (!res.ok) throw new Error(veoData?.error?.message || `${res.status} ${res.statusText}`);
@@ -1832,9 +2112,16 @@
       const data = await res.json();
       statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Google Veo: ${data.done ? 'done' : 'processing'}… (${attempt+1})</div>`;
       if (data.done) {
-        const videoData = data.response?.generatedSamples?.[0]?.video?.bytesBase64Encoded;
-        if (!videoData) throw new Error(data.error?.message || 'No video returned from Veo');
-        return `data:video/mp4;base64,${videoData}`;
+        const sample = data.response?.generatedSamples?.[0] || data.response?.generateVideoResponse?.generatedSamples?.[0];
+        const videoUri   = sample?.video?.uri;
+        const videoB64   = sample?.video?.bytesBase64Encoded;
+        if (videoUri) {
+          // URI needs the API key appended for browser playback
+          const sep = videoUri.includes('?') ? '&' : '?';
+          return `${videoUri}${sep}key=${key}`;
+        }
+        if (videoB64) return `data:video/mp4;base64,${videoB64}`;
+        throw new Error(data.error?.message || `No video in response. Keys: ${JSON.stringify(Object.keys(data.response || {}))}`);
       }
       if (data.error) throw new Error(data.error.message || 'Veo generation failed');
     }
@@ -2044,10 +2331,12 @@
       { value: 'grok-imagine-image-quality', label: 'Grok Imagine — Quality (recommended)' },
       { value: 'grok-2-image-1212',          label: 'Grok 2 Image' },
     ],
-    openai: [{ value: 'gpt-image-1', label: 'GPT Image 1' }],
+    openai: [
+      { value: 'gpt-image-2', label: 'GPT Image 2 — recommended' },
+      { value: 'gpt-image-1', label: 'GPT Image 1' },
+    ],
     gemini: [
-      { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image — Nano Banana 2' },
-      { value: 'gemini-3-pro-image',     label: 'Gemini 3 Pro Image — Nano Banana Pro' },
+      { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash — image gen (recommended)' },
     ],
   };
 
@@ -2246,9 +2535,12 @@
 
   async function callImgGenApi(provider, model, key, promptText, sceneFrameDataUrl, productImages = _productImages) {
     if (provider === 'grok') {
-      const endpoint = 'https://api.x.ai/v1/images/edits';
-      const images = [{ url: sceneFrameDataUrl }, ...productImages.map(u => ({ url: u }))];
-      const reqBody = { model, prompt: promptText, n: 1, aspect_ratio: '1:1', resolution: '1k', images };
+      // Grok /images/edits accepts only one image — use sceneFrame first, fallback to first product image
+      const singleImage = sceneFrameDataUrl || productImages[0] || null;
+      const endpoint = singleImage ? 'https://api.x.ai/v1/images/edits' : 'https://api.x.ai/v1/images/generations';
+      const reqBody = singleImage
+        ? { model, prompt: promptText, n: 1, aspect_ratio: '1:1', resolution: '1k', images: [{ url: singleImage }] }
+        : { model, prompt: promptText, n: 1, aspect_ratio: '1:1', resolution: '1k' };
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -2262,36 +2554,58 @@
     }
 
     if (provider === 'openai') {
-      const endpoint = 'https://api.openai.com/v1/images/edits';
-      const frameBlob = await (await fetch(sceneFrameDataUrl)).blob();
-      const fd = new FormData();
-      fd.append('model', model);
-      fd.append('prompt', promptText + ' ' + productImages.map((_,i) => `Product reference ${i+1} provided.`).join(' '));
-      fd.append('image', frameBlob, 'frame.png');
-      for (let i = 0; i < productImages.length; i++) {
-        const pb = await (await fetch(productImages[i])).blob();
-        fd.append('image', pb, `product_${i}.png`);
+      const hasImages = sceneFrameDataUrl || productImages.length > 0;
+      if (hasImages) {
+        const endpoint = 'https://api.openai.com/v1/images/edits';
+        const fd = new FormData();
+        fd.append('model', model);
+        fd.append('prompt', promptText);
+        fd.append('n', '1');
+        fd.append('size', '1024x1536'); // closest to 9:16
+        // image[] array syntax — confirmed by OpenAI curl docs
+        if (sceneFrameDataUrl) {
+          const b = await (await fetch(sceneFrameDataUrl)).blob();
+          fd.append('image[]', b, 'storyboard.png');
+        }
+        for (let i = 0; i < productImages.length; i++) {
+          const b = await (await fetch(productImages[i])).blob();
+          fd.append('image[]', b, `product_${i}.png`);
+        }
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${key}` },
+          body: fd,
+        });
+        const data = await res.json();
+        logApi(`OpenAI Image (${model})`, endpoint, { model, imageCount: (sceneFrameDataUrl ? 1 : 0) + productImages.length }, data, res.status);
+        if (!res.ok) throw new Error(data?.error?.message || `${res.status}`);
+        if (data.data[0].b64_json) return `data:image/png;base64,${data.data[0].b64_json}`;
+        return data.data[0].url;
+      } else {
+        const endpoint = 'https://api.openai.com/v1/images/generations';
+        const reqBody = { model, prompt: promptText, n: 1, size: '1024x1536', response_format: 'b64_json' };
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        });
+        const data = await res.json();
+        logApi(`OpenAI Image (${model})`, endpoint, reqBody, data, res.status);
+        if (!res.ok) throw new Error(data?.error?.message || `${res.status}`);
+        if (data.data[0].b64_json) return `data:image/png;base64,${data.data[0].b64_json}`;
+        return data.data[0].url;
       }
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${key}` },
-        body: fd,
-      });
-      const data = await res.json();
-      logApi(`OpenAI Image (${model})`, endpoint, { model, prompt: fd.get('prompt'), imageCount: productImages.length + 1 }, data, res.status);
-      if (!res.ok) throw new Error(data?.error?.message || `${res.status}`);
-      if (data.data[0].b64_json) return `data:image/png;base64,${data.data[0].b64_json}`;
-      return data.data[0].url;
     }
 
     if (provider === 'gemini') {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      const frameMime = sceneFrameDataUrl.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-      const parts = [
-        { text: promptText },
-        { inline_data: { mime_type: frameMime, data: sceneFrameDataUrl.split(',')[1] } },
-        ...productImages.map(u => ({ inline_data: { mime_type: u.match(/data:(.*?);/)?.[1] || 'image/jpeg', data: u.split(',')[1] } })),
-      ];
+      const parts = [{ text: promptText }];
+      if (sceneFrameDataUrl) {
+        parts.push({ inline_data: { mime_type: sceneFrameDataUrl.match(/data:(.*?);/)?.[1] || 'image/jpeg', data: sceneFrameDataUrl.split(',')[1] } });
+      }
+      productImages.forEach(u => {
+        if (u) parts.push({ inline_data: { mime_type: u.match(/data:(.*?);/)?.[1] || 'image/jpeg', data: u.split(',')[1] } });
+      });
       const reqBody = { contents: [{ parts }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } };
       const res = await fetch(`${endpoint}?key=${key}`, {
         method: 'POST',
@@ -2337,6 +2651,643 @@
     showToast(`Scene ${sceneIdx} frames updated`, 'ok');
     const actionsEl = document.querySelector(`.new-frame-scene:has(#nf-first-${sceneIdx}) .new-frame-actions`);
     if (actionsEl) actionsEl.innerHTML = `<div style="color:#4ade80;font-size:12px;padding:4px 0">✓ New frames applied — will be used for video generation</div>`;
+  }
+
+  // ── Stitch & Edit ─────────────────────────────────────────────────────────
+
+  let _stitchOrder = []; // array of scene indices in stitch order
+
+  document.getElementById('stitchOverlayClose').addEventListener('click', () => document.getElementById('stitchOverlay').classList.remove('open'));
+  document.getElementById('stitchOverlayClose2').addEventListener('click', () => document.getElementById('stitchOverlay').classList.remove('open'));
+
+  function stitchAndEdit() {
+    const readyScenes = _briefScenes.filter(sc => sc.generatedVideoBlob || sc.generatedVideoUrl);
+    if (readyScenes.length === 0) { showToast('No generated clips to stitch', 'err'); return; }
+
+    _stitchOrder = readyScenes.map(sc => sc.index);
+    renderStitchList();
+    document.getElementById('stitchStatus').innerHTML = '';
+    document.getElementById('stitchResult').innerHTML = '';
+    document.getElementById('doStitchBtn').disabled = false;
+    document.getElementById('doStitchBtn').textContent = '▶ Stitch Clips';
+    document.getElementById('stitchOverlay').classList.add('open');
+  }
+
+  function renderStitchList() {
+    const list = document.getElementById('stitchSceneList');
+    list.innerHTML = '';
+    _stitchOrder.forEach((idx, pos) => {
+      const sc = scenes.find(s => s.index === idx);
+      const hasVideo = sc.generatedVideoBlob || sc.generatedVideoUrl;
+      const thumb = sc.generatedThumb || sc.firstFrame || '';
+      const item = document.createElement('div');
+      item.className = 'stitch-item';
+      item.draggable = true;
+      item.dataset.idx = idx;
+      item.innerHTML = `
+        <span class="stitch-item-handle">⠿</span>
+        <img class="stitch-item-thumb" src="${thumb}">
+        <div class="stitch-item-info">
+          <div class="stitch-item-title">Scene ${idx}</div>
+          <div class="stitch-item-meta">${fmtTime(sc.start)} → ${fmtTime(sc.end)} · ${(sc.end - sc.start).toFixed(1)}s</div>
+        </div>
+        <span class="stitch-item-status ${hasVideo ? 'ok' : 'missing'}">${hasVideo ? '✓ ready' : '✕ no clip'}</span>`;
+
+      item.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', idx); item.classList.add('dragging'); });
+      item.addEventListener('dragend', () => item.classList.remove('dragging'));
+      item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
+      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+        const toIdx = idx;
+        if (fromIdx === toIdx) return;
+        const fromPos = _stitchOrder.indexOf(fromIdx);
+        const toPos = _stitchOrder.indexOf(toIdx);
+        _stitchOrder.splice(fromPos, 1);
+        _stitchOrder.splice(toPos, 0, fromIdx);
+        renderStitchList();
+      });
+      list.appendChild(item);
+    });
+  }
+
+  async function doStitch() {
+    const btn = document.getElementById('doStitchBtn');
+    const statusEl = document.getElementById('stitchStatus');
+    const resultEl = document.getElementById('stitchResult');
+    btn.disabled = true; btn.textContent = '⏳ Stitching…';
+    resultEl.innerHTML = '';
+
+    const readyOrder = _stitchOrder.filter(idx => {
+      const sc = scenes.find(s => s.index === idx);
+      return sc && (sc.generatedVideoBlob || sc.generatedVideoUrl);
+    });
+
+    statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Loading ${readyOrder.length} clips…</div>`;
+
+    try {
+      // Resolve all clips to blob URLs
+      const clipUrls = [];
+      for (const idx of readyOrder) {
+        const sc = scenes.find(s => s.index === idx);
+        if (sc.generatedVideoBlob) {
+          clipUrls.push(URL.createObjectURL(sc.generatedVideoBlob));
+        } else {
+          clipUrls.push(sc.generatedVideoUrl);
+        }
+      }
+
+      statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Stitching clips via canvas recorder…</div>`;
+
+      const stitchedBlob = await stitchViaCanvas(clipUrls, statusEl);
+      const stitchedUrl = URL.createObjectURL(stitchedBlob);
+
+      statusEl.innerHTML = `<div class="brief-gen-status success">✓ Stitched ${readyOrder.length} clips — ${(stitchedBlob.size / 1024 / 1024).toFixed(1)} MB</div>`;
+
+      // Build individual clip data for editor
+      const editorClips = readyOrder.map(idx => {
+        const sc = scenes.find(s => s.index === idx);
+        return {
+          url: sc.generatedVideoUrl || '',
+          blob: sc.generatedVideoBlob || null,
+          name: `Scene ${sc.index}`,
+          duration: sc.end - sc.start,
+          thumb: sc.generatedThumb || sc.firstFrame || '',
+          summary: sc.summary || '',
+        };
+      });
+
+      // Save individual clips to IndexedDB then show editor button
+      const showEditorUI = () => {
+        resultEl.innerHTML = `
+          <video src="${stitchedUrl}" controls playsinline style="width:100%;max-height:220px;background:#07070f;border-radius:8px;display:block;margin-bottom:12px"></video>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="editor-btn" style="background:var(--accent,#7c6dff);color:#fff;border-color:transparent;font-weight:700" href="editor.html" target="_blank">🎬 Open in Editor</a>
+            <a class="editor-btn" href="${stitchedUrl}" download="stitched_${Date.now()}.webm">⬇ Download</a>
+          </div>`;
+        btn.textContent = '✓ Done';
+      };
+
+      try {
+        const dbPromise = saveToEditorDB(editorClips);
+        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000));
+        await Promise.race([dbPromise, timeout]);
+      } catch(_) { /* DB failed — editor.html will show an error, download still works */ }
+      showEditorUI();
+    } catch (err) {
+      statusEl.innerHTML = `<div class="brief-gen-status error">✕ ${err.message}</div>`;
+      btn.disabled = false; btn.textContent = '▶ Stitch Clips';
+    }
+  }
+
+  async function stitchViaCanvas(clipUrls, statusEl) {
+    // Determine canvas size from first clip
+    const firstVid = document.createElement('video');
+    firstVid.src = clipUrls[0];
+    firstVid.muted = true;
+    await new Promise(res => { firstVid.onloadedmetadata = res; firstVid.load(); });
+    const W = firstVid.videoWidth || 1280;
+    const H = firstVid.videoHeight || 720;
+
+    const canvas = document.getElementById('recordCanvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9'
+      : 'video/webm';
+    const recorder = new MediaRecorder(canvas.captureStream(30), { mimeType, videoBitsPerSecond: 8_000_000 });
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+    recorder.start(100);
+
+    for (let i = 0; i < clipUrls.length; i++) {
+      statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Rendering clip ${i+1} / ${clipUrls.length}…</div>`;
+      await playClipOnCanvas(clipUrls[i], canvas, ctx);
+    }
+
+    recorder.stop();
+    await new Promise(res => recorder.onstop = res);
+    return new Blob(chunks, { type: mimeType });
+  }
+
+  function saveToEditorDB(clips) {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('StudioEditor', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('projects', { keyPath: 'id' });
+      req.onerror = () => reject(req.error);
+      req.onsuccess = e => {
+        const db = e.target.result;
+        const tx = db.transaction('projects', 'readwrite');
+        tx.objectStore('projects').put({ id: 'latest', clips, createdAt: Date.now() });
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  }
+
+  function playClipOnCanvas(url, canvas, ctx) {
+    return new Promise((resolve, reject) => {
+      const v = document.createElement('video');
+      v.src = url;
+      v.muted = true;
+      v.playsInline = true;
+
+      v.onloadedmetadata = async () => {
+        let raf;
+        const draw = () => {
+          ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+          if (!v.ended && !v.paused) raf = requestAnimationFrame(draw);
+        };
+        v.onended = () => { cancelAnimationFrame(raf); resolve(); };
+        v.onerror = reject;
+        await v.play().catch(reject);
+        draw();
+      };
+      v.onerror = () => reject(new Error(`Failed to load clip: ${url}`));
+      v.load();
+    });
+  }
+
+  // ── LANDING SCREEN ─────────────────────────────────────────────────────────
+  function choosePath(path) {
+    document.getElementById('landingScreen').style.display = 'none';
+    if (path === 'script') {
+      // activate script tab
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector('[data-tab="script"]').classList.add('active');
+      document.getElementById('tab-script').classList.add('active');
+    }
+    // video path: the detector tab is already active by default
+  }
+
+  // ── SCRIPT TO VIDEO ─────────────────────────────────────────────────────────
+  let _stv = {
+    step: 1,
+    structuredJson: null,  // parsed object
+    storyboardDataUrl: null,
+    prodImages: [],        // base64 data URLs
+    imgProvider: '',
+    imgModel: '',
+    sceneFrames: [],       // [{sceneNumber, firstFrame, lastFrame, summary, ...}]
+  };
+
+  // Step indicators
+  function stvSetStep(n) {
+    _stv.step = n;
+    for (let i = 1; i <= 5; i++) {
+      const dot = document.getElementById(`stvStep${i}`);
+      if (!dot) continue;
+      dot.classList.remove('active', 'done');
+      if (i < n) dot.classList.add('done');
+      else if (i === n) dot.classList.add('active');
+    }
+    for (let i = 1; i <= 5; i++) {
+      const panel = document.getElementById(`stvPanel${i}`);
+      if (panel) panel.style.display = (i === n) ? '' : 'none';
+    }
+  }
+
+  function stvGoBack(toStep) { stvSetStep(toStep); }
+
+  // Provider → model dropdowns for LLM (step 1)
+  const stvLlmProvider = document.getElementById('stvLlmProvider');
+  const stvLlmModel    = document.getElementById('stvLlmModel');
+  const stvStructureBtn = document.getElementById('stvStructureBtn');
+
+  stvLlmProvider.addEventListener('change', () => {
+    const p = stvLlmProvider.value;
+    stvLlmModel.innerHTML = '';
+    if (!p) { stvLlmModel.innerHTML = '<option>— select provider first —</option>'; stvLlmModel.disabled = true; stvStructureBtn.disabled = true; return; }
+    const key = getKey(p);
+    if (!key) {
+      stvLlmModel.innerHTML = '<option>⚠ No API key — check Settings</option>'; stvLlmModel.disabled = true; stvStructureBtn.disabled = true; return;
+    }
+    (MODEL_OPTIONS[p] || []).forEach(m => {
+      const o = document.createElement('option'); o.value = m.value; o.textContent = m.label; stvLlmModel.appendChild(o);
+    });
+    stvLlmModel.disabled = false; stvStructureBtn.disabled = false;
+  });
+
+  // Image gen provider → model (step 3)
+  const IMG_GEN_MODELS_STV = {
+    openai: [
+      { value: 'gpt-image-2', label: 'GPT Image 2 — recommended (storyboard + frames)' },
+      { value: 'gpt-image-1', label: 'GPT Image 1' },
+      { value: 'dall-e-3',    label: 'DALL·E 3' },
+    ],
+    grok: [
+      { value: 'grok-imagine-image-quality', label: 'Grok Imagine — Quality (recommended)' },
+      { value: 'grok-2-image-1212',          label: 'Grok 2 Image' },
+    ],
+    gemini: [
+      { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash — image gen (recommended)' },
+    ],
+  };
+
+  function stvOnImgProviderChange() {
+    const p = document.getElementById('stvImgProvider').value;
+    const modelSel = document.getElementById('stvImgModel');
+    const btn = document.getElementById('stvGenStoryboardBtn');
+    modelSel.innerHTML = '';
+    if (!p) { modelSel.innerHTML = '<option>— select provider first —</option>'; modelSel.disabled = true; btn.disabled = true; return; }
+    (IMG_GEN_MODELS_STV[p] || []).forEach(m => {
+      const o = document.createElement('option'); o.value = m.value; o.textContent = m.label; modelSel.appendChild(o);
+    });
+    modelSel.disabled = false; btn.disabled = false;
+    _stv.imgProvider = p; _stv.imgModel = modelSel.value;
+  }
+
+  document.getElementById('stvImgModel').addEventListener('change', e => { _stv.imgModel = e.target.value; });
+
+  // Product upload (step 3)
+  function stvHandleProdFiles(files) {
+    for (const f of files) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        _stv.prodImages.push(e.target.result);
+        stvRenderProdThumbs();
+      };
+      reader.readAsDataURL(f);
+    }
+  }
+
+  function stvRenderProdThumbs() {
+    const wrap = document.getElementById('stvProdThumbs');
+    wrap.innerHTML = _stv.prodImages.map((src, i) => `
+      <div class="product-thumb">
+        <img src="${src}">
+        <button class="remove-thumb" onclick="stvRemoveProd(${i});event.stopPropagation()">✕</button>
+      </div>`).join('');
+    document.getElementById('stvProdUploadLabel').textContent = `${_stv.prodImages.length} image${_stv.prodImages.length !== 1 ? 's' : ''} uploaded — click to add more`;
+  }
+
+  function stvRemoveProd(i) { _stv.prodImages.splice(i, 1); stvRenderProdThumbs(); }
+
+  // ── STEP 1 → 2: Structure script ──────────────────────────────────────────
+  const STRUCTURED_SCRIPT_PROMPT = `You are a cinematic storyboard generator for premium advertising videos.
+
+Your task: Convert the given script/story idea into a structured cinematic storyboard JSON format.
+
+Creative Direction:
+- Create a premium cinematic advertising style
+- Maintain realistic human emotions and natural interactions
+- Use realistic environments and believable lifestyle moments
+- Focus on storytelling, camera direction, lighting, composition, and visual continuity
+- Characters must remain consistent across all scenes
+- Avoid exaggerated acting, unrealistic poses, or artificial expressions
+
+Cinematography Guidelines:
+- Default aspect ratio: 9:16 vertical
+- Use professional commercial film language
+- Include wide shots, medium shots, close-ups, and detail shots where relevant
+- Add realistic camera perspective and movement
+
+Storyboard Rules:
+- Break the script into sequential shots/scenes
+- Each scene should represent one clear visual moment
+- Describe the first and last frame of every scene
+- Make descriptions suitable for AI video generation
+- Focus on what is visible on screen, not internal thoughts
+
+Output Format: Return ONLY valid JSON, no explanations, no markdown.
+
+JSON Structure:
+{
+  "storyboard_title": "Name of the video concept",
+  "global_style": "Overall visual and cinematic style",
+  "characters": {"character_1": "Detailed visual description"},
+  "location": "Detailed description of the environment",
+  "scenes": [
+    {
+      "scene_number": 1,
+      "scene_name": "Short scene title",
+      "duration": "0:00 - 0:05",
+      "description": "Detailed description of the action and emotion",
+      "first_frame": "Detailed description of the opening frame including camera angle, subject placement, lighting",
+      "last_frame": "Detailed description of the ending frame"
+    }
+  ]
+}`;
+
+  async function stvStructureScript() {
+    const script = document.getElementById('stvRawScript').value.trim();
+    if (!script) { showToast('Please write a script first', 'err'); return; }
+    const provider = stvLlmProvider.value;
+    const model    = stvLlmModel.value;
+    if (!provider || !model) { showToast('Select LLM provider and model', 'err'); return; }
+
+    const btn = document.getElementById('stvStructureBtn');
+    const status = document.getElementById('stvStep1Status');
+    btn.disabled = true; btn.textContent = '⏳ Structuring…';
+    status.textContent = 'Calling LLM to structure your script…';
+    status.style.color = '#7c6dff';
+
+    try {
+      const key = getKey(provider);
+      const messages = [{ role: 'user', content: `${STRUCTURED_SCRIPT_PROMPT}\n\nScript to convert:\n${script}` }];
+      let resultText = null;
+
+      if (provider === 'anthropic') {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST', headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({ model, max_tokens: 4096, messages })
+        });
+        const d = await res.json(); if (!res.ok) throw new Error(d.error?.message || res.status);
+        resultText = d.content?.[0]?.text;
+      } else if (provider === 'openai') {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ model, messages, max_tokens: 4096 })
+        });
+        const d = await res.json(); if (!res.ok) throw new Error(d.error?.message || res.status);
+        resultText = d.choices?.[0]?.message?.content;
+      } else if (provider === 'grok') {
+        const res = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ model, messages, max_tokens: 4096 })
+        });
+        const d = await res.json(); if (!res.ok) throw new Error(d.error?.message || res.status);
+        resultText = d.choices?.[0]?.message?.content;
+      } else if (provider === 'gemini') {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: messages[0].content }] }] })
+        });
+        const d = await res.json(); if (!res.ok) throw new Error(d.error?.message || res.status);
+        resultText = d.candidates?.[0]?.content?.parts?.[0]?.text;
+      }
+
+      if (!resultText) throw new Error('No response from LLM');
+
+      // Strip markdown code fences if present
+      const clean = resultText.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'').trim();
+      JSON.parse(clean); // validate
+      _stv.structuredJson = clean;
+      document.getElementById('stvJsonEditor').value = JSON.stringify(JSON.parse(clean), null, 2);
+      status.textContent = '✓ Script structured successfully';
+      status.style.color = '#22c55e';
+      stvSetStep(2);
+    } catch(err) {
+      status.textContent = `✕ ${err.message}`;
+      status.style.color = '#f87171';
+    }
+    btn.disabled = false; btn.textContent = '✦ Structure Script';
+  }
+
+  // ── STEP 2 → 3: Confirm JSON ───────────────────────────────────────────────
+  function stvConfirmJson() {
+    const raw = document.getElementById('stvJsonEditor').value.trim();
+    const errEl = document.getElementById('stvJsonError');
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed.scenes || !Array.isArray(parsed.scenes)) throw new Error('"scenes" array missing from JSON');
+      _stv.structuredJson = raw;
+      errEl.style.display = 'none';
+      stvSetStep(3);
+    } catch(e) {
+      errEl.textContent = `JSON error: ${e.message}`;
+      errEl.style.display = 'block';
+    }
+  }
+
+  // ── STEP 3: Generate Storyboard ────────────────────────────────────────────
+  const STORYBOARD_SYSTEM_PROMPT = `Create a cinematic storyboard contact sheet from the script provided.
+
+OUTPUT FORMAT:
+- Generate one single square storyboard sheet.
+- The sheet should contain only images — no text, no captions, no scene numbers, no timestamps, no labels, no watermark.
+- Arrange the storyboard in multiple horizontal scene rows.
+- Each scene row must have exactly 2 frames: opening frame and closing frame.
+- Place the two frames left to right with a subtle arrow between them.
+- Every individual frame inside the sheet must be a vertical 9:16 portrait frame.
+- The overall canvas can be square, but each storyboard panel must clearly look like a 9:16 vertical frame.
+
+STORYBOARD STYLE:
+- Premium cinematic advertising storyboard.
+- Realistic photography style. High-end brand commercial aesthetic.
+- Natural lighting. Shallow depth of field. Candid lifestyle photography, not posed.
+- Realistic human expressions and natural body language.
+- Professional camera framing. Luxury editorial photography look.
+- Warm, polished, commercial color grading.
+- No AI-generated look. No exaggerated beauty. No unrealistic posing.`;
+
+  async function stvGenStoryboard() {
+    const provider = document.getElementById('stvImgProvider').value;
+    const model    = document.getElementById('stvImgModel').value;
+    if (!provider || !model) { showToast('Select image gen provider and model', 'err'); return; }
+
+    const parsed = JSON.parse(_stv.structuredJson);
+    const sceneDesc = parsed.scenes.map(s =>
+      `Scene ${s.scene_number} — ${s.scene_name}: First frame: ${s.first_frame}. Last frame: ${s.last_frame}.`
+    ).join('\n');
+    const prompt = `${STORYBOARD_SYSTEM_PROMPT}\n\nScript:\nTitle: ${parsed.storyboard_title}\nStyle: ${parsed.global_style}\nLocation: ${parsed.location}\n\nScenes:\n${sceneDesc}`;
+
+    const status = document.getElementById('stvStep3Status');
+    const btn    = document.getElementById('stvGenStoryboardBtn');
+    const result = document.getElementById('stvStoryboardResult');
+    const actions = document.getElementById('stvStep3Actions');
+    btn.disabled = true; btn.textContent = '⏳ Generating…';
+    status.textContent = 'Generating storyboard image…'; status.style.color = '#7c6dff';
+    result.innerHTML = ''; actions.style.display = 'none';
+
+    try {
+      _stv.imgProvider = provider; _stv.imgModel = model;
+      const dataUrl = await callImgGenApi(provider, model, getKey(provider), prompt, null, _stv.prodImages);
+      _stv.storyboardDataUrl = dataUrl;
+      result.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:8px;border:1px solid #1e1e30;margin-top:4px">`;
+      actions.style.display = 'flex';
+      status.textContent = '✓ Storyboard generated — review and approve';
+      status.style.color = '#22c55e';
+    } catch(err) {
+      status.textContent = `✕ ${err.message}`;
+      status.style.color = '#f87171';
+    }
+    btn.disabled = false; btn.textContent = '✦ Generate Storyboard';
+  }
+
+  function stvApproveStoryboard() { stvSetStep(4); stvGenAllFrames(); }
+
+  // ── STEP 4: Generate first & last frames ──────────────────────────────────
+  const FRAME_GEN_SYSTEM = `Create a standalone full-frame cinematic portrait image in true 9:16 aspect ratio.
+
+IMPORTANT FORMAT RULES:
+- Generate only one image. Do not create a collage. Do not crop from the storyboard.
+- Fill the entire 9:16 canvas with the actual photographed scene.
+- No text, no captions, no scene numbers, no timestamps, no labels, no watermark, no borders.
+
+REFERENCE USAGE:
+- Use the approved storyboard image only as a visual continuity reference.
+- Use the product/reference images only for design accuracy.
+- Recreate the requested frame as a fresh standalone cinematic image.
+
+CONTINUITY:
+- Keep the same characters, ethnicity, age, skin tone, hairstyle, body language, and emotional tone.
+- Keep the same wardrobe/product details exactly.
+- Keep the same location, props, lighting, color grading, and camera language.
+- Maintain premium cinematic advertising photography.
+- Natural human expressions. Realistic body language. Shallow depth of field.
+
+STYLE:
+Premium cinematic advertising photography, realistic lifestyle, natural warm light, luxury editorial composition, professional camera framing.`;
+
+  async function stvGenAllFrames() {
+    const parsed = JSON.parse(_stv.structuredJson);
+    const scenes = parsed.scenes;
+    const grid = document.getElementById('stvFramesGrid');
+    const status = document.getElementById('stvStep4Status');
+    const actions = document.getElementById('stvStep4Actions');
+    grid.innerHTML = ''; actions.style.display = 'none'; _stv.sceneFrames = [];
+
+    const globalStyle = `${parsed.global_style || ''}. Location: ${parsed.location || ''}. Characters: ${Object.values(parsed.characters || {}).join(', ')}`;
+
+    for (const sc of scenes) {
+      const cardId = `stvFC-${sc.scene_number}`;
+      grid.innerHTML += `
+        <div class="stv-frame-card" id="${cardId}">
+          <div class="stv-frame-card-header">Scene ${sc.scene_number} — ${sc.scene_name || ''}</div>
+          <div class="stv-frame-row">
+            <div class="stv-frame-cell" id="${cardId}-ff"><div class="stv-frame-label">First Frame</div></div>
+            <div class="stv-frame-cell" id="${cardId}-lf"><div class="stv-frame-label">Last Frame</div></div>
+          </div>
+          <div class="stv-frame-status" id="${cardId}-st">Generating…</div>
+        </div>`;
+    }
+
+    let allDone = true;
+    for (const sc of scenes) {
+      const cardId = `stvFC-${sc.scene_number}`;
+      const stEl = document.getElementById(`${cardId}-st`);
+      const ffEl = document.getElementById(`${cardId}-ff`);
+      const lfEl = document.getElementById(`${cardId}-lf`);
+
+      const ffPrompt = `${FRAME_GEN_SYSTEM}\n\nGlobal style: ${globalStyle}\n\nFrame to generate:\nScene ${sc.scene_number} — First frame (opening moment)\nDescription: ${sc.first_frame}`;
+      const lfPrompt = `${FRAME_GEN_SYSTEM}\n\nGlobal style: ${globalStyle}\n\nFrame to generate:\nScene ${sc.scene_number} — Last frame (closing moment)\nDescription: ${sc.last_frame}`;
+
+      stEl.textContent = 'Generating first frame…'; stEl.style.color = '#7c6dff';
+      let firstFrame = null, lastFrame = null;
+      try {
+        firstFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), ffPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+        ffEl.innerHTML = `<img src="${firstFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-frame-label">First Frame</div>`;
+        stEl.textContent = 'Generating last frame…';
+        lastFrame  = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), lfPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+        lfEl.innerHTML = `<img src="${lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-frame-label">Last Frame</div>`;
+        stEl.textContent = '✓ Done'; stEl.style.color = '#22c55e';
+      } catch(err) {
+        stEl.textContent = `✕ ${err.message}`; stEl.style.color = '#f87171';
+        allDone = false;
+      }
+
+      _stv.sceneFrames.push({
+        sceneNumber: sc.scene_number,
+        sceneName:   sc.scene_name || `Scene ${sc.scene_number}`,
+        description: sc.description || '',
+        summary:     sc.description || '',
+        firstFrame,
+        lastFrame,
+      });
+    }
+
+    status.textContent = allDone ? `✓ All ${scenes.length} scenes — frames ready` : '⚠ Some frames failed — you can still proceed';
+    status.style.color = allDone ? '#22c55e' : '#eab308';
+    actions.style.display = 'flex';
+  }
+
+  // ── STEP 5: Hand off to video gen ─────────────────────────────────────────
+  function stvGoToVideo() { stvSetStep(5); }
+
+  function stvLaunchVideoGen() {
+    // Build synthetic "scenes" array compatible with the existing video gen pipeline
+    scenes = _stv.sceneFrames
+      .filter(f => f.firstFrame && f.lastFrame)
+      .map((f, i) => ({
+        index:      f.sceneNumber,
+        start:      i * 5,
+        end:        (i + 1) * 5,
+        firstFrame: f.firstFrame,
+        lastFrame:  f.lastFrame,
+        summary:    f.summary,
+        clipBlob:   null,
+        clipUrl:    null,
+      }));
+
+    if (scenes.length === 0) { showToast('No frames generated — go back and fix errors', 'err'); return; }
+
+    selected = new Set(scenes.map(s => s.index));
+
+    // Switch to detector tab and open brief modal
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('[data-tab="detector"]').classList.add('active');
+    document.getElementById('tab-detector').classList.add('active');
+
+    // Show scenes header
+    document.getElementById('scenesHeader').classList.add('on');
+    document.getElementById('sceneSubtitle').textContent = `— ${scenes.length} scene${scenes.length !== 1 ? 's' : ''} from script`;
+
+    // Render cards
+    document.getElementById('scenesList').innerHTML = '';
+    for (const sc of scenes) {
+      renderSceneCard(sc);
+      const card = document.getElementById(`scene-card-${sc.index}`);
+      if (card) card.classList.add('sel');
+      // inject frames into card
+      const ffImg = document.getElementById(`ff-img-${sc.index}`);
+      const lfImg = document.getElementById(`lf-img-${sc.index}`);
+      if (ffImg) ffImg.src = sc.firstFrame;
+      if (lfImg) lfImg.src = sc.lastFrame;
+      // hide clip area (no source video)
+      const clipEl = document.getElementById(`clip-${sc.index}`);
+      if (clipEl) { clipEl.className = 'sc-clip'; clipEl.innerHTML = '<div style="color:#333;font-size:11px;padding:12px">No source clip</div>'; }
+    }
+
+    updateActionBtns();
+    openBrief();
+    showToast(`${scenes.length} scenes loaded from script`, 'ok');
   }
 
 </script>

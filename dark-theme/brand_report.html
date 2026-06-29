@@ -678,12 +678,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- STICKY CTA -->
 <div class="sticky-cta">
   <div class="sticky-cta-left">
-    <div class="sticky-cta-pct">✦ You are viewing 30% of this report</div>
-    <div class="sticky-cta-msg">Sign up to see your <strong>creative scores, competitor ad intelligence</strong> and full audience insights.</div>
+    <div class="sticky-cta-pct" id="sticky-cta-pct">✦ You are viewing 30% of this report</div>
+    <div class="sticky-cta-msg" id="sticky-cta-msg">Sign up to see your <strong>creative scores, competitor ad intelligence</strong> and full audience insights.</div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
     <button class="sticky-cta-btn" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);box-shadow:none;color:rgba(255,255,255,.75)" onclick="downloadReport()">⬇ Download PDF</button>
     <button class="sticky-cta-btn" onclick="seeReport()">See creative report →</button>
+    <button class="sticky-cta-btn" id="skip-report-btn" style="display:none;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);box-shadow:none;color:rgba(255,255,255,.75)" onclick="skipReport()">Skip →</button>
   </div>
 </div>
 
@@ -761,6 +762,10 @@ function updateSidebarAuthState(){
   var mobChatBtn = document.getElementById('mob-chat-btn');
   var mobWsBtn = document.getElementById('mob-ws-btn');
 
+  var skipBtn  = document.getElementById('skip-report-btn');
+  var ctaPct   = document.getElementById('sticky-cta-pct');
+  var ctaMsg   = document.getElementById('sticky-cta-msg');
+
   if(authed){
     wsBlock.style.display = '';
     logoutBtn.style.display = '';
@@ -772,6 +777,10 @@ function updateSidebarAuthState(){
     mobChatBtn.onclick = function(){ window.location.href='chat.html'; };
     mobWsBtn.textContent = '⬡ Workspaces';
     mobWsBtn.onclick = function(){ window.location.href='workspace.html'; };
+    // Show Skip button and update CTA text for authenticated users
+    if(skipBtn) skipBtn.style.display = '';
+    if(ctaPct)  ctaPct.textContent = '✦ Full report unlocked';
+    if(ctaMsg)  ctaMsg.innerHTML = 'You have full access to your brand report, creative scores and competitor intelligence.';
   } else {
     wsBlock.style.display = 'none';
     logoutBtn.style.display = 'none';
@@ -783,6 +792,10 @@ function updateSidebarAuthState(){
     mobChatBtn.onclick = function(){ openSignup('chat'); };
     mobWsBtn.textContent = '⬡ Workspaces 🔒';
     mobWsBtn.onclick = function(){ openSignup('workspaces'); };
+    // Hide Skip button for guests
+    if(skipBtn) skipBtn.style.display = 'none';
+    if(ctaPct)  ctaPct.textContent = '✦ You are viewing 30% of this report';
+    if(ctaMsg)  ctaMsg.innerHTML = 'Sign up to see your <strong>creative scores, competitor ad intelligence</strong> and full audience insights.';
   }
 }
 
@@ -800,6 +813,14 @@ function downloadReport(){
   } else {
     openSignup('download');
   }
+}
+
+function skipReport(){
+  // Only authenticated users can skip (button is hidden for guests, but guard here too)
+  if(sessionStorage.getItem('authed')!=='1') return;
+  // Record the skip so workspace.html can detect it if needed
+  sessionStorage.setItem('report_skipped','1');
+  window.location.href = 'workspace.html';
 }
 
 function triggerDownload(){
@@ -1616,13 +1637,8 @@ function continueToReport(){
 }
 
 function skipConnect(){
-  if(sessionStorage.getItem('ws_add_flow')==='1'){
-    sessionStorage.removeItem('ws_add_flow');
-    window.location.href = 'workspace.html';
-    return;
-  }
-  document.getElementById('connect-screen').classList.remove('visible');
-  setTimeout(function(){document.getElementById('connect-screen').classList.remove('show');},400);
+  sessionStorage.removeItem('ws_add_flow');
+  window.location.href = 'workspace.html';
 }
 </script>
 

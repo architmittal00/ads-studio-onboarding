@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pending Tickets · SIME</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #F5F5F8;
+  --surface:     #FFFFFF;
+  --border:      #E8E8EF;
+  --border-lt:   #F2F2F7;
+  --t1:          #0F0F18;
+  --t2:          #52526A;
+  --t3:          #9898B2;
+  --purple:      #5B47F5;
+  --purple-bg:   #EDE9FF;
+  --purple-soft: #F5F3FF;
+  --green:       #16A34A;
+  --green-bg:    #DCFCE7;
+  --amber:       #B45309;
+  --amber-bg:    #FEF3C7;
+  --amber-light: #FFFBEB;
+  --red:         #DC2626;
+  --red-bg:      #FEE2E2;
+  --blue:        #1D4ED8;
+  --blue-bg:     #DBEAFE;
+  --teal:        #0F766E;
+  --teal-bg:     #CCFBF1;
+  --orange:      #C2410C;
+  --orange-bg:   #FED7AA;
+  --r:           10px;
+  --r-sm:        6px;
+  --font:        'Inter', system-ui, sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:var(--font);font-size:13px;background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;}
+button,input,select{font-family:var(--font);}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden;}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:16px 16px 14px;border-bottom:1px solid var(--border);}
+.sb-icon{width:30px;height:30px;border-radius:8px;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;}
+.sb-name{font-size:13.5px;font-weight:700;line-height:1.2;}
+.sb-sub{font-size:11px;color:var(--t3);margin-top:1px;}
+.sb-dot{width:7px;height:7px;background:#22C55E;border-radius:50%;margin-left:auto;flex-shrink:0;}
+.sb-nav{flex:1;padding:10px 10px;overflow-y:auto;}
+.sb-sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);padding:12px 8px 5px;}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:var(--t2);cursor:pointer;transition:background .12s;user-select:none;}
+.sb-item:hover{background:var(--bg);}
+.sb-item.active{background:var(--purple-bg);color:var(--purple);font-weight:600;}
+.sb-item svg{width:15px;height:15px;flex-shrink:0;}
+.sb-badge{margin-left:auto;font-size:11px;font-weight:700;border-radius:20px;padding:1px 8px;line-height:1.7;}
+.sb-badge.p{background:var(--purple);color:#fff;}
+.sb-badge.g{background:var(--bg);color:var(--t3);border:1px solid var(--border);}
+.sb-footer{padding:12px 12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:9px;cursor:pointer;}
+.av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.av.teal{background:var(--teal-bg);color:var(--teal);}
+.av.amber{background:var(--orange-bg);color:var(--orange);}
+.av.blue{background:var(--blue-bg);color:var(--blue);}
+.av.purple{background:var(--purple-bg);color:var(--purple);}
+.av.green{background:var(--green-bg);color:var(--green);}
+.av.sm{width:26px;height:26px;font-size:10px;}
+.sb-foot-name{font-size:12px;font-weight:600;}
+.sb-foot-role{font-size:10.5px;color:var(--t3);margin-top:1px;}
+.sb-foot-chev{margin-left:auto;color:var(--t3);}
+
+/* ── TOP BAR ── */
+.topbar{height:52px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:14px;}
+.bc{display:flex;align-items:center;gap:6px;font-size:13px;}
+.bc-link{color:var(--t3);cursor:pointer;}
+.bc-link:hover{color:var(--t1);}
+.bc-sep{color:var(--t3);}
+.bc-cur{font-weight:600;color:var(--t1);}
+.search{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;color:var(--t3);width:260px;margin-left:auto;}
+.search svg{width:13px;height:13px;flex-shrink:0;}
+.kbd{background:var(--border);border-radius:3px;padding:1px 6px;font-size:10px;margin-left:auto;color:var(--t3);}
+.user-chip{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1px solid var(--border);border-radius:20px;cursor:pointer;}
+.user-chip-name{font-size:12px;font-weight:600;}
+.user-chip-role{font-size:10.5px;color:var(--t3);}
+.user-chip svg{width:12px;height:12px;color:var(--t3);}
+
+/* ── PAGE CONTENT ── */
+.page{flex:1;overflow-y:auto;padding:24px 28px 32px;}
+
+/* ── GREETING ── */
+.greeting{font-size:12.5px;color:var(--t3);margin-bottom:4px;}
+.page-title{font-size:22px;font-weight:700;margin-bottom:20px;}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;display:flex;align-items:center;gap:14px;}
+.stat-icon{width:38px;height:38px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.stat-icon svg{width:18px;height:18px;}
+.stat-label{font-size:11.5px;color:var(--t3);font-weight:500;margin-bottom:3px;}
+.stat-val{font-size:24px;font-weight:700;line-height:1;}
+
+/* ── TICKETS PANEL ── */
+.tickets-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+
+/* ── PANEL HEADER ── */
+.panel-header{display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);gap:4px;}
+.ptab{padding:13px 14px;font-size:12.5px;font-weight:500;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:color .12s,border-color .12s;background:none;border-left:none;border-right:none;border-top:none;font-family:var(--font);}
+.ptab:hover{color:var(--t1);}
+.ptab.active{color:var(--purple);border-bottom-color:var(--purple);font-weight:600;}
+.ptab .cnt{margin-left:6px;font-size:11px;font-weight:700;background:var(--bg);border-radius:20px;padding:1px 7px;color:var(--t3);}
+.ptab.active .cnt{background:var(--purple-bg);color:var(--purple);}
+.panel-actions{margin-left:auto;display:flex;align-items:center;gap:8px;padding:8px 0;}
+
+/* ── INLINE SEARCH / FILTERS ── */
+.table-search{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:5px 10px;font-size:12px;color:var(--t3);width:200px;}
+.table-search svg{width:12px;height:12px;flex-shrink:0;}
+.table-search input{background:none;border:none;outline:none;font-family:var(--font);font-size:12px;color:var(--t1);width:100%;}
+.table-search input::placeholder{color:var(--t3);}
+.filter-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;font-weight:500;color:var(--t2);background:none;cursor:pointer;transition:background .12s;font-family:var(--font);}
+.filter-btn:hover{background:var(--bg);}
+.filter-btn svg{width:12px;height:12px;}
+
+/* ── TABLE ── */
+.t-table{width:100%;border-collapse:collapse;}
+.t-table th{padding:10px 18px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+.t-row{cursor:pointer;transition:background .1s;}
+.t-row:hover td{background:#F8F8FC;}
+.t-row td{padding:0;border-bottom:1px solid var(--border-lt);vertical-align:top;}
+.t-row:last-child td{border-bottom:none;}
+.td-inner{padding:14px 18px;}
+
+/* Left accent bar */
+.t-row td:first-child{padding:0;width:4px;}
+.accent-bar{width:4px;height:100%;min-height:60px;}
+.accent-bar.purple{background:var(--purple);}
+.accent-bar.amber{background:#F59E0B;}
+.accent-bar.green{background:#22C55E;}
+.accent-bar.blue{background:#3B82F6;}
+.accent-bar.grey{background:var(--border);}
+
+/* ── ROW CELLS ── */
+.tid{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--t2);}
+.merch-name{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:5px;}
+.status-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.s-label{font-size:12px;font-weight:500;}
+.s-loop-tag{font-size:10px;font-weight:700;background:var(--amber-bg);color:var(--amber);border-radius:4px;padding:1px 6px;letter-spacing:.03em;}
+.s-loop-sub{font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;color:var(--t2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.s-preview{font-size:11.5px;color:var(--t3);margin-top:3px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bal{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+.bal.green{color:var(--t1);}
+.bal.low{color:var(--amber);}
+.owner-name{font-size:12.5px;font-weight:600;}
+.owner-role{font-size:11px;color:var(--t3);margin-top:2px;}
+.updated{font-size:12px;color:var(--t3);}
+.row-arrow{color:var(--t3);display:flex;align-items:center;}
+.row-arrow svg{width:16px;height:16px;}
+
+/* Status colors */
+.s-dot.purple{background:var(--purple);}
+.s-dot.amber{background:#F59E0B;}
+.s-dot.green{background:#22C55E;}
+.s-dot.blue{background:#3B82F6;}
+.s-dot.red{background:var(--red);}
+.s-dot.grey{background:var(--t3);}
+.s-label.purple{color:var(--purple);}
+.s-label.amber{color:#92400E;}
+.s-label.green{color:var(--green);}
+.s-label.blue{color:var(--blue);}
+.s-label.red{color:var(--red);}
+.s-label.grey{color:var(--t2);}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-icon">S</div>
+    <div>
+      <div class="sb-name">Ticket Engine</div>
+      <div class="sb-sub">Shiprocket Ads</div>
+    </div>
+    <div class="sb-dot"></div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Main Menu</div>
+    <div class="sb-item active" onclick="switchTab('pending')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="4" width="13" height="10" rx="1.5"/><path d="M1.5 8h4l1.5 2h3L11.5 8H15"/></svg>
+      Pending Tickets <span class="sb-badge p" id="sb-pending-cnt">3</span>
+    </div>
+    <div class="sb-item" onclick="switchTab('assigned')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM2 14a6 6 0 0 1 12 0" stroke-linecap="round"/></svg>
+      Assigned Tickets <span class="sb-badge g" id="sb-assigned-cnt">5</span>
+    </div>
+    <div class="sb-sec">Workspace</div>
+    <div class="sb-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2m0 10v2M1 8h2m10 0h2M3.05 3.05l1.42 1.42m7.06 7.06 1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42" stroke-linecap="round"/></svg>
+      Settings
+    </div>
+  </nav>
+  <div class="sb-footer">
+    <div class="av amber">RK</div>
+    <div>
+      <div class="sb-foot-name">Rahul Kapoor</div>
+      <div class="sb-foot-role">Key Account Mgr</div>
+    </div>
+    <svg class="sb-foot-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" style="width:14px;height:14px;"><path d="M4 6l4 4 4-4" stroke-linecap="round"/></svg>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="bc">
+      <span class="bc-link">Tickets</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-cur" id="bc-label">Pending Tickets</span>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg>
+      Search ticket ID or merchant...
+      <span class="kbd">⌘ K</span>
+    </div>
+    <div class="user-chip">
+      <div class="av amber sm">RK</div>
+      <div>
+        <div class="user-chip-name">Rahul</div>
+        <div class="user-chip-role">Key Account Mgr</div>
+      </div>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+  <!-- Page -->
+  <div class="page">
+    <div class="greeting">Welcome back, Rahul</div>
+    <div class="page-title" id="page-title">Pending Tickets</div>
+
+    <!-- Stat Cards -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#F5F3FF;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="#5B47F5" stroke-width="1.5"><rect x="1.5" y="4" width="13" height="10" rx="1.5"/><path d="M1.5 8h4l1.5 2h3L11.5 8H15"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">Pending</div>
+          <div class="stat-val">3</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#DBEAFE;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="#1D4ED8" stroke-width="1.5"><path d="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM2 14a6 6 0 0 1 12 0" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">Assigned to me</div>
+          <div class="stat-val">5</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#FEF3C7;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="#B45309" stroke-width="1.5"><path d="M8 2l1.2 3.6H13l-3 2.2 1.1 3.6L8 9.2l-3.1 2.2L6 7.8 3 5.6h3.8L8 2Z"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">In Loop States</div>
+          <div class="stat-val">1</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#DCFCE7;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="#16A34A" stroke-width="1.5"><path d="M8 1.5s-5 4-5 7.5a5 5 0 0 0 10 0c0-3.5-5-7.5-5-7.5Z"/><circle cx="8" cy="9" r="1.5" fill="#16A34A"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">Live Campaigns</div>
+          <div class="stat-val">3</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tickets Panel -->
+    <div class="tickets-panel">
+      <div class="panel-header">
+        <button class="ptab active" data-tab="pending" onclick="switchTab('pending')">
+          Pending Tickets <span class="cnt">3</span>
+        </button>
+        <button class="ptab" data-tab="assigned" onclick="switchTab('assigned')">
+          Assigned Tickets <span class="cnt">5</span>
+        </button>
+        <div class="panel-actions">
+          <div class="table-search">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Ticket or merchant..." oninput="filterRows(this.value)">
+          </div>
+          <button class="filter-btn">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 8h6M7 12h2" stroke-linecap="round"/></svg>
+            All statuses
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4" stroke-linecap="round"/></svg>
+          </button>
+          <button class="filter-btn">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M4 6l4-4 4 4" stroke-linecap="round"/></svg>
+            Newest first
+          </button>
+        </div>
+      </div>
+
+      <table class="t-table" id="ticketTable">
+        <thead>
+          <tr>
+            <th style="width:4px;padding:0;"></th>
+            <th>Ticket ID</th>
+            <th>Merchant &amp; Status</th>
+            <th>Ads Balance</th>
+            <th>Owner</th>
+            <th>Updated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ticketBody"></tbody>
+      </table>
+    </div>
+  </div><!-- /page -->
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+const TICKETS = {
+  pending: [
+    {
+      id: 'SR-10244', accent: 'purple',
+      merchant: 'Pyaara Soaps',
+      status: { color:'purple', label:'In Brief' },
+      loop: null, preview: null,
+      balance: '₹7,203.39', balanceLow: false,
+      owner: { init:'RK', cls:'amber', name:'Rahul Kapoor', role:'Key Account Mgr' },
+      updated: '2h ago', link: null,
+    },
+    {
+      id: 'SR-10246', accent: 'amber',
+      merchant: 'Plix Plant Energy',
+      status: { color:'amber', label:'Clarification · LOOP A' },
+      loop: 'LOOPED BACK', preview: 'Need clarity: which 2 SKUs are we running ads for?',
+      balance: '₹11,864.41', balanceLow: false,
+      owner: { init:'RK', cls:'amber', name:'Rahul Kapoor', role:'Key Account Mgr' },
+      updated: '2h ago', link: null,
+    },
+    {
+      id: 'SR-10251', accent: 'blue',
+      merchant: 'Forest Essentials',
+      status: { color:'blue', label:'Merchant Review' },
+      loop: null, preview: null,
+      balance: '₹38,135.59', balanceLow: false,
+      owner: { init:'RK', cls:'amber', name:'Rahul Kapoor', role:'Key Account Mgr' },
+      updated: '1d ago', link: null,
+    },
+  ],
+  assigned: [
+    {
+      id: 'SR-10243', accent: 'amber',
+      merchant: 'Shesha Ayurveda',
+      status: { color:'amber', label:'Launch Window' },
+      loop: null, preview: '3 creatives approved — ready to configure and launch',
+      balance: '₹38,135.59', balanceLow: false,
+      owner: { init:'NB', cls:'teal', name:'Neha Bhatt', role:'Marketing Lead' },
+      updated: '31m ago', link: 's8-launch.html',
+    },
+    {
+      id: 'SR-10238', accent: 'purple',
+      merchant: 'Krafted Millets',
+      status: { color:'purple', label:'Design' },
+      loop: null, preview: null,
+      balance: '₹52,400.00', balanceLow: false,
+      owner: { init:'TR', cls:'blue', name:'Tanvi Rao', role:'Designer' },
+      updated: '2h ago', link: null,
+    },
+    {
+      id: 'SR-10231', accent: 'blue',
+      merchant: 'Zara Ethnic Studio',
+      status: { color:'blue', label:'Merchant Review' },
+      loop: null, preview: null,
+      balance: '₹1,20,000.00', balanceLow: false,
+      owner: { init:'RK', cls:'amber', name:'Rahul Kapoor', role:'Key Account Mgr' },
+      updated: '1d ago', link: null,
+    },
+    {
+      id: 'SR-10219', accent: 'purple',
+      merchant: 'TechGear Pro',
+      status: { color:'purple', label:'Strategy' },
+      loop: null, preview: null,
+      balance: '₹85,000.00', balanceLow: false,
+      owner: { init:'RK', cls:'amber', name:'Rahul Kapoor', role:'Key Account Mgr' },
+      updated: '2d ago', link: null,
+    },
+    {
+      id: 'SR-10207', accent: 'green',
+      merchant: 'Fitness First India',
+      status: { color:'green', label:'Live' },
+      loop: null, preview: '2 campaigns running · ₹1,240 spent today',
+      balance: '₹65,800.00', balanceLow: false,
+      owner: { init:'RK', cls:'amber', name:'Rahul Kapoor', role:'Key Account Mgr' },
+      updated: '5d ago', link: null,
+    },
+  ],
+};
+
+let currentTab = 'pending';
+
+function renderRow(t) {
+  const loopTag = t.loop
+    ? `<span class="s-loop-tag">${t.loop}</span>`
+    : '';
+  const statusParts = t.status.label.split(' · ');
+  const statusLabel = statusParts[0];
+  const loopSub = statusParts[1]
+    ? `<span class="s-loop-sub">${statusParts[1]}</span>`
+    : '';
+  const preview = t.preview
+    ? `<div class="s-preview">${t.preview}</div>`
+    : '';
+
+  return `
+<tr class="t-row" onclick="${t.link ? `location.href='${t.link}'` : ''}">
+  <td style="padding:0;width:4px;"><div class="accent-bar ${t.accent}"></div></td>
+  <td><div class="td-inner"><div class="tid">#${t.id}</div></div></td>
+  <td><div class="td-inner">
+    <div class="merch-name">${t.merchant}${loopTag ? ' ' + loopTag : ''}</div>
+    <div class="status-row">
+      <div class="s-dot ${t.status.color}"></div>
+      <span class="s-label ${t.status.color}">${statusLabel}</span>
+      ${loopSub}
+    </div>
+    ${preview}
+  </div></td>
+  <td><div class="td-inner"><div class="bal${t.balanceLow ? ' low' : ''}">${t.balance}</div></div></td>
+  <td><div class="td-inner" style="display:flex;align-items:center;gap:9px;">
+    <div class="av sm ${t.owner.cls}">${t.owner.init}</div>
+    <div>
+      <div class="owner-name">${t.owner.name}</div>
+      <div class="owner-role">${t.owner.role}</div>
+    </div>
+  </div></td>
+  <td><div class="td-inner"><div class="updated">${t.updated}</div></div></td>
+  <td><div class="td-inner"><div class="row-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></div></div></td>
+</tr>`;
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.ptab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.sb-item').forEach((el, i) => {
+    el.classList.toggle('active', (tab === 'pending' && i === 0) || (tab === 'assigned' && i === 1));
+  });
+  const label = tab === 'pending' ? 'Pending Tickets' : 'Assigned Tickets';
+  document.getElementById('bc-label').textContent = label;
+  document.getElementById('page-title').textContent = label;
+  renderTable(TICKETS[tab]);
+}
+
+function renderTable(rows) {
+  document.getElementById('ticketBody').innerHTML = rows.map(renderRow).join('');
+}
+
+function filterRows(q) {
+  const rows = TICKETS[currentTab];
+  const filtered = q
+    ? rows.filter(t =>
+        t.id.toLowerCase().includes(q.toLowerCase()) ||
+        t.merchant.toLowerCase().includes(q.toLowerCase())
+      )
+    : rows;
+  renderTable(filtered);
+}
+
+// Init
+renderTable(TICKETS.pending);
+</script>
+</body>
+</html>

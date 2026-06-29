@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#0B0B14">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout · Shiprocket Ads Studio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0B0B14;
+      --surface:  #100e1f;
+      --surface2: #16142a;
+      --purple:   #AF46FD;
+      --pink:     #F4349D;
+      --mid:      #DA3BC2;
+      --grad:     linear-gradient(135deg, #AF46FD, #DA3BC2, #F4349D);
+      --green:    #22C55E;
+      --red:      #ef4444;
+      --border:   rgba(255,255,255,.08);
+      --dim:      rgba(255,255,255,.45);
+      --faint:    rgba(255,255,255,.28);
+    }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .co-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 32px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(16,14,31,.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .co-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #fff;
+    }
+    .co-logo-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: var(--grad);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .co-logo-text {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: -.3px;
+    }
+    .co-logo-text .grad-text {
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .co-secure-tag {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--dim);
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .co-main {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 40px 24px 72px;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 28px;
+      align-items: start;
+    }
+
+    /* ── CARD BASE ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    /* ── ORDER SUMMARY ── */
+    .os-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--faint);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-bottom: 20px;
+    }
+    .os-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: .5px;
+      margin-bottom: 14px;
+    }
+    .os-plan-name {
+      font-size: 20px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    .os-price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .os-price {
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .os-price-unit {
+      font-size: 14px;
+      color: var(--dim);
+      font-weight: 400;
+    }
+    .os-note {
+      font-size: 12px;
+      color: var(--faint);
+      margin-bottom: 22px;
+    }
+    .os-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+    .os-features {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .os-feat {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: rgba(255,255,255,.75);
+    }
+    .os-feat-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      flex-shrink: 0;
+    }
+    .os-pricing-box {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    .os-pr-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+    .os-pr-row:last-child { margin-bottom: 0; }
+    .os-pr-row.total {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .os-trust {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .os-trust-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--faint);
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,.75);
+      text-decoration: none;
+      margin-top: 22px;
+      cursor: pointer;
+      transition: all .15s;
+      border: 1px solid rgba(255,255,255,.15);
+      background: rgba(255,255,255,.05);
+      font-family: inherit;
+      padding: 9px 16px;
+      border-radius: 9px;
+      width: 100%;
+      justify-content: center;
+    }
+    .back-link:hover {
+      color: #fff;
+      background: rgba(255,255,255,.09);
+      border-color: rgba(255,255,255,.28);
+    }
+
+    /* ── PAYMENT PANEL ── */
+    .pp-header { margin-bottom: 22px; }
+    .pp-title { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .pp-sub   { font-size: 12px; color: var(--dim); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(175,70,253,.15);
+      border-top-color: var(--purple);
+      border-radius: 50%;
+      animation: spin .85s linear infinite;
+    }
+    .spinner.sm {
+      width: 20px;
+      height: 20px;
+      border-width: 2.5px;
+    }
+
+    /* Centered state blocks */
+    .state-block {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 28px 0;
+      gap: 14px;
+    }
+    .state-block.active { display: flex; }
+    .state-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .state-title { font-size: 16px; font-weight: 800; color: #fff; }
+    .state-sub   { font-size: 13px; color: var(--dim); line-height: 1.65; }
+
+    /* Payment form */
+    #pp-form { display: none; }
+    #pp-form.active { display: block; }
+    .method-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--faint);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 10px;
+    }
+    .pay-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .pay-tab {
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .15s;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.4);
+      white-space: nowrap;
+    }
+    .pay-tab.active {
+      background: rgba(175,70,253,.14);
+      border-color: rgba(175,70,253,.4);
+      color: var(--purple);
+    }
+    .pay-section { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+    .fi-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dim);
+      display: block;
+      margin-bottom: 5px;
+    }
+    .fi {
+      width: 100%;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      padding: 11px 14px;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+      appearance: none;
+    }
+    .fi:focus { border-color: rgba(175,70,253,.5); background: rgba(255,255,255,.08); }
+    .fi::placeholder { color: rgba(255,255,255,.22); }
+    .fi option { background: #1a1833; }
+    .fi-hint { font-size: 11px; color: var(--faint); margin-top: 5px; }
+    .fi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .tile {
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      user-select: none;
+    }
+    .tile:hover { background: rgba(255,255,255,.09); color: #fff; border-color: rgba(255,255,255,.2); }
+    .tile.selected {
+      background: rgba(175,70,253,.14);
+      border-color: rgba(175,70,253,.45);
+      color: var(--purple);
+    }
+    .pay-err {
+      font-size: 12px;
+      color: var(--red);
+      padding: 10px 14px;
+      background: rgba(239,68,68,.08);
+      border: 1px solid rgba(239,68,68,.2);
+      border-radius: 8px;
+      display: none;
+      margin-bottom: 14px;
+    }
+    .pay-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: var(--grad);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .pay-btn:active { transform: scale(.99); }
+    .pay-btn:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; }
+    .pay-secure {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 12px;
+      font-size: 11px;
+      color: rgba(255,255,255,.2);
+    }
+
+    /* Progress bar (redirect countdown) */
+    .redirect-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .redirect-fill {
+      height: 100%;
+      background: var(--grad);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 3s linear;
+    }
+
+    /* Action buttons */
+    .btn-primary {
+      padding: 12px 28px;
+      border-radius: 10px;
+      border: none;
+      background: var(--grad);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .9; }
+    .btn-ghost {
+      background: none;
+      border: none;
+      color: var(--faint);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 4px 0;
+      transition: color .15s;
+    }
+    .btn-ghost:hover { color: rgba(255,255,255,.6); }
+
+    /* Fade in */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .35s ease both; }
+
+    /* ── SUCCESS MODAL ── */
+    @keyframes successBackdropIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes successPopIn {
+      0%   { opacity: 0; transform: scale(.82) translateY(18px); }
+      65%  { opacity: 1; transform: scale(1.03) translateY(-3px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes successCheckDraw {
+      from { stroke-dashoffset: 60; }
+      to   { stroke-dashoffset: 0; }
+    }
+    @keyframes successRingPulse {
+      0%   { transform: scale(1);   opacity: .7; }
+      60%  { transform: scale(1.55); opacity: 0; }
+      100% { transform: scale(1.55); opacity: 0; }
+    }
+    @keyframes successBadgeBounce {
+      0%   { transform: scale(0); opacity: 0; }
+      55%  { transform: scale(1.18); opacity: 1; }
+      75%  { transform: scale(.94); }
+      100% { transform: scale(1); }
+    }
+    .success-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      background: rgba(11,11,20,.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      animation: successBackdropIn .25s ease both;
+    }
+    .success-modal-card {
+      background: linear-gradient(160deg, #13112a 0%, #0f0d20 100%);
+      border: 1px solid rgba(175,70,253,.28);
+      border-radius: 24px;
+      padding: 44px 36px 36px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(175,70,253,.12),
+        0 8px 40px rgba(175,70,253,.18),
+        0 32px 80px rgba(0,0,0,.55);
+      animation: successPopIn .55s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    /* Glow gradient top */
+    .success-modal-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 160px;
+      background: radial-gradient(ellipse 80% 100% at 50% 0%,
+        rgba(34,197,94,.13) 0%, transparent 70%);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .success-icon-wrap {
+      position: relative;
+      width: 84px; height: 84px;
+      margin: 0 auto 28px;
+    }
+    .success-ring-pulse {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2.5px solid rgba(34,197,94,.5);
+      animation: successRingPulse 1.2s ease-out .45s both;
+    }
+    .success-icon-bg {
+      width: 84px; height: 84px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34,197,94,.18) 0%, rgba(34,197,94,.06) 70%);
+      border: 2px solid rgba(34,197,94,.45);
+      display: flex; align-items: center; justify-content: center;
+      animation: successBadgeBounce .5s cubic-bezier(.34,1.56,.64,1) .1s both;
+    }
+    .success-check {
+      stroke-dasharray: 60;
+      stroke-dashoffset: 60;
+      animation: successCheckDraw .45s cubic-bezier(.4,0,.2,1) .38s forwards;
+    }
+    .success-heading {
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -.3px;
+      margin-bottom: 10px;
+    }
+    .success-message {
+      font-size: 14px;
+      color: rgba(255,255,255,.55);
+      line-height: 1.65;
+      margin-bottom: 10px;
+    }
+    .success-plan-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: .5px;
+      margin-bottom: 28px;
+    }
+    .success-cta {
+      width: 100%;
+      padding: 15px;
+      border-radius: 12px;
+      border: none;
+      background: var(--grad);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    .success-cta:hover { opacity: .9; }
+    .success-cta:active { transform: scale(.98); }
+    .success-auto-bar {
+      height: 3px;
+      background: rgba(255,255,255,.07);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+    .success-auto-fill {
+      height: 100%;
+      background: var(--grad);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 5s linear;
+    }
+    .success-auto-hint {
+      font-size: 11px;
+      color: rgba(255,255,255,.2);
+      margin-top: 8px;
+    }
+
+    /* Confetti canvas */
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 901;
+      pointer-events: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 680px) {
+      .co-main { grid-template-columns: 1fr; padding: 20px 16px 56px; gap: 18px; }
+      .payment-panel { position: static; }
+      .co-header { padding: 12px 16px; }
+      .os-price { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── HEADER ── -->
+  <header class="co-header">
+    <a href="workspace.html" class="co-logo">
+      <div class="co-logo-icon">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <span class="co-logo-text">Shiprocket <span class="grad-text">Ads Studio</span></span>
+    </a>
+    <div class="co-secure-tag">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Secure Checkout
+    </div>
+  </header>
+
+  <!-- ── MAIN ── -->
+  <main class="co-main">
+
+    <!-- LEFT: Order Summary -->
+    <div class="card fade-up" style="animation-delay:.05s">
+      <div class="os-label">Order Summary</div>
+
+      <div id="os-badge" class="os-badge">✦ PRO PLAN</div>
+      <div id="os-plan-name" class="os-plan-name">Pro Plan</div>
+
+      <div class="os-price-row">
+        <span id="os-price" class="os-price">₹2,999</span>
+        <span class="os-price-unit">/month</span>
+      </div>
+      <div class="os-note">Billed monthly · Cancel anytime · GST included</div>
+
+      <div class="os-divider"></div>
+
+      <div id="os-features" class="os-features"><!-- JS populated --></div>
+
+      <div class="os-pricing-box">
+        <div class="os-pr-row">
+          <span>Subscription</span>
+          <span id="os-subtotal">₹2,999</span>
+        </div>
+        <div class="os-pr-row">
+          <span>Tax (GST 18%)</span>
+          <span style="color:rgba(255,255,255,.35);font-size:12px">Included in price</span>
+        </div>
+        <div class="os-pr-row total">
+          <span>Total due today</span>
+          <span id="os-total">₹2,999</span>
+        </div>
+      </div>
+
+      <div class="os-trust">
+        <div class="os-trust-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          256-bit SSL
+        </div>
+        <div class="os-trust-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          PCI DSS Compliant
+        </div>
+        <div class="os-trust-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          RBI Authorised
+        </div>
+      </div>
+
+      <button onclick="goBackToPlans()" class="back-link">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Plans
+      </button>
+    </div>
+
+    <!-- RIGHT: Payment Panel -->
+    <div class="card payment-panel fade-up" style="position:sticky;top:80px;animation-delay:.1s">
+      <div class="pp-header">
+        <div class="pp-title">Complete Payment</div>
+        <div class="pp-sub" id="pp-sub-text">Setting up your secure session...</div>
+      </div>
+
+      <!-- ── STATE: INIT LOADING ── -->
+      <div class="state-block active" id="state-loading">
+        <div class="spinner"></div>
+        <div class="state-title">Initializing payment gateway</div>
+        <div class="state-sub">Creating a secure payment session.<br>This takes just a moment...</div>
+      </div>
+
+      <!-- ── STATE: INIT FAILURE ── -->
+      <div class="state-block" id="state-init-error">
+        <div class="state-icon" style="background:rgba(239,68,68,.1);border:2px solid var(--red);color:var(--red)">✕</div>
+        <div class="state-title">Gateway unavailable</div>
+        <div class="state-sub">Unable to connect to the payment<br>gateway. Please try again.</div>
+        <button class="btn-primary" onclick="initGateway()">Retry Connection</button>
+        <button class="btn-ghost" onclick="goBackToPlans()">Back to Plans</button>
+      </div>
+
+      <!-- ── STATE: PAYMENT FORM ── -->
+      <div id="pp-form">
+
+        <div class="method-label">Payment Method</div>
+        <div class="pay-tabs">
+          <button class="pay-tab active" id="ptab-upi"        onclick="setMethod('upi')">UPI</button>
+          <button class="pay-tab"        id="ptab-card"       onclick="setMethod('card')">Card</button>
+          <button class="pay-tab"        id="ptab-netbanking" onclick="setMethod('netbanking')">Net Banking</button>
+          <button class="pay-tab"        id="ptab-wallet"     onclick="setMethod('wallet')">Wallets</button>
+        </div>
+
+        <!-- UPI -->
+        <div id="pay-upi" class="pay-section">
+          <div>
+            <label class="fi-label">UPI ID</label>
+            <input type="text" id="f-upi" class="fi" placeholder="yourname@upi"
+                   onkeydown="if(event.key==='Enter')submitPayment()">
+            <div class="fi-hint">e.g. name@okaxis · name@paytm · name@ybl</div>
+          </div>
+        </div>
+
+        <!-- Card -->
+        <div id="pay-card" class="pay-section" style="display:none">
+          <div>
+            <label class="fi-label">Card Number</label>
+            <input type="text" id="f-card" class="fi" maxlength="19"
+                   placeholder="1234  5678  9012  3456" oninput="fmtCard(this)">
+          </div>
+          <div class="fi-row">
+            <div>
+              <label class="fi-label">Expiry</label>
+              <input type="text" id="f-expiry" class="fi" maxlength="5"
+                     placeholder="MM/YY" oninput="fmtExpiry(this)">
+            </div>
+            <div>
+              <label class="fi-label">CVV</label>
+              <input type="password" id="f-cvv" class="fi" maxlength="4" placeholder="•••">
+            </div>
+          </div>
+          <div>
+            <label class="fi-label">Name on Card</label>
+            <input type="text" id="f-cardname" class="fi" placeholder="As it appears on card"
+                   onkeydown="if(event.key==='Enter')submitPayment()">
+          </div>
+          <div class="fi-hint">Visa · Mastercard · RuPay · Amex · Diners</div>
+        </div>
+
+        <!-- Net Banking -->
+        <div id="pay-netbanking" class="pay-section" style="display:none">
+          <div>
+            <label class="fi-label" style="margin-bottom:8px">Popular Banks</label>
+            <div class="grid2">
+              <div class="tile" id="bk-hdfc"  onclick="selBank('hdfc',this)">HDFC Bank</div>
+              <div class="tile" id="bk-sbi"   onclick="selBank('sbi',this)">SBI</div>
+              <div class="tile" id="bk-icici" onclick="selBank('icici',this)">ICICI Bank</div>
+              <div class="tile" id="bk-axis"  onclick="selBank('axis',this)">Axis Bank</div>
+            </div>
+            <label class="fi-label">Other Banks</label>
+            <select id="f-bank" class="fi" onchange="selBankDrop(this.value)">
+              <option value="">Select bank...</option>
+              <option value="kotak">Kotak Mahindra Bank</option>
+              <option value="yes">Yes Bank</option>
+              <option value="bob">Bank of Baroda</option>
+              <option value="pnb">Punjab National Bank</option>
+              <option value="canara">Canara Bank</option>
+              <option value="indusind">IndusInd Bank</option>
+              <option value="federal">Federal Bank</option>
+              <option value="idfc">IDFC First Bank</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Wallets -->
+        <div id="pay-wallet" class="pay-section" style="display:none">
+          <div>
+            <label class="fi-label" style="margin-bottom:8px">Select Wallet</label>
+            <div class="grid2">
+              <div class="tile" onclick="selWallet('paytm',this)">Paytm</div>
+              <div class="tile" onclick="selWallet('phonepe',this)">PhonePe</div>
+              <div class="tile" onclick="selWallet('amazonpay',this)">Amazon Pay</div>
+              <div class="tile" onclick="selWallet('mobikwik',this)">MobiKwik</div>
+              <div class="tile" onclick="selWallet('freecharge',this)">Freecharge</div>
+              <div class="tile" onclick="selWallet('airtel',this)">Airtel Money</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Validation error -->
+        <div id="pay-err" class="pay-err"></div>
+
+        <!-- Submit button -->
+        <button id="pay-btn" class="pay-btn" onclick="submitPayment()">
+          Pay <span id="pay-btn-amt">₹2,999</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="pay-secure">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Your payment is encrypted and secure
+        </div>
+      </div>
+
+      <!-- ── STATE: PROCESSING ── -->
+      <div class="state-block" id="state-processing">
+        <div class="spinner"></div>
+        <div class="state-title">Processing payment...</div>
+        <div class="state-sub">Verifying with your bank.<br>Please do not close this tab.</div>
+      </div>
+
+      <!-- state-success is now handled by the full-screen success modal -->
+      <div class="state-block" id="state-success" style="display:none"></div>
+
+      <!-- ── STATE: PAYMENT FAILED ── -->
+      <div class="state-block" id="state-failed">
+        <div class="state-icon" style="background:rgba(239,68,68,.1);border:2px solid var(--red);color:var(--red)">✕</div>
+        <div class="state-title">Payment Failed</div>
+        <div id="failed-msg" class="state-sub">Your payment could not be processed.<br>Please check your details and try again.</div>
+        <button class="btn-primary" onclick="retryPayment()">Retry Payment</button>
+        <button class="btn-ghost" onclick="goBackToPlans()">Back to Plans</button>
+      </div>
+
+    </div><!-- /payment-panel -->
+
+  </main>
+
+  <!-- Confetti canvas (above everything, pointer-events:none) -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- ── SUCCESS MODAL ── -->
+  <div id="success-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="sm-heading">
+    <div class="success-modal-backdrop" onclick="if(event.target===this)continueToWorkspace()">
+      <div class="success-modal-card">
+
+        <!-- Icon -->
+        <div class="success-icon-wrap">
+          <div class="success-ring-pulse"></div>
+          <div class="success-icon-bg">
+            <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+              <polyline class="success-check"
+                points="8,20 16,28 30,12"
+                stroke="#22C55E" stroke-width="3.2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Copy -->
+        <div class="success-heading" id="sm-heading">Payment Successful!</div>
+        <div class="success-message">Your plan has been upgraded successfully<br>and is now active.</div>
+        <div id="sm-plan-pill" class="success-plan-pill">✦ PRO PLAN</div>
+
+        <!-- CTA -->
+        <button class="success-cta" onclick="continueToWorkspace()">
+          Continue to Dashboard
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+
+        <!-- Auto-dismiss bar -->
+        <div class="success-auto-bar">
+          <div id="sm-auto-fill" class="success-auto-fill"></div>
+        </div>
+        <div class="success-auto-hint">Continuing automatically in 5 seconds...</div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ── PLAN DATA ── */
+    var PLANS = {
+      pro: {
+        key:'pro', name:'Pro Plan', displayName:'Pro',
+        badge:'✦ PRO PLAN', badgeGrad:'linear-gradient(90deg,#af46fd,#f4349d)',
+        chkBg:'rgba(175,70,253,.22)', chkBdr:'rgba(175,70,253,.5)', chkClr:'#af46fd',
+        price:'₹2,999',
+        features:[
+          '5 workspaces',
+          'Connect Meta & Google Ads',
+          'Full creative performance report',
+          '3 competitors tracked',
+          'Performance alerts',
+          '₹500 ad credits on signup'
+        ]
+      },
+      premium: {
+        key:'premium', name:'Premium Plan', displayName:'Premium',
+        badge:'✦ PREMIUM PLAN', badgeGrad:'linear-gradient(90deg,#af46fd,#DA3BC2,#f4349d)',
+        chkBg:'rgba(218,59,194,.18)', chkBdr:'rgba(218,59,194,.5)', chkClr:'#DA3BC2',
+        price:'₹4,999',
+        features:[
+          '10 workspaces',
+          'All ad platforms',
+          'Full creative performance report',
+          'Unlimited competitors',
+          'Performance alerts',
+          '₹2,000 ad credits on signup',
+          'Shiprocket order attribution',
+          'Ads AI Agent (24/7)',
+          'Priority support'
+        ]
+      }
+    };
+
+    /* ── STATE ── */
+    var plan = PLANS.pro;
+    var method = 'upi';
+    var selBank_   = '';
+    var selWallet_ = '';
+
+    /* ── BOOTSTRAP ── */
+    document.addEventListener('DOMContentLoaded', function() {
+      var params  = new URLSearchParams(window.location.search);
+      var planKey = params.get('plan') || 'pro';
+      plan = PLANS[planKey] || PLANS.pro;
+
+      // Populate order summary
+      renderOrderSummary();
+
+      // Update pay button amount
+      var btnAmt = document.getElementById('pay-btn-amt');
+      if (btnAmt) btnAmt.textContent = plan.price;
+
+      // Page title
+      document.title = 'Checkout – ' + plan.name + ' · Shiprocket Ads Studio';
+
+      // Kick off gateway init
+      initGateway();
+
+      // ESC → Back to Plans (blocked during processing/success)
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        var blocked = ['processing', 'success'];
+        var active = Object.keys(STATE_IDS).find(function(k) {
+          var el = document.getElementById(STATE_IDS[k]);
+          return el && el.style.display !== 'none' && el.classList.contains('active');
+        });
+        if (blocked.indexOf(active) === -1) goBackToPlans();
+      });
+    });
+
+    /* ── ORDER SUMMARY ── */
+    function renderOrderSummary() {
+      var badgeEl    = document.getElementById('os-badge');
+      var nameEl     = document.getElementById('os-plan-name');
+      var priceEl    = document.getElementById('os-price');
+      var subtotalEl = document.getElementById('os-subtotal');
+      var totalEl    = document.getElementById('os-total');
+      var featsEl    = document.getElementById('os-features');
+
+      if (badgeEl)    { badgeEl.textContent = plan.badge; badgeEl.style.background = plan.badgeGrad; }
+      if (nameEl)     nameEl.textContent    = plan.name;
+      if (priceEl)    priceEl.textContent   = plan.price;
+      if (subtotalEl) subtotalEl.textContent = plan.price;
+      if (totalEl)    totalEl.textContent   = plan.price;
+
+      if (featsEl) {
+        featsEl.innerHTML = plan.features.map(function(f) {
+          return '<div class="os-feat">' +
+            '<div class="os-feat-icon" style="background:' + plan.chkBg + ';border:1.5px solid ' + plan.chkBdr + ';color:' + plan.chkClr + '">✓</div>' +
+            '<span>' + f + '</span>' +
+            '</div>';
+        }).join('');
+      }
+    }
+
+    /* ── GATEWAY INIT (simulates backend session creation) ── */
+    function initGateway() {
+      setState('loading');
+      setSub('Initializing secure payment session...');
+
+      // Simulate backend creating payment token (1.2–1.5 s)
+      setTimeout(function() {
+        /* To test the init-error path, set initOk = false */
+        var initOk = true;
+        if (initOk) {
+          setState('form');
+          setSub("Choose how you'd like to pay");
+        } else {
+          setState('init-error');
+          setSub('Connection failed');
+        }
+      }, 1300);
+    }
+
+    /* ── PAYMENT METHOD ── */
+    function setMethod(m) {
+      method = m;
+      selBank_ = ''; selWallet_ = '';
+
+      document.querySelectorAll('.pay-tab').forEach(function(t) { t.classList.remove('active'); });
+      var activeTab = document.getElementById('ptab-' + m);
+      if (activeTab) activeTab.classList.add('active');
+
+      document.querySelectorAll('.pay-section').forEach(function(s) { s.style.display = 'none'; });
+      var activeSection = document.getElementById('pay-' + m);
+      if (activeSection) activeSection.style.display = 'flex';
+
+      document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+      var bankSel = document.getElementById('f-bank'); if (bankSel) bankSel.value = '';
+
+      hideErr();
+    }
+
+    function selBank(key, el) {
+      selBank_ = key;
+      document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+      if (el) el.classList.add('selected');
+      var dd = document.getElementById('f-bank'); if (dd) dd.value = '';
+    }
+    function selBankDrop(val) {
+      if (!val) return;
+      selBank_ = val;
+      document.querySelectorAll('#pay-netbanking .tile').forEach(function(t) { t.classList.remove('selected'); });
+    }
+    function selWallet(key, el) {
+      selWallet_ = key;
+      document.querySelectorAll('#pay-wallet .tile').forEach(function(t) { t.classList.remove('selected'); });
+      if (el) el.classList.add('selected');
+    }
+
+    /* ── INPUT FORMATTING ── */
+    function fmtCard(el) {
+      var v = el.value.replace(/\D/g,'').substring(0,16);
+      el.value = v.replace(/(\d{4})(?=\d)/g,'$1 ');
+    }
+    function fmtExpiry(el) {
+      var v = el.value.replace(/\D/g,'').substring(0,4);
+      if (v.length >= 3) v = v.substring(0,2) + '/' + v.substring(2);
+      el.value = v;
+    }
+
+    /* ── VALIDATION & SUBMIT ── */
+    function submitPayment() {
+      var errMsg = '';
+
+      if (method === 'upi') {
+        var upi = (document.getElementById('f-upi')||{}).value || '';
+        if (!upi.trim() || upi.indexOf('@') < 0)
+          errMsg = 'Please enter a valid UPI ID (e.g. name@upi).';
+
+      } else if (method === 'card') {
+        var cardNo = (document.getElementById('f-card')||{}).value || '';
+        var exp    = (document.getElementById('f-expiry')||{}).value || '';
+        var cvv    = (document.getElementById('f-cvv')||{}).value || '';
+        if (cardNo.replace(/\s/g,'').length < 16 || exp.length < 5 || cvv.length < 3)
+          errMsg = 'Please fill in all card details correctly.';
+
+      } else if (method === 'netbanking') {
+        if (!selBank_) errMsg = 'Please select a bank to continue.';
+
+      } else if (method === 'wallet') {
+        if (!selWallet_) errMsg = 'Please select a wallet to continue.';
+      }
+
+      if (errMsg) { showErr(errMsg); return; }
+      hideErr();
+
+      // Disable pay button and show processing
+      var btn = document.getElementById('pay-btn');
+      if (btn) btn.disabled = true;
+      setState('processing');
+      setSub('Verifying with your bank...');
+
+      // Simulate gateway processing (2–2.5 s)
+      setTimeout(function() {
+        /* To test failure path, set payOk = false */
+        var payOk = true;
+        if (payOk) {
+          handleSuccess();
+        } else {
+          handleFailure('Your payment was declined. Please check your details or try a different method.');
+        }
+      }, 2300);
+    }
+
+    /* ── SUCCESS ── */
+    var _successTimer = null;
+
+    function handleSuccess() {
+      // Update plan pill in modal
+      var pill = document.getElementById('sm-plan-pill');
+      if (pill) {
+        pill.textContent = plan.badge;
+        pill.style.background = plan.badgeGrad;
+      }
+      // Show the modal
+      var modal = document.getElementById('success-modal');
+      if (modal) modal.style.display = 'block';
+
+      // Kick off confetti
+      launchConfetti();
+
+      // Start auto-dismiss progress bar (5 s)
+      setTimeout(function() {
+        var fill = document.getElementById('sm-auto-fill');
+        if (fill) fill.style.width = '100%';
+      }, 80);
+      _successTimer = setTimeout(continueToWorkspace, 5000);
+    }
+
+    function continueToWorkspace() {
+      if (_successTimer) { clearTimeout(_successTimer); _successTimer = null; }
+      window.location.href = 'workspace.html?payment=success&plan=' + plan.key;
+    }
+
+    /* ── CONFETTI ── */
+    function launchConfetti() {
+      var canvas = document.getElementById('confetti-canvas');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      var COLORS = ['#AF46FD','#F4349D','#DA3BC2','#22C55E','#fff','#a78bfa','#f9a8d4'];
+      var pieces = [];
+      var TOTAL  = 110;
+
+      for (var i = 0; i < TOTAL; i++) {
+        pieces.push({
+          x:  Math.random() * canvas.width,
+          y:  -20 - Math.random() * 180,
+          w:  6 + Math.random() * 7,
+          h:  3 + Math.random() * 4,
+          r:  Math.random() * Math.PI * 2,
+          vx: (Math.random() - .5) * 3.5,
+          vy: 2.2 + Math.random() * 3.5,
+          vr: (Math.random() - .5) * .18,
+          c:  COLORS[Math.floor(Math.random() * COLORS.length)],
+          o:  1
+        });
+      }
+
+      var start   = performance.now();
+      var DURATION = 2200; // ms
+
+      function draw(now) {
+        var elapsed = now - start;
+        if (elapsed > DURATION + 800) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        var fadeStart = DURATION - 400;
+        pieces.forEach(function(p) {
+          p.x  += p.vx;
+          p.y  += p.vy;
+          p.vy += .07; // gravity
+          p.r  += p.vr;
+          if (elapsed > fadeStart) {
+            p.o = Math.max(0, 1 - (elapsed - fadeStart) / 400);
+          }
+          ctx.save();
+          ctx.globalAlpha = p.o;
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.r);
+          ctx.fillStyle = p.c;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        });
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    }
+
+    /* ── FAILURE ── */
+    function handleFailure(msg) {
+      setState('failed');
+      setSub('');
+      var msgEl = document.getElementById('failed-msg');
+      if (msgEl) msgEl.innerHTML = (msg || 'Your payment could not be processed.') + '<br>Please check your details and try again.';
+      // Re-enable pay button for retry
+      var btn = document.getElementById('pay-btn');
+      if (btn) btn.disabled = false;
+    }
+
+    /* ── RETRY ── */
+    function retryPayment() {
+      // Reset all form state
+      ['f-upi','f-card','f-expiry','f-cvv','f-cardname'].forEach(function(id) {
+        var el = document.getElementById(id); if (el) el.value = '';
+      });
+      var dd = document.getElementById('f-bank'); if (dd) dd.value = '';
+      selBank_ = ''; selWallet_ = '';
+      document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+      var btn = document.getElementById('pay-btn');
+      if (btn) btn.disabled = false;
+
+      // Go back to UPI tab and show form
+      setMethod('upi');
+      setState('form');
+      setSub("Choose how you'd like to pay");
+    }
+
+    /* ── BACK TO PLANS ── */
+    function goBackToPlans() {
+      window.location.href = 'workspace.html?upgrade=1';
+    }
+
+    /* ── STATE MACHINE ── */
+    var STATE_IDS = {
+      'loading':    'state-loading',
+      'init-error': 'state-init-error',
+      'form':       'pp-form',
+      'processing': 'state-processing',
+      'success':    'state-success',
+      'failed':     'state-failed'
+    };
+
+    function setState(s) {
+      Object.keys(STATE_IDS).forEach(function(key) {
+        var el = document.getElementById(STATE_IDS[key]);
+        if (!el) return;
+        if (key === s) {
+          el.style.display = (key === 'form') ? 'block' : 'flex';
+          el.classList.add('active');
+        } else {
+          el.style.display = 'none';
+          el.classList.remove('active');
+        }
+      });
+    }
+
+    function setSub(text) {
+      var el = document.getElementById('pp-sub-text');
+      if (el) el.textContent = text;
+    }
+    function showErr(msg) {
+      var el = document.getElementById('pay-err');
+      if (el) { el.textContent = msg; el.style.display = 'block'; }
+    }
+    function hideErr() {
+      var el = document.getElementById('pay-err');
+      if (el) el.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

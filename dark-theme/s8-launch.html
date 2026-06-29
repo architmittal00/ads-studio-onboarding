@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Step 8 — Ad Campaign Launch · SIME</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #F4F4F8;
+  --surface:     #FFFFFF;
+  --border:      #E5E5EC;
+  --border-lt:   #F0F0F6;
+  --t1:          #0F0F18;
+  --t2:          #5A5A72;
+  --t3:          #9898B0;
+  --purple:      #5B47F5;
+  --purple-bg:   #EEEAFF;
+  --purple-soft: #F5F3FF;
+  --green:       #16A34A;
+  --green-bg:    #DCFCE7;
+  --amber:       #B45309;
+  --amber-bg:    #FEF3C7;
+  --red:         #DC2626;
+  --red-bg:      #FEE2E2;
+  --blue:        #1D4ED8;
+  --blue-bg:     #DBEAFE;
+  --r:           8px;
+  --r-sm:        5px;
+  --font:        'Inter', system-ui, sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:var(--font);font-size:13px;background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;}
+button,input,select,textarea{font-family:var(--font);}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden;}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:216px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.sb-brand{display:flex;align-items:center;gap:9px;padding:15px 14px 13px;border-bottom:1px solid var(--border);}
+.sb-icon{width:28px;height:28px;border-radius:7px;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.sb-name{font-size:13px;font-weight:700;}
+.sb-sub{font-size:11px;color:var(--t3);}
+.sb-nav{flex:1;padding:10px 8px;overflow-y:auto;}
+.sb-sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);padding:12px 8px 4px;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:var(--t2);cursor:pointer;transition:background .12s;}
+.sb-item:hover{background:var(--bg);}
+.sb-item.active{background:var(--purple-bg);color:var(--purple);}
+.sb-item svg{width:15px;height:15px;flex-shrink:0;}
+.sb-badge{margin-left:auto;font-size:11px;font-weight:600;border-radius:20px;padding:1px 7px;line-height:1.6;}
+.sb-badge.p{background:var(--purple);color:#fff;}
+.sb-badge.g{background:var(--border);color:var(--t2);}
+.sb-footer{padding:12px 10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;}
+.av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+.av.teal{background:#CCFBF1;color:#0F766E;}
+.av.amber{background:#FDE68A;color:#78350F;}
+.av.blue{background:#DBEAFE;color:#1D4ED8;}
+.av.orange{background:#FED7AA;color:#C2410C;}
+.av.grey{background:var(--bg);color:var(--t2);border:1px solid var(--border);}
+.av.purple{background:var(--purple-bg);color:var(--purple);}
+.av.sm{width:22px;height:22px;font-size:9px;}
+
+/* ── TOP BAR ── */
+.topbar{height:48px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:12px;}
+.bc{display:flex;align-items:center;gap:7px;font-size:13px;}
+.bc-link{color:var(--t2);cursor:pointer;}
+.bc-link:hover{color:var(--t1);}
+.bc-sep{color:var(--t3);}
+.bc-cur{font-weight:600;}
+.search{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:5px 10px;font-size:12px;color:var(--t3);width:240px;}
+.search svg{width:13px;height:13px;flex-shrink:0;}
+.kbd{background:var(--border);border-radius:3px;padding:1px 5px;font-size:10px;margin-left:auto;color:var(--t3);}
+
+/* ── META STRIP ── */
+.meta-strip{background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.meta-r1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 20px 8px;border-bottom:1px solid var(--border-lt);}
+.t-id{background:var(--t1);color:#fff;border-radius:20px;padding:3px 11px;font-size:12px;font-weight:600;}
+.t-status{border-radius:20px;padding:3px 11px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:5px;}
+.t-status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;}
+.t-status.launch{background:var(--amber-bg);color:var(--amber);}
+.chip{display:flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:20px;padding:3px 9px 3px 5px;font-size:11.5px;}
+.chip.sel{border-color:var(--purple);background:var(--purple-soft);}
+.chip-av{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;}
+.chip-role{font-size:10px;color:var(--t3);}
+.meta-actions{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.meta-time{font-size:11px;color:var(--t3);}
+.btn-sm{display:flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--surface);border-radius:var(--r-sm);padding:4px 10px;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;transition:background .12s;}
+.btn-sm:hover{background:var(--bg);}
+.btn-sm svg{width:12px;height:12px;}
+.btn-sm.filled{background:var(--purple);border-color:var(--purple);color:#fff;}
+.btn-sm.filled:hover{opacity:.88;}
+.meta-r2{display:flex;align-items:stretch;padding:10px 20px;}
+.mf{display:flex;align-items:center;gap:10px;padding-right:24px;margin-right:24px;border-right:1px solid var(--border-lt);}
+.mf:last-child{border-right:none;}
+.mf-icon{width:32px;height:32px;border-radius:var(--r-sm);background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.mf-icon svg{width:15px;height:15px;color:var(--t3);}
+.mf-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);}
+.mf-val{font-size:14px;font-weight:700;margin-top:2px;}
+.mf-val.green{color:var(--green);}
+.mf-sub{font-size:11px;color:var(--t3);margin-top:1px;}
+.url-row{display:flex;align-items:center;gap:6px;margin-top:3px;}
+.url-txt{font-size:12px;color:var(--purple);cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.url-badge{background:var(--purple-bg);color:var(--purple);font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;}
+.btn-va{background:none;border:1px solid var(--border);border-radius:var(--r-sm);padding:2px 8px;font-size:11px;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:3px;}
+
+/* ── CONTENT ── */
+.content{flex:1;display:flex;overflow:hidden;}
+.step-area{flex:1;overflow-y:auto;padding:24px 24px 48px;display:flex;flex-direction:column;gap:20px;background:var(--bg);}
+.step-lbl{font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.step-title{font-size:22px;font-weight:700;letter-spacing:-.4px;}
+.step-desc{font-size:13px;color:var(--t2);margin-top:4px;line-height:1.55;max-width:560px;}
+
+/* ── CREATIVE LAUNCH CARD ── */
+.launch-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .2s;flex-shrink:0;}
+.launch-card.active{border-color:var(--purple);}
+.launch-card.done{border-color:var(--green);}
+
+/* Card header */
+.lc-header{display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;user-select:none;}
+.lc-thumb{width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--border-lt);}
+.lc-info{flex:1;min-width:0;}
+.lc-name{font-size:14px;font-weight:700;}
+.lc-file{font-size:11px;color:var(--t3);margin-top:2px;}
+.lc-badges{display:flex;align-items:center;gap:6px;margin-top:6px;}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:600;}
+.badge.grey{background:var(--bg);color:var(--t2);border:1px solid var(--border);}
+.badge.amber{background:var(--amber-bg);color:var(--amber);}
+.badge.green{background:var(--green-bg);color:var(--green);}
+.badge.purple{background:var(--purple-bg);color:var(--purple);}
+.badge.blue{background:var(--blue-bg);color:var(--blue);}
+.lc-actions{display:flex;align-items:center;gap:8px;}
+.lc-toggle{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s;}
+.lc-toggle:hover{background:var(--border-lt);}
+.lc-toggle svg{width:14px;height:14px;color:var(--t2);transition:transform .2s;}
+.lc-toggle.open svg{transform:rotate(180deg);}
+
+/* Card body */
+.lc-body{display:none;border-top:1px solid var(--border-lt);}
+.lc-body.open{display:block;}
+
+/* Sections inside card */
+.lc-section{padding:18px 20px;border-bottom:1px solid var(--border-lt);}
+.lc-section:last-child{border-bottom:none;}
+.lc-sec-title{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.lc-sec-num{width:22px;height:22px;border-radius:50%;background:var(--purple);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.lc-sec-num.done{background:var(--green-bg);color:var(--green);}
+.lc-sec-label{font-size:13px;font-weight:700;}
+.lc-sec-sub{font-size:11px;color:var(--t3);margin-left:auto;}
+
+/* Form grid */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;}
+.form-grid.three{grid-template-columns:1fr 1fr 1fr;}
+.form-grid.full{grid-template-columns:1fr;}
+.f-group{display:flex;flex-direction:column;gap:5px;}
+.f-group.span2{grid-column:span 2;}
+.f-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);}
+.f-input{padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;color:var(--t1);background:var(--surface);outline:none;transition:border-color .15s,box-shadow .15s;width:100%;}
+.f-input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(91,71,245,.1);}
+.f-input::placeholder{color:var(--t3);}
+.f-input.prefilled{background:#FAFAF8;color:var(--t2);}
+textarea.f-input{resize:vertical;min-height:70px;line-height:1.5;}
+.f-hint{font-size:11px;color:var(--t3);margin-top:2px;}
+.f-select{padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;color:var(--t1);background:var(--surface);outline:none;cursor:pointer;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239898B0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;width:100%;}
+.f-select:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(91,71,245,.1);}
+
+/* UTM block */
+.utm-block{background:var(--bg);border:1px solid var(--border-lt);border-radius:var(--r-sm);padding:10px 13px;}
+.utm-url{font-size:11.5px;color:var(--t2);word-break:break-all;line-height:1.5;}
+.utm-url .utm-base{color:var(--t1);font-weight:500;}
+.utm-url .utm-params{color:var(--purple);}
+
+/* Adset table (row layout) */
+.adset-table{border:1.5px solid var(--border);border-radius:var(--r-sm);overflow:hidden;flex-shrink:0;}
+.adset-row{border-bottom:1px solid var(--border-lt);}
+.adset-row:last-child{border-bottom:none;}
+.adset-row-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;user-select:none;transition:background .12s;}
+.adset-row-head:hover{background:var(--bg);}
+.adset-row.selected>.adset-row-head{background:var(--purple-soft);}
+.adset-row-cb{width:15px;height:15px;accent-color:var(--purple);flex-shrink:0;cursor:pointer;}
+.adset-row-info{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.adset-row-name{font-size:12.5px;font-weight:600;}
+.adset-row-pills{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.rpill{font-size:10.5px;font-weight:500;padding:2px 7px;border-radius:20px;background:var(--bg);border:1px solid var(--border);color:var(--t2);}
+.rpill.green{background:var(--green-bg);color:var(--green);border-color:transparent;}
+.rpill.amber{background:var(--amber-bg);color:var(--amber);border-color:transparent;}
+.rpill.blue{background:var(--blue-bg);color:var(--blue);border-color:transparent;}
+.adset-row-chev{flex-shrink:0;color:var(--t3);transition:transform .2s;}
+.adset-row.expanded>.adset-row-head .adset-row-chev{transform:rotate(180deg);}
+.adset-row-body{display:none;padding:16px;border-top:1px solid var(--border-lt);background:var(--surface);}
+.adset-row.expanded>.adset-row-body{display:flex;flex-direction:column;gap:14px;}
+.adset-row-remove{width:26px;height:26px;border-radius:4px;border:none;background:none;cursor:pointer;color:var(--t3);font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;font-family:var(--font);flex-shrink:0;}
+.adset-row-remove:hover{background:var(--red-bg);color:var(--red);}
+.adset-add-btn{display:flex;align-items:center;gap:6px;padding:9px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:none;width:100%;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--purple);transition:background .12s,border-color .12s;margin-top:10px;font-family:var(--font);}
+.adset-add-btn:hover{background:var(--purple-soft);border-color:var(--purple);}
+.adset-summary{padding:6px 0 2px;font-size:12px;color:var(--t2);}
+.adset-summary-count{font-weight:600;color:var(--purple);}
+
+/* Segmented toggle */
+.seg-toggle{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;gap:2px;}
+.seg-btn{flex:1;padding:7px 12px;border-radius:4px;border:none;background:none;font-size:12.5px;font-weight:500;color:var(--t2);cursor:pointer;transition:background .15s,color .15s;}
+.seg-btn.on{background:var(--surface);color:var(--t1);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+
+/* Radio cards (gender, objective, optimization) */
+.radio-cards{display:flex;gap:8px;flex-wrap:wrap;}
+.r-card{display:flex;align-items:center;gap:7px;padding:8px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:12.5px;font-weight:500;color:var(--t2);transition:border-color .15s,background .15s;user-select:none;}
+.r-card:hover{background:var(--bg);}
+.r-card.on{border-color:var(--purple);background:var(--purple-soft);color:var(--purple);font-weight:600;}
+.r-card input{display:none;}
+
+/* Age range */
+.age-row{display:flex;align-items:center;gap:10px;}
+.age-input{width:70px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-weight:600;text-align:center;outline:none;}
+.age-input:focus{border-color:var(--purple);}
+.age-sep{color:var(--t3);font-size:13px;}
+.age-hint{font-size:11px;color:var(--t3);margin-left:4px;}
+
+/* Budget row */
+.budget-row{display:flex;align-items:center;gap:8px;}
+.bud-type{padding:7px 11px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:12.5px;color:var(--t2);background:var(--bg);outline:none;cursor:pointer;}
+.bud-sym{font-size:14px;color:var(--t2);font-weight:500;}
+.bud-val{width:120px;padding:7px 11px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:15px;font-weight:700;text-align:right;outline:none;}
+.bud-val:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(91,71,245,.1);}
+
+/* Launch button per card */
+.lc-footer{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--bg);border-top:1px solid var(--border-lt);}
+.lc-val-msg{display:flex;align-items:center;gap:6px;font-size:12px;}
+.lc-val-msg svg{width:14px;height:14px;flex-shrink:0;}
+.lc-val-msg.warn{color:var(--amber);}
+.lc-val-msg.ok{color:var(--green);}
+.btn-launch{display:flex;align-items:center;gap:7px;padding:10px 22px;border-radius:var(--r-sm);background:var(--purple);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap;}
+.btn-launch:hover:not(:disabled){opacity:.88;}
+.btn-launch:disabled{opacity:.35;cursor:not-allowed;}
+.btn-launch svg{width:14px;height:14px;}
+.btn-launch.launched{background:var(--green);}
+
+/* Divider */
+.divider{height:1px;background:var(--border-lt);margin:6px 0;}
+
+/* ── RIGHT PANEL ── */
+.right-panel{width:224px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:24px;}
+.rp-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:12px;}
+.wf-list{display:flex;flex-direction:column;}
+.wf-item{display:flex;align-items:flex-start;gap:10px;padding:5px 0;position:relative;}
+.wf-item:not(:last-child)::after{content:'';position:absolute;left:9px;top:22px;width:2px;height:calc(100% - 8px);background:var(--border-lt);}
+.wf-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;}
+.wf-dot.done{background:var(--green-bg);}
+.wf-dot.done svg{width:10px;height:10px;color:var(--green);}
+.wf-dot.active{background:var(--purple);box-shadow:0 0 0 3px rgba(91,71,245,.18);}
+.wf-dot.active svg{width:10px;height:10px;color:#fff;}
+.wf-dot.future{background:var(--bg);border:2px solid var(--border);}
+.wf-dot.future svg{width:9px;height:9px;color:var(--t3);}
+.wf-lbl{font-size:12px;font-weight:500;padding-top:2px;}
+.wf-lbl.done{color:var(--t2);}
+.wf-lbl.active{font-weight:700;color:var(--purple);}
+.wf-lbl.future{color:var(--t3);}
+.act-list{display:flex;flex-direction:column;gap:14px;}
+.act-item{display:flex;gap:8px;}
+.act-body{flex:1;}
+.act-who{font-size:11.5px;font-weight:600;}
+.act-txt{font-size:11px;color:var(--t2);line-height:1.4;margin-top:1px;}
+.act-time{font-size:10px;color:var(--t3);margin-top:3px;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-icon">S</div>
+    <div>
+      <div class="sb-name">Ticket Engine</div>
+      <div class="sb-sub">Shiprocket Ads</div>
+    </div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Main Menu</div>
+    <div class="sb-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="4" width="13" height="10" rx="1.5"/><path d="M1.5 8h4l1.5 2h3L11.5 8H15"/></svg>
+      Pending Tickets <span class="sb-badge g">3</span>
+    </div>
+    <div class="sb-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5l-3-3Z"/><path d="M10 2v3h3M5 6H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" stroke-linecap="round"/></svg>
+      Triage &amp; Allocate <span class="sb-badge g">3</span>
+    </div>
+    <div class="sb-item active">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 3.5 4.5 7H3a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1h1.5L13 13.5V3.5Z"/><path d="M4.5 12.5V14" stroke-linecap="round"/></svg>
+      Team Tickets <span class="sb-badge p">7</span>
+    </div>
+    <div class="sb-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2" width="13" height="12" rx="1.5"/><path d="M5 6h6M5 9h4" stroke-linecap="round"/></svg>
+      All Tickets
+    </div>
+    <div class="sb-sec">Workspace</div>
+    <div class="sb-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2m0 10v2M1 8h2m10 0h2M3.05 3.05l1.42 1.42m7.06 7.06 1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42" stroke-linecap="round"/></svg>
+      Settings
+    </div>
+  </nav>
+  <div class="sb-footer">
+    <div class="av teal">NB</div>
+    <div>
+      <div style="font-size:12px;font-weight:600;">Neha Bhatt</div>
+      <div style="font-size:11px;color:var(--t3);">Marketing Lead</div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- top bar -->
+  <div class="topbar">
+    <div class="bc">
+      <span class="bc-link">Tickets</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-cur">#SR-10243</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg>
+        Search ticket ID or merchant...
+        <span class="kbd">⌘ K</span>
+      </div>
+      <div class="av teal" style="font-size:10px;">NB</div>
+    </div>
+  </div>
+
+  <!-- meta strip -->
+  <div class="meta-strip">
+    <div class="meta-r1">
+      <button class="btn-sm" style="border:none;background:none;padding:4px 6px;">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 3 5 8l5 5" stroke-linecap="round"/></svg>
+        Inbox
+      </button>
+      <div class="t-id">#SR-10243</div>
+      <div class="t-status launch">Launch Window</div>
+      <div class="chip">
+        <div class="chip-av amber">PS</div>
+        <span class="chip-role">KAM</span>
+        <span style="font-weight:500;">Priya Sharma</span>
+      </div>
+      <div class="chip sel">
+        <div class="chip-av teal">NB</div>
+        <span class="chip-role">MKTG</span>
+        <span style="font-weight:500;">Neha Bhatt</span>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" style="width:11px;height:11px;color:var(--purple);margin-left:2px;"><path d="M4 8l3 3 5-5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="chip">
+        <div class="chip-av blue">TR</div>
+        <span class="chip-role">DESIGN</span>
+        <span style="font-weight:500;">Tanvi Rao</span>
+      </div>
+      <div class="meta-actions">
+        <span class="meta-time">Created 31m ago</span>
+        <button class="btn-sm"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2" stroke-linecap="round"/></svg></button>
+        <button class="btn-sm filled">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h7M3 12h5" stroke-linecap="round"/></svg>
+          Comment
+          <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:0 5px;font-size:10px;font-weight:700;">2</span>
+        </button>
+      </div>
+    </div>
+    <div class="meta-r2">
+      <div class="mf">
+        <div class="mf-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="5" width="13" height="9" rx="1.5"/><path d="M5 5V4a3 3 0 0 1 6 0v1"/></svg></div>
+        <div>
+          <div class="mf-lbl">Merchant</div>
+          <div class="mf-val">Shesha Ayurveda</div>
+          <div class="mf-sub">M-79634</div>
+        </div>
+      </div>
+      <div class="mf">
+        <div class="mf-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v1.5a1.5 1.5 0 0 0 0 3 1.5 1.5 0 0 1 0 3V14" stroke-linecap="round"/></svg></div>
+        <div>
+          <div class="mf-lbl">Total Ads Balance</div>
+          <div class="mf-val green">₹38,135.59</div>
+        </div>
+      </div>
+      <div class="mf">
+        <div class="mf-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 9a3 3 0 0 0 4.24 0l2-2a3 3 0 0 0-4.24-4.24L8 3.76" stroke-linecap="round"/><path d="M9 7a3 3 0 0 0-4.24 0l-2 2A3 3 0 0 0 6.76 13.24L8 12" stroke-linecap="round"/></svg></div>
+        <div>
+          <div class="mf-lbl">Product URLs</div>
+          <div class="url-row">
+            <span class="url-badge">+2</span>
+            <span class="url-txt">shesha-ayurveda.com/products/red-sandalwood…</span>
+            <button class="btn-va">View all <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" style="width:10px;height:10px;"><path d="M6 4l4 4-4 4" stroke-linecap="round"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- content -->
+  <div class="content">
+    <div class="step-area">
+
+      <!-- step header -->
+      <div>
+        <div class="step-lbl">Step 8</div>
+        <div class="step-title">Ad Campaign Launch</div>
+        <div class="step-desc">Configure and launch each approved creative. Select the creative to auto-fill ad details, then choose or create an ad set with targeting before launching individually.</div>
+      </div>
+
+      <!-- ── CREATIVE 1 ── -->
+      <div class="launch-card active" id="card-1">
+        <div class="lc-header" onclick="toggleCard(1)">
+          <img src="creative_1.jpg" class="lc-thumb" alt="Night Cream">
+          <div class="lc-info">
+            <div class="lc-name">1:1 Feed — Night Cream</div>
+            <div class="lc-file">creative_1.jpg · 1080×1080 · Static</div>
+            <div class="lc-badges">
+              <span class="badge purple">Approved</span>
+              <span class="badge grey" id="card-1-status">Not configured</span>
+            </div>
+          </div>
+          <div class="lc-actions">
+            <div class="lc-toggle open" id="toggle-1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="lc-body open" id="body-1">
+
+          <!-- Section 1: Ad Creative Details -->
+          <div class="lc-section">
+            <div class="lc-sec-title">
+              <div class="lc-sec-num">1</div>
+              <span class="lc-sec-label">Ad Creative Details</span>
+              <span class="lc-sec-sub">Auto-filled from approved brief · Edit if needed</span>
+            </div>
+            <div class="form-grid">
+              <div class="f-group span2">
+                <div class="f-label">Headline</div>
+                <input class="f-input prefilled" type="text" value="Glow Naturally with Red Sandalwood Night Cream">
+              </div>
+              <div class="f-group span2">
+                <div class="f-label">Primary Text / Copy</div>
+                <textarea class="f-input prefilled">No Chemicals. Just Pure Ayurveda. ✨ Experience the ancient healing power of Red Sandalwood — fades tan, corrects uneven tone &amp; reduces pigmentation overnight. Try it today.</textarea>
+              </div>
+              <div class="f-group">
+                <div class="f-label">Facebook Page</div>
+                <select class="f-select">
+                  <option selected>Shesha Ayurveda</option>
+                  <option>Shesha Ayurveda Official</option>
+                </select>
+              </div>
+              <div class="f-group">
+                <div class="f-label">Instagram Account</div>
+                <select class="f-select">
+                  <option selected>@sheshaayurveda</option>
+                  <option>@shesha.ayurveda</option>
+                </select>
+              </div>
+              <div class="f-group span2">
+                <div class="f-label">Product URL</div>
+                <input class="f-input prefilled" type="url" value="https://shesha-ayurveda.com/products/red-sandalwood-night-cream">
+              </div>
+              <div class="f-group span2">
+                <div class="f-label">UTM Parameters <span style="font-size:10px;color:var(--t3);text-transform:none;font-weight:400;">· auto-generated</span></div>
+                <div class="utm-block">
+                  <div class="utm-url">
+                    <span class="utm-base">shesha-ayurveda.com/products/red-sandalwood-night-cream</span><span class="utm-params">?utm_source=meta&utm_medium=paid&utm_campaign=sr_10243&utm_content=night_cream_1x1&utm_term=ayurveda_skincare</span>
+                  </div>
+                </div>
+                <div class="f-hint">Modify campaign slug or content tag if needed.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Ad Sets -->
+          <div class="lc-section" id="adset-section-1"></div><!-- /section 2 -->
+
+          <!-- Footer / Launch -->
+          <div class="lc-footer">
+            <div class="lc-val-msg warn" id="val-1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11.5v.5" stroke-linecap="round"/></svg>
+              Select an ad set to continue.
+            </div>
+            <button class="btn-launch" id="launch-btn-1" disabled onclick="launchCreative(1)" data-name="Night Cream">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5s-5 4-5 7.5a5 5 0 0 0 10 0c0-3.5-5-7.5-5-7.5Z"/><circle cx="8" cy="9" r="1.5" fill="white"/></svg>
+              <span class="lbl">Launch Night Cream Ad</span>
+            </button>
+          </div>
+
+        </div><!-- /body-1 -->
+      </div><!-- /card-1 -->
+
+      <!-- ── CREATIVE 2 ── -->
+      <div class="launch-card" id="card-2">
+        <div class="lc-header" onclick="toggleCard(2)">
+          <img src="creative_2.jpg" class="lc-thumb" alt="Festival Sale">
+          <div class="lc-info">
+            <div class="lc-name">1:1 Feed — Festival Sale</div>
+            <div class="lc-file">creative_2.jpg · 1080×1080 · Static</div>
+            <div class="lc-badges">
+              <span class="badge purple">Approved</span>
+              <span class="badge grey" id="card-2-status">Not configured</span>
+            </div>
+          </div>
+          <div class="lc-actions">
+            <div class="lc-toggle" id="toggle-2">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="lc-body" id="body-2">
+          <div class="lc-section">
+            <div class="lc-sec-title">
+              <div class="lc-sec-num">1</div>
+              <span class="lc-sec-label">Ad Creative Details</span>
+              <span class="lc-sec-sub">Auto-filled · Edit if needed</span>
+            </div>
+            <div class="form-grid">
+              <div class="f-group span2">
+                <div class="f-label">Headline</div>
+                <input class="f-input prefilled" type="text" value="Festival Sale — Upto 90% Off on Premium Sarees!">
+              </div>
+              <div class="f-group span2">
+                <div class="f-label">Primary Text / Copy</div>
+                <textarea class="f-input prefilled">Get ready for the biggest Festival Sale of the season! 🎉 Beautiful · Handcrafted · Timeless Mysore Pattu Sarees. Use code WELCOME10 for extra savings.</textarea>
+              </div>
+              <div class="f-group">
+                <div class="f-label">Facebook Page</div>
+                <select class="f-select"><option selected>Mysore Pattu Saree</option></select>
+              </div>
+              <div class="f-group">
+                <div class="f-label">Instagram Account</div>
+                <select class="f-select"><option selected>@mysorepattusaree</option></select>
+              </div>
+              <div class="f-group span2">
+                <div class="f-label">Product URL</div>
+                <input class="f-input prefilled" type="url" value="https://mysore-pattu.com/collections/festival-sale">
+              </div>
+              <div class="f-group span2">
+                <div class="f-label">UTM Parameters</div>
+                <div class="utm-block">
+                  <div class="utm-url">
+                    <span class="utm-base">mysore-pattu.com/collections/festival-sale</span><span class="utm-params">?utm_source=meta&utm_medium=paid&utm_campaign=sr_10243&utm_content=festival_sale_1x1&utm_term=saree_festival</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="lc-section" id="adset-section-2"></div>
+          <div class="lc-footer">
+            <div class="lc-val-msg warn" id="val-2"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11.5v.5" stroke-linecap="round"/></svg> Select an ad set to continue.</div>
+            <button class="btn-launch" id="launch-btn-2" disabled onclick="launchCreative(2)" data-name="Festival Sale">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5s-5 4-5 7.5a5 5 0 0 0 10 0c0-3.5-5-7.5-5-7.5Z"/><circle cx="8" cy="9" r="1.5" fill="white"/></svg>
+              <span class="lbl">Launch Festival Sale Ad</span>
+            </button>
+          </div>
+        </div>
+      </div><!-- /card-2 -->
+
+      <!-- ── CREATIVE 3 ── -->
+      <div class="launch-card" id="card-3">
+        <div class="lc-header" onclick="toggleCard(3)">
+          <img src="creative_3.jpg" class="lc-thumb" alt="Millets">
+          <div class="lc-info">
+            <div class="lc-name">1:1 Feed — Millets Range</div>
+            <div class="lc-file">creative_3.jpg · 1080×1080 · Static</div>
+            <div class="lc-badges">
+              <span class="badge purple">Approved</span>
+              <span class="badge grey" id="card-3-status">Not configured</span>
+            </div>
+          </div>
+          <div class="lc-actions">
+            <div class="lc-toggle" id="toggle-3">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="lc-body" id="body-3">
+          <div class="lc-section">
+            <div class="lc-sec-title">
+              <div class="lc-sec-num">1</div>
+              <span class="lc-sec-label">Ad Creative Details</span>
+              <span class="lc-sec-sub">Auto-filled · Edit if needed</span>
+            </div>
+            <div class="form-grid">
+              <div class="f-group span2"><div class="f-label">Headline</div><input class="f-input prefilled" type="text" value="No More Fatigue — Eat Healthy with Krafted Millets"></div>
+              <div class="f-group span2"><div class="f-label">Primary Text / Copy</div><textarea class="f-input prefilled">Ghar Ke Khane Ko Healthy Banaao 🌾 Buy any 4 Krafted Millets products @ just ₹999. 100% Natural. No preservatives. Your family deserves the best.</textarea></div>
+              <div class="f-group"><div class="f-label">Facebook Page</div><select class="f-select"><option selected>Krafted Millets</option></select></div>
+              <div class="f-group"><div class="f-label">Instagram Account</div><select class="f-select"><option selected>@kraftedmillets</option></select></div>
+              <div class="f-group span2"><div class="f-label">Product URL</div><input class="f-input prefilled" type="url" value="https://kraftedmillets.com/collections/all-products"></div>
+              <div class="f-group span2">
+                <div class="f-label">UTM Parameters</div>
+                <div class="utm-block"><div class="utm-url"><span class="utm-base">kraftedmillets.com/collections/all-products</span><span class="utm-params">?utm_source=meta&utm_medium=paid&utm_campaign=sr_10243&utm_content=millets_range_1x1&utm_term=healthy_food</span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="lc-section" id="adset-section-3"></div>
+          <div class="lc-footer">
+            <div class="lc-val-msg warn" id="val-3"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11.5v.5" stroke-linecap="round"/></svg> Select an ad set to continue.</div>
+            <button class="btn-launch" id="launch-btn-3" disabled onclick="launchCreative(3)" data-name="Millets Range">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5s-5 4-5 7.5a5 5 0 0 0 10 0c0-3.5-5-7.5-5-7.5Z"/><circle cx="8" cy="9" r="1.5" fill="white"/></svg>
+              <span class="lbl">Launch Millets Range Ad</span>
+            </button>
+          </div>
+        </div>
+      </div><!-- /card-3 -->
+
+    </div><!-- /step-area -->
+
+    <!-- right panel -->
+    <aside class="right-panel">
+      <div>
+        <div class="rp-title">Workflow</div>
+        <div class="wf-list">
+          <div class="wf-item"><div class="wf-dot done"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="wf-lbl done">Created</span></div>
+          <div class="wf-item"><div class="wf-dot done"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="wf-lbl done">KAM Brief</span></div>
+          <div class="wf-item"><div class="wf-dot done"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="wf-lbl done">Strategy</span></div>
+          <div class="wf-item"><div class="wf-dot done"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="wf-lbl done">Design</span></div>
+          <div class="wf-item"><div class="wf-dot done"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="wf-lbl done">Internal Review</span></div>
+          <div class="wf-item"><div class="wf-dot done"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="wf-lbl done">Merchant Review</span></div>
+          <div class="wf-item"><div class="wf-dot active"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2s-4.5 4-4.5 6.5a4.5 4.5 0 0 0 9 0C12.5 6 8 2 8 2Z"/><circle cx="8" cy="8.5" r="1.5" fill="white"/></svg></div><span class="wf-lbl active">Launch</span></div>
+          <div class="wf-item"><div class="wf-dot future"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v3l1.5 1.5" stroke-linecap="round"/></svg></div><span class="wf-lbl future">Live</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="rp-title">Launch Progress</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;" id="prog-c1">
+            <img src="creative_1.jpg" style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Night Cream</div><div style="font-size:10px;color:var(--t3);" id="prog-c1-lbl">Not launched</div></div>
+            <span class="badge grey" id="prog-c1-badge" style="font-size:10px;">Pending</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;" id="prog-c2">
+            <img src="creative_2.jpg" style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Festival Sale</div><div style="font-size:10px;color:var(--t3);" id="prog-c2-lbl">Not launched</div></div>
+            <span class="badge grey" id="prog-c2-badge" style="font-size:10px;">Pending</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;" id="prog-c3">
+            <img src="creative_3.jpg" style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;"><div style="font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Millets Range</div><div style="font-size:10px;color:var(--t3);" id="prog-c3-lbl">Not launched</div></div>
+            <span class="badge grey" id="prog-c3-badge" style="font-size:10px;">Pending</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="rp-title">Activity</div>
+        <div class="act-list">
+          <div class="act-item"><div class="av teal sm">M</div><div class="act-body"><div class="act-who">Merchant</div><div class="act-txt">Approved all creatives. Ready for launch.</div><div class="act-time">just now</div></div></div>
+          <div class="act-item"><div class="av teal sm">NB</div><div class="act-body"><div class="act-who">Neha Bhatt</div><div class="act-txt">Internal review passed.</div><div class="act-time">just now</div></div></div>
+          <div class="act-item"><div class="av orange sm">TR</div><div class="act-body"><div class="act-who">Tanvi Rao</div><div class="act-txt">Designs delivered.</div><div class="act-time">just now</div></div></div>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ─────────────────────────────────────────────
+// ADSET DATA  (pre-filled per card)
+// ─────────────────────────────────────────────
+const ADSET_DATA = {
+  1: [
+    { name:'Lookalike 1% — Women 25–45',      campaign:'Shesha Ayurveda · Skincare · Nov 2024',    budgetType:'CBO', budget:800,  objective:'sales',     optEvent:'purchase',         gender:'all',    ageMin:25, ageMax:45, placement:'Advantage+ (Auto)', audience:'Lookalike Audience', bidStrategy:'Lowest Cost (Auto)', attribution:'7-day click, 1-day view' },
+    { name:'Interest — Skincare + Ayurveda',   campaign:'Shesha Ayurveda · Awareness · Nov 2024',   budgetType:'ABO', budget:600,  objective:'awareness',  optEvent:null,               gender:'female', ageMin:22, ageMax:50, placement:'Feed Only',          audience:'Saved Audience',     bidStrategy:'Lowest Cost (Auto)', attribution:'7-day click, 1-day view' },
+    { name:'Retargeting — Website Visitors 30D',campaign:'Shesha Ayurveda · Retargeting · Nov 2024',budgetType:'ABO', budget:500,  objective:'sales',     optEvent:'purchase',         gender:'all',    ageMin:18, ageMax:65, placement:'Advantage+ (Auto)', audience:'Custom Audience',    bidStrategy:'Cost Cap',           attribution:'1-day click' },
+  ],
+  2: [
+    { name:'Lookalike 1% — Women 25–45',       campaign:'Shesha Ayurveda · Skincare · Nov 2024',    budgetType:'CBO', budget:800,  objective:'sales',     optEvent:'purchase',         gender:'female', ageMin:22, ageMax:55, placement:'Advantage+ (Auto)', audience:'Lookalike Audience', bidStrategy:'Lowest Cost (Auto)', attribution:'7-day click, 1-day view' },
+    { name:'Interest — Ethnic Wear + Festive',  campaign:'Shesha Ayurveda · Festival · Nov 2024',    budgetType:'ABO', budget:1200, objective:'sales',     optEvent:'initiate_checkout',gender:'all',    ageMin:20, ageMax:55, placement:'Feed Only',          audience:'Saved Audience',     bidStrategy:'Lowest Cost (Auto)', attribution:'7-day click, 1-day view' },
+  ],
+  3: [
+    { name:'Interest — Health Food + Organic',  campaign:'Krafted Millets · Health · Nov 2024',      budgetType:'ABO', budget:700,  objective:'sales',     optEvent:'purchase',         gender:'all',    ageMin:25, ageMax:50, placement:'Advantage+ (Auto)', audience:'Saved Audience',     bidStrategy:'Lowest Cost (Auto)', attribution:'7-day click, 1-day view' },
+    { name:'Lookalike 2% — Health Enthusiasts', campaign:'Krafted Millets · Acquisition · Nov 2024', budgetType:'CBO', budget:900,  objective:'sales',     optEvent:'add_to_cart',      gender:'all',    ageMin:25, ageMax:55, placement:'Advantage+ (Auto)', audience:'Lookalike Audience', bidStrategy:'Cost Cap',           attribution:'7-day click, 1-day view' },
+  ],
+};
+
+const CARD_NEW_DEFAULTS = {
+  1: { name:'SR-10243 · Night Cream · New',   campaign:'Shesha Ayurveda · Skincare · Nov 2024' },
+  2: { name:'SR-10243 · Festival Sale · New', campaign:'Shesha Ayurveda · Festival · Nov 2024' },
+  3: { name:'SR-10243 · Millets Range · New', campaign:'Krafted Millets · Health · Nov 2024' },
+};
+
+const OBJ_ICONS = {
+  sales:    `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v1.5a1.5 1.5 0 0 0 0 3 1.5 1.5 0 0 1 0 3V13" stroke-linecap="round"/></svg>`,
+  leads:    `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM2 14a6 6 0 0 1 12 0" stroke-linecap="round"/></svg>`,
+  traffic:  `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12M10 4l4 4-4 4" stroke-linecap="round"/></svg>`,
+  awareness:`<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 7v5M8 5v.5" stroke-linecap="round"/></svg>`,
+};
+
+// ─────────────────────────────────────────────
+// RENDER ADSET FORM BODY
+// ─────────────────────────────────────────────
+function adsetFormHTML(uid, d) {
+  const isCBO   = (d.budgetType || 'CBO') === 'CBO';
+  const budHint = isCBO
+    ? 'Budget managed at campaign level. Meta auto-distributes across ad sets.'
+    : 'Budget controlled per ad set. Full manual control over spend.';
+  const showOpt = d.objective === 'sales' || d.objective === 'traffic';
+
+  const gOpts = [
+    { v:'all',    label:'All' },
+    { v:'male',   label:'<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="9.5" r="4.5"/><path d="M10 6 14 2m0 0h-3.5M14 2v3.5" stroke-linecap="round"/></svg> Male' },
+    { v:'female', label:'<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="4.5"/><path d="M8 10.5v4M6 13h4" stroke-linecap="round"/></svg> Female' },
+  ];
+  const objOpts = ['sales','leads','traffic','awareness'];
+  const optEvOpts = [
+    { v:'purchase',          label:'Purchase' },
+    { v:'add_to_cart',       label:'Add to Cart' },
+    { v:'initiate_checkout', label:'Initiate Checkout' },
+    { v:'landing_page_view', label:'Landing Page View' },
+    { v:'link_click',        label:'Link Click' },
+  ];
+  const placements   = ['Advantage+ (Auto)','Feed Only','Stories + Reels','Manual Placement'];
+  const audiences    = ['Broad (No Targeting)','Saved Audience','Lookalike Audience','Custom Audience'];
+  const bidStrategies= ['Lowest Cost (Auto)','Cost Cap','Bid Cap'];
+  const attributions = ['7-day click, 1-day view','1-day click','7-day click'];
+
+  const sel = (arr, val) => arr.map(o => {
+    const v = typeof o === 'string' ? o : o.v;
+    const l = typeof o === 'string' ? o : o.label;
+    return `<option${v===val?' selected':''}>${l}</option>`;
+  }).join('');
+
+  const ageSpread = Math.max(0,(d.ageMax||45)-(d.ageMin||18));
+
+  return `
+  <div class="form-grid">
+    <div class="f-group"><div class="f-label">Ad Set Name</div><input class="f-input prefilled" type="text" value="${d.name||''}"></div>
+    <div class="f-group"><div class="f-label">Campaign Name</div><input class="f-input prefilled" type="text" value="${d.campaign||''}"></div>
+  </div>
+  <div class="f-group">
+    <div class="f-label">Budget Type</div>
+    <div class="seg-toggle" style="max-width:320px;">
+      <button class="seg-btn${isCBO?' on':''}" onclick="setSeg(this,'btype-${uid}')">CBO — Campaign Budget</button>
+      <button class="seg-btn${!isCBO?' on':''}" onclick="setSeg(this,'btype-${uid}')">ABO — Ad Set Budget</button>
+    </div>
+    <div class="f-hint" id="btype-${uid}-hint">${budHint}</div>
+  </div>
+  <div class="f-group">
+    <div class="f-label">Daily Budget</div>
+    <div class="budget-row">
+      <select class="bud-type"><option>Daily</option><option>Lifetime</option></select>
+      <span class="bud-sym">₹</span>
+      <input class="bud-val f-input" type="number" min="100" value="${d.budget||''}">
+      <span style="font-size:12px;color:var(--t3);">per day</span>
+    </div>
+  </div>
+  <div class="f-group">
+    <div class="f-label">Gender</div>
+    <div class="radio-cards">
+      ${gOpts.map(g=>`<label class="r-card${d.gender===g.v?' on':''}" onclick="toggleR(this,'gender-${uid}')"><input type="radio" name="gender-${uid}" value="${g.v}"${d.gender===g.v?' checked':''}> ${g.label}</label>`).join('')}
+    </div>
+  </div>
+  <div class="f-group">
+    <div class="f-label">Age Range</div>
+    <div class="age-row">
+      <input class="age-input f-input" type="number" min="13" max="65" value="${d.ageMin||18}" id="age-min-${uid}" oninput="updateAgeHintId('${uid}')">
+      <span class="age-sep">—</span>
+      <input class="age-input f-input" type="number" min="13" max="65" value="${d.ageMax||45}" id="age-max-${uid}" oninput="updateAgeHintId('${uid}')">
+      <span class="age-hint" id="age-hint-${uid}">${ageSpread} year spread · ${d.ageMin||18}–${d.ageMax||45}</span>
+    </div>
+  </div>
+  <div class="f-group">
+    <div class="f-label">Objective</div>
+    <div class="radio-cards">
+      ${objOpts.map(o=>`<label class="r-card${d.objective===o?' on':''}" onclick="toggleR(this,'obj-${uid}');showOptimizationId('${uid}','${o}')"><input type="radio" name="obj-${uid}" value="${o}"${d.objective===o?' checked':''}>${OBJ_ICONS[o]||''} ${o.charAt(0).toUpperCase()+o.slice(1)}</label>`).join('')}
+    </div>
+  </div>
+  <div class="f-group" id="opt-${uid}" style="display:${showOpt?'flex':'none'}">
+    <div class="f-label">Optimization Event</div>
+    <div class="radio-cards">
+      ${optEvOpts.map(e=>`<label class="r-card${d.optEvent===e.v?' on':''}" onclick="toggleR(this,'optev-${uid}')"><input type="radio" name="optev-${uid}" value="${e.v}"${d.optEvent===e.v?' checked':''}> ${e.label}</label>`).join('')}
+    </div>
+  </div>
+  <div class="form-grid">
+    <div class="f-group"><div class="f-label">Placement</div><select class="f-select">${sel(placements,d.placement)}</select></div>
+    <div class="f-group"><div class="f-label">Audience</div><select class="f-select">${sel(audiences,d.audience)}</select></div>
+    <div class="f-group"><div class="f-label">Bid Strategy</div><select class="f-select">${sel(bidStrategies,d.bidStrategy)}</select></div>
+    <div class="f-group"><div class="f-label">Attribution Window</div><select class="f-select">${sel(attributions,d.attribution)}</select></div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────
+// RENDER ADSET ROW
+// ─────────────────────────────────────────────
+function adsetRowHTML(uid, d, cardNum, isNew) {
+  const budLabel = d.budget ? `₹${Number(d.budget).toLocaleString('en-IN')}/day` : 'Budget TBD';
+  const objLabel = d.objective ? d.objective.charAt(0).toUpperCase()+d.objective.slice(1) : 'Objective';
+  const removeBtn = isNew
+    ? `<button class="adset-row-remove" onclick="removeAdsetRow('${uid}',${cardNum})" title="Remove">✕</button>`
+    : '';
+  return `
+<div class="adset-row" id="ar-${uid}" data-card="${cardNum}">
+  <div class="adset-row-head" onclick="toggleAdsetRow('${uid}',${cardNum})">
+    <input type="checkbox" class="adset-row-cb" onchange="onAdsetCheck(this,'${uid}',${cardNum})" onclick="event.stopPropagation()">
+    <div class="adset-row-info">
+      <span class="adset-row-name">${d.name}</span>
+      <span class="adset-row-pills">
+        <span class="rpill${d.budgetType==='CBO'?' blue':''}">${d.budgetType||'CBO'}</span>
+        <span class="rpill">${budLabel}</span>
+        <span class="rpill">${objLabel}</span>
+        ${!isNew?'<span class="rpill green">Active</span>':'<span class="rpill amber">New</span>'}
+      </span>
+    </div>
+    ${removeBtn}
+    <svg class="adset-row-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4" stroke-linecap="round"/></svg>
+  </div>
+  <div class="adset-row-body" id="arb-${uid}">
+    ${adsetFormHTML(uid, d)}
+  </div>
+</div>`;
+}
+
+// ─────────────────────────────────────────────
+// RENDER FULL SECTION 2
+// ─────────────────────────────────────────────
+function renderAdsetSection(cardNum) {
+  const sec = document.getElementById(`adset-section-${cardNum}`);
+  const rows = (ADSET_DATA[cardNum] || []).map((d,i) =>
+    adsetRowHTML(`c${cardNum}e${i+1}`, d, cardNum, false)
+  ).join('');
+
+  sec.innerHTML = `
+    <div class="lc-sec-title">
+      <div class="lc-sec-num">2</div>
+      <span class="lc-sec-label">Ad Sets</span>
+      <span class="lc-sec-sub">Select and edit — launch this creative to multiple simultaneously</span>
+    </div>
+    <div class="adset-table" id="adset-table-${cardNum}">${rows}</div>
+    <button class="adset-add-btn" onclick="addNewAdsetRow(${cardNum})">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10" stroke-linecap="round"/></svg>
+      Create New Ad Set
+    </button>
+    <div class="adset-summary" id="adset-summary-${cardNum}" style="display:none;"></div>`;
+}
+
+// ─────────────────────────────────────────────
+// INTERACTIONS
+// ─────────────────────────────────────────────
+const _newCount = {};
+
+function addNewAdsetRow(cardNum) {
+  _newCount[cardNum] = (_newCount[cardNum] || 0) + 1;
+  const uid = `c${cardNum}n${_newCount[cardNum]}`;
+  const d = { ...CARD_NEW_DEFAULTS[cardNum], budgetType:'CBO', budget:'', objective:'sales', optEvent:'purchase', gender:'all', ageMin:18, ageMax:45 };
+  const table = document.getElementById(`adset-table-${cardNum}`);
+  const wrap = document.createElement('div');
+  wrap.innerHTML = adsetRowHTML(uid, d, cardNum, true);
+  const row = wrap.firstElementChild;
+  table.appendChild(row);
+  // Auto-expand and auto-check the new row
+  row.classList.add('expanded', 'selected');
+  row.querySelector('.adset-row-cb').checked = true;
+  updateAdsetSummary(cardNum);
+}
+
+function removeAdsetRow(uid, cardNum) {
+  document.getElementById(`ar-${uid}`).remove();
+  updateAdsetSummary(cardNum);
+}
+
+function toggleAdsetRow(uid, cardNum) {
+  const row = document.getElementById(`ar-${uid}`);
+  row.classList.toggle('expanded');
+}
+
+function onAdsetCheck(cb, uid, cardNum) {
+  const row = document.getElementById(`ar-${uid}`);
+  row.classList.toggle('selected', cb.checked);
+  // Auto-expand when checking
+  if (cb.checked) row.classList.add('expanded');
+  updateAdsetSummary(cardNum);
+}
+
+function updateAdsetSummary(cardNum) {
+  const checked = document.querySelectorAll(`#adset-table-${cardNum} .adset-row-cb:checked`).length;
+  const summary = document.getElementById(`adset-summary-${cardNum}`);
+  const btn     = document.getElementById(`launch-btn-${cardNum}`);
+  const msg     = document.getElementById(`val-${cardNum}`);
+  const lbl     = btn.querySelector('.lbl');
+  const name    = btn.dataset.name;
+
+  if (checked > 0) {
+    summary.innerHTML = `<span class="adset-summary-count">${checked} ad set${checked>1?'s':''} selected</span> — this creative will launch into each`;
+    summary.style.display = 'block';
+    btn.disabled = false;
+    lbl.textContent = checked > 1 ? `Launch to ${checked} Ad Sets` : `Launch ${name} Ad`;
+    msg.className = 'lc-val-msg ok';
+    msg.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg> Ready — launching to ${checked} ad set${checked>1?'s':''}.`;
+    document.getElementById(`card-${cardNum}-status`).textContent = 'Ready';
+    document.getElementById(`card-${cardNum}-status`).className = 'badge amber';
+  } else {
+    summary.style.display = 'none';
+    btn.disabled = true;
+    lbl.textContent = `Launch ${name} Ad`;
+    msg.className = 'lc-val-msg warn';
+    msg.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11.5v.5" stroke-linecap="round"/></svg> Select at least one ad set to continue.`;
+    document.getElementById(`card-${cardNum}-status`).textContent = 'Not configured';
+    document.getElementById(`card-${cardNum}-status`).className = 'badge grey';
+  }
+}
+
+// ─────────────────────────────────────────────
+// CARD ACCORDION
+// ─────────────────────────────────────────────
+function toggleCard(n) {
+  const body = document.getElementById('body-' + n);
+  const tog  = document.getElementById('toggle-' + n);
+  const card = document.getElementById('card-' + n);
+  const open = body.classList.toggle('open');
+  tog.classList.toggle('open', open);
+  if (open) card.classList.add('active');
+}
+
+// ── Radio card toggle ──
+function toggleR(el, name) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach(r => r.closest('.r-card').classList.remove('on'));
+  el.classList.add('on');
+}
+
+// ── Segmented CBO/ABO toggle ──
+function setSeg(el, id) {
+  const group = el.closest('.seg-toggle');
+  group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  const isCBO = el.textContent.includes('CBO');
+  const hint = document.getElementById(id + '-hint');
+  if (hint) hint.textContent = isCBO
+    ? 'Budget managed at campaign level. Meta auto-distributes across ad sets.'
+    : 'Budget controlled per ad set. Full manual control over spend.';
+}
+
+// ── Show/hide optimization event ──
+function showOptimizationId(id, obj) {
+  const opt = document.getElementById('opt-' + id);
+  if (opt) opt.style.display = ['sales','traffic'].includes(obj) ? 'flex' : 'none';
+}
+
+// ── Age hint ──
+function updateAgeHintId(id) {
+  const min = parseInt(document.getElementById('age-min-' + id).value) || 0;
+  const max = parseInt(document.getElementById('age-max-' + id).value) || 0;
+  const h = document.getElementById('age-hint-' + id);
+  if (h) h.textContent = `${Math.max(0, max - min)} year spread · ${min}–${max}`;
+}
+
+// ── Launch creative ──
+function launchCreative(n) {
+  const btn    = document.getElementById(`launch-btn-${n}`);
+  const card   = document.getElementById(`card-${n}`);
+  const status = document.getElementById(`card-${n}-status`);
+  const total  = document.querySelectorAll(`#adset-table-${n} .adset-row-cb:checked`).length;
+  btn.disabled = true;
+  btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2" stroke-linecap="round"/></svg> <span class="lbl">Launching to ${total}…</span>`;
+  setTimeout(() => {
+    btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span class="lbl">Launched to ${total} Ad Set${total>1?'s':''} ✓</span>`;
+    btn.className = 'btn-launch launched';
+    status.textContent = 'Live'; status.className = 'badge green';
+    card.classList.remove('active'); card.classList.add('done');
+    document.getElementById(`prog-c${n}-lbl`).textContent = `Live · ${total} ad set${total>1?'s':''}`;
+    const pb = document.getElementById(`prog-c${n}-badge`);
+    pb.textContent = 'Live'; pb.className = 'badge green';
+    document.getElementById(`body-${n}`).classList.remove('open');
+    document.getElementById(`toggle-${n}`).classList.remove('open');
+  }, 1400);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderAdsetSection(1);
+  renderAdsetSection(2);
+  renderAdsetSection(3);
+});
+</script>
+</body>
+</html>
