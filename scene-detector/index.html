@@ -600,6 +600,9 @@
   <p class="stv-panel-sub">Generating first &amp; last frame for each scene using the image gen model selected above.</p>
   <div id="stvFramesGrid" class="stv-frames-grid"></div>
   <div id="stvStep4Status" style="margin-top:10px;font-size:11px;color:#666"></div>
+  <div style="margin-top:10px" id="stvStep4StopRow">
+    <button class="btn btn-sm" id="stopFramesBtn" onclick="stopGeneration()" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b">⏹ Stop Generation</button>
+  </div>
   <div style="display:none;margin-top:12px;gap:8px" id="stvStep4Actions">
     <button class="btn btn-ghost btn-sm" onclick="stvGoBack(3)">← Back</button>
     <button class="btn btn-teal" id="stvToVideoBtn" onclick="stvGoToVideo()">🎬 Create Video →</button>
@@ -876,6 +879,7 @@
 
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" id="briefModalClose2">Close</button>
+      <button class="btn btn-sm" id="stopGenBtn" onclick="stopGeneration()" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b">⏹ Stop</button>
       <button class="btn btn-purple btn-sm" id="stitchBtn" disabled onclick="stitchAndEdit()">✂ Stitch & Edit</button>
       <button class="btn btn-teal btn-sm" id="briefDownloadZip" disabled onclick="downloadBriefZip()">⬇ Download ZIP</button>
     </div>
@@ -1752,19 +1756,39 @@
   }
 
   let _briefScenes = []; // scenes currently shown in modal
+  let _cancelled = false;
+  let _abortController = null;
+
+  function startGenSession() {
+    _cancelled = false;
+    _abortController = new AbortController();
+  }
+
+  function stopGeneration() {
+    _cancelled = true;
+    if (_abortController) _abortController.abort();
+    document.getElementById('stopGenBtn')?.setAttribute('disabled', '');
+    document.getElementById('stopFramesBtn')?.setAttribute('disabled', '');
+    showToast('Generation stopped', 'warn');
+  }
 
   async function generateAllScenes() {
     const btn = document.getElementById('shared-gen-btn');
+    const stopBtn = document.getElementById('stopGenBtn');
     const provider    = document.getElementById('shared-gen-provider').value;
     const model       = document.getElementById('shared-gen-model').value;
     const aspectRatio = document.getElementById('shared-gen-ratio').value || '16:9';
     if (!provider || !model) return;
 
+    startGenSession();
     btn.disabled = true;
+    if (stopBtn) { stopBtn.style.display = 'inline-flex'; stopBtn.removeAttribute('disabled'); }
     for (const sc of _briefScenes) {
+      if (_cancelled) break;
       await generateVideo(sc.index, { provider, model, aspectRatio });
     }
     btn.disabled = false;
+    if (stopBtn) stopBtn.style.display = 'none';
     updateBriefZipBtn();
   }
 
@@ -2534,6 +2558,7 @@
   }
 
   async function callImgGenApi(provider, model, key, promptText, sceneFrameDataUrl, productImages = _productImages) {
+    const signal = _abortController?.signal;
     if (provider === 'grok') {
       // Grok /images/edits accepts only one image — use sceneFrame first, fallback to first product image
       const singleImage = sceneFrameDataUrl || productImages[0] || null;
@@ -2545,6 +2570,7 @@
         method: 'POST',
         headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(reqBody),
+        signal,
       });
       const data = await res.json();
       logApi(`Grok Image (${model})`, endpoint, { ...reqBody, images: `[${images.length} images]` }, data, res.status);
@@ -2575,6 +2601,7 @@
           method: 'POST',
           headers: { 'Authorization': `Bearer ${key}` },
           body: fd,
+          signal,
         });
         const data = await res.json();
         logApi(`OpenAI Image (${model})`, endpoint, { model, imageCount: (sceneFrameDataUrl ? 1 : 0) + productImages.length }, data, res.status);
@@ -2588,6 +2615,7 @@
           method: 'POST',
           headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(reqBody),
+          signal,
         });
         const data = await res.json();
         logApi(`OpenAI Image (${model})`, endpoint, reqBody, data, res.status);
@@ -2611,6 +2639,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reqBody),
+        signal,
       });
       const data = await res.json();
       // Log with truncated base64 to keep log readable
@@ -3181,7 +3210,10 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     const grid = document.getElementById('stvFramesGrid');
     const status = document.getElementById('stvStep4Status');
     const actions = document.getElementById('stvStep4Actions');
+    const stopBtn = document.getElementById('stopFramesBtn');
     grid.innerHTML = ''; actions.style.display = 'none'; _stv.sceneFrames = [];
+    startGenSession();
+    if (stopBtn) { stopBtn.style.display = 'inline-flex'; stopBtn.removeAttribute('disabled'); }
 
     const globalStyle = `${parsed.global_style || ''}. Location: ${parsed.location || ''}. Characters: ${Object.values(parsed.characters || {}).join(', ')}`;
 
@@ -3200,6 +3232,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
 
     let allDone = true;
     for (const sc of scenes) {
+      if (_cancelled) { allDone = false; break; }
       const cardId = `stvFC-${sc.scene_number}`;
       const stEl = document.getElementById(`${cardId}-st`);
       const ffEl = document.getElementById(`${cardId}-ff`);
@@ -3212,12 +3245,17 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       let firstFrame = null, lastFrame = null;
       try {
         firstFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), ffPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; allDone = false; break; }
         ffEl.innerHTML = `<img src="${firstFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-frame-label">First Frame</div>`;
         stEl.textContent = 'Generating last frame…';
         lastFrame  = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), lfPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; allDone = false; break; }
         lfEl.innerHTML = `<img src="${lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-frame-label">Last Frame</div>`;
         stEl.textContent = '✓ Done'; stEl.style.color = '#22c55e';
       } catch(err) {
+        if (err.name === 'AbortError') {
+          stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; allDone = false; break;
+        }
         stEl.textContent = `✕ ${err.message}`; stEl.style.color = '#f87171';
         allDone = false;
       }
@@ -3232,8 +3270,10 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       });
     }
 
-    status.textContent = allDone ? `✓ All ${scenes.length} scenes — frames ready` : '⚠ Some frames failed — you can still proceed';
-    status.style.color = allDone ? '#22c55e' : '#eab308';
+    if (stopBtn) stopBtn.style.display = 'none';
+    const wasCancelled = _cancelled;
+    status.textContent = wasCancelled ? '⏹ Generation stopped' : allDone ? `✓ All ${scenes.length} scenes — frames ready` : '⚠ Some frames failed — you can still proceed';
+    status.style.color = wasCancelled ? '#f87171' : allDone ? '#22c55e' : '#eab308';
     actions.style.display = 'flex';
   }
 
