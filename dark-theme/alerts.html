@@ -337,16 +337,102 @@ a{color:inherit;text-decoration:none}
 
 /* ── APPROVE PROGRESS BAR ── */
 .approve-progress{
-  display:none;margin-top:10px;border-radius:9px;
+  display:none;margin-top:8px;border-radius:8px;
   background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
-  padding:12px 14px;
+  padding:8px 12px;
 }
 .approve-progress.show{display:block}
-.approve-progress-label{font-size:11.5px;color:var(--t2);margin-bottom:8px;display:flex;align-items:center;gap:7px}
-.approve-progress-label svg{width:13px;height:13px;animation:spin .8s linear infinite;flex-shrink:0}
+.approve-progress-label{font-size:11px;color:var(--t2);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.approve-progress-label svg{width:12px;height:12px;animation:spin .8s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
-.approve-progress-track{height:4px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
-.approve-progress-fill{height:100%;border-radius:4px;background:var(--grad);width:0%;transition:width .05s linear}
+.approve-progress-row{display:flex;align-items:center;gap:8px}
+.approve-progress-track{height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;flex:1}
+.approve-progress-fill{height:100%;border-radius:3px;background:var(--grad);width:0%;transition:width .05s linear}
+.approve-cancel-x{
+  width:18px;height:18px;border-radius:50%;border:1px solid rgba(255,255,255,.12);
+  background:none;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.25);font-size:9px;line-height:1;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.approve-cancel-x:hover{color:rgba(255,100,100,.8);border-color:rgba(255,80,80,.35);background:rgba(255,60,60,.08)}
+
+/* ── ACTIVITY LOG DRAWER ── */
+.log-btn{
+  display:flex;align-items:center;gap:6px;padding:7px 13px;
+  border-radius:8px;border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);
+  font-size:12px;font-weight:500;cursor:pointer;transition:background .15s,border-color .15s,color .15s;
+  position:relative;
+}
+.log-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);color:#fff}
+.log-btn svg{width:13px;height:13px;flex-shrink:0}
+.log-drawer{
+  position:fixed;top:0;right:0;bottom:0;width:50vw;min-width:620px;max-width:96vw;
+  background:#0d0b1c;border-left:1px solid rgba(255,255,255,.08);
+  z-index:700;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+  box-shadow:-12px 0 48px rgba(0,0,0,.5);
+}
+.log-drawer.open{transform:translateX(0)}
+.log-drawer-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:699;
+  opacity:0;pointer-events:none;transition:opacity .28s;
+}
+.log-drawer-overlay.open{opacity:1;pointer-events:all}
+.log-drawer-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px 24px 18px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;
+}
+.log-drawer-title{font-size:15px;font-weight:700;color:#fff}
+.log-drawer-subtitle{font-size:11px;color:rgba(255,255,255,.32);margin-top:3px}
+.log-drawer-actions{display:flex;align-items:center;gap:10px}
+.log-csv-btn{
+  display:flex;align-items:center;gap:6px;padding:6px 12px;
+  border-radius:7px;border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);
+  font-size:11px;font-weight:500;cursor:pointer;transition:background .15s,color .15s;
+}
+.log-csv-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.log-csv-btn svg{width:12px;height:12px;flex-shrink:0}
+.log-drawer-close{
+  width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.1);
+  background:none;cursor:pointer;color:rgba(255,255,255,.5);font-size:15px;
+  display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;
+}
+.log-drawer-close:hover{background:rgba(255,255,255,.08);color:#fff}
+.log-drawer-body{flex:1;overflow-y:auto;overflow-x:auto;}
+.log-drawer-body::-webkit-scrollbar{width:3px}
+.log-drawer-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+.log-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:rgba(255,255,255,.25);font-size:12px;padding:40px}
+.log-empty svg{width:32px;height:32px;opacity:.3}
+/* Table */
+.log-table{width:100%;border-collapse:collapse;font-size:12px}
+.log-table thead th{
+  padding:10px 16px;text-align:left;font-size:10px;font-weight:600;
+  color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;
+  border-bottom:1px solid rgba(255,255,255,.07);white-space:nowrap;
+  position:sticky;top:0;background:#0d0b1c;z-index:1;
+}
+.log-table tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .12s}
+.log-table tbody tr:hover{background:rgba(255,255,255,.03)}
+.log-table tbody tr:last-child{border-bottom:none}
+.log-table td{padding:14px 16px;vertical-align:middle}
+.log-td-state span{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px;white-space:nowrap;
+}
+.log-td-state span.approved{background:rgba(34,197,94,.13);color:#22C55E}
+.log-td-state span.rejected{background:rgba(255,80,80,.11);color:rgba(255,110,110,.9)}
+.log-td-entity{max-width:180px}
+.log-td-entity-name{font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-td-entity-id{font-size:10px;font-family:monospace;color:rgba(255,255,255,.3);background:rgba(255,255,255,.05);padding:1px 5px;border-radius:4px;display:inline-block;margin-top:3px}
+.log-td-acc{font-size:11px;color:rgba(255,255,255,.5);white-space:nowrap}
+.log-td-action{font-size:11px;color:rgba(255,255,255,.55);max-width:160px}
+.log-td-user{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.log-td-user-dot{width:20px;height:20px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0}
+.log-td-user-name{font-size:11px;color:rgba(255,255,255,.5)}
+.log-td-time{font-size:11px;color:rgba(255,255,255,.3);white-space:nowrap}
 
 /* ── FEEDBACK NUDGE (bottom-left floating) ── */
 .feedback-nudge{
@@ -447,6 +533,7 @@ a{color:inherit;text-decoration:none}
   display:flex;flex-direction:column;justify-content:center;
   background:linear-gradient(160deg,rgba(175,70,253,.06) 0%,transparent 60%);
 }
+.asc-left-main{display:flex;flex-direction:column;gap:0}
 .asc-badge{
   display:inline-flex;align-items:center;gap:6px;
   padding:4px 12px;border-radius:20px;margin-bottom:28px;
@@ -479,6 +566,27 @@ a{color:inherit;text-decoration:none}
   padding-left:14px;border-left:2px solid rgba(175,70,253,.3);
   font-style:italic;
 }
+.asc-rules-cta{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:18px;padding:11px 14px;border-radius:10px;
+  background:rgba(175,70,253,.11);border:1px solid rgba(175,70,253,.3);
+  text-decoration:none;font-size:12px;color:rgba(255,255,255,.65);
+  box-shadow:0 2px 12px rgba(175,70,253,.08);
+  transition:background .15s,border-color .15s;
+}
+.asc-rules-cta svg:first-child{flex-shrink:0;color:var(--purple)}
+.asc-rules-cta-text{flex:1}
+.asc-rules-cta strong{color:rgba(200,150,255,.95);font-weight:700}
+.asc-rules-cta:hover{background:rgba(175,70,253,.16);border-color:rgba(175,70,253,.45)}
+.asc-rules-cta-btn{
+  flex-shrink:0;padding:5px 12px;border-radius:7px;
+  background:var(--grad);color:#fff;
+  font-size:11px;font-weight:700;white-space:nowrap;
+  transition:opacity .15s;
+}
+.asc-rules-cta:hover .asc-rules-cta-btn{opacity:.85}
+.asc-rules-cta-arrow{flex-shrink:0;color:rgba(175,70,253,.5);transition:transform .15s}
+.asc-rules-cta:hover .asc-rules-cta-arrow{transform:translateX(2px);color:var(--purple)}
 
 /* right panel — account list */
 .asc-right{
@@ -833,6 +941,14 @@ a{color:inherit;text-decoration:none}
         <span class="topbar-title">Alerts</span>
         <span class="alert-total-badge" id="totalBadge" style="display:none">Loading…</span>
       </div>
+      <a href="rules.html" style="margin-left:auto;margin-right:6px;display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;border:1px solid rgba(175,70,253,.25);background:rgba(175,70,253,.07);color:rgba(175,70,253,.85);font-size:12px;font-weight:600;text-decoration:none;transition:background .15s,border-color .15s,color .15s" onmouseover="this.style.background='rgba(175,70,253,.14)';this.style.color='#AF46FD'" onmouseout="this.style.background='rgba(175,70,253,.07)';this.style.color='rgba(175,70,253,.85)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        View Rules
+      </a>
+      <button class="log-btn" onclick="toggleLog()" title="Activity Log" style="margin-right:10px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Activity Log
+      </button>
       <div class="topbar-right" id="topbarRight" style="display:none">
 
         <!-- ACCOUNT SELECTOR -->
@@ -875,6 +991,7 @@ a{color:inherit;text-decoration:none}
     <div class="acc-select-screen" id="accSelectScreen">
       <!-- left: copy -->
       <div class="asc-left">
+        <div class="asc-left-main">
         <div class="asc-badge"><div class="asc-badge-dot"></div> Live Intelligence</div>
         <div class="asc-headline">Stop leaking<br>ad spend.<br><span>Every single day.</span></div>
         <div class="asc-sub">Alerts scan your campaigns in real time and surface exactly what to fix — before the budget drains.</div>
@@ -902,10 +1019,16 @@ a{color:inherit;text-decoration:none}
           </div>
         </div>
         <div class="asc-testimonial">"We recovered ₹80K in the first week just by pausing the ads Studio flagged." — Growth lead, D2C brand</div>
+        </div><!-- /asc-left-main -->
       </div>
 
       <!-- right: account list -->
       <div class="asc-right">
+        <a href="rules.html" class="asc-rules-cta">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          <span class="asc-rules-cta-text">Alerts run on <strong>10 active rules</strong> — customize thresholds, conditions & priority</span>
+          <span class="asc-rules-cta-btn">Customize Rules →</span>
+        </a>
         <div class="asc-right-title">Select accounts to analyse</div>
         <div class="asc-right-sub">Choose one or more ad accounts. We'll scan for alerts instantly.</div>
         <div class="asc-acc-list" id="ascAccList"></div>
@@ -981,6 +1104,25 @@ a{color:inherit;text-decoration:none}
     </button>
   </div>
 </nav>
+
+<!-- ACTIVITY LOG DRAWER -->
+<div class="log-drawer-overlay" id="logOverlay" onclick="toggleLog()"></div>
+<div class="log-drawer" id="logDrawer">
+  <div class="log-drawer-header">
+    <div>
+      <div class="log-drawer-title">Activity Log</div>
+      <div class="log-drawer-subtitle">All approvals and rejections this session</div>
+    </div>
+    <div class="log-drawer-actions">
+      <button class="log-csv-btn" onclick="downloadLogCSV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export CSV
+      </button>
+      <button class="log-drawer-close" onclick="toggleLog()">✕</button>
+    </div>
+  </div>
+  <div class="log-drawer-body" id="logBody"></div>
+</div>
 
 <!-- FEEDBACK NUDGE -->
 <div class="feedback-nudge" id="feedbackNudge">
@@ -1072,6 +1214,27 @@ const ACCOUNTS = [
 let selected = new Set(['acc-x']); // default: Account X
 let applied  = new Set(['acc-x']);
 let actionState = {}; // cardId -> 'approved'|'rejected'
+
+const _day = 86400000;
+// Pre-populated dummy log — last 30 days across all accounts
+let actionLog = [
+  { id:'23847561029384',   accLabel:'Account X',       entity:'Diwali Sale — Broad Reach',                 action:'Increase daily budget to ₹8,000 (+60%)',     state:'approved', user:'Rahul M.',  ts: Date.now() - 4*60000 },
+  { id:'67291048573620',   accLabel:'Account X',       entity:'Ad: "Shop Now" — Carousel v3',              action:'Pause this ad',                              state:'approved', user:'Rahul M.',  ts: Date.now() - 11*60000 },
+  { id:'90183746520917',   accLabel:'Account X',       entity:'New Customer Acquisition — Lookalike 2%',   action:'Increase to ₹6,000/day',                     state:'rejected', user:'Priya S.',  ts: Date.now() - 28*60000 },
+  { id:'4582916374850261', accLabel:'Shiprocket B2B',  entity:'Ad: "Enterprise Pitch" — Video 60s',        action:'Move to Ad Set "Decision Makers 35+"',       state:'approved', user:'Priya S.',  ts: Date.now() - 55*60000 },
+  { id:'38201947563812',   accLabel:'Shiprocket D2C',  entity:'Ad: "Free Delivery" — Story Format',        action:'Pause this ad',                              state:'rejected', user:'Rahul M.',  ts: Date.now() - 2*3600000 },
+  { id:'7163928450192736', accLabel:'Shiprocket Intl', entity:'Retargeting — Checkout Abandoners',         action:'Scale budget to ₹5,000/day',                 state:'approved', user:'Priya S.',  ts: Date.now() - 5*3600000 },
+  { id:'51847362901847',   accLabel:'Account X',       entity:'Ad: "Monsoon Sale" — Video 30s',            action:'Pause this ad',                              state:'approved', user:'Rahul M.',  ts: Date.now() - 1*_day },
+  { id:'2947301856492017', accLabel:'Shiprocket B2B',  entity:'Ad: "SME Growth" — Carousel',               action:'Move to Ad Set "SME Owners 25-44"',          state:'rejected', user:'Priya S.',  ts: Date.now() - 2*_day },
+  { id:'80473916254738',   accLabel:'Shiprocket D2C',  entity:'Retargeting — Homepage Visitors',           action:'Scale budget to ₹3,500/day',                 state:'approved', user:'Rahul M.',  ts: Date.now() - 3*_day },
+  { id:'16203748596017',   accLabel:'Account X',       entity:'Ad: "Flat 50% Off Banner" — Static v1',     action:'Pause this ad',                              state:'approved', user:'Priya S.',  ts: Date.now() - 5*_day },
+  { id:'5039182746503918', accLabel:'Shiprocket Intl', entity:'APAC Lookalike — 3% Audience',              action:'Increase daily budget to ₹12,000 (+40%)',    state:'approved', user:'Rahul M.',  ts: Date.now() - 7*_day },
+  { id:'74819263504817',   accLabel:'Shiprocket D2C',  entity:'Ad: "Flash Sale" — Story v2',               action:'Move to Ad Set "Deal Seekers 18-30"',        state:'rejected', user:'Priya S.',  ts: Date.now() - 10*_day },
+  { id:'3068274910583620', accLabel:'Shiprocket B2B',  entity:'Ad: "Demo Request" — Banner',               action:'Pause this ad',                              state:'approved', user:'Rahul M.',  ts: Date.now() - 14*_day },
+  { id:'92740183659204',   accLabel:'Account X',       entity:'Brand Awareness — Top Funnel',              action:'Increase to ₹9,000/day',                     state:'rejected', user:'Priya S.',  ts: Date.now() - 18*_day },
+  { id:'6182039475620183', accLabel:'Shiprocket Intl', entity:'Southeast Asia — Broad Reach',              action:'Move to Ad Set "Tier-1 Cities SEA"',         state:'approved', user:'Rahul M.',  ts: Date.now() - 22*_day },
+  { id:'47301856294017',   accLabel:'Shiprocket D2C',  entity:'Ad: "New Arrivals" — Reel Format',          action:'Pause this ad',                              state:'approved', user:'Priya S.',  ts: Date.now() - 27*_day },
+];
 
 /* ─────────────────────────────────────────
    DROPDOWN
@@ -1171,6 +1334,7 @@ function renderSelectorBtn(){
    RENDER CONTENT
 ───────────────────────────────────────── */
 function renderContent(){
+  updateLogBadge();
   const el = document.getElementById('mainContent');
   const accs = ACCOUNTS.filter(a => applied.has(a.id));
 
@@ -1354,7 +1518,10 @@ function renderCard(c, color, tag, accId){
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg>
         <span>Applying changes…</span>
       </div>
-      <div class="approve-progress-track"><div class="approve-progress-fill" id="fill-${c.id}"></div></div>
+      <div class="approve-progress-row">
+        <div class="approve-progress-track"><div class="approve-progress-fill" id="fill-${c.id}"></div></div>
+        <button class="approve-cancel-x" id="cancel-hint-${c.id}" onclick="cancelApprove('${c.id}','${accId}')" title="Cancel">✕</button>
+      </div>
     </div>`;
 
   const rejectFeedbackHtml = '';
@@ -1389,32 +1556,57 @@ function renderCard(c, color, tag, accId){
 ───────────────────────────────────────── */
 const rejectReasons = {};
 
+const _approveTimers = {};
+
 function startApprove(cardId, accId){
-  // hide buttons
   const card = document.getElementById('card-'+cardId);
   card.querySelectorAll('.alert-ctas').forEach(el=>el.style.display='none');
-  // show progress bar
   const prog = document.getElementById('prog-'+cardId);
   if(!prog) return;
   prog.classList.add('show');
+
   const fill = document.getElementById('fill-'+cardId);
-  let pct = 0;
+  const DURATION = 7000;
+  const start = Date.now();
+
+  // smooth linear fill over 7s
   const iv = setInterval(()=>{
-    pct += Math.random()*18 + 4;
-    if(pct >= 100){
-      pct = 100;
-      clearInterval(iv);
-      fill.style.width = '100%';
-      setTimeout(()=>{
-        actionState[cardId] = 'approved';
-        refreshCard(cardId);
-        recalcStats(accId);
-        recalcTotalBadge();
-      }, 320);
-    } else {
-      fill.style.width = pct+'%';
-    }
-  }, 120);
+    const elapsed = Date.now() - start;
+    const pct = Math.min(100, (elapsed / DURATION) * 100);
+    fill.style.width = pct + '%';
+    if(pct >= 100){ clearInterval(iv); }
+  }, 80);
+
+  // commit at 7s
+  const commitTimer = setTimeout(()=>{
+    clearInterval(iv);
+    fill.style.width = '100%';
+    delete _approveTimers[cardId];
+    setTimeout(()=>{
+      actionState[cardId] = 'approved';
+      pushLog(cardId, 'approved');
+      refreshCard(cardId);
+      recalcStats(accId);
+      recalcTotalBadge();
+    }, 300);
+  }, DURATION);
+
+  _approveTimers[cardId] = { iv, commitTimer, accId };
+}
+
+function cancelApprove(cardId, accId){
+  const t = _approveTimers[cardId];
+  if(!t) return;
+  clearInterval(t.iv);
+  clearTimeout(t.commitTimer);
+  delete _approveTimers[cardId];
+
+  const card = document.getElementById('card-'+cardId);
+  const prog = document.getElementById('prog-'+cardId);
+  if(prog){ prog.classList.remove('show'); }
+  const fill = document.getElementById('fill-'+cardId);
+  if(fill){ fill.style.width = '0%'; }
+  card.querySelectorAll('.alert-ctas').forEach(el=>el.style.display='');
 }
 
 let nudgeTimer = null;
@@ -1423,6 +1615,7 @@ const NUDGE_DURATION = 5000;
 
 function startReject(cardId, accId){
   actionState[cardId] = 'rejected';
+  pushLog(cardId, 'rejected');
   refreshCard(cardId);
   recalcStats(accId);
   recalcTotalBadge();
@@ -1553,6 +1746,94 @@ function approveAllVisible(){
 }
 
 /* ─────────────────────────────────────────
+   ACTIVITY LOG
+───────────────────────────────────────── */
+function findCardData(cardId){
+  for(const acc of ACCOUNTS){
+    for(const sec of ['budget','pause','move']){
+      const c = (acc.cards[sec]||[]).find(x=>x.id===cardId);
+      if(c) return { card:c, acc };
+    }
+  }
+  return null;
+}
+
+function updateLogBadge(){ /* badge removed */ }
+
+function pushLog(cardId, state){
+  const data = findCardData(cardId);
+  if(!data) return;
+  actionLog.unshift({
+    id: cardId,
+    accLabel: data.acc.label,
+    entity: data.card.name,
+    action: data.card.action,
+    state,
+    user: 'You',
+    ts: Date.now()
+  });
+  updateLogBadge();
+}
+
+function toggleLog(){
+  document.getElementById('logDrawer').classList.toggle('open');
+  document.getElementById('logOverlay').classList.toggle('open');
+  renderLog();
+}
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ' · ' + d.toLocaleDateString([], {day:'numeric',month:'short'});
+}
+
+function renderLog(){
+  const body = document.getElementById('logBody');
+  if(!actionLog.length){
+    body.innerHTML = '<div class="log-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>No actions yet</div>';
+    return;
+  }
+  const rows = actionLog.map(e => {
+    const isApproved = e.state === 'approved';
+    const initial = (e.user||'?')[0].toUpperCase();
+    return `<tr>
+      <td class="log-td-entity">
+        <div class="log-td-entity-name" title="${e.entity}">${e.entity}</div>
+        <div class="log-td-entity-id">${e.id}</div>
+      </td>
+      <td class="log-td-acc">${e.accLabel}</td>
+      <td class="log-td-action">${e.action}</td>
+      <td><div class="log-td-user"><div class="log-td-user-dot">${initial}</div><span class="log-td-user-name">${e.user}</span></div></td>
+      <td class="log-td-time">${fmtTime(e.ts)}</td>
+      <td class="log-td-state"><span class="${e.state}">${isApproved ? '✓ Approved' : '✕ Rejected'}</span></td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = `<table class="log-table">
+    <thead><tr>
+      <th>Entity</th><th>Account</th><th>Action</th><th>By</th><th>When</th><th>Status</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function downloadLogCSV(){
+  const headers = ['Status','Entity','Entity ID','Account','Action','By','When'];
+  const rows = actionLog.map(e => [
+    e.state.charAt(0).toUpperCase()+e.state.slice(1),
+    '"'+e.entity.replace(/"/g,'""')+'"',
+    e.id,
+    '"'+e.accLabel.replace(/"/g,'""')+'"',
+    '"'+e.action.replace(/"/g,'""')+'"',
+    '"'+(e.user||'').replace(/"/g,'""')+'"',
+    new Date(e.ts).toLocaleString()
+  ].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'alerts-activity-log.csv';
+  a.click();
+}
+
+/* ─────────────────────────────────────────
    ACCOUNT SELECTION SCREEN
 ───────────────────────────────────────── */
 let ascSelected = new Set();
@@ -1664,6 +1945,16 @@ function startLoadingAlerts(){
 ───────────────────────────────────────── */
 renderAscList();
 renderSelectorBtn();
+
+// Auto-run if redirected from Rules page
+if(new URLSearchParams(window.location.search).get('runNow') === '1'){
+  // Select all accounts
+  ACCOUNTS.forEach(a => ascSelected.add(a.id));
+  renderAscList();
+  updateAscCta();
+  // Kick off loading after a short delay so the page has painted
+  setTimeout(startLoadingAlerts, 300);
+}
 </script>
 </body>
 </html>
