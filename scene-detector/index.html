@@ -371,9 +371,60 @@
 <body>
 
 <!-- ════ LANDING SCREEN ════ -->
+<!-- ── Email Capture Modal ────────────────────────────────────────────── -->
+<div id="emailCapture" style="
+  position:fixed;inset:0;background:rgba(7,7,15,0.92);backdrop-filter:blur(8px);
+  z-index:10000;display:flex;align-items:center;justify-content:center;
+">
+  <div style="
+    background:#0f0f1a;border:1px solid #1e1e30;border-radius:20px;
+    padding:40px 36px;width:100%;max-width:400px;margin:20px;
+    box-shadow:0 24px 80px rgba(0,0,0,0.6);
+  ">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:36px;margin-bottom:12px">🎬</div>
+      <h2 style="font-size:20px;font-weight:800;color:#fff;margin-bottom:8px">Welcome to Studio</h2>
+      <p style="font-size:13px;color:#666;line-height:1.6;max-width:300px;margin:0 auto">
+        Enter your email to get started. We'll send you updates and tips on getting the most out of Studio.
+      </p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input
+        id="emailInput"
+        type="email"
+        placeholder="you@example.com"
+        autocomplete="email"
+        style="
+          width:100%;padding:12px 16px;background:#13132a;border:1.5px solid #222238;
+          border-radius:10px;color:#e2e2f0;font-size:14px;outline:none;
+          transition:border-color .15s;
+        "
+        onfocus="this.style.borderColor='#7c6dff'"
+        onblur="this.style.borderColor='#222238'"
+        onkeydown="if(event.key==='Enter') submitEmail()"
+      />
+      <div id="emailError" style="font-size:12px;color:#f87171;display:none;padding-left:4px"></div>
+      <button onclick="submitEmail()" style="
+        width:100%;padding:12px;background:linear-gradient(135deg,#7c6dff,#c026d3);
+        color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;
+        cursor:pointer;transition:opacity .15s;
+      " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+        Get Started →
+      </button>
+      <button onclick="skipEmail()" style="
+        width:100%;padding:10px;background:none;border:none;
+        color:#444;font-size:12px;cursor:pointer;transition:color .15s;
+      " onmouseover="this.style.color='#888'" onmouseout="this.style.color='#444'">
+        Skip for now
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="landingScreen" style="
   position:fixed;inset:0;background:#07070f;z-index:9999;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:32px;
 ">
   <div style="text-align:center;margin-bottom:8px">
     <div style="font-size:36px;margin-bottom:10px">🎬</div>
@@ -408,6 +459,7 @@
   <nav class="tab-nav">
     <button class="tab-btn active" data-tab="detector">🎞 Video to Video</button>
     <button class="tab-btn" data-tab="script">✍️ Script to Video</button>
+    <button class="tab-btn" data-tab="history" onclick="loadHistory()">🕘 History</button>
     <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
   </nav>
 </header>
@@ -553,9 +605,41 @@
   <p class="stv-panel-sub">This JSON will be used for all subsequent steps. Edit directly if needed.</p>
   <textarea id="stvJsonEditor" class="stv-textarea stv-json" rows="16" spellcheck="false"></textarea>
   <div id="stvJsonError" style="font-size:11px;color:#f87171;margin-top:6px;display:none"></div>
-  <div style="display:flex;gap:8px;margin-top:12px">
+  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
     <button class="btn btn-ghost btn-sm" onclick="stvGoBack(1)">← Back</button>
-    <button class="btn btn-purple" onclick="stvConfirmJson()">Confirm Structure →</button>
+    <button class="btn btn-sm" style="background:#14532d;color:#86efac;border:1px solid #166534" onclick="stvApproveStructure()">✓ Approve & Continue</button>
+    <button class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b" onclick="stvOpenRejectModal()">✕ Reject & Regenerate</button>
+  </div>
+</div>
+
+<!-- Rejection Modal -->
+<div id="rejectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#0f0f1a;border:1px solid #1e1e30;border-radius:16px;padding:32px;width:100%;max-width:480px;margin:20px">
+    <h3 style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px">What didn't you like?</h3>
+    <p style="font-size:12px;color:#555;margin-bottom:16px">Your feedback will be used to improve the next generation.</p>
+    <textarea id="rejectReason" rows="4" placeholder="e.g. Too many scenes, wrong tone, missing product details…" style="width:100%;background:#13132a;border:1.5px solid #222238;border-radius:8px;color:#e2e2f0;padding:10px 12px;font-size:13px;outline:none;resize:vertical;margin-bottom:14px"></textarea>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em">LLM Provider</label>
+        <select id="rejectLlmProvider" class="stv-select" onchange="rejectOnProviderChange()">
+          <option value="">— keep same —</option>
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI (GPT)</option>
+          <option value="grok">xAI (Grok)</option>
+          <option value="gemini">Google (Gemini)</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em">Model</label>
+        <select id="rejectLlmModel" class="stv-select" disabled>
+          <option value="">— select provider —</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="stvCloseRejectModal()">Cancel</button>
+      <button class="btn btn-purple btn-sm" onclick="stvRejectAndRegenerate()">↻ Regenerate</button>
+    </div>
   </div>
 </div>
 
@@ -620,6 +704,19 @@
 </div>
 
 <!-- ════ SETTINGS TAB ════ -->
+<div class="tab-panel" id="tab-history">
+<div class="wrap">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:4px">Generation History</h2>
+      <p style="font-size:13px;color:#555">Past script generation sessions tied to your email.</p>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="loadHistory()">↻ Refresh</button>
+  </div>
+  <div id="historyList"></div>
+</div>
+</div>
+
 <div class="tab-panel" id="tab-settings">
 <div class="wrap">
 <div class="settings-page">
@@ -2882,6 +2979,83 @@
   }
 
   // ── LANDING SCREEN ─────────────────────────────────────────────────────────
+  // ── Email Capture ────────────────────────────────────────────────────────────
+  const EMAIL_KEY     = 'studio_email';
+  const EMAIL_TS_KEY  = 'studio_email_ts';
+  const EMAIL_EXPIRY_DAYS = 7;
+
+  const SUPABASE_URL  = 'https://cnxnsqdcupckhwggquxs.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueG5zcWRjdXBja2h3Z2dxdXhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTM3MDksImV4cCI6MjA5ODM4OTcwOX0.dmVIUAkbC7BnAqiMPFIHNjXNNR5Ik7p17RGuGU2JnPY';
+
+  async function saveEmailToSupabase(email) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Prefer': 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({ email, last_seen_at: new Date().toISOString() }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message || `${res.status}`);
+    }
+  }
+
+  function checkEmailCapture() {
+    const ts = localStorage.getItem(EMAIL_TS_KEY);
+    const email = localStorage.getItem(EMAIL_KEY);
+    const expired = !ts || (Date.now() - parseInt(ts)) > EMAIL_EXPIRY_DAYS * 86400000;
+    if (expired) {
+      document.getElementById('emailCapture').style.display = 'flex';
+    } else {
+      // Returning user — silently update last_seen_at
+      if (email) saveEmailToSupabase(email).catch(() => {});
+      document.getElementById('emailCapture').style.display = 'none';
+      showLanding();
+    }
+  }
+
+  function showLanding() {
+    document.getElementById('landingScreen').style.display = 'flex';
+  }
+
+  async function submitEmail() {
+    const input = document.getElementById('emailInput');
+    const errEl = document.getElementById('emailError');
+    const btn   = document.querySelector('#emailCapture button[onclick="submitEmail()"]');
+    const val   = input.value.trim();
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+    if (!valid) {
+      errEl.textContent = 'Please enter a valid email address.';
+      errEl.style.display = 'block';
+      input.style.borderColor = '#f87171';
+      return;
+    }
+    errEl.style.display = 'none';
+    btn.textContent = 'Saving…'; btn.disabled = true;
+    try {
+      await saveEmailToSupabase(val);
+    } catch (e) {
+      // Non-blocking — still proceed even if DB save fails
+      console.warn('Supabase email save failed:', e.message);
+    }
+    localStorage.setItem(EMAIL_KEY, val);
+    localStorage.setItem(EMAIL_TS_KEY, Date.now().toString());
+    btn.textContent = 'Get Started →'; btn.disabled = false;
+    document.getElementById('emailCapture').style.display = 'none';
+    showLanding();
+  }
+
+  function skipEmail() {
+    // Store timestamp so we don't ask again for 7 days, but no email saved
+    localStorage.setItem(EMAIL_TS_KEY, Date.now().toString());
+    document.getElementById('emailCapture').style.display = 'none';
+    showLanding();
+  }
+
   function choosePath(path) {
     document.getElementById('landingScreen').style.display = 'none';
     if (path === 'script') {
@@ -2897,12 +3071,14 @@
   // ── SCRIPT TO VIDEO ─────────────────────────────────────────────────────────
   let _stv = {
     step: 1,
-    structuredJson: null,  // parsed object
+    structuredJson: null,
     storyboardDataUrl: null,
-    prodImages: [],        // base64 data URLs
+    prodImages: [],
     imgProvider: '',
     imgModel: '',
-    sceneFrames: [],       // [{sceneNumber, firstFrame, lastFrame, summary, ...}]
+    sceneFrames: [],
+    sessionId: null,         // Supabase row ID for current script session
+    regeneratedFrom: null,   // ID of session being regenerated from
   };
 
   // Step indicators
@@ -3100,12 +3276,97 @@ JSON Structure:
       document.getElementById('stvJsonEditor').value = JSON.stringify(JSON.parse(clean), null, 2);
       status.textContent = '✓ Script structured successfully';
       status.style.color = '#22c55e';
+
+      logScriptSession({
+        llm_provider: provider,
+        llm_model: model,
+        raw_script: script,
+        structured_json: clean,
+        status: 'success',
+        regenerated_from: _stv.regeneratedFrom || null,
+      }).then(id => { _stv.sessionId = id; }).catch(() => {});
+
       stvSetStep(2);
     } catch(err) {
       status.textContent = `✕ ${err.message}`;
       status.style.color = '#f87171';
+
+      logScriptSession({
+        llm_provider: provider,
+        llm_model: model,
+        raw_script: script,
+        structured_json: null,
+        status: 'error',
+        error_message: err.message,
+        regenerated_from: _stv.regeneratedFrom || null,
+      }).then(id => { _stv.sessionId = id; }).catch(() => {});
     }
     btn.disabled = false; btn.textContent = '✦ Structure Script';
+  }
+
+  // ── Approve / Reject ─────────────────────────────────────────────────────────
+  function stvApproveStructure() {
+    updateScriptSession(_stv.sessionId, { approval_status: 'approved' }).catch(() => {});
+    stvConfirmJson();
+  }
+
+  function stvOpenRejectModal() {
+    // Pre-fill with current provider/model
+    const provSel = document.getElementById('rejectLlmProvider');
+    const modSel  = document.getElementById('rejectLlmModel');
+    provSel.value = '';
+    modSel.innerHTML = '<option value="">— select provider —</option>';
+    modSel.disabled = true;
+    document.getElementById('rejectReason').value = '';
+    document.getElementById('rejectModal').style.display = 'flex';
+  }
+
+  function stvCloseRejectModal() {
+    document.getElementById('rejectModal').style.display = 'none';
+  }
+
+  function rejectOnProviderChange() {
+    const p = document.getElementById('rejectLlmProvider').value;
+    const modSel = document.getElementById('rejectLlmModel');
+    if (!p) { modSel.innerHTML = '<option value="">— select provider —</option>'; modSel.disabled = true; return; }
+    // Reuse same model lists as main LLM selector
+    const opts = MODEL_OPTIONS[p] || [];
+    modSel.innerHTML = opts.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
+    modSel.disabled = false;
+  }
+
+  async function stvRejectAndRegenerate() {
+    const reason   = document.getElementById('rejectReason').value.trim();
+    const newProv  = document.getElementById('rejectLlmProvider').value || stvLlmProvider.value;
+    const newModel = document.getElementById('rejectLlmModel').value   || stvLlmModel.value;
+
+    // Mark current session as rejected
+    await updateScriptSession(_stv.sessionId, {
+      approval_status: 'rejected',
+      rejection_reason: reason,
+    }).catch(() => {});
+
+    stvCloseRejectModal();
+
+    // Set regeneration context
+    _stv.regeneratedFrom = _stv.sessionId;
+    _stv.sessionId = null;
+
+    // Update LLM selectors if user changed them
+    if (document.getElementById('rejectLlmProvider').value) {
+      stvLlmProvider.value = newProv;
+      stvLlmProvider.dispatchEvent(new Event('change'));
+      setTimeout(() => { stvLlmModel.value = newModel; }, 50);
+    }
+
+    // Append feedback to script and re-run
+    const currentScript = document.getElementById('stvRawScript').value.trim();
+    if (reason) {
+      document.getElementById('stvRawScript').value = `${currentScript}\n\n[User feedback for regeneration: ${reason}]`;
+    }
+
+    stvSetStep(1);
+    setTimeout(() => stvStructureScript(), 100);
   }
 
   // ── STEP 2 → 3: Confirm JSON ───────────────────────────────────────────────
@@ -3329,6 +3590,109 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     openBrief();
     showToast(`${scenes.length} scenes loaded from script`, 'ok');
   }
+
+  // ── Script Session Logging ───────────────────────────────────────────────────
+  async function logScriptSession(data) {
+    const email = localStorage.getItem(EMAIL_KEY) || null;
+    const payload = { user_email: email, approval_status: 'pending', ...data };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/script_sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.warn('Failed to log script session:', err?.message);
+      return null;
+    }
+    const rows = await res.json();
+    return rows?.[0]?.id || null;
+  }
+
+  async function updateScriptSession(id, data) {
+    if (!id) return;
+    await fetch(`${SUPABASE_URL}/rest/v1/script_sessions?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async function loadHistory() {
+    const el = document.getElementById('historyList');
+    const email = localStorage.getItem(EMAIL_KEY);
+    if (!email) {
+      el.innerHTML = `<div style="text-align:center;padding:60px 0;color:#444;font-size:13px">No email on record — submit your email on the welcome screen to track history.</div>`;
+      return;
+    }
+    el.innerHTML = `<div style="text-align:center;padding:40px 0;color:#555;font-size:13px">Loading…</div>`;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/script_sessions?user_email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=50`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` },
+    });
+    if (!res.ok) { el.innerHTML = `<div style="color:#f87171;font-size:13px">Failed to load history.</div>`; return; }
+    const rows = await res.json();
+    if (!rows.length) { el.innerHTML = `<div style="text-align:center;padding:60px 0;color:#444;font-size:13px">No sessions yet. Generate a script to see history here.</div>`; return; }
+
+    el.innerHTML = rows.map(r => {
+      const date = new Date(r.created_at).toLocaleString();
+      const genStatusColor = r.status === 'success' ? '#22c55e' : '#f87171';
+      const genStatusIcon  = r.status === 'success' ? '✓' : '✕';
+
+      // Approval badge
+      const approvalMap = {
+        approved: { color: '#22c55e', bg: '#14532d', border: '#166534', label: '✓ Approved' },
+        rejected: { color: '#fca5a5', bg: '#7f1d1d', border: '#991b1b', label: '✕ Rejected' },
+        pending:  { color: '#fbbf24', bg: '#451a03', border: '#92400e', label: '⏳ Pending' },
+      };
+      const apv = approvalMap[r.approval_status] || approvalMap.pending;
+      const approvalBadge = `<span style="background:${apv.bg};border:1px solid ${apv.border};color:${apv.color};border-radius:5px;padding:2px 8px;font-size:11px">${apv.label}</span>`;
+
+      const regenBadge = r.regenerated_from
+        ? `<span style="background:#1e1b4b;border:1px solid #3730a3;color:#a5b4fc;border-radius:5px;padding:2px 8px;font-size:11px">↻ Regenerated</span>`
+        : '';
+
+      let structuredPreview = '';
+      if (r.structured_json) {
+        try {
+          const parsed = JSON.parse(r.structured_json);
+          const sceneCount = parsed.scenes?.length || 0;
+          structuredPreview = `<span style="color:#7c6dff;font-size:11px">${sceneCount} scene${sceneCount !== 1 ? 's' : ''}</span>`;
+        } catch(e) {}
+      }
+
+      return `
+      <div style="background:#0c0c1a;border:1px solid #16162a;border-radius:12px;padding:18px 20px;margin-bottom:12px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="color:${genStatusColor};font-size:12px;font-weight:700">${genStatusIcon} ${r.status}</span>
+            <span style="background:#13132a;border:1px solid #222238;border-radius:5px;padding:2px 8px;font-size:11px;color:#888">${r.llm_provider} / ${r.llm_model}</span>
+            ${approvalBadge}
+            ${regenBadge}
+            ${structuredPreview}
+          </div>
+          <span style="font-size:11px;color:#444;white-space:nowrap">${date}</span>
+        </div>
+        <div style="font-size:12px;color:#666;line-height:1.6;max-height:60px;overflow:hidden;text-overflow:ellipsis">
+          ${r.raw_script ? r.raw_script.slice(0, 200) + (r.raw_script.length > 200 ? '…' : '') : '<em>No script text</em>'}
+        </div>
+        ${r.rejection_reason ? `<div style="font-size:11px;color:#f87171;margin-top:6px;font-style:italic">Rejected: "${r.rejection_reason}"</div>` : ''}
+        ${r.error_message ? `<div style="font-size:11px;color:#f87171;margin-top:6px">Error: ${r.error_message}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // Run on load
+  checkEmailCapture();
 
 </script>
 </body>
