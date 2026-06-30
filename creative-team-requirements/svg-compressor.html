@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVG Compressor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; }
+
+  header { padding: 24px 32px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header span { font-size: 13px; color: #666; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px; }
+
+  .drop-zone {
+    border: 2px dashed #333; border-radius: 12px; padding: 48px; text-align: center;
+    cursor: pointer; transition: border-color 0.2s, background 0.2s; background: #141414; position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #555; background: #1a1a1a; }
+  .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-zone .icon { font-size: 40px; margin-bottom: 12px; }
+  .drop-zone p { color: #888; font-size: 14px; }
+  .drop-zone p strong { color: #ccc; }
+
+  .options { margin-top: 24px; background: #141414; border: 1px solid #222; border-radius: 12px; padding: 20px 24px; }
+  .options h3 { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+
+  .section-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 8px; }
+  .divider { border: none; border-top: 1px solid #1e1e1e; margin: 16px 0; }
+
+  .option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .option-item { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 10px; border-radius: 8px; transition: background 0.15s; }
+  .option-item:hover { background: #1e1e1e; }
+  .option-item input[type="checkbox"] { accent-color: #7c6af7; width: 15px; height: 15px; cursor: pointer; }
+  .option-item label { font-size: 13px; color: #bbb; cursor: pointer; user-select: none; }
+
+  .slider-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; }
+  .slider-row label { font-size: 13px; color: #bbb; min-width: 130px; }
+  .slider-row input[type="range"] { accent-color: #7c6af7; flex: 1; max-width: 160px; }
+  .slider-row span { font-size: 13px; color: #888; min-width: 36px; }
+
+  /* Image quality section highlight */
+  .image-section { background: #161a1e; border: 1px solid #1e2a38; border-radius: 8px; padding: 12px 14px; margin-top: 8px; }
+  .image-section .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #1e3a5a; color: #5ab4f7; margin-bottom: 10px; }
+
+  .results { margin-top: 28px; display: flex; flex-direction: column; gap: 12px; }
+
+  .result-card { background: #141414; border: 1px solid #222; border-radius: 12px; overflow: hidden; }
+  .result-header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #1e1e1e; }
+  .result-header .filename { font-size: 14px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .savings-badge { padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #1a3a2a; color: #4caf50; }
+  .savings-badge.warn { background: #2a2a1a; color: #f0b429; }
+
+  .img-badge { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #1e3a5a; color: #5ab4f7; }
+
+  .result-body { padding: 14px 18px; display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+
+  .size-info { display: flex; gap: 20px; align-items: center; }
+  .size-box { text-align: center; }
+  .size-box .val { font-size: 20px; font-weight: 600; }
+  .size-box .lbl { font-size: 11px; color: #666; margin-top: 2px; }
+  .arrow { color: #444; font-size: 18px; }
+
+  .bar-wrap { flex: 1; min-width: 180px; }
+  .bar-track { background: #222; border-radius: 4px; height: 6px; margin-top: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: #4caf50; transition: width 0.4s; }
+
+  .actions { display: flex; gap: 8px; margin-left: auto; }
+  .btn { padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: #7c6af7; color: #fff; }
+  .btn-secondary { background: #222; color: #bbb; }
+
+  .preview-wrap { display: flex; gap: 16px; flex-wrap: wrap; width: 100%; margin-top: 4px; }
+  .preview-box { flex: 1; min-width: 140px; background: #1a1a1a; border-radius: 8px; padding: 12px; text-align: center; }
+  .preview-box .lbl { font-size: 11px; color: #555; margin-bottom: 8px; }
+  .preview-box img { max-width: 100%; max-height: 80px; }
+
+  .code-row { width: 100%; margin-top: 8px; }
+  .code-row details summary { font-size: 12px; color: #555; cursor: pointer; padding: 4px 0; }
+  .code-row pre {
+    margin-top: 8px; background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 8px;
+    padding: 12px; font-size: 11px; color: #888; overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+    max-height: 160px; overflow-y: auto;
+  }
+
+  .processing { text-align: center; color: #555; padding: 12px; font-size: 13px; }
+
+  .btn-compress-all {
+    margin-top: 24px; width: 100%; padding: 12px; border-radius: 10px;
+    font-size: 14px; font-weight: 600; background: #7c6af7; color: #fff; border: none; cursor: pointer; display: none;
+  }
+  .btn-compress-all:hover { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c6af7" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+  <h1>SVG Compressor</h1>
+  <span>Minify &amp; optimize SVGs in-browser</span>
+</header>
+
+<div class="container">
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".svg,image/svg+xml" multiple>
+    <div class="icon">🗜️</div>
+    <p><strong>Drop SVG files here</strong> or click to browse</p>
+    <p style="margin-top:6px;font-size:12px;">Supports multiple files</p>
+  </div>
+
+  <div class="options">
+    <h3>Optimization Options</h3>
+
+    <div class="section-label">SVG markup</div>
+    <div class="option-grid">
+      <div class="option-item"><input type="checkbox" id="opt-meta" checked><label for="opt-meta">Remove metadata &amp; comments</label></div>
+      <div class="option-item"><input type="checkbox" id="opt-whitespace" checked><label for="opt-whitespace">Collapse whitespace</label></div>
+      <div class="option-item"><input type="checkbox" id="opt-attrs" checked><label for="opt-attrs">Remove default attributes</label></div>
+      <div class="option-item"><input type="checkbox" id="opt-ids" checked><label for="opt-ids">Remove editor IDs/data attrs</label></div>
+      <div class="option-item"><input type="checkbox" id="opt-style" checked><label for="opt-style">Normalize inline styles</label></div>
+      <div class="option-item"><input type="checkbox" id="opt-viewbox" checked><label for="opt-viewbox">Remove redundant width/height</label></div>
+      <div class="option-item"><input type="checkbox" id="opt-empty" checked><label for="opt-empty">Remove empty groups/defs</label></div>
+      <div class="option-item"><input type="checkbox" id="opt-numbers" checked><label for="opt-numbers">Round decimal numbers</label></div>
+    </div>
+    <div class="slider-row">
+      <label for="precision">Decimal precision:</label>
+      <input type="range" id="precision" min="1" max="6" value="2">
+      <span id="precision-val">2</span>
+    </div>
+
+    <hr class="divider">
+
+    <div class="image-section">
+      <div class="tag">Embedded image recompression</div>
+      <p style="font-size:12px;color:#666;margin-bottom:10px;">For SVGs that embed raster images as base64 (e.g. Figma exports). This is usually where 90%+ of the file size lives.</p>
+      <div class="option-item" style="padding:4px 0">
+        <input type="checkbox" id="opt-recompress-img" checked>
+        <label for="opt-recompress-img">Recompress embedded base64 images</label>
+      </div>
+      <div class="slider-row" id="img-format-row">
+        <label for="img-format">Output format:</label>
+        <select id="img-format" style="background:#1a1a1a;color:#bbb;border:1px solid #333;border-radius:6px;padding:4px 8px;font-size:13px;accent-color:#7c6af7">
+          <option value="image/webp">WebP (lossy, best size)</option>
+          <option value="image/jpeg">JPEG (lossy)</option>
+          <option value="image/png" selected>PNG (lossless, no quality loss)</option>
+        </select>
+      </div>
+      <div class="slider-row" id="img-quality-row">
+        <label for="img-quality">Image quality:</label>
+        <input type="range" id="img-quality" min="10" max="100" value="80">
+        <span id="img-quality-val">80%</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-compress-all" id="compressAllBtn">⬇️ Download All Compressed</button>
+  <div class="results" id="results"></div>
+</div>
+
+<script>
+const results = [];
+
+document.getElementById('precision').addEventListener('input', e => {
+  document.getElementById('precision-val').textContent = e.target.value;
+});
+document.getElementById('img-quality').addEventListener('input', e => {
+  document.getElementById('img-quality-val').textContent = e.target.value + '%';
+});
+document.getElementById('img-quality').addEventListener('change', recompressAll);
+document.getElementById('img-format').addEventListener('change', e => {
+  const isPng = e.target.value === 'image/png';
+  document.getElementById('img-quality-row').style.opacity = isPng ? '0.4' : '1';
+  document.getElementById('img-quality-row').style.pointerEvents = isPng ? 'none' : '';
+  recompressAll();
+});
+// Init state for default PNG selection
+(function() {
+  const isPng = document.getElementById('img-format').value === 'image/png';
+  document.getElementById('img-quality-row').style.opacity = isPng ? '0.4' : '1';
+  document.getElementById('img-quality-row').style.pointerEvents = isPng ? 'none' : '';
+})();
+document.getElementById('opt-recompress-img').addEventListener('change', e => {
+  document.getElementById('img-format-row').style.opacity = e.target.checked ? '1' : '0.4';
+  document.getElementById('img-quality-row').style.opacity = e.target.checked ? '1' : '0.4';
+  recompressAll();
+});
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFiles(Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.svg') || f.type === 'image/svg+xml'));
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  handleFiles(Array.from(e.target.files));
+  e.target.value = '';
+});
+
+function getOptions() {
+  return {
+    meta: document.getElementById('opt-meta').checked,
+    whitespace: document.getElementById('opt-whitespace').checked,
+    attrs: document.getElementById('opt-attrs').checked,
+    ids: document.getElementById('opt-ids').checked,
+    style: document.getElementById('opt-style').checked,
+    viewbox: document.getElementById('opt-viewbox').checked,
+    empty: document.getElementById('opt-empty').checked,
+    numbers: document.getElementById('opt-numbers').checked,
+    precision: parseInt(document.getElementById('precision').value),
+    recompressImg: document.getElementById('opt-recompress-img').checked,
+    imgFormat: document.getElementById('img-format').value,
+    imgQuality: parseInt(document.getElementById('img-quality').value) / 100,
+  };
+}
+
+// Recompress all base64 data URIs inside <image> elements in the SVG
+// Reads explicit width/height from the <image> element to avoid canvas size mismatches
+async function recompressEmbeddedImages(svgText, format, quality) {
+  // Match full <image ...> tags that contain a base64 data URI
+  const imgTagRegex = /<image([^>]*)>/g;
+  const matches = [...svgText.matchAll(imgTagRegex)];
+  if (!matches.length) return svgText;
+
+  let result = svgText;
+
+  for (const match of matches) {
+    const attrs = match[1];
+    const uriMatch = attrs.match(/(xlink:href|href)="(data:image\/[^;]+;base64,[^"]+)"/);
+    if (!uriMatch) continue;
+    const dataUri = uriMatch[2];
+
+    // Get authoritative dimensions from the SVG <image> element attributes
+    const wAttr = attrs.match(/\bwidth="(\d+(?:\.\d+)?)"/);
+    const hAttr = attrs.match(/\bheight="(\d+(?:\.\d+)?)"/);
+    const svgW = wAttr ? Math.round(parseFloat(wAttr[1])) : 0;
+    const svgH = hAttr ? Math.round(parseFloat(hAttr[1])) : 0;
+
+    try {
+      const recompressed = await recompressDataUri(dataUri, format, quality, svgW, svgH);
+      if (recompressed.length < dataUri.length) {
+        // Replace only this specific occurrence
+        result = result.replace(dataUri, recompressed);
+      }
+    } catch (e) {
+      // skip if anything fails
+    }
+  }
+
+  return result;
+}
+
+function recompressDataUri(dataUri, format, quality, explicitW = 0, explicitH = 0) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      // Prefer explicit dimensions from the SVG element; fall back to naturalWidth/naturalHeight
+      const w = explicitW || img.naturalWidth;
+      const h = explicitH || img.naturalHeight;
+
+      if (!w || !h) {
+        resolve(dataUri); // can't determine size — skip
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      if (format === 'image/jpeg') {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      // Explicit destination rect ensures the full image fills the canvas
+      ctx.drawImage(img, 0, 0, w, h);
+      const out = canvas.toDataURL(format, quality);
+      resolve(out);
+    };
+    img.onerror = () => resolve(dataUri); // on error, keep original
+    img.src = dataUri;
+  });
+}
+
+function compressSVGMarkup(svgText, opts) {
+  let s = svgText;
+
+  if (opts.meta) {
+    s = s.replace(/<\?xml[^>]*\?>/gi, '');
+    s = s.replace(/<!DOCTYPE[^>]*>/gi, '');
+    s = s.replace(/<!--[\s\S]*?-->/g, '');
+    s = s.replace(/<metadata[\s\S]*?<\/metadata>/gi, '');
+    s = s.replace(/<title>[\s\S]*?<\/title>/gi, '');
+    s = s.replace(/<desc>[\s\S]*?<\/desc>/gi, '');
+    s = s.replace(/<sodipodi:[^/]*\/>/gi, '');
+    s = s.replace(/<sodipodi:[\s\S]*?<\/sodipodi:[^>]*>/gi, '');
+    s = s.replace(/\s+xmlns:(inkscape|sodipodi|dc|cc|rdf)="[^"]*"/g, '');
+    s = s.replace(/\s+(inkscape|sodipodi):[a-z-]+=["'][^"']*["']/g, '');
+  }
+
+  if (opts.ids) {
+    s = s.replace(/\s+data-[a-z-]+=["'][^"']*["']/g, '');
+    // Only strip IDs that are NOT referenced elsewhere (safe: only strip ids with no url(#...) or href="#..." reference)
+    s = s.replace(/\s+id="([^"]*)"/g, (m, idVal) => {
+      // Keep IDs that are referenced via url(#id) or href="#id" or xlink:href="#id"
+      const refPattern = new RegExp(`(url\\(#${idVal}\\)|href="#${idVal}"|xlink:href="#${idVal}")`);
+      return refPattern.test(s) ? m : '';
+    });
+  }
+
+  if (opts.attrs) {
+    s = s.replace(/\s+version="[^"]*"/g, '');
+    s = s.replace(/\s+xml:space="[^"]*"/g, '');
+    s = s.replace(/\s+display="inline"/g, '');
+    s = s.replace(/\s+visibility="visible"/g, '');
+    s = s.replace(/\s+enable-background="[^"]*"/g, '');
+  }
+
+  if (opts.viewbox) {
+    s = s.replace(/<svg([^>]*)>/, (match, attrs) => {
+      const vbMatch = attrs.match(/viewBox="(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)"/);
+      if (vbMatch) {
+        const [, , , w, h] = vbMatch;
+        attrs = attrs.replace(new RegExp(`\\s+width="${w}(?:px)?"`), '');
+        attrs = attrs.replace(new RegExp(`\\s+height="${h}(?:px)?"`), '');
+      }
+      return `<svg${attrs}>`;
+    });
+  }
+
+  if (opts.style) {
+    s = s.replace(/style="([^"]*)"/g, (m, style) => {
+      const cleaned = style.split(';').map(p => p.trim()).filter(Boolean).join(';');
+      return `style="${cleaned}"`;
+    });
+  }
+
+  if (opts.numbers) {
+    const p = opts.precision;
+    // Safe rounding: never round a non-zero number down to exactly 0
+    const safeRound = n => {
+      const f = parseFloat(n);
+      const r = parseFloat(f.toFixed(p));
+      return (r === 0 && f !== 0) ? f.toString() : r.toString();
+    };
+    // Round path coordinates (safe — these are never tiny scale factors)
+    s = s.replace(/\bd="([^"]*)"/g, (m, d) => {
+      return `d="${d.replace(/(-?\d+\.\d+)/g, safeRound)}"`;
+    });
+    // Round geometric attributes only — NOT transform (scale values can be tiny, e.g. 0.000625)
+    s = s.replace(/(points|cx|cy|r|x1|y1|x2|y2|rx|ry|offset|stdDeviation)="([^"]*)"/g, (m, attr, val) => {
+      return `${attr}="${val.replace(/(-?\d+\.\d+)/g, safeRound)}"`;
+    });
+  }
+
+  if (opts.empty) {
+    s = s.replace(/<g[^>]*>\s*<\/g>/g, '');
+    s = s.replace(/<defs[^>]*>\s*<\/defs>/g, '');
+    s = s.replace(/<style[^>]*>\s*<\/style>/g, '');
+  }
+
+  if (opts.whitespace) {
+    s = s.replace(/>\s+</g, '><');
+    s = s.trim();
+    // Collapse multiple spaces between attributes (but NOT inside attribute values)
+    s = s.replace(/(<[a-zA-Z][^>]*?) {2,}/g, '$1 ');
+  }
+
+  return s.trim();
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function countEmbeddedImages(svgText) {
+  return (svgText.match(/(xlink:href|href)="data:image\//g) || []).length;
+}
+
+async function handleFiles(files) {
+  if (!files.length) return;
+  for (const file of files) {
+    const id = 'r' + Date.now() + Math.random().toString(36).slice(2);
+    // Show processing placeholder
+    const container = document.getElementById('results');
+    const placeholder = document.createElement('div');
+    placeholder.id = id;
+    placeholder.className = 'result-card';
+    placeholder.innerHTML = `<div class="processing">Processing ${file.name}…</div>`;
+    container.prepend(placeholder);
+
+    const original = await readFileAsText(file);
+    const opts = getOptions();
+    const origSize = new Blob([original]).size;
+    const imgCount = countEmbeddedImages(original);
+
+    let compressed = compressSVGMarkup(original, opts);
+    if (opts.recompressImg && imgCount > 0) {
+      compressed = await recompressEmbeddedImages(compressed, opts.imgFormat, opts.imgQuality);
+    }
+
+    const compSize = new Blob([compressed]).size;
+    const saving = ((origSize - compSize) / origSize * 100);
+
+    const entry = { id, name: file.name, original, compressed, origSize, compSize, imgCount };
+    results.push(entry);
+
+    placeholder.remove();
+    renderCard({ ...entry, saving });
+    updateCompressAllBtn();
+  }
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.onerror = reject;
+    r.readAsText(file);
+  });
+}
+
+function renderCard({ id, name, original, compressed, origSize, compSize, saving, imgCount }) {
+  const container = document.getElementById('results');
+  const card = document.createElement('div');
+  card.className = 'result-card';
+  card.id = id;
+
+  const savingText = saving > 0 ? `-${saving.toFixed(1)}%` : `+${Math.abs(saving).toFixed(1)}%`;
+  const badgeClass = saving > 0 ? '' : 'warn';
+  const origBlob = URL.createObjectURL(new Blob([original], { type: 'image/svg+xml' }));
+  const compBlob = URL.createObjectURL(new Blob([compressed], { type: 'image/svg+xml' }));
+  const barWidth = Math.max(2, 100 - saving).toFixed(1);
+  const imgBadge = imgCount > 0 ? `<span class="img-badge">${imgCount} embedded image${imgCount > 1 ? 's' : ''}</span>` : '';
+
+  card.innerHTML = `
+    <div class="result-header">
+      <span class="filename" title="${name}">${name}</span>
+      ${imgBadge}
+      <span class="savings-badge ${badgeClass}">${savingText}</span>
+    </div>
+    <div class="result-body">
+      <div class="size-info">
+        <div class="size-box">
+          <div class="val">${formatBytes(origSize)}</div>
+          <div class="lbl">Original</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="size-box">
+          <div class="val" style="color:#4caf50">${formatBytes(compSize)}</div>
+          <div class="lbl">Compressed</div>
+        </div>
+      </div>
+      <div class="bar-wrap">
+        <div style="font-size:11px;color:#555">Remaining size</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="recompress('${id}')">⚙️ Re-run</button>
+        <button class="btn btn-primary" onclick="downloadSingle('${id}')">⬇️ Download</button>
+      </div>
+      <div class="preview-wrap">
+        <div class="preview-box">
+          <div class="lbl">Original</div>
+          <img src="${origBlob}" alt="original">
+        </div>
+        <div class="preview-box">
+          <div class="lbl">Compressed</div>
+          <img src="${compBlob}" alt="compressed">
+        </div>
+      </div>
+      <div class="code-row">
+        <details>
+          <summary>View compressed SVG code</summary>
+          <pre>${escapeHtml(compressed.slice(0, 4000))}${compressed.length > 4000 ? '\n… (truncated)' : ''}</pre>
+        </details>
+      </div>
+    </div>
+  `;
+
+  container.prepend(card);
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function downloadSingle(id) {
+  const r = results.find(x => x.id === id);
+  if (!r) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([r.compressed], { type: 'image/svg+xml' }));
+  a.download = r.name.replace(/\.svg$/i, '.min.svg');
+  a.click();
+}
+
+async function recompressAll() {
+  if (!results.length) return;
+  for (const r of results) await recompress(r.id);
+}
+
+async function recompress(id) {
+  const r = results.find(x => x.id === id);
+  if (!r) return;
+  const opts = getOptions();
+  const old = document.getElementById(id);
+  if (old) { old.innerHTML = `<div class="processing">Re-processing…</div>`; }
+
+  let compressed = compressSVGMarkup(r.original, opts);
+  if (opts.recompressImg && r.imgCount > 0) {
+    compressed = await recompressEmbeddedImages(compressed, opts.imgFormat, opts.imgQuality);
+  }
+  r.compressed = compressed;
+  r.compSize = new Blob([compressed]).size;
+  const saving = ((r.origSize - r.compSize) / r.origSize * 100);
+  if (old) old.remove();
+  renderCard({ ...r, saving });
+}
+
+function updateCompressAllBtn() {
+  const btn = document.getElementById('compressAllBtn');
+  btn.style.display = results.length > 1 ? 'block' : 'none';
+}
+
+document.getElementById('compressAllBtn').addEventListener('click', () => {
+  results.forEach(r => downloadSingle(r.id));
+});
+</script>
+</body>
+</html>
