@@ -328,6 +328,20 @@ a{color:inherit;text-decoration:none}
 }
 .btn-approve:hover{background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.5)}
 .btn-approve svg{width:12px;height:12px}
+.btn-approve:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+.alert-action-move-wrap{flex:1;display:flex;align-items:center;gap:10px;min-width:0}
+.alert-action-move-label{font-size:11.5px;color:var(--t2);white-space:nowrap;font-weight:600}
+.alert-adset-select{
+  flex:1;min-width:0;padding:6px 10px;border-radius:8px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  color:var(--t1);font-size:12px;font-family:inherit;cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  padding-right:30px;transition:border-color .15s,background .15s;
+}
+.alert-adset-select:focus{outline:none;border-color:rgba(175,70,253,.5);background:rgba(175,70,253,.07)}
+.alert-adset-select option{background:#1a1a2e;color:var(--t1)}
 .alert-done-banner{
   display:none;align-items:center;gap:8px;
   padding:8px 12px;border-radius:8px;margin-top:8px;font-size:12px;font-weight:600;
@@ -1166,8 +1180,8 @@ const ACCOUNTS = [
         { id:'px4', name:'Ad: "Free Delivery" — Story Format', metrics:{ roas7:'1.1x', roas30:'1.8x', cpa7:'₹890', ctr7:'0.9%', spend7:'₹6,100', conv7:'7', convTotal:'44', convVal:'₹6,710', trend:'down' }, action:'Pause this ad' },
       ],
       move:[
-        { id:'mx1', name:'Ad: "Product Demo" — Video 15s', metrics:{ roas7:'3.1x', roas30:'2.8x', cpa7:'₹320', ctr7:'2.6%', spend7:'₹14,200', conv7:'44', convTotal:'180', convVal:'₹44,020', trend:'up' }, action:'Move to Ad Set "25-34 Interest Overlap"' },
-        { id:'mx2', name:'Ad: "Limited Stock" — Static v4', metrics:{ roas7:'0.8x', roas30:'1.1x', cpa7:'₹1,240', ctr7:'1.2%', spend7:'₹8,400', conv7:'7', convTotal:'29', convVal:'₹6,720', trend:'down' }, action:'Move to Ad Set "Retargeting — 30d Visitors"' },
+        { id:'mx1', name:'Ad: "Product Demo" — Video 15s', metrics:{ roas7:'3.1x', roas30:'2.8x', cpa7:'₹320', ctr7:'2.6%', spend7:'₹14,200', conv7:'44', convTotal:'180', convVal:'₹44,020', trend:'up' }, action:'Move to a better-performing ad set', adSets:['25-34 Interest Overlap','Lookalike 1% — Purchasers','Retargeting — 30d Visitors','Broad India — Mobile'] },
+        { id:'mx2', name:'Ad: "Limited Stock" — Static v4', metrics:{ roas7:'0.8x', roas30:'1.1x', cpa7:'₹1,240', ctr7:'1.2%', spend7:'₹8,400', conv7:'7', convTotal:'29', convVal:'₹6,720', trend:'down' }, action:'Move to a better-performing ad set', adSets:['Retargeting — 30d Visitors','25-34 Interest Overlap','Lookalike 2% — Site Visitors','Tier-1 Cities — Metro'] },
       ]
     }
   },
@@ -1184,7 +1198,7 @@ const ACCOUNTS = [
         { id:'py2', name:'PMAX — Product Feed Auto', metrics:{ roas7:'0.9x', roas30:'1.2x', cpa7:'₹1,240', ctr7:'0.8%', spend7:'₹11,000', conv7:'9', convTotal:'41', convVal:'₹9,900', trend:'down' }, action:'Pause PMAX and reallocate to manual campaigns' },
       ],
       move:[
-        { id:'my1', name:'Ad: "Enterprise Plan" — Responsive', metrics:{ roas7:'3.8x', roas30:'2.9x', cpa7:'₹380', ctr7:'4.8%', spend7:'₹9,500', conv7:'25', convTotal:'88', convVal:'₹36,100', trend:'up' }, action:'Move to "Enterprise Logistics" ad group' },
+        { id:'my1', name:'Ad: "Enterprise Plan" — Responsive', metrics:{ roas7:'3.8x', roas30:'2.9x', cpa7:'₹380', ctr7:'4.8%', spend7:'₹9,500', conv7:'25', convTotal:'88', convVal:'₹36,100', trend:'up' }, action:'Move to a better-performing ad set', adSets:['Enterprise Logistics','Decision Makers 35+','B2B Intent — LinkedIn Match','SME Owners 25-44'] },
       ]
     }
   },
@@ -1506,7 +1520,7 @@ function renderCard(c, color, tag, accId){
   const ctasHtml = isDone ? '' : `
     <div class="alert-ctas">
       <button class="btn-reject" onclick="startReject('${c.id}','${accId}')">Reject</button>
-      <button class="btn-approve" onclick="startApprove('${c.id}','${accId}')">
+      <button class="btn-approve" id="approve-btn-${c.id}" ${tag==='move'?'disabled':''} onclick="startApprove('${c.id}','${accId}')">
         <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
         Approve
       </button>
@@ -1529,7 +1543,7 @@ function renderCard(c, color, tag, accId){
   const doneBannerHtml = isDone ? `
     <div class="alert-done-banner ${done}" style="display:flex;margin-top:10px">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l3.5 3.5L12 3"/></svg>
-      <span>${done==='approved'?'Action approved — changes applied':'Action rejected'+(rejectReasons[c.id]?' · "'+rejectReasons[c.id]+'"':'')}</span>
+      <span>${done==='approved'?(tag==='move'&&moveAdSetSelections[c.id]?`Moved to "${moveAdSetSelections[c.id]}" — changes applied`:'Action approved — changes applied'):'Action rejected'+(rejectReasons[c.id]?' · "'+rejectReasons[c.id]+'"':'')}</span>
     </div>` : '';
 
   return `
@@ -1543,12 +1557,32 @@ function renderCard(c, color, tag, accId){
       </div>
       <div class="alert-metrics">${metricsHtml}</div>
       <div class="alert-action-row">
-        <div class="alert-action-text">Suggested action: <strong>${c.action}</strong></div>
+        ${tag === 'move' && !isDone ? `
+        <div class="alert-action-move-wrap">
+          <span class="alert-action-move-label">Move to ad set:</span>
+          <select class="alert-adset-select" id="adset-sel-${c.id}" onchange="onAdSetChange('${c.id}')">
+            <option value="">Select destination ad set…</option>
+            ${(c.adSets||[]).map(s=>`<option value="${s}">${s}</option>`).join('')}
+          </select>
+        </div>` : `<div class="alert-action-text">Suggested action: <strong>${c.action}</strong></div>`}
         ${ctasHtml}
       </div>
       ${isDone ? doneBannerHtml : approveProgressHtml + rejectFeedbackHtml + doneBannerHtml}
     </div>
   </div>`;
+}
+
+/* ─────────────────────────────────────────
+   AD SET PICKER (move cards)
+───────────────────────────────────────── */
+const moveAdSetSelections = {};
+
+function onAdSetChange(cardId){
+  const sel = document.getElementById('adset-sel-'+cardId);
+  const btn = document.getElementById('approve-btn-'+cardId);
+  if(!sel || !btn) return;
+  moveAdSetSelections[cardId] = sel.value;
+  btn.disabled = !sel.value;
 }
 
 /* ─────────────────────────────────────────

@@ -82,6 +82,14 @@ a{color:inherit;text-decoration:none}
 .topbar-btn.primary{background:var(--grad);border:none;color:#fff}
 .topbar-btn.primary:hover{opacity:.88}
 .topbar-btn svg{width:14px;height:14px;flex-shrink:0}
+.cond-style-toggle{display:flex;align-items:center;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:3px;gap:2px}
+.cst-btn{
+  display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:7px;
+  background:transparent;border:none;color:var(--t3);font-size:12px;font-weight:600;
+  font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.cst-btn:hover{color:var(--t2)}
+.cst-btn.active{background:rgba(175,70,253,.15);color:var(--purple);border:1px solid rgba(175,70,253,.25)}
 
 /* ── CONTENT ── */
 .content{flex:1;overflow-y:auto;padding:32px 36px}
@@ -214,6 +222,14 @@ a{color:inherit;text-decoration:none}
 .rule-action-pill.notify{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.15);color:#fbbf24}
 .rule-action-pill svg{width:10px;height:10px;flex-shrink:0}
 
+.rule-auto-badge{
+  display:flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.03em;
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fbbf24;
+  flex-shrink:0;white-space:nowrap;
+}
+.rule-auto-badge svg{color:#fbbf24;width:10px;height:10px}
+
 .rule-edit-btn{
   display:flex;align-items:center;justify-content:center;
   width:26px;height:26px;border-radius:6px;
@@ -252,6 +268,9 @@ a{color:inherit;text-decoration:none}
 .rule-body-cols{display:flex;flex-direction:row;gap:32px;align-items:flex-start}
 .rule-body-left{flex:1;min-width:0}
 .rule-body-right{flex-shrink:0}
+/* V2 tree mode: stack vertically so conditions get full width */
+.cond-style-v2 .rule-body-cols{flex-direction:column;gap:16px}
+.cond-style-v2 .rule-body-right{align-self:flex-start}
 
 .rule-section-label{
   font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;
@@ -277,6 +296,32 @@ a{color:inherit;text-decoration:none}
   padding:2px 8px;border-radius:20px;
   background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.12);
 }
+/* nested condition group */
+.condition-group{
+  display:flex;flex-direction:column;gap:4px;
+  padding:8px 10px;border-radius:10px;
+  background:rgba(255,255,255,.018);
+  border:1px solid rgba(255,255,255,.07);
+  border-left:2px solid rgba(175,70,253,.35);
+  position:relative;
+}
+.condition-group-header{
+  display:flex;align-items:center;gap:6px;margin-bottom:4px;
+}
+.condition-group-label{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:rgba(175,70,253,.6);padding:2px 8px;border-radius:20px;
+  background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.18);
+}
+.condition-group-desc{
+  font-size:10px;color:var(--t3);
+}
+.condition-group-connector{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+  color:rgba(255,160,50,.6);
+  padding:2px 8px;border-radius:20px;
+  background:rgba(255,160,50,.08);border:1px solid rgba(255,160,50,.15);
+}
 .cond-field{color:rgba(255,255,255,.75);font-weight:600;flex-shrink:0}
 .cond-op{color:var(--t3);font-size:11px;margin:0 4px;flex-shrink:0}
 .cond-val{
@@ -294,6 +339,240 @@ a{color:inherit;text-decoration:none}
 .cond-icon.good{background:rgba(34,197,94,.1);color:#4ade80}
 .cond-icon.neutral{background:rgba(255,255,255,.06);color:var(--t3)}
 
+/* ── DESIGN COMPARE SECTION ── */
+.design-compare-section{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  margin-bottom:16px;overflow:hidden;
+}
+.design-compare-section.collapsed .design-compare-grid{ display:none }
+.design-compare-section.collapsed .design-compare-toggle svg{ transform:rotate(-90deg) }
+.design-compare-header{
+  display:flex;align-items:center;gap:10px;padding:14px 18px;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.design-compare-title{font-size:12px;font-weight:700;color:var(--t1)}
+.design-compare-sub{font-size:11px;color:var(--t3);flex:1}
+.design-compare-toggle{
+  background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:7px;
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  color:var(--t3);cursor:pointer;transition:all .15s;flex-shrink:0;
+}
+.design-compare-toggle svg{transition:transform .2s}
+.design-compare-toggle:hover{border-color:rgba(255,255,255,.2);color:var(--t2)}
+.design-compare-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:1px;
+  background:rgba(255,255,255,.05);
+}
+.dv-card{
+  background:var(--bg);padding:18px 20px;display:flex;flex-direction:column;gap:12px;
+}
+.dv-label{
+  font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--purple);padding:3px 9px;border-radius:20px;
+  background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.2);
+  align-self:flex-start;
+}
+/* shared row */
+.dv-row{display:flex;align-items:center;gap:7px;font-size:11.5px;flex-wrap:wrap}
+.dv-field{color:rgba(255,255,255,.8);font-weight:600}
+.dv-op{color:var(--t3);font-size:10.5px}
+.dv-val{color:#fff;font-weight:700;padding:2px 8px;border-radius:6px;
+  background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.18);font-size:10.5px}
+.dv-and,.dv-or{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 8px;border-radius:20px;align-self:flex-start;
+}
+.dv-and{color:rgba(175,70,253,.6);background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.12);margin-left:10px}
+.dv-or{color:rgba(255,160,50,.7);background:rgba(255,160,50,.08);border:1px solid rgba(255,160,50,.15);margin-left:10px}
+/* V1 */
+.dv-conds{display:flex;flex-direction:column;gap:5px}
+.dv1-group{
+  padding:10px 12px;border-radius:10px;
+  background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.07);
+  border-left:2px solid rgba(175,70,253,.4);
+  display:flex;flex-direction:column;gap:6px;
+}
+.dv1-group-hd{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.dv1-group-badge{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:rgba(175,70,253,.7);padding:2px 8px;border-radius:20px;
+  background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.2);
+}
+.dv1-group-desc{font-size:10px;color:var(--t3)}
+/* V2 */
+.dv2-tree{position:relative;padding-left:18px}
+.dv2-tree::before{
+  content:'';position:absolute;left:6px;top:10px;bottom:10px;width:1px;
+  background:rgba(255,255,255,.1);
+}
+.dv2-node{
+  display:flex;align-items:center;gap:7px;font-size:11.5px;
+  padding:6px 0;position:relative;
+}
+.dv2-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  background:rgba(175,70,253,.5);border:1px solid rgba(175,70,253,.6);
+  position:absolute;left:-18px;
+}
+.dv2-dot.sm{width:6px;height:6px;background:rgba(255,160,50,.5);border-color:rgba(255,160,50,.6)}
+.dv2-branch{
+  margin:4px 0;padding-left:14px;position:relative;
+}
+.dv2-branch::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:1px;
+  background:rgba(255,160,50,.25);
+}
+.dv2-branch-label{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:rgba(255,160,50,.7);padding:2px 8px;border-radius:20px;
+  background:rgba(255,160,50,.08);border:1px solid rgba(255,160,50,.15);
+  display:inline-flex;margin-bottom:5px;
+}
+.dv2-branch-body{display:flex;flex-direction:column;gap:2px}
+/* T2: clean tree used in rules-preview V2 mode */
+.t2-tree{
+  display:flex;flex-direction:column;gap:0;
+  position:relative;padding-left:22px;
+}
+.t2-tree::before{
+  content:'';position:absolute;left:6px;top:12px;bottom:12px;
+  width:1px;background:rgba(255,255,255,.1);
+}
+.t2-node{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 0;position:relative;font-size:12.5px;
+}
+.t2-dot{
+  width:9px;height:9px;border-radius:50%;flex-shrink:0;
+  background:rgba(175,70,253,.6);border:1.5px solid rgba(175,70,253,.9);
+  position:absolute;left:-22px;top:50%;transform:translateY(-50%);
+  box-shadow:0 0 6px rgba(175,70,253,.3);
+}
+.t2-dot.sm{
+  width:7px;height:7px;
+  background:rgba(255,160,50,.6);border-color:rgba(255,160,50,.9);
+  box-shadow:0 0 5px rgba(255,160,50,.25);
+}
+.t2-field{color:rgba(255,255,255,.85);font-weight:600}
+.t2-op{color:var(--t3);font-size:11px;margin:0 2px}
+.t2-val{
+  color:#fff;font-weight:700;
+  padding:2px 9px;border-radius:6px;
+  background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.18);
+  font-size:11px;
+}
+.t2-and-wrap{padding:2px 0;position:relative}
+.t2-and{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:rgba(175,70,253,.5);padding:2px 8px;border-radius:20px;
+  background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.1);
+  display:inline-flex;
+}
+.t2-branch{
+  margin:2px 0;padding-left:16px;position:relative;
+  display:flex;flex-direction:column;gap:0;width:100%;
+}
+.t2-branch::before{
+  content:'';position:absolute;left:0;top:10px;bottom:10px;
+  width:1px;background:rgba(255,160,50,.25);
+}
+.t2-or-wrap{padding:2px 0}
+.t2-or{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:rgba(255,160,50,.7);padding:2px 8px;border-radius:20px;
+  background:rgba(255,160,50,.08);border:1px solid rgba(255,160,50,.15);
+  display:inline-flex;
+}
+/* V3 */
+.dv3-flow{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-size:11.5px}
+.dv3-chip{
+  padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;
+}
+.dv3-chip.field{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+.dv3-chip.op{background:transparent;color:var(--t3);font-size:10.5px;font-weight:500;padding:0 2px}
+.dv3-chip.val{background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.18);color:#fff;font-weight:700}
+.dv3-sep{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:rgba(175,70,253,.6);padding:2px 7px;border-radius:20px;
+  background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.12);
+}
+.dv3-sep.or{color:rgba(255,160,50,.7);background:rgba(255,160,50,.08);border-color:rgba(255,160,50,.15)}
+.dv3-group-inline{
+  display:flex;flex-wrap:wrap;align-items:center;gap:5px;
+  background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:6px 10px;
+}
+.dv3-paren{font-size:16px;color:rgba(255,255,255,.25);font-weight:300;line-height:1}
+/* V4 */
+.dv4-text{
+  font-size:12px;line-height:2;color:var(--t2);
+}
+.dv4-f{color:rgba(255,255,255,.85);font-weight:600}
+.dv4-v{color:#fff;font-weight:700}
+.dv4-conn{
+  display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.06em;color:rgba(175,70,253,.6);margin:0 4px;
+  vertical-align:middle;
+}
+.dv4-conn.or{color:rgba(255,160,50,.7)}
+.dv4-group-text{
+  display:inline;color:var(--t3);font-size:11.5px;
+}
+
+/* ── V4 plain text prose ── */
+.v4-prose{
+  font-size:13px;line-height:2;color:var(--t2);
+  margin:0;word-break:break-word;
+}
+.v4-field{
+  color:rgba(255,255,255,.9);font-weight:700;
+}
+.v4-op{
+  color:var(--t3);font-size:12px;
+}
+.v4-val{
+  color:rgba(175,70,253,.95);font-weight:700;
+}
+.v4-logic{
+  font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+  color:rgba(255,255,255,.3);
+}
+.v4-logic.or{
+  color:rgba(255,160,50,.6);
+}
+.v4-group-inline{
+  color:var(--t2);
+}
+
+/* ── V4r rich structured prose ── */
+.v4r-wrap{display:flex;flex-direction:column;gap:4px}
+.v4r-cond{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:2px 0}
+.v4r-field{color:rgba(255,255,255,.9);font-weight:700}
+.v4r-op{color:var(--t3);font-size:11.5px;font-style:italic}
+.v4r-val{
+  color:#fff;font-weight:700;
+  padding:2px 9px;border-radius:6px;
+  background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.18);
+  font-size:11px;
+}
+.v4r-logic{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+  padding:2px 8px;border-radius:20px;display:inline-flex;align-self:flex-start;
+}
+.v4r-logic.and{color:rgba(175,70,253,.6);background:rgba(175,70,253,.07);border:1px solid rgba(175,70,253,.12)}
+.v4r-logic.or{color:rgba(255,160,50,.7);background:rgba(255,160,50,.08);border:1px solid rgba(255,160,50,.15)}
+.v4r-group{
+  display:flex;flex-direction:column;gap:4px;
+  padding:8px 12px;border-radius:10px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.07);
+}
+.v4r-group.depth-0{border-left:2px solid rgba(175,70,253,.35)}
+.v4r-group.depth-1{
+  border-left:2px solid rgba(255,160,50,.35);
+  background:rgba(255,160,50,.025);
+  margin-left:8px;
+}
 /* action block */
 .action-block{
   display:flex;align-items:center;gap:12px;
@@ -554,6 +833,35 @@ a{color:inherit;text-decoration:none}
 }
 .parsed-action-pct-input:focus{outline:none;border-color:rgba(175,70,253,.4)}
 .parsed-action-pct-sym{font-size:13px;font-weight:700;color:var(--t2)}
+/* auto-approve block */
+.auto-approve-block{
+  border-radius:11px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.025);overflow:hidden;
+  transition:border-color .2s;
+}
+.auto-approve-block.on{
+  border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.04);
+}
+.auto-approve-row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:12px 14px;
+}
+.auto-approve-left{flex:1;min-width:0}
+.auto-approve-title{
+  display:flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:700;color:var(--t1);margin-bottom:2px;
+}
+.auto-approve-title svg{color:rgba(245,158,11,.8)}
+.auto-approve-sub{font-size:11.5px;color:var(--t3)}
+.auto-approve-info{
+  display:flex;align-items:flex-start;gap:9px;
+  padding:11px 14px;border-top:1px solid rgba(245,158,11,.15);
+  background:rgba(245,158,11,.06);
+  font-size:11.5px;color:rgba(245,158,11,.85);line-height:1.55;
+}
+.auto-approve-info svg{color:rgba(245,158,11,.7)}
+.auto-approve-info strong{color:rgba(245,158,11,1);font-weight:700}
+
 .parsed-name-input{
   width:100%;padding:10px 14px;border-radius:9px;
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
@@ -653,7 +961,22 @@ a{color:inherit;text-decoration:none}
 
     <!-- TOPBAR -->
     <div class="topbar">
-      <div class="topbar-title">Rules</div>
+      <div class="topbar-title">Rules <span style="font-size:11px;font-weight:600;color:var(--purple);background:rgba(175,70,253,.12);border:1px solid rgba(175,70,253,.2);border-radius:6px;padding:2px 8px;margin-left:8px;letter-spacing:.02em;">Preview</span></div>
+      <!-- V2 / V4 toggle -->
+      <div class="cond-style-toggle" id="condStyleToggle">
+        <button class="cst-btn active" id="cst-v2" onclick="setCondStyle('v2')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="6" x2="6" y2="18"/><circle cx="6" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="6" cy="18" r="2" fill="currentColor" stroke="none"/><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/></svg>
+          Tree
+        </button>
+        <button class="cst-btn" id="cst-v4" onclick="setCondStyle('v4')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="16" y2="18"/></svg>
+          Plain
+        </button>
+        <button class="cst-btn" id="cst-v4r" onclick="setCondStyle('v4r')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="4" rx="1"/><rect x="3" y="11" width="18" height="4" rx="1"/><rect x="3" y="17" width="12" height="4" rx="1"/></svg>
+          Rich
+        </button>
+      </div>
       <button class="topbar-btn" onclick="window.location.href='alerts.html?runNow=1'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
         Run Rules Now
@@ -837,6 +1160,27 @@ a{color:inherit;text-decoration:none}
           <div class="parsed-section-label">Then</div>
           <div id="parsedActionRow"></div>
         </div>
+
+        <!-- Auto-approve toggle -->
+        <div class="auto-approve-block" id="autoApproveBlock">
+          <div class="auto-approve-row">
+            <div class="auto-approve-left">
+              <div class="auto-approve-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Auto-approve
+              </div>
+              <div class="auto-approve-sub">Fire this action automatically without review</div>
+            </div>
+            <div class="rule-toggle" id="autoApproveToggle" onclick="toggleAutoApprove()">
+              <div class="rule-toggle-thumb"></div>
+            </div>
+          </div>
+          <div class="auto-approve-info" id="autoApproveInfo" style="display:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>When a matching ad is found, the action will execute <strong>immediately</strong> — no alert or approval step. Use this only for rules you trust completely. You can turn this off anytime from the rule settings.</span>
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -864,7 +1208,13 @@ const RULES = {
         { icon: 'bad',     field: 'ROAS (last 7 days)',              op: 'is less than', val: '50% of account average' },
         { icon: 'neutral', field: 'Spend (last 7 days)',             op: 'is at least',  val: '3× CPR' },
         { icon: 'neutral', field: 'Landing page views (last 7 days)',op: 'is at least',  val: '50' },
-        { icon: 'neutral', field: 'Campaign objective',              op: 'is',           val: 'Sales' },
+        {
+          type: 'group', logic: 'OR',
+          conditions: [
+            { icon: 'neutral', field: 'Campaign objective', op: 'is', val: 'Sales' },
+            { icon: 'neutral', field: 'Campaign objective', op: 'is', val: 'Conversions' },
+          ]
+        },
         { icon: 'neutral', field: 'Days running',                    op: 'is at least',  val: '2 days' },
       ]
     },
@@ -917,6 +1267,31 @@ const RULES = {
         { icon: 'neutral', field: 'Days running',                op: 'is at least',     val: '7 days' },
       ]
     },
+    {
+      id: 'ad-6',
+      title: 'Smart pause — platform & performance',
+      subtitle: 'Pauses ads failing on both platform type and combined performance signals',
+      action: { type: 'pause', label: 'Turn off the ad' },
+      enabled: true,
+      conditions: [
+        { icon: 'neutral', field: 'Days running',  op: 'is at least', val: '3 days' },
+        {
+          type: 'group', logic: 'OR',
+          conditions: [
+            { icon: 'bad',     field: 'Platform', op: 'is', val: 'Audience Network' },
+            { icon: 'bad',     field: 'Platform', op: 'is', val: 'Messenger' },
+            {
+              type: 'group', logic: 'AND',
+              conditions: [
+                { icon: 'bad',     field: 'ROAS (last 7 days)',   op: 'is less than',  val: '1×' },
+                { icon: 'neutral', field: 'Spend (last 7 days)',  op: 'is more than',  val: '₹3,000' },
+              ]
+            },
+          ]
+        },
+        { icon: 'neutral', field: 'Campaign objective', op: 'is', val: 'Sales' },
+      ]
+    },
   ],
   adset: [
     {
@@ -939,7 +1314,13 @@ const RULES = {
       enabled: true,
       conditions: [
         { icon: 'good',    field: 'ROAS (last 7 days)',          op: 'is greater than', val: '2.5×' },
-        { icon: 'neutral', field: 'Frequency (last 7 days)',     op: 'is greater than', val: '2.0' },
+        {
+          type: 'group', logic: 'OR',
+          conditions: [
+            { icon: 'neutral', field: 'Frequency (last 7 days)',  op: 'is greater than', val: '2.0' },
+            { icon: 'neutral', field: 'Frequency (last 14 days)', op: 'is greater than', val: '1.5' },
+          ]
+        },
         { icon: 'neutral', field: 'Days running',                op: 'is at least',     val: '7 days' },
         { icon: 'neutral', field: 'Current daily budget',        op: 'is less than',    val: '₹50,000' },
       ]
@@ -976,7 +1357,13 @@ const RULES = {
       action: { type: 'budget-up', label: 'Increase campaign budget by 25%' },
       enabled: true,
       conditions: [
-        { icon: 'good',    field: 'ROAS (last 30 days)',         op: 'is greater than', val: '2×' },
+        {
+          type: 'group', logic: 'OR',
+          conditions: [
+            { icon: 'good', field: 'ROAS (last 30 days)',            op: 'is greater than', val: '2×' },
+            { icon: 'good', field: 'Conversion value (last 30 days)',op: 'is more than',    val: '₹1,00,000' },
+          ]
+        },
         { icon: 'good',    field: 'Conversion volume (30 days)', op: 'is at least',     val: '50 purchases' },
         { icon: 'neutral', field: 'Current monthly budget',      op: 'is less than',    val: '₹5,00,000' },
       ]
@@ -988,6 +1375,16 @@ const RULES = {
    STATE
 ───────────────────────────────────────── */
 let currentLevel = 'all';
+let condStyle = 'v2'; // 'v2' (tree) | 'v4' (plain text)
+
+function setCondStyle(s) {
+  condStyle = s;
+  document.getElementById('cst-v2').classList.toggle('active', s === 'v2');
+  document.getElementById('cst-v4').classList.toggle('active', s === 'v4');
+  document.getElementById('cst-v4r').classList.toggle('active', s === 'v4r');
+  document.getElementById('rulesList').classList.toggle('cond-style-v2', s === 'v2');
+  renderRules();
+}
 let rulesOrder = {
   ad:       RULES.ad.map(r => r.id),
   adset:    RULES.adset.map(r => r.id),
@@ -1086,15 +1483,75 @@ function renderCard(id, idx, r) {
     const isOpen = openCards.has(id);
     const isEnabled = enabledState[id];
 
-    const condRows = r.conditions.map((c, i) => `
-      ${i > 0 ? `<div class="condition-connector-wrap"><span class="condition-connector">AND</span></div>` : ''}
-      <div class="condition-row">
-        ${condIcon(c.icon)}
-        <span class="cond-field">${c.field}</span>
-        <span class="cond-op">${c.op}</span>
-        <span class="cond-val">${c.val}</span>
-      </div>
-    `).join('');
+    const renderCondItem = (c, i) => {
+      if (condStyle === 'v4r') {
+        // V4r: structured blocks with group boxes — recursive
+        const renderV4rItem = (item, depth) => {
+          if (item.type === 'group') {
+            const inner = item.conditions.map((gc, gi) =>
+              `${gi > 0 ? `<div class="v4r-logic ${item.logic.toLowerCase()}">${item.logic}</div>` : ''}${renderV4rItem(gc, depth + 1)}`
+            ).join('');
+            return `<div class="v4r-group depth-${depth}">${inner}</div>`;
+          }
+          return `<div class="v4r-cond"><span class="v4r-field">${item.field}</span><span class="v4r-op">${item.op}</span><span class="v4r-val">${item.val}</span></div>`;
+        };
+        const conn = i > 0 ? `<div class="v4r-logic and">AND</div>` : '';
+        if (c.type === 'group') return conn + renderV4rItem(c, 0);
+        return `${conn}<div class="v4r-cond"><span class="v4r-field">${c.field}</span><span class="v4r-op">${c.op}</span><span class="v4r-val">${c.val}</span></div>`;
+      }
+      if (condStyle === 'v4') {
+        // V4: inline flowing plain text — recursive
+        const renderV4Item = (item) => {
+          if (item.type === 'group') {
+            const inner = item.conditions.map((gc, gi) =>
+              `${gi > 0 ? ` <span class="v4-logic ${item.logic.toLowerCase()}">${item.logic}</span> ` : ''}${renderV4Item(gc)}`
+            ).join('');
+            return `(<span class="v4-group-inline">${inner}</span>)`;
+          }
+          return `<span class="v4-field">${item.field}</span> <span class="v4-op">${item.op}</span> <span class="v4-val">${item.val}</span>`;
+        };
+        const connector = i > 0 ? ` <span class="v4-logic and">AND</span> ` : '';
+        if (c.type === 'group') return connector + renderV4Item(c);
+        return `${connector}<span class="v4-field">${c.field}</span> <span class="v4-op">${c.op}</span> <span class="v4-val">${c.val}</span>`;
+      }
+      // V2: clean tree (recursive, supports double nesting)
+      const renderTreeItem = (item, idx, depth) => {
+        const dotCls = depth === 0 ? 't2-dot' : 't2-dot sm';
+        const connectorLogic = item._parentLogic || 'OR';
+        if (item.type === 'group') {
+          const innerRows = item.conditions.map((gc, gi) => {
+            const taggedGc = Object.assign({}, gc, { _parentLogic: item.logic });
+            return `
+              ${gi > 0 ? `<div class="t2-or-wrap"><span class="t2-or">${item.logic}</span></div>` : ''}
+              ${renderTreeItem(taggedGc, gi, depth + 1)}`;
+          }).join('');
+          return `
+            ${idx > 0 ? `<div class="t2-and-wrap"><span class="t2-and">AND</span></div>` : ''}
+            <div class="t2-branch" style="${depth > 0 ? 'border-left-color:rgba(175,70,253,.2);margin-left:8px' : ''}">
+              ${innerRows}
+            </div>`;
+        }
+        return `
+          <div class="t2-node">
+            <span class="${dotCls}"></span>
+            <span class="t2-field">${item.field}</span>
+            <span class="t2-op">${item.op}</span>
+            <span class="t2-val">${item.val}</span>
+          </div>`;
+      };
+      if (c.type === 'group') {
+        return renderTreeItem(c, i, 0);
+      }
+      return `
+        ${i > 0 ? `<div class="t2-and-wrap"><span class="t2-and">AND</span></div>` : ''}
+        <div class="t2-node">
+          <span class="t2-dot"></span>
+          <span class="t2-field">${c.field}</span>
+          <span class="t2-op">${c.op}</span>
+          <span class="t2-val">${c.val}</span>
+        </div>`;
+    };
+    const condRows = r.conditions.map((c, i) => renderCondItem(c, i)).join('');
 
     return `
     <div class="rule-card${isOpen ? ' open' : ''}" id="rc-${id}" draggable="true"
@@ -1112,6 +1569,7 @@ function renderCard(id, idx, r) {
           <div class="rule-subtitle">${r.subtitle}</div>
         </div>
         <div class="rule-right">
+          ${r.autoApprove ? `<div class="rule-auto-badge" title="Auto-approve on"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Auto</div>` : ''}
           <div class="rule-action-pill ${ac}">${actionIcon(r.action.type)} ${r.action.label}</div>
           <button class="rule-edit-btn" onclick="event.stopPropagation();openEditModal('${id}')" title="Edit rule">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1125,9 +1583,14 @@ function renderCard(id, idx, r) {
       <div class="rule-body">
         <div class="rule-body-cols">
           <div class="rule-body-left">
-            <div class="rule-section-label">Conditions — all must be true</div>
-            <div class="conditions-wrap">${condRows}</div>
+            <div class="rule-section-label">Conditions${r.conditions.some(c=>c.type==='group')?' — with nested groups':' — all must be true'}</div>
+            ${condStyle === 'v4'
+              ? `<p class="v4-prose">${condRows}</p>`
+              : condStyle === 'v4r'
+              ? `<div class="v4r-wrap">${condRows}</div>`
+              : `<div class="t2-tree">${condRows}</div>`}
           </div>
+          ${condStyle !== 'v2' && condStyle !== 'v4' && condStyle !== 'v4r' ? `
           <div class="rule-body-right">
             <div class="rule-section-label">Then</div>
             <div class="action-block ${ac}-action">
@@ -1135,7 +1598,7 @@ function renderCard(id, idx, r) {
               <div class="action-label ${ac}-action">${r.action.label}</div>
               <div class="action-icon ${ac}-action">${actionIcon(r.action.type)}</div>
             </div>
-          </div>
+          </div>` : ''}
         </div>
       </div>
     </div>`;
@@ -1222,6 +1685,13 @@ function openNewRuleModal() {
   document.getElementById('modalPrimaryBtn').disabled = !document.getElementById('nlInput').value.trim();
 }
 
+function resetAutoApprove() {
+  const tog = document.getElementById('autoApproveToggle');
+  tog.classList.remove('on');
+  document.getElementById('autoApproveBlock').classList.remove('on');
+  document.getElementById('autoApproveInfo').style.display = 'none';
+}
+
 function closeNewRuleModal() {
   document.getElementById('newRuleOverlay').classList.remove('open');
   setTimeout(() => {
@@ -1230,6 +1700,7 @@ function closeNewRuleModal() {
     document.getElementById('nlInput').value = '';
     document.getElementById('modalPrimaryBtn').disabled = true;
     document.getElementById('modalPrimaryBtn').textContent = 'Generate Rule';
+    resetAutoApprove();
   }, 250);
 }
 
@@ -1378,6 +1849,15 @@ function goBackToInput() {
   document.getElementById('modalPrimaryBtn').disabled = !document.getElementById('nlInput').value.trim();
 }
 
+function toggleAutoApprove() {
+  const tog = document.getElementById('autoApproveToggle');
+  const block = document.getElementById('autoApproveBlock');
+  const info = document.getElementById('autoApproveInfo');
+  const on = tog.classList.toggle('on');
+  block.classList.toggle('on', on);
+  info.style.display = on ? 'flex' : 'none';
+}
+
 function onActionTypeChange() {
   const type = document.getElementById('parsedActionType').value;
   const wrap = document.getElementById('parsedActionPctWrap');
@@ -1447,10 +1927,12 @@ function onModalPrimary() {
     }
     parsed.action = { type: finalType, label: actionLabel };
 
+    const autoApprove = document.getElementById('autoApproveToggle').classList.contains('on');
     const targetLevel = currentLevel === 'all' ? 'ad' : currentLevel;
     RULES[targetLevel].push({
       id: newId, title: name, subtitle: 'Custom rule',
-      action: parsed.action, enabled: true, conditions: parsed.conditions
+      action: parsed.action, enabled: true, conditions: parsed.conditions,
+      autoApprove
     });
     rulesOrder[targetLevel].push(newId);
     enabledState[newId] = true;
@@ -1464,15 +1946,15 @@ function renderParsedRule(parsed) {
   document.getElementById('parsedRuleName').value = parsed.name;
 
   const condsEl = document.getElementById('parsedConditions');
+  condsEl.className = 'parsed-conditions t2-tree';
   condsEl.innerHTML = parsed.conditions.map((c, i) => `
-    ${i > 0 ? `<div style="padding:2px 12px"><span class="parsed-cond-connector">AND</span></div>` : ''}
-    <div class="parsed-cond-row">
-      <span class="parsed-cond-field">${c.field}</span>
-      <span class="parsed-cond-op">${c.op}</span>
-      <div class="parsed-cond-val-wrap">
-        <input class="parsed-cond-val-input" value="${c.val}" oninput="window._lastParsed.conditions[${i}].val=this.value" style="width:${Math.max(60, c.val.length * 8 + 24)}px">
-        ${parsed.conditions.length > 1 ? `<button class="parsed-cond-remove" onclick="removeParsedCondition(${i})" title="Remove condition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
-      </div>
+    ${i > 0 ? `<div class="t2-and-wrap"><span class="t2-and">AND</span></div>` : ''}
+    <div class="t2-node" style="gap:10px">
+      <span class="t2-dot"></span>
+      <span class="t2-field">${c.field}</span>
+      <span class="t2-op">${c.op}</span>
+      <input class="parsed-cond-val-input" value="${c.val}" oninput="window._lastParsed.conditions[${i}].val=this.value" style="width:${Math.max(60, c.val.length * 8 + 24)}px">
+      ${parsed.conditions.length > 1 ? `<button class="parsed-cond-remove" onclick="removeParsedCondition(${i})" title="Remove condition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
     </div>
   `).join('');
 
@@ -1550,6 +2032,7 @@ document.addEventListener('dragend', () => {
 /* ─────────────────────────────────────────
    INIT
 ───────────────────────────────────────── */
+document.getElementById('rulesList').classList.add('cond-style-v2'); // default V2
 renderRules();
 </script>
 </body>

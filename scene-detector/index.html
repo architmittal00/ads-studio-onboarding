@@ -5053,10 +5053,18 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
   let frmPromptEl = null;
   let frmDropEl   = null;
   let _frmHits = [], _frmIdx = -1;
+  let _frmFileListenerAttached = false;
   function _frmEls() {
     if (!frmPromptEl) frmPromptEl = document.getElementById('frmPrompt');
     if (!frmDropEl)   frmDropEl   = document.getElementById('frmMentionDrop');
+    if (!_frmFileListenerAttached) {
+      const inp = document.getElementById('frmRefFileInput');
+      if (inp) { inp.addEventListener('change', _frmRefFileInputHandler); _frmFileListenerAttached = true; }
+    }
+    _attachFrmListeners();
   }
+
+  let _vrmFileListenerAttached = false;
 
   function stvOpenRegenModal(sceneNumber, which) {
     _frmEls();
@@ -5111,7 +5119,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
 
   function frmRemoveRef(i) { _regenModal.refs.splice(i, 1); frmRenderRefs(); }
 
-  document.getElementById('frmRefFileInput').addEventListener('change', e => {
+  function _frmRefFileInputHandler(e) {
     Array.from(e.target.files).forEach(file => {
       const reader = new FileReader();
       reader.onload = ev => {
@@ -5122,7 +5130,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       reader.readAsDataURL(file);
     });
     e.target.value = '';
-  });
+  }
 
   function frmGetCursorInfo() {
     const sel = window.getSelection();
@@ -5162,35 +5170,41 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     return text.trim();
   }
 
-  frmPromptEl.addEventListener('input', () => {
-    const info = frmGetCursorInfo();
-    if (info && _regenModal.refs.length > 0) {
-      const q = info.match[1].toLowerCase();
-      const hits = _regenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
-      if (hits.length) {
-        _frmHits = hits; _frmIdx = -1;
-        frmDropEl.innerHTML = hits.map((r, i) =>
-          `<div class="frm-mention-item" data-i="${i}" onmousedown="event.preventDefault();frmInsertMention('${r.tag}','${r.src}')">
-            <img src="${r.src}" alt=""><div class="frm-mention-item-info"><span class="tag">${r.tag}</span><span class="name">${r.name}</span></div>
-          </div>`).join('');
-        frmDropEl.classList.add('open'); return;
+  let _frmListenersAttached = false;
+  function _attachFrmListeners() {
+    if (_frmListenersAttached || !frmPromptEl) return;
+    _frmListenersAttached = true;
+
+    frmPromptEl.addEventListener('input', () => {
+      const info = frmGetCursorInfo();
+      if (info && _regenModal.refs.length > 0) {
+        const q = info.match[1].toLowerCase();
+        const hits = _regenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+        if (hits.length) {
+          _frmHits = hits; _frmIdx = -1;
+          frmDropEl.innerHTML = hits.map((r, i) =>
+            `<div class="frm-mention-item" data-i="${i}" onmousedown="event.preventDefault();frmInsertMention('${r.tag}','${r.src}')">
+              <img src="${r.src}" alt=""><div class="frm-mention-item-info"><span class="tag">${r.tag}</span><span class="name">${r.name}</span></div>
+            </div>`).join('');
+          frmDropEl.classList.add('open'); return;
+        }
       }
-    }
-    frmDropEl.classList.remove('open');
-  });
+      frmDropEl.classList.remove('open');
+    });
 
-  frmPromptEl.addEventListener('keydown', e => {
-    if (!frmDropEl.classList.contains('open')) return;
-    const n = _frmHits.length;
-    if (e.key === 'ArrowDown') { e.preventDefault(); _frmIdx = (_frmIdx+1)%n; frmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_frmIdx)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); _frmIdx = (_frmIdx-1+n)%n; frmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_frmIdx)); }
-    else if (e.key==='Enter'||e.key==='Tab') { if(_frmIdx>=0){e.preventDefault();const r=_frmHits[_frmIdx];frmInsertMention(r.tag,r.src);} }
-    else if (e.key==='Escape') { frmDropEl.classList.remove('open'); }
-  });
+    frmPromptEl.addEventListener('keydown', e => {
+      if (!frmDropEl.classList.contains('open')) return;
+      const n = _frmHits.length;
+      if (e.key === 'ArrowDown') { e.preventDefault(); _frmIdx = (_frmIdx+1)%n; frmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_frmIdx)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); _frmIdx = (_frmIdx-1+n)%n; frmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_frmIdx)); }
+      else if (e.key==='Enter'||e.key==='Tab') { if(_frmIdx>=0){e.preventDefault();const r=_frmHits[_frmIdx];frmInsertMention(r.tag,r.src);} }
+      else if (e.key==='Escape') { frmDropEl.classList.remove('open'); }
+    });
 
-  document.addEventListener('click', e => {
-    if (!frmDropEl.contains(e.target) && e.target !== frmPromptEl) frmDropEl.classList.remove('open');
-  });
+    document.addEventListener('click', e => {
+      if (!frmDropEl.contains(e.target) && e.target !== frmPromptEl) frmDropEl.classList.remove('open');
+    });
+  }
 
   function frmInsertMention(tag, src) {
     const info = frmGetCursorInfo();
@@ -5263,6 +5277,11 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     if (!vrmDropEl)    vrmDropEl    = document.getElementById('vrmMentionDrop');
     if (!vrmSummaryEl) vrmSummaryEl = document.getElementById('vrmSummary');
     if (!vrmSumDropEl) vrmSumDropEl = document.getElementById('vrmSummaryDrop');
+    if (!_vrmFileListenerAttached) {
+      const inp = document.getElementById('vrmRefFileInput');
+      if (inp) { inp.addEventListener('change', _vrmRefFileInputHandler); _vrmFileListenerAttached = true; }
+    }
+    _attachVrmListeners();
   }
 
   function stvOpenVideoRegenModal(sceneNumber) {
@@ -5325,7 +5344,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
 
   function vrmRemoveRef(i) { _vRegenModal.refs.splice(i, 1); vrmRenderRefs(); }
 
-  document.getElementById('vrmRefFileInput').addEventListener('change', e => {
+  function _vrmRefFileInputHandler(e) {
     Array.from(e.target.files).forEach(file => {
       const reader = new FileReader();
       reader.onload = ev => {
@@ -5336,7 +5355,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       reader.readAsDataURL(file);
     });
     e.target.value = '';
-  });
+  }
 
   function vrmSetEditorContent(el, text) {
     el.innerHTML = '';
@@ -5388,48 +5407,54 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       </div>`).join('');
   }
 
-  // Motion brief @mention
-  vrmPromptEl.addEventListener('input', () => {
-    const info = vrmGetCursorInfo(vrmPromptEl);
-    if (info && _vRegenModal.refs.length > 0) {
-      const q = info.match[1].toLowerCase();
-      const hits = _vRegenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
-      if (hits.length) { _vrmHits = hits; _vrmIdx = -1; vrmDropEl.innerHTML = vrmMakeDropHtml(hits, 'vrmInsertMotion'); vrmDropEl.classList.add('open'); return; }
-    }
-    vrmDropEl.classList.remove('open');
-  });
-  vrmPromptEl.addEventListener('keydown', e => {
-    if (!vrmDropEl.classList.contains('open')) return;
-    const n = _vrmHits.length;
-    if (e.key==='ArrowDown') { e.preventDefault(); _vrmIdx=(_vrmIdx+1)%n; vrmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmIdx)); }
-    else if (e.key==='ArrowUp') { e.preventDefault(); _vrmIdx=(_vrmIdx-1+n)%n; vrmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmIdx)); }
-    else if (e.key==='Enter'||e.key==='Tab') { if(_vrmIdx>=0){e.preventDefault();const r=_vrmHits[_vrmIdx];vrmInsertMotion(r.tag,r.src);} }
-    else if (e.key==='Escape') { vrmDropEl.classList.remove('open'); }
-  });
+  let _vrmListenersAttached = false;
+  function _attachVrmListeners() {
+    if (_vrmListenersAttached || !vrmPromptEl) return;
+    _vrmListenersAttached = true;
 
-  // Summary @mention
-  vrmSummaryEl.addEventListener('input', () => {
-    const info = vrmGetCursorInfo(vrmSummaryEl);
-    if (info && _vRegenModal.refs.length > 0) {
-      const q = info.match[1].toLowerCase();
-      const hits = _vRegenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
-      if (hits.length) { _vrmSumHits = hits; _vrmSumIdx = -1; vrmSumDropEl.innerHTML = vrmMakeDropHtml(hits, 'vrmInsertSummary'); vrmSumDropEl.classList.add('open'); return; }
-    }
-    vrmSumDropEl.classList.remove('open');
-  });
-  vrmSummaryEl.addEventListener('keydown', e => {
-    if (!vrmSumDropEl.classList.contains('open')) return;
-    const n = _vrmSumHits.length;
-    if (e.key==='ArrowDown') { e.preventDefault(); _vrmSumIdx=(_vrmSumIdx+1)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmSumIdx)); }
-    else if (e.key==='ArrowUp') { e.preventDefault(); _vrmSumIdx=(_vrmSumIdx-1+n)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmSumIdx)); }
-    else if (e.key==='Enter'||e.key==='Tab') { if(_vrmSumIdx>=0){e.preventDefault();const r=_vrmSumHits[_vrmSumIdx];vrmInsertSummary(r.tag,r.src);} }
-    else if (e.key==='Escape') { vrmSumDropEl.classList.remove('open'); }
-  });
+    // Motion brief @mention
+    vrmPromptEl.addEventListener('input', () => {
+      const info = vrmGetCursorInfo(vrmPromptEl);
+      if (info && _vRegenModal.refs.length > 0) {
+        const q = info.match[1].toLowerCase();
+        const hits = _vRegenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+        if (hits.length) { _vrmHits = hits; _vrmIdx = -1; vrmDropEl.innerHTML = vrmMakeDropHtml(hits, 'vrmInsertMotion'); vrmDropEl.classList.add('open'); return; }
+      }
+      vrmDropEl.classList.remove('open');
+    });
+    vrmPromptEl.addEventListener('keydown', e => {
+      if (!vrmDropEl.classList.contains('open')) return;
+      const n = _vrmHits.length;
+      if (e.key==='ArrowDown') { e.preventDefault(); _vrmIdx=(_vrmIdx+1)%n; vrmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmIdx)); }
+      else if (e.key==='ArrowUp') { e.preventDefault(); _vrmIdx=(_vrmIdx-1+n)%n; vrmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmIdx)); }
+      else if (e.key==='Enter'||e.key==='Tab') { if(_vrmIdx>=0){e.preventDefault();const r=_vrmHits[_vrmIdx];vrmInsertMotion(r.tag,r.src);} }
+      else if (e.key==='Escape') { vrmDropEl.classList.remove('open'); }
+    });
 
-  document.addEventListener('click', e => {
-    if (!vrmDropEl.contains(e.target) && e.target !== vrmPromptEl) vrmDropEl.classList.remove('open');
-    if (!vrmSumDropEl.contains(e.target) && e.target !== vrmSummaryEl) vrmSumDropEl.classList.remove('open');
-  });
+    // Summary @mention
+    vrmSummaryEl.addEventListener('input', () => {
+      const info = vrmGetCursorInfo(vrmSummaryEl);
+      if (info && _vRegenModal.refs.length > 0) {
+        const q = info.match[1].toLowerCase();
+        const hits = _vRegenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+        if (hits.length) { _vrmSumHits = hits; _vrmSumIdx = -1; vrmSumDropEl.innerHTML = vrmMakeDropHtml(hits, 'vrmInsertSummary'); vrmSumDropEl.classList.add('open'); return; }
+      }
+      vrmSumDropEl.classList.remove('open');
+    });
+    vrmSummaryEl.addEventListener('keydown', e => {
+      if (!vrmSumDropEl.classList.contains('open')) return;
+      const n = _vrmSumHits.length;
+      if (e.key==='ArrowDown') { e.preventDefault(); _vrmSumIdx=(_vrmSumIdx+1)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmSumIdx)); }
+      else if (e.key==='ArrowUp') { e.preventDefault(); _vrmSumIdx=(_vrmSumIdx-1+n)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmSumIdx)); }
+      else if (e.key==='Enter'||e.key==='Tab') { if(_vrmSumIdx>=0){e.preventDefault();const r=_vrmSumHits[_vrmSumIdx];vrmInsertSummary(r.tag,r.src);} }
+      else if (e.key==='Escape') { vrmSumDropEl.classList.remove('open'); }
+    });
+
+    document.addEventListener('click', e => {
+      if (!vrmDropEl.contains(e.target) && e.target !== vrmPromptEl) vrmDropEl.classList.remove('open');
+      if (!vrmSumDropEl.contains(e.target) && e.target !== vrmSummaryEl) vrmSumDropEl.classList.remove('open');
+    });
+  }
 
   function vrmInsertMotion(tag, src) { vrmInsertChip(vrmPromptEl, vrmDropEl, tag, src); }
   function vrmInsertSummary(tag, src) { vrmInsertChip(vrmSummaryEl, vrmSumDropEl, tag, src); }
