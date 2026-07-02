@@ -899,6 +899,112 @@ a{color:inherit;text-decoration:none}
 }
 .rules-empty svg{width:40px;height:40px;opacity:.3}
 .rules-empty p{font-size:13px}
+
+/* ── MOBILE BOTTOM NAV ── */
+.mobile-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;height:56px;
+  background:#0d0d1a;border-top:1px solid rgba(255,255,255,.08);
+  z-index:300;padding:0 4px;align-items:center;justify-content:space-around;
+}
+.mnav-item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;flex:1;height:100%;background:none;border:none;
+  color:var(--t3);font-family:inherit;cursor:pointer;
+  font-size:9px;font-weight:600;letter-spacing:.02em;transition:color .15s;
+  text-decoration:none;
+}
+.mnav-item.active{color:var(--purple)}
+.mnav-item svg{width:18px;height:18px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  /* hide desktop sidebar */
+  .sb{display:none}
+  /* show mobile bottom nav */
+  .mobile-nav{display:flex}
+  /* layout adjustments */
+  .app{height:auto;min-height:100vh;padding-bottom:56px}
+  .main{height:auto;overflow:visible}
+  .content{overflow-y:visible}
+
+  /* topbar */
+  .topbar{
+    height:auto;min-height:52px;padding:10px 16px 8px;
+    flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:200;
+  }
+  .topbar-title{font-size:14px;flex:1}
+  /* move toggle to its own row below title */
+  .cond-style-toggle{order:3;width:100%}
+  .cst-btn{flex:1;justify-content:center;padding:6px 8px;font-size:11px}
+  .topbar-btn{font-size:11px;padding:6px 10px;gap:5px}
+  .topbar-btn svg{display:none}
+
+  /* content */
+  .content{padding:16px 14px}
+
+  /* page header */
+  .page-header-top{flex-direction:column;align-items:flex-start;gap:10px}
+  .page-header-title{font-size:18px}
+  .page-header-sub{font-size:11px}
+
+  /* stats bar — 2×2 grid */
+  .page-stats{
+    display:grid;grid-template-columns:1fr 1fr;border-radius:10px;
+  }
+  .page-stat{padding:10px 12px;flex:unset}
+  .page-stat+.page-stat::before{display:none}
+  .page-stat:nth-child(odd):not(:first-child){border-top:1px solid rgba(255,255,255,.07)}
+  .page-stat:nth-child(even){border-left:1px solid rgba(255,255,255,.07);border-top:1px solid rgba(255,255,255,.07)}
+  .page-stat:nth-child(1){border-top:none}
+  .page-stat:nth-child(2){border-top:none}
+  .page-stat-val{font-size:14px}
+  .page-stat-label{font-size:9.5px}
+
+  /* level tabs horizontal scroll */
+  .level-tabs{
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+    width:100%;max-width:100%;scrollbar-width:none;
+  }
+  .level-tabs::-webkit-scrollbar{display:none}
+  .level-tab{white-space:nowrap;padding:6px 12px;font-size:11px}
+
+  /* rule card */
+  .rule-header{padding:10px 12px;gap:7px;min-height:auto}
+  .rule-drag-handle{display:flex;width:36px;height:36px;align-items:center;justify-content:center;opacity:.35;padding:0}
+  .rule-drag-handle:active{opacity:.7;background:rgba(255,255,255,.06);border-radius:8px}
+  .rule-priority{display:none}
+  .rule-title{font-size:12.5px;white-space:normal}
+  .rule-subtitle{font-size:10.5px;white-space:normal;overflow:visible}
+  .rule-action-pill{display:none}
+  .rule-auto-badge{display:none}
+  .rule-edit-btn{width:28px;height:28px}
+
+  /* rule body */
+  .rule-body{padding:12px 14px 16px 14px}
+  .rule-section-label{font-size:9px}
+  .t2-node{font-size:12px;gap:7px}
+  .t2-val{font-size:10px;padding:2px 7px}
+
+  /* notify bar */
+  .notify-bar{flex-direction:column;align-items:flex-start;gap:8px}
+  .notify-bar-left{flex-wrap:wrap}
+  .notify-bar-divider{display:none}
+  .notify-bar-btn{width:100%;justify-content:center}
+
+  /* modal — bottom sheet */
+  .modal-overlay{align-items:flex-end;padding:0}
+  .modal{
+    width:100%;max-width:100%;max-height:92vh;
+    border-radius:18px 18px 0 0;
+  }
+  .modal-header{padding:16px 18px}
+  .modal-body{padding:18px}
+  .modal-footer{padding:12px 18px;flex-wrap:wrap;gap:8px}
+  .modal-btn{width:100%;text-align:center}
+  .modal-btn.secondary{width:auto;flex:1}
+  .modal-btn.primary{flex:2}
+}
 </style>
 </head>
 <body>
@@ -2030,10 +2136,93 @@ document.addEventListener('dragend', () => {
 });
 
 /* ─────────────────────────────────────────
+   TOUCH DRAG & DROP (mobile)
+───────────────────────────────────────── */
+let touchDragId = null;
+let touchDragEl = null;
+
+function initTouchDrag() {
+  document.querySelectorAll('.rule-drag-handle').forEach(handle => {
+    handle.removeEventListener('touchstart', handleTouchStart);
+    handle.addEventListener('touchstart', handleTouchStart, { passive: false });
+  });
+}
+
+function handleTouchStart(e) {
+  const card = e.currentTarget.closest('.rule-card');
+  if (!card) return;
+  e.preventDefault();
+  touchDragId = card.id.replace('rc-', '');
+  touchDragEl = card;
+  card.classList.add('dragging');
+  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+  document.addEventListener('touchend', handleTouchEnd, { once: true });
+}
+
+function handleTouchMove(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  touchDragEl.style.pointerEvents = 'none';
+  const below = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchDragEl.style.pointerEvents = '';
+  const targetCard = below && below.closest('.rule-card');
+  document.querySelectorAll('.rule-card').forEach(c => c.classList.remove('drag-over'));
+  if (targetCard && targetCard !== touchDragEl) targetCard.classList.add('drag-over');
+}
+
+function handleTouchEnd(e) {
+  document.removeEventListener('touchmove', handleTouchMove);
+  const touch = e.changedTouches[0];
+  touchDragEl.style.pointerEvents = 'none';
+  const below = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchDragEl.style.pointerEvents = '';
+  const targetCard = below && below.closest('.rule-card');
+  document.querySelectorAll('.rule-card').forEach(c => { c.classList.remove('drag-over'); c.classList.remove('dragging'); });
+  if (targetCard && targetCard !== touchDragEl) {
+    const targetId = targetCard.id.replace('rc-', '');
+    const fromIdx = order.indexOf(touchDragId);
+    const toIdx = order.indexOf(targetId);
+    if (fromIdx !== -1 && toIdx !== -1) {
+      order.splice(fromIdx, 1);
+      order.splice(toIdx, 0, touchDragId);
+      renderRules();
+      initTouchDrag();
+    }
+  }
+  touchDragId = null;
+  touchDragEl = null;
+}
+
+/* ─────────────────────────────────────────
    INIT
 ───────────────────────────────────────── */
 document.getElementById('rulesList').classList.add('cond-style-v2'); // default V2
 renderRules();
+initTouchDrag();
 </script>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav">
+  <a href="index.html" class="mnav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Home
+  </a>
+  <a href="alerts.html" class="mnav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    Alerts
+  </a>
+  <button class="mnav-item active" onclick="openNewRuleModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    New Rule
+  </button>
+  <a href="creative_report.html" class="mnav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    Ads
+  </a>
+  <a href="chat.html" class="mnav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    AI
+  </a>
+</nav>
 </body>
 </html>
