@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Step 4 — Scene Frames & Video Gen</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #060610; color: #e2e2f0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; padding: 24px; }
+
+  .panel { max-width: 1200px; margin: 0 auto; }
+  .panel-title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .panel-sub { font-size: 13px; color: #555; margin-bottom: 20px; }
+
+  /* ── Video gen toolbar ── */
+  .video-controls {
+    background: #07070f; border: 1px solid #1e1e30; border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .video-controls-label { font-size: 11px; font-weight: 700; color: #a78bfa; text-transform: uppercase; letter-spacing: .06em; flex-shrink: 0; }
+  select, button {
+    background: #0d0d1f; border: 1px solid #2a2a45; border-radius: 6px;
+    color: #e2e2f0; font-size: 12px; padding: 6px 10px; outline: none; cursor: pointer;
+  }
+  select:focus { border-color: #7c6dff; }
+  .btn-purple { background: #3b1f8c; border-color: #5b3dc8; color: #fff; font-weight: 600; padding: 7px 16px; border-radius: 7px; margin-left: auto; }
+  .btn-purple:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Scene rows ── */
+  .scenes-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .scene-card {
+    background: #07070f; border: 1px solid #1e1e30; border-radius: 12px; overflow: hidden;
+  }
+
+  /* Header */
+  .scene-header {
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #1e1e30;
+  }
+  .scene-header input[type=checkbox] { width: 16px; height: 16px; accent-color: #7c6dff; cursor: pointer; flex-shrink: 0; }
+  .scene-number { font-size: 11px; font-weight: 700; color: #555; background: #111126; border: 1px solid #1e1e30; border-radius: 5px; padding: 2px 7px; }
+  .scene-title { font-size: 13px; font-weight: 700; color: #a78bfa; flex: 1; }
+  .scene-status { font-size: 11px; color: #22c55e; }
+  .scene-status.stopped { color: #f87171; }
+  .scene-status.pending { color: #555; }
+
+  /* ── Scene body: 3-column media row + text below ── */
+
+  /* 3 equal columns: first frame | last frame | video */
+  .scene-media {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    border-bottom: 1px solid #1e1e30;
+  }
+  .media-cell {
+    position: relative; overflow: hidden; background: #0d0d1f;
+    aspect-ratio: 9/16;
+  }
+  .media-cell + .media-cell { border-left: 1px solid #1e1e30; }
+  .media-cell img, .media-cell video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* Loading state */
+  .media-cell.loading { display: flex; align-items: center; justify-content: center; }
+  .media-cell.loading .dot-ring {
+    width: 28px; height: 28px; border: 2px solid #1e1e30; border-top-color: #7c6dff;
+    border-radius: 50%; animation: spin 1s linear infinite;
+  }
+
+  /* Video hover controls */
+  .vid-hover-controls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 8px 6px;
+    background: linear-gradient(to top, rgba(0,0,0,.72) 0%, transparent 100%);
+    opacity: 0; transition: opacity .2s ease;
+    pointer-events: none; z-index: 10;
+  }
+  .media-cell:hover .vid-hover-controls { opacity: 1; pointer-events: auto; }
+  .vid-ctrl-btn {
+    background: rgba(255,255,255,.12); border: none; border-radius: 6px;
+    color: #fff; cursor: pointer; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; transition: background .15s;
+    backdrop-filter: blur(4px);
+  }
+  .vid-ctrl-btn:hover { background: rgba(255,255,255,.25); }
+
+  /* Video empty state */
+  .video-empty {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 8px;
+    background: #07070f;
+  }
+  .video-empty svg { opacity: .15; }
+  .video-empty span { font-size: 10px; color: #333; text-align: center; line-height: 1.5; }
+
+  /* Media label & regen button */
+  .media-label {
+    position: absolute; top: 8px; left: 8px;
+    background: rgba(0,0,0,.72); border-radius: 5px;
+    padding: 3px 8px; font-size: 10px; font-weight: 600; color: #ccc;
+    backdrop-filter: blur(6px); letter-spacing: .02em;
+  }
+  .media-label.video-label { background: rgba(124,93,191,.5); color: #e0d4ff; }
+  .media-regen-btn {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.78); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 5px; padding: 4px 12px; font-size: 10px; color: #bbb;
+    cursor: pointer; backdrop-filter: blur(6px); white-space: nowrap;
+    transition: background .15s, color .15s, border-color .15s;
+    z-index: 20;
+  }
+  .media-regen-btn:hover { background: rgba(124,93,191,.9); color: #fff; border-color: #7c6dff; }
+
+  /* Generating video status overlay */
+  .video-generating {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    background: #07070f;
+  }
+  .video-generating .dot-ring { border-top-color: #a78bfa; border-color: #2a2a45; }
+  .video-generating span { font-size: 11px; color: #a78bfa; }
+
+  /* Text section below media */
+  .scene-text {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    padding: 14px 16px; gap: 16px;
+  }
+  .field-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+    color: #555; font-weight: 600; margin-bottom: 4px; display: block;
+  }
+  .field-label.motion { color: #a78bfa; }
+  .field-label .hint { color: #2e2e4a; font-weight: 400; text-transform: none; }
+  textarea {
+    width: 100%; background: #0d0d1f; border: 1px solid #1e1e30; border-radius: 7px;
+    color: #c8c8e0; font-size: 12px; padding: 9px 11px; outline: none;
+    resize: vertical; font-family: inherit; line-height: 1.65;
+  }
+  textarea:focus { border-color: #7c5cbf; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Video Regen Modal ── */
+  /* ── Video Regen Modal (mirrors frame regen layout) ── */
+  #videoRegenModal { display:none; position:fixed; inset:0; z-index:9000; align-items:center; justify-content:center; background:rgba(0,0,0,.75); backdrop-filter:blur(8px); padding:16px; }
+  #videoRegenModal.open { display:flex; }
+  .vrm-dialog {
+    background:#0c0c1a; border:1px solid #1e1e30; border-radius:16px;
+    width:100%; max-width:860px; max-height:90vh; overflow:hidden;
+    display:flex; flex-direction:column;
+    box-shadow:0 24px 64px rgba(0,0,0,.6);
+  }
+  .vrm-header { padding:16px 20px; border-bottom:1px solid #1e1e30; display:flex; align-items:flex-start; justify-content:space-between; flex-shrink:0; }
+  .vrm-header-title { font-size:15px; font-weight:700; color:#fff; }
+  .vrm-header-sub { font-size:12px; color:#555; margin-top:2px; }
+  /* Two-column body: 9:16 video on left, content-height right */
+  .vrm-body {
+    display:grid; grid-template-columns:auto 1fr;
+    overflow:hidden;
+  }
+  /* Left — fixed-height 9:16 video */
+  .vrm-left {
+    border-right:1px solid #1e1e30;
+    display:flex; flex-direction:column;
+  }
+  .vrm-video-wrap {
+    width: auto; height: 480px;
+    aspect-ratio:9/16;
+    background:#07070f; position:relative;
+    overflow:hidden; flex-shrink:0;
+  }
+  .vrm-video-wrap video { width:100%; height:100%; object-fit:cover; display:block; }
+  /* glow ring to highlight the video */
+  .vrm-video-wrap::after {
+    content:''; pointer-events:none;
+    position:absolute; inset:0;
+    box-shadow:inset 0 0 0 2px rgba(167,139,250,.45);
+    border-radius:0;
+  }
+  .vrm-video-label {
+    padding:8px 14px; font-size:11px; color:#a78bfa; font-weight:700;
+    text-transform:uppercase; letter-spacing:.05em; border-top:1px solid #1e1e30;
+    background:#07070f; display:flex; align-items:center; gap:6px;
+  }
+  .vrm-video-label span { color:#555; font-weight:400; text-transform:none; font-size:10px; }
+  /* Right — refs + options + prompt */
+  .vrm-right {
+    display:flex; flex-direction:column; padding:16px;
+    gap:14px; overflow-y:auto; justify-content:flex-start; align-content:start;
+  }
+  /* Ref thumbnails — reuse frm-* classes */
+  .vrm-settings { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .vrm-settings select {
+    background:#0d0d1f; border:1px solid #1e1e30; border-radius:7px;
+    color:#c8c8e0; font-size:12px; padding:7px 10px; outline:none; width:100%;
+  }
+  .vrm-settings select:focus { border-color:#7c5cbf; }
+  .vrm-footer { padding:12px 20px; border-top:1px solid #1e1e30; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .vrm-status { flex:1; font-size:12px; color:#a78bfa; }
+
+  /* ── Regen Modal ── */
+  #frameRegenModal { display:none; position:fixed; inset:0; z-index:9000; align-items:center; justify-content:center; background:rgba(0,0,0,.75); backdrop-filter:blur(8px); padding:16px; }
+  #frameRegenModal.open { display:flex; }
+
+  .frm-dialog {
+    background:#0c0c1a; border:1px solid #1e1e30; border-radius:16px;
+    width:100%; max-width:820px; max-height:90vh; overflow:hidden;
+    display:flex; flex-direction:column;
+    box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  }
+  .frm-header {
+    padding:16px 20px; border-bottom:1px solid #1e1e30;
+    display:flex; align-items:flex-start; justify-content:space-between;
+  }
+  .frm-header-title { font-size:15px; font-weight:700; color:#fff; }
+  .frm-header-sub { font-size:12px; color:#555; margin-top:2px; }
+  .frm-close {
+    background:none; border:none; color:#555; font-size:20px; cursor:pointer;
+    line-height:1; padding:2px 6px; border-radius:5px;
+  }
+  .frm-close:hover { color:#e2e2f0; background:#1e1e30; }
+
+  .frm-body {
+    display:grid; grid-template-columns:auto 1fr;
+    overflow:hidden;
+  }
+  .frm-current {
+    border-right:1px solid #1e1e30;
+    display:flex; flex-direction:column;
+  }
+  .frm-current-img {
+    width:auto; height:480px;
+    aspect-ratio:9/16;
+    overflow:hidden; background:#07070f; flex-shrink:0;
+  }
+  .frm-current-img img { width:100%; height:100%; object-fit:cover; display:block; }
+  .frm-current-label {
+    padding:8px 14px; font-size:11px; color:#555; font-weight:600;
+    text-transform:uppercase; letter-spacing:.05em; border-top:1px solid #1e1e30;
+    background:#07070f;
+  }
+
+  .frm-right {
+    display:flex; flex-direction:column; overflow-y:auto; padding:16px;
+    gap:14px; justify-content:flex-start;
+  }
+  .frm-section-label {
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    color:#555; margin-bottom:8px;
+  }
+
+  .frm-refs { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; }
+  .frm-ref-thumb {
+    position:relative; width:64px; height:64px; border-radius:8px;
+    overflow:hidden; border:1px solid #2a2a45; flex-shrink:0;
+  }
+  .frm-ref-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .frm-ref-tag {
+    position:absolute; bottom:0; left:0; right:0;
+    background:rgba(0,0,0,.78); font-size:9px; font-weight:700;
+    color:#a78bfa; text-align:center; padding:2px 4px;
+  }
+  .frm-ref-remove {
+    position:absolute; top:2px; right:2px; background:rgba(0,0,0,.72);
+    border:none; border-radius:50%; width:16px; height:16px;
+    font-size:10px; color:#ccc; cursor:pointer; display:flex;
+    align-items:center; justify-content:center; line-height:1; padding:0;
+  }
+  .frm-ref-remove:hover { background:#c0392b; color:#fff; }
+  .frm-ref-add {
+    width:64px; height:64px; border-radius:8px;
+    border:1px dashed #2a2a45; background:none;
+    color:#555; font-size:22px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:border-color .15s, color .15s;
+  }
+  .frm-ref-add:hover { border-color:#7c6dff; color:#a78bfa; }
+
+  .frm-prompt-wrap { display:flex; flex-direction:column; position:relative; }
+  .frm-prompt-editor {
+    background:#0d0d1f; border:1px solid #1e1e30; border-radius:8px;
+    color:#c8c8e0; font-size:12px; padding:10px 12px; outline:none;
+    font-family:inherit; line-height:1.9; min-height:120px; max-height:220px;
+    white-space:pre-wrap; word-break:break-word; overflow-y:auto;
+    cursor:text;
+  }
+  .frm-prompt-editor:focus { border-color:#7c5cbf; }
+  .frm-prompt-editor:empty::before {
+    content: attr(data-placeholder);
+    color:#333; pointer-events:none;
+  }
+  .mention-chip {
+    display:inline-block;
+    background:rgba(124,93,255,.18); color:#c4b5fd;
+    border:1px solid rgba(124,93,255,.35);
+    border-radius:5px; padding:1px 7px 2px;
+    font-size:11px; font-weight:700;
+    cursor:default; user-select:all;
+    margin: 0 1px;
+    vertical-align:baseline;
+  }
+  .frm-prompt-hint { margin-top:5px; font-size:11px; color:#2e2e4a; }
+  .frm-prompt-hint .at { color:#a78bfa; font-weight:700; }
+
+  .frm-mention-drop {
+    position:absolute; bottom:calc(100% + 6px); left:0;
+    background:#111126; border:1px solid #2a2a45; border-radius:10px;
+    min-width:200px; z-index:100; overflow:hidden;
+    box-shadow:0 12px 32px rgba(0,0,0,.6);
+    opacity:0; transform:translateY(4px) scale(.98);
+    pointer-events:none;
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .frm-mention-drop.open {
+    opacity:1; transform:translateY(0) scale(1);
+    pointer-events:auto;
+  }
+  .frm-mention-item {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 12px; cursor:pointer; font-size:12px; color:#c8c8e0;
+    transition: background .1s;
+  }
+  .frm-mention-item:hover,
+  .frm-mention-item.active { background:#1e1e38; }
+  .frm-mention-item.active { border-left:2px solid #7c6dff; padding-left:10px; }
+  .frm-mention-item img { width:32px; height:32px; border-radius:5px; object-fit:cover; flex-shrink:0; border:1px solid #2a2a45; }
+  .frm-mention-item-info { display:flex; flex-direction:column; gap:1px; }
+  .frm-mention-item .tag { color:#a78bfa; font-weight:700; font-size:12px; }
+  .frm-mention-item .name { color:#444; font-size:10px; }
+
+  .frm-footer {
+    padding:12px 20px; border-top:1px solid #1e1e30;
+    display:flex; align-items:center; gap:10px;
+  }
+  .frm-status { flex:1; font-size:12px; color:#a78bfa; }
+  .btn-ghost {
+    background:none; border:1px solid #2a2a45; color:#888;
+    border-radius:7px; padding:7px 16px; font-size:13px; cursor:pointer;
+  }
+  .btn-ghost:hover { border-color:#555; color:#e2e2f0; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="panel-title">Scene Frames & Video Generation</div>
+  <p class="panel-sub">Review frames, edit motion briefs, select scenes, then generate videos.</p>
+
+  <!-- Toolbar -->
+  <div class="video-controls">
+    <span class="video-controls-label">Generate</span>
+    <select>
+      <option>— video provider —</option>
+      <option>Google Veo</option>
+      <option>Runway</option>
+      <option>Kling</option>
+    </select>
+    <select>
+      <option>— select model —</option>
+      <option>Veo 3.1 — latest preview</option>
+      <option>Veo 3.0 — stable</option>
+    </select>
+    <select>
+      <option>9:16</option>
+      <option>16:9</option>
+      <option>1:1</option>
+    </select>
+    <select>
+      <option value="">— quality —</option>
+      <option value="4k">4K</option>
+      <option value="1080p">1080p</option>
+      <option value="720p">720p</option>
+      <option value="480p">480p</option>
+    </select>
+    <button class="btn-purple">🎬 Generate Selected</button>
+  </div>
+
+  <!-- Scene list -->
+  <div class="scenes-list">
+
+    <!-- Scene 1 — frames done, no video yet -->
+    <div class="scene-card">
+      <div class="scene-header">
+        <input type="checkbox" checked>
+        <span class="scene-number">01</span>
+        <span class="scene-title">The Playful Smile & Surprise</span>
+        <span class="scene-status">✓ Frames ready</span>
+      </div>
+      <div class="scene-media">
+        <div class="media-cell" id="scene1-ff">
+          <img src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=711&fit=crop" alt="">
+          <div class="media-label">First Frame</div>
+          <button class="media-regen-btn" onclick="openRegenModal(1,'first')">↺ Regenerate</button>
+        </div>
+        <div class="media-cell" id="scene1-lf">
+          <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=711&fit=crop" alt="">
+          <div class="media-label">Last Frame</div>
+          <button class="media-regen-btn" onclick="openRegenModal(1,'last')">↺ Regenerate</button>
+        </div>
+        <div class="media-cell">
+          <div class="video-empty">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Select scene &amp;<br>click Generate</span>
+          </div>
+          <div class="media-label video-label">Video</div>
+        </div>
+      </div>
+      <div class="scene-text">
+        <div>
+          <span class="field-label">Summary</span>
+          <textarea rows="4">Meera catches Aarav smiling at her affectionately across the marble table. Playfully, she asks him why he is smiling, to which he replies 'Bas aise hi' before revealing a premium Juvia jewelry box from behind his back.</textarea>
+        </div>
+        <div>
+          <span class="field-label motion">Motion Brief <span class="hint">· used as video gen prompt</span></span>
+          <textarea rows="4">The camera starts in a warm, intimate medium over-the-shoulder shot behind the girl, focusing on the boy's subtle, affectionate smile. As she playfully asks her question, the camera smoothly tracks sideways to reveal her face in profile, capturing her curious, joyful expression.</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2 — frames generating -->
+    <div class="scene-card">
+      <div class="scene-header">
+        <input type="checkbox" checked>
+        <span class="scene-number">02</span>
+        <span class="scene-title">The Unboxing Reveal</span>
+        <span class="scene-status pending">Generating frames…</span>
+      </div>
+      <div class="scene-media">
+        <div class="media-cell loading">
+          <div class="dot-ring"></div>
+          <div class="media-label">First Frame</div>
+        </div>
+        <div class="media-cell loading">
+          <div class="dot-ring" style="border-color:#1a1a2e;border-top-color:#555"></div>
+          <div class="media-label">Last Frame</div>
+        </div>
+        <div class="media-cell">
+          <div class="video-empty">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Waiting for frames…</span>
+          </div>
+          <div class="media-label video-label">Video</div>
+        </div>
+      </div>
+      <div class="scene-text">
+        <div>
+          <span class="field-label">Summary</span>
+          <textarea rows="4">Meera opens the elegant Juvia box to reveal a beautiful, glittering Evil Eye Anklet resting on a plush white velvet cushion. She gasps in awe at the intricate details.</textarea>
+        </div>
+        <div>
+          <span class="field-label motion">Motion Brief <span class="hint">· used as video gen prompt</span></span>
+          <textarea rows="4">The scene opens with an extreme close-up of the girl's manicured fingers lifting the lid of the elegant textured jewelry box. The camera slowly pushes in with a shallow depth of field, keeping the sparkling blue and silver evil eye anklet in sharp focus.</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 3 — video ready -->
+    <div class="scene-card">
+      <div class="scene-header">
+        <input type="checkbox" checked>
+        <span class="scene-number">03</span>
+        <span class="scene-title">The Fitting & Connection</span>
+        <span class="scene-status">✓ Video ready</span>
+      </div>
+      <div class="scene-media">
+        <div class="media-cell" id="scene3-ff">
+          <img src="https://images.unsplash.com/photo-1488716820095-cbe80883c496?w=400&h=711&fit=crop" alt="">
+          <div class="media-label">First Frame</div>
+          <button class="media-regen-btn" onclick="openRegenModal(3,'first')">↺ Regenerate</button>
+        </div>
+        <div class="media-cell" id="scene3-lf">
+          <img src="https://images.unsplash.com/photo-1516726817505-f5ed825624d8?w=400&h=711&fit=crop" alt="">
+          <div class="media-label">Last Frame</div>
+          <button class="media-regen-btn" onclick="openRegenModal(3,'last')">↺ Regenerate</button>
+        </div>
+        <div class="media-cell" id="scene3-vid"
+          onmouseenter="this.querySelector('video').play()"
+          onmouseleave="this.querySelector('video').pause()">
+          <video src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            muted loop playsinline
+            style="width:100%;height:100%;object-fit:cover;display:block"></video>
+          <div class="media-label video-label">Video ✓</div>
+          <button class="media-regen-btn" onclick="openVideoRegenModal(3)">↺ Regenerate</button>
+          <div class="vid-hover-controls">
+            <button class="vid-ctrl-btn" title="Toggle sound"
+              onclick="event.stopPropagation(); var v=this.closest('.media-cell').querySelector('video'); v.muted=!v.muted; this.textContent=v.muted?'🔇':'🔊'">🔇</button>
+            <a class="vid-ctrl-btn" title="Download"
+              href="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+              download onclick="event.stopPropagation()">⬇</a>
+          </div>
+        </div>
+      </div>
+      <div class="scene-text">
+        <div>
+          <span class="field-label">Summary</span>
+          <textarea rows="4">Aarav kneels down and gently fastens the delicate anklet around Meera's ankle. They look up at each other, sharing a deep romantic connection as she admires the jewel catching the golden hour light.</textarea>
+        </div>
+        <div>
+          <span class="field-label motion">Motion Brief <span class="hint">· used as video gen prompt</span></span>
+          <textarea rows="4">The camera begins at a low angle, capturing the boy's hands as he gently wraps the delicate anklet around her ankle, with the golden hour sunlight illuminating the scene. The camera slowly tilts up and tracks backward, transitioning from a close-up of the anklet clasp to a wider shot revealing both characters.</textarea>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Video Regen Modal ── -->
+<div id="videoRegenModal" onclick="if(event.target===this)closeVideoRegenModal()">
+  <div class="vrm-dialog">
+    <div class="vrm-header">
+      <div>
+        <div class="vrm-header-title" id="vrmTitle">Regenerate Video</div>
+        <div class="vrm-header-sub" id="vrmSub"></div>
+      </div>
+      <button class="frm-close" onclick="closeVideoRegenModal()">×</button>
+    </div>
+    <div class="vrm-body">
+      <!-- Left: current video highlighted -->
+      <div class="vrm-left">
+        <div class="vrm-video-wrap" id="vrmCurrentVid"></div>
+        <div class="vrm-video-label">🎬 Current Video <span>· will be replaced on regeneration</span></div>
+      </div>
+      <!-- Right: refs + prompts + settings -->
+      <div class="vrm-right">
+        <div>
+          <div class="frm-section-label">Reference Images</div>
+          <div class="frm-refs" id="vrmRefsContainer"></div>
+          <div style="margin-top:8px;font-size:11px;color:#333">First &amp; last frames are pre-loaded. Add more and tag them with <span style="color:#a78bfa;font-weight:600">@tag</span></div>
+        </div>
+        <div class="frm-prompt-wrap">
+          <div class="frm-section-label">Scene Summary <span style="color:#333;font-weight:400;text-transform:none;letter-spacing:0">· context for the video</span></div>
+          <div class="frm-prompt-editor" id="vrmSummary" contenteditable="true"
+            data-placeholder="Describe the scene… type @ to tag a reference image"></div>
+          <div class="frm-mention-drop" id="vrmSummaryDrop"></div>
+        </div>
+        <div class="frm-prompt-wrap">
+          <div class="frm-section-label">Motion Brief <span style="color:#333;font-weight:400;text-transform:none;letter-spacing:0">· camera &amp; motion instructions</span></div>
+          <div class="frm-prompt-editor" id="vrmPrompt" contenteditable="true"
+            data-placeholder="Describe the motion… type @ to tag a reference image"></div>
+          <div class="frm-mention-drop" id="vrmMentionDrop"></div>
+          <div class="frm-prompt-hint">Type <span class="at">@</span> to tag a reference image in your prompt</div>
+        </div>
+        <div>
+          <div class="frm-section-label">Model &amp; Quality</div>
+          <div class="vrm-settings">
+            <select id="vrmModel">
+              <option>Veo 3.1 — latest preview</option>
+              <option>Veo 3.0 — stable</option>
+              <option>Runway Gen-4</option>
+              <option>Kling 2.0</option>
+            </select>
+            <select id="vrmQuality">
+              <option value="1080p">1080p</option>
+              <option value="4k">4K</option>
+              <option value="720p">720p</option>
+              <option value="480p">480p</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="vrm-footer">
+      <div class="vrm-status" id="vrmStatus"></div>
+      <button class="btn-ghost" onclick="closeVideoRegenModal()">Cancel</button>
+      <button class="btn-purple" id="vrmSubmitBtn" onclick="submitVideoRegen()">🎬 Regenerate Video</button>
+    </div>
+  </div>
+  <input type="file" id="vrmRefFileInput" accept="image/*" multiple style="display:none">
+</div>
+
+<!-- ── Regen Modal ── -->
+<div id="frameRegenModal" onclick="if(event.target===this)closeRegenModal()">
+  <div class="frm-dialog">
+    <div class="frm-header">
+      <div>
+        <div class="frm-header-title" id="frmModalTitle">Regenerate Frame</div>
+        <div class="frm-header-sub" id="frmModalSub"></div>
+      </div>
+      <button class="frm-close" onclick="closeRegenModal()">×</button>
+    </div>
+    <div class="frm-body">
+      <!-- Left: current frame -->
+      <div class="frm-current">
+        <div class="frm-current-img">
+          <img id="frmCurrentImg" src="" alt="Current frame">
+        </div>
+        <div class="frm-current-label" id="frmCurrentLabel">Current Frame</div>
+      </div>
+      <!-- Right: refs + prompt -->
+      <div class="frm-right">
+        <div>
+          <div class="frm-section-label">Reference Images</div>
+          <div class="frm-refs" id="frmRefsContainer"></div>
+          <div style="margin-top:8px;font-size:11px;color:#333">Upload images and reference them in the prompt using <span style="color:#a78bfa;font-weight:600">@tag</span></div>
+        </div>
+        <div class="frm-prompt-wrap">
+          <div class="frm-section-label">Prompt</div>
+          <div class="frm-prompt-editor" id="frmPrompt" contenteditable="true"
+            data-placeholder="Describe what to change… type @ to reference an image&#10;e.g. Change background to deep navy. @image1 is the product."></div>
+          <div class="frm-mention-drop" id="frmMentionDrop"></div>
+          <div class="frm-prompt-hint">Type <span class="at">@</span> to tag a reference image in your prompt</div>
+        </div>
+      </div>
+    </div>
+    <div class="frm-footer">
+      <div class="frm-status" id="frmStatus"></div>
+      <button class="btn-ghost" onclick="closeRegenModal()">Cancel</button>
+      <button class="btn-purple" id="frmSubmitBtn" onclick="frmSubmitRegen()">↺ Regenerate</button>
+    </div>
+  </div>
+  <input type="file" id="frmRefFileInput" accept="image/*" multiple style="display:none">
+</div>
+
+<script>
+  // ── Video Regen Modal ──
+  const _vModal = { sceneNum: null, refs: [] };
+  const vrmPromptEl  = document.getElementById('vrmPrompt');
+  const vrmDropEl    = document.getElementById('vrmMentionDrop');
+  const vrmSummaryEl = document.getElementById('vrmSummary');
+  const vrmSumDropEl = document.getElementById('vrmSummaryDrop');
+  let _vMentionHits = [], _vMentionIdx = -1;
+  let _vSumHits = [], _vSumIdx = -1;
+
+  function openVideoRegenModal(sceneNum) {
+    const sc = testScenes[sceneNum];
+    if (!sc) return;
+    _vModal.sceneNum = sceneNum;
+    _vModal.refs = [];
+
+    // Pre-seed first & last frames as references
+    _vModal.refs.push({ tag: '@firstframe', src: sc.firstSrc,  name: 'First Frame' });
+    _vModal.refs.push({ tag: '@lastframe',  src: sc.lastSrc,   name: 'Last Frame'  });
+
+    document.getElementById('vrmTitle').textContent = 'Regenerate Video';
+    document.getElementById('vrmSub').textContent   = `Scene ${String(sceneNum).padStart(2,'0')} — ${sc.name}`;
+
+    // Current video on left
+    const vidWrap = document.getElementById('vrmCurrentVid');
+    const vidSrc  = sc.videoSrc || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    vidWrap.innerHTML = `<video src="${vidSrc}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>`;
+
+    document.getElementById('vrmStatus').textContent = '';
+    document.getElementById('vrmSubmitBtn').disabled = false;
+    document.getElementById('vrmSubmitBtn').textContent = '🎬 Regenerate Video';
+
+    vrmRenderRefs();
+    vrmSetSummary(sc.summary || '');
+    vrmSetPrompt(sc.motionBrief || 'The camera begins at a low angle, capturing the hands as the anklet is fastened, golden hour sunlight illuminating the scene.');
+    document.getElementById('videoRegenModal').classList.add('open');
+    vrmPromptEl.focus();
+  }
+
+  function closeVideoRegenModal() {
+    document.getElementById('videoRegenModal').classList.remove('open');
+  }
+
+  function vrmRenderRefs() {
+    const container = document.getElementById('vrmRefsContainer');
+    container.innerHTML = '';
+    _vModal.refs.forEach((ref, i) => {
+      const div = document.createElement('div');
+      div.className = 'frm-ref-thumb';
+      div.innerHTML = `<img src="${ref.src}" alt="${ref.name}">
+        <div class="frm-ref-tag">${ref.tag}</div>
+        <button class="frm-ref-remove" onclick="vrmRemoveRef(${i})">×</button>`;
+      container.appendChild(div);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'frm-ref-add';
+    addBtn.title = 'Add reference image';
+    addBtn.innerHTML = '+';
+    addBtn.onclick = () => document.getElementById('vrmRefFileInput').click();
+    container.appendChild(addBtn);
+  }
+
+  function vrmRemoveRef(i) { _vModal.refs.splice(i, 1); vrmRenderRefs(); }
+
+  document.getElementById('vrmRefFileInput').addEventListener('change', e => {
+    Array.from(e.target.files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const idx = _vModal.refs.length + 1;
+        _vModal.refs.push({ tag: `@image${idx}`, src: ev.target.result, name: file.name });
+        vrmRenderRefs();
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
+
+  // Shared mention helpers for vrm (same logic, different state)
+  function vrmGetCursorInfo() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    const node  = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const textBefore = node.textContent.slice(0, range.startOffset);
+    const match = textBefore.match(/@(\w*)$/);
+    if (!match) return null;
+    return { node, offset: range.startOffset, match, atStart: range.startOffset - match[0].length };
+  }
+
+  function vrmShowDrop(hits) {
+    _vMentionHits = hits; _vMentionIdx = -1;
+    vrmDropEl.innerHTML = hits.map((r, i) =>
+      `<div class="frm-mention-item" data-i="${i}" onmousedown="event.preventDefault();vrmInsertMention('${r.tag}','${r.src}')">
+        <img src="${r.src}" alt="">
+        <div class="frm-mention-item-info"><span class="tag">${r.tag}</span><span class="name">${r.name}</span></div>
+      </div>`).join('');
+    vrmDropEl.classList.add('open');
+  }
+
+  function vrmHideDrop() { vrmDropEl.classList.remove('open'); _vMentionHits = []; _vMentionIdx = -1; }
+
+  function vrmSetActive(idx) {
+    vrmDropEl.querySelectorAll('.frm-mention-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+    _vMentionIdx = idx;
+  }
+
+  vrmPromptEl.addEventListener('input', () => {
+    const info = vrmGetCursorInfo();
+    if (info && _vModal.refs.length > 0) {
+      const q = info.match[1].toLowerCase();
+      const hits = _vModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      if (hits.length) { vrmShowDrop(hits); return; }
+    }
+    vrmHideDrop();
+  });
+
+  vrmPromptEl.addEventListener('keydown', e => {
+    if (!vrmDropEl.classList.contains('open')) return;
+    const n = _vMentionHits.length;
+    if (e.key === 'ArrowDown')      { e.preventDefault(); vrmSetActive((_vMentionIdx + 1) % n); }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); vrmSetActive((_vMentionIdx - 1 + n) % n); }
+    else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (_vMentionIdx >= 0) { e.preventDefault(); const r = _vMentionHits[_vMentionIdx]; vrmInsertMention(r.tag, r.src); }
+    } else if (e.key === 'Escape')  { vrmHideDrop(); }
+  });
+
+  document.addEventListener('click', e => {
+    if (!vrmDropEl.contains(e.target) && e.target !== vrmPromptEl) vrmHideDrop();
+    if (!vrmSumDropEl.contains(e.target) && e.target !== vrmSummaryEl) vrmSumDropEl.classList.remove('open');
+  });
+
+  function vrmInsertMention(tag, src) {
+    const info = vrmGetCursorInfo();
+    if (!info) return;
+    const { node, offset, atStart } = info;
+    const sel = window.getSelection();
+    const range = sel.getRangeAt(0);
+    const del = document.createRange();
+    del.setStart(node, atStart); del.setEnd(node, offset); del.deleteContents();
+    const chip = document.createElement('span');
+    chip.className = 'mention-chip'; chip.contentEditable = 'false';
+    chip.dataset.tag = tag; chip.textContent = tag;
+    const space = document.createTextNode('\u00A0');
+    range.insertNode(space); range.insertNode(chip);
+    const newRange = document.createRange();
+    newRange.setStartAfter(space); newRange.collapse(true);
+    sel.removeAllRanges(); sel.addRange(newRange);
+    vrmHideDrop(); vrmPromptEl.focus();
+  }
+
+  function vrmSetPrompt(text) {
+    vrmPromptEl.innerHTML = '';
+    text.split(/(@\w+)/g).forEach(part => {
+      const ref = _vModal.refs.find(r => r.tag === part);
+      if (ref) {
+        const chip = document.createElement('span');
+        chip.className = 'mention-chip'; chip.contentEditable = 'false';
+        chip.dataset.tag = part; chip.textContent = part;
+        vrmPromptEl.appendChild(chip);
+        vrmPromptEl.appendChild(document.createTextNode('\u00A0'));
+      } else {
+        vrmPromptEl.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
+  function vrmSetSummary(text) {
+    vrmSummaryEl.innerHTML = '';
+    text.split(/(@\w+)/g).forEach(part => {
+      const ref = _vModal.refs.find(r => r.tag === part);
+      if (ref) {
+        const chip = document.createElement('span');
+        chip.className = 'mention-chip'; chip.contentEditable = 'false';
+        chip.dataset.tag = part; chip.textContent = part;
+        vrmSummaryEl.appendChild(chip);
+        vrmSummaryEl.appendChild(document.createTextNode('\u00A0'));
+      } else {
+        vrmSummaryEl.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
+  // @mention for summary field
+  function vrmSumGetCursorInfo() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    const node  = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const textBefore = node.textContent.slice(0, range.startOffset);
+    const match = textBefore.match(/@(\w*)$/);
+    if (!match) return null;
+    return { node, offset: range.startOffset, match, atStart: range.startOffset - match[0].length };
+  }
+
+  vrmSummaryEl.addEventListener('input', () => {
+    const info = vrmSumGetCursorInfo();
+    if (info && _vModal.refs.length > 0) {
+      const q = info.match[1].toLowerCase();
+      const hits = _vModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      if (hits.length) {
+        _vSumHits = hits; _vSumIdx = -1;
+        vrmSumDropEl.innerHTML = hits.map((r, i) =>
+          `<div class="frm-mention-item" data-i="${i}" onmousedown="event.preventDefault();vrmSumInsert('${r.tag}','${r.src}')">
+            <img src="${r.src}" alt="">
+            <div class="frm-mention-item-info"><span class="tag">${r.tag}</span><span class="name">${r.name}</span></div>
+          </div>`).join('');
+        vrmSumDropEl.classList.add('open');
+        return;
+      }
+    }
+    vrmSumDropEl.classList.remove('open');
+  });
+
+  vrmSummaryEl.addEventListener('keydown', e => {
+    if (!vrmSumDropEl.classList.contains('open')) return;
+    const n = _vSumHits.length;
+    if (e.key === 'ArrowDown')     { e.preventDefault(); _vSumIdx = (_vSumIdx+1)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vSumIdx)); }
+    else if (e.key === 'ArrowUp')  { e.preventDefault(); _vSumIdx = (_vSumIdx-1+n)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vSumIdx)); }
+    else if (e.key==='Enter'||e.key==='Tab') { if(_vSumIdx>=0){e.preventDefault();const r=_vSumHits[_vSumIdx];vrmSumInsert(r.tag,r.src);} }
+    else if (e.key === 'Escape')   { vrmSumDropEl.classList.remove('open'); }
+  });
+
+  function vrmSumInsert(tag, src) {
+    const info = vrmSumGetCursorInfo();
+    if (!info) return;
+    const { node, offset, atStart } = info;
+    const sel = window.getSelection(); const range = sel.getRangeAt(0);
+    const del = document.createRange(); del.setStart(node,atStart); del.setEnd(node,offset); del.deleteContents();
+    const chip = document.createElement('span');
+    chip.className='mention-chip'; chip.contentEditable='false'; chip.dataset.tag=tag; chip.textContent=tag;
+    const space = document.createTextNode('\u00A0');
+    range.insertNode(space); range.insertNode(chip);
+    const nr = document.createRange(); nr.setStartAfter(space); nr.collapse(true);
+    sel.removeAllRanges(); sel.addRange(nr);
+    vrmSumDropEl.classList.remove('open');
+    vrmSummaryEl.focus();
+  }
+
+  async function submitVideoRegen() {
+    const statusEl  = document.getElementById('vrmStatus');
+    const submitBtn = document.getElementById('vrmSubmitBtn');
+    const vidWrap   = document.getElementById('vrmCurrentVid');
+
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Generating…';
+
+    vidWrap.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#07070f">
+      <div class="dot-ring" style="border-color:#2a2a45;border-top-color:#a78bfa;width:32px;height:32px"></div>
+      <span style="font-size:11px;color:#a78bfa">Generating…</span>
+    </div>`;
+
+    await new Promise(r => setTimeout(r, 2500));
+
+    const newSrc = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4';
+    vidWrap.innerHTML = `<video src="${newSrc}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>`;
+    statusEl.textContent = '✓ New video ready';
+
+    // Update scene card
+    const sceneVidCell = document.getElementById(`scene${_vModal.sceneNum}-vid`);
+    if (sceneVidCell) {
+      sceneVidCell.innerHTML = `<video src="${newSrc}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
+        <div class="media-label video-label">Video ✓</div>
+        <button class="media-regen-btn" onclick="openVideoRegenModal(${_vModal.sceneNum})">↺ Regenerate</button>`;
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = '🎬 Regenerate Again';
+  }
+
+  // ── Scene data for the test ──
+  const testScenes = {
+    1: { name: 'The Playful Smile & Surprise',
+         firstSrc: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=711&fit=crop',
+         lastSrc:  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=711&fit=crop',
+         prompt: 'Warm intimate medium over-the-shoulder shot, boy smiling affectionately, camera smoothly tracks sideways.' },
+    3: { name: 'The Fitting & Connection',
+         firstSrc: 'https://images.unsplash.com/photo-1488716820095-cbe80883c496?w=400&h=711&fit=crop',
+         lastSrc:  'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?w=400&h=711&fit=crop',
+         prompt: 'Low angle close-up of anklet being fastened, golden hour sunlight, camera tilts up to reveal both characters.',
+         summary: 'Aarav kneels down and gently fastens the delicate anklet around Meera\'s ankle. They look up at each other, sharing a deep romantic connection as she admires the jewel catching the golden hour light.' },
+  };
+
+  // ── Modal state ──
+  const _modal = { sceneNum: null, which: null, refs: [] };
+
+  function openRegenModal(sceneNum, which) {
+    const sc = testScenes[sceneNum];
+    if (!sc) return;
+
+    _modal.sceneNum = sceneNum;
+    _modal.which    = which;
+    _modal.refs     = [];
+
+    // Pre-seed opposite frame as @frame2
+    const otherSrc = which === 'first' ? sc.lastSrc : sc.firstSrc;
+    if (otherSrc) {
+      _modal.refs.push({ tag: '@frame2', src: otherSrc, name: which === 'first' ? 'Last Frame' : 'First Frame' });
+    }
+
+    // Set current image
+    const cellId  = `scene${sceneNum}-${which === 'first' ? 'ff' : 'lf'}`;
+    const imgSrc  = document.getElementById(cellId)?.querySelector('img')?.src || (which === 'first' ? sc.firstSrc : sc.lastSrc);
+    document.getElementById('frmCurrentImg').src = imgSrc;
+    document.getElementById('frmCurrentLabel').textContent = `Current ${which === 'first' ? 'First' : 'Last'} Frame — Scene ${sceneNum}`;
+    document.getElementById('frmModalTitle').textContent   = `Regenerate ${which === 'first' ? 'First' : 'Last'} Frame`;
+    document.getElementById('frmModalSub').textContent     = `Scene ${String(sceneNum).padStart(2,'0')} — ${sc.name}`;
+
+    frmSetPrompt(sc.prompt);
+    document.getElementById('frmStatus').textContent = '';
+    document.getElementById('frmSubmitBtn').disabled = false;
+
+    frmRenderRefs();
+    document.getElementById('frameRegenModal').classList.add('open');
+    document.getElementById('frmPrompt').focus();
+  }
+
+  function closeRegenModal() {
+    document.getElementById('frameRegenModal').classList.remove('open');
+  }
+
+  function frmRenderRefs() {
+    const container = document.getElementById('frmRefsContainer');
+    container.innerHTML = '';
+    _modal.refs.forEach((ref, i) => {
+      const div = document.createElement('div');
+      div.className = 'frm-ref-thumb';
+      div.innerHTML = `<img src="${ref.src}" alt="${ref.name}">
+        <div class="frm-ref-tag">${ref.tag}</div>
+        <button class="frm-ref-remove" onclick="frmRemoveRef(${i})">×</button>`;
+      container.appendChild(div);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'frm-ref-add';
+    addBtn.title = 'Add reference image';
+    addBtn.innerHTML = '+';
+    addBtn.onclick = () => document.getElementById('frmRefFileInput').click();
+    container.appendChild(addBtn);
+  }
+
+  function frmRemoveRef(i) {
+    _modal.refs.splice(i, 1);
+    frmRenderRefs();
+  }
+
+  // File upload → add as @imageN
+  document.getElementById('frmRefFileInput').addEventListener('change', e => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const idx = _modal.refs.length + 1;
+        _modal.refs.push({ tag: `@image${idx}`, src: ev.target.result, name: file.name });
+        frmRenderRefs();
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
+
+  // @mention autocomplete — contenteditable version
+  const frmPromptEl = document.getElementById('frmPrompt');
+  const frmDropEl   = document.getElementById('frmMentionDrop');
+  let _mentionHits  = [];
+  let _mentionIdx   = -1;
+
+  // Helpers to work with contenteditable selection
+  function frmGetCursorInfo() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    // Walk backwards through text nodes to find @ prefix
+    let node = range.startContainer;
+    let offset = range.startOffset;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const textBefore = node.textContent.slice(0, offset);
+    const match = textBefore.match(/@(\w*)$/);
+    if (!match) return null;
+    return { node, offset, match, atStart: offset - match[0].length };
+  }
+
+  function frmShowDrop(hits) {
+    _mentionHits = hits;
+    _mentionIdx  = -1;
+    frmDropEl.innerHTML = hits.map((r, i) =>
+      `<div class="frm-mention-item" data-i="${i}" onmousedown="event.preventDefault();frmInsertMention('${r.tag}','${r.src}')">
+        <img src="${r.src}" alt="">
+        <div class="frm-mention-item-info">
+          <span class="tag">${r.tag}</span>
+          <span class="name">${r.name}</span>
+        </div>
+      </div>`
+    ).join('');
+    frmDropEl.classList.add('open');
+  }
+
+  function frmHideDrop() {
+    frmDropEl.classList.remove('open');
+    _mentionHits = [];
+    _mentionIdx  = -1;
+  }
+
+  function frmSetActive(idx) {
+    frmDropEl.querySelectorAll('.frm-mention-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+    _mentionIdx = idx;
+  }
+
+  frmPromptEl.addEventListener('input', () => {
+    const info = frmGetCursorInfo();
+    if (info && _modal.refs.length > 0) {
+      const q    = info.match[1].toLowerCase();
+      const hits = _modal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      if (hits.length) { frmShowDrop(hits); return; }
+    }
+    frmHideDrop();
+  });
+
+  frmPromptEl.addEventListener('keydown', e => {
+    if (!frmDropEl.classList.contains('open')) return;
+    const n = _mentionHits.length;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault(); frmSetActive((_mentionIdx + 1) % n);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault(); frmSetActive((_mentionIdx - 1 + n) % n);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (_mentionIdx >= 0) {
+        e.preventDefault();
+        const r = _mentionHits[_mentionIdx];
+        frmInsertMention(r.tag, r.src);
+      }
+    } else if (e.key === 'Escape') {
+      frmHideDrop();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!frmDropEl.contains(e.target) && e.target !== frmPromptEl) frmHideDrop();
+  });
+
+  function frmInsertMention(tag, src) {
+    const info = frmGetCursorInfo();
+    if (!info) return;
+
+    const { node, offset, atStart } = info;
+    const sel   = window.getSelection();
+    const range = sel.getRangeAt(0);
+
+    // Delete the @partial text before cursor
+    const deleteRange = document.createRange();
+    deleteRange.setStart(node, atStart);
+    deleteRange.setEnd(node, offset);
+    deleteRange.deleteContents();
+
+    // Create chip span
+    const chip = document.createElement('span');
+    chip.className = 'mention-chip';
+    chip.contentEditable = 'false';
+    chip.dataset.tag = tag;
+    chip.textContent = tag;
+
+    // Insert chip + trailing space
+    const space = document.createTextNode('\u00A0');
+    range.insertNode(space);
+    range.insertNode(chip);
+
+    // Move cursor after space
+    const newRange = document.createRange();
+    newRange.setStartAfter(space);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+
+    frmHideDrop();
+    frmPromptEl.focus();
+  }
+
+  // Extract plain text (chips → their tag text) for API submission
+  function frmGetPromptText() {
+    let text = '';
+    frmPromptEl.childNodes.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      } else if (node.classList?.contains('mention-chip')) {
+        text += node.dataset.tag;
+      } else {
+        text += node.textContent;
+      }
+    });
+    return text.trim();
+  }
+
+  // Set prompt content (plain text, converting @tags to chips)
+  function frmSetPrompt(text) {
+    frmPromptEl.innerHTML = '';
+    const parts = text.split(/(@\w+)/g);
+    parts.forEach(part => {
+      const ref = _modal.refs.find(r => r.tag === part);
+      if (ref) {
+        const chip = document.createElement('span');
+        chip.className = 'mention-chip';
+        chip.contentEditable = 'false';
+        chip.dataset.tag = part;
+        chip.textContent = part;
+        frmPromptEl.appendChild(chip);
+        frmPromptEl.appendChild(document.createTextNode('\u00A0'));
+      } else {
+        frmPromptEl.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
+  async function frmSubmitRegen() {
+    const statusEl = document.getElementById('frmStatus');
+    const submitBtn = document.getElementById('frmSubmitBtn');
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Regenerating…';
+
+    // Simulate API call (1.5s delay for demo)
+    await new Promise(r => setTimeout(r, 1500));
+
+    // In real app: call API and update the cell
+    // For demo: swap with a different Unsplash image
+    const cellId  = `scene${_modal.sceneNum}-${_modal.which === 'first' ? 'ff' : 'lf'}`;
+    const cell    = document.getElementById(cellId);
+    if (cell) {
+      const newSrc = `https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=711&fit=crop&t=${Date.now()}`;
+      const img = cell.querySelector('img');
+      if (img) img.src = newSrc;
+      // Update testScenes src for next open
+      if (_modal.which === 'first') testScenes[_modal.sceneNum].firstSrc = newSrc;
+      else testScenes[_modal.sceneNum].lastSrc = newSrc;
+    }
+
+    statusEl.textContent = '✓ Frame updated';
+    setTimeout(closeRegenModal, 800);
+  }
+</script>
+</body>
+</html>

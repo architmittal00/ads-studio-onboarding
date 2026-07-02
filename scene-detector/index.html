@@ -6,6 +6,7 @@
   <title>Scene Detector</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #07070f; color: #e2e2f0; min-height: 100vh; }
@@ -204,9 +205,12 @@
     .brief-card-body { padding:16px; display:flex; flex-direction:column; gap:14px; }
 
     .brief-frames { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .brief-frame { position:relative; border-radius:8px; overflow:hidden; border:1px solid #1e1e30; }
+    .brief-frame { position:relative; border-radius:8px; overflow:hidden; border:1px solid #1e1e30; background:#07070f; }
     .brief-frame img { width:100%; display:block; aspect-ratio:16/9; object-fit:cover; background:#07070f; }
     .brief-frame .flabel { position:absolute; bottom:5px; left:5px; background:rgba(0,0,0,.75); backdrop-filter:blur(4px); border-radius:3px; padding:2px 6px; font-size:10px; color:#ccc; font-weight:600; }
+    .brief-frame .ftimecode { position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,.75); backdrop-filter:blur(4px); border-radius:3px; padding:2px 6px; font-size:10px; color:#888; font-family:monospace; }
+    .brief-frame-regen { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.7); border:1px solid rgba(255,255,255,.15); border-radius:5px; padding:3px 8px; font-size:10px; color:#ccc; cursor:pointer; backdrop-filter:blur(4px); transition:background .15s,color .15s; }
+    .brief-frame-regen:hover { background:rgba(124,93,191,.8); color:#fff; border-color:#7c5cbf; }
 
     .brief-prompt { background:#13132a; border:1px solid #222238; border-radius:8px; padding:12px 14px; }
     .brief-prompt-label { font-size:10px; color:#555; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
@@ -351,73 +355,265 @@
     .stv-panel-title { font-size:15px; font-weight:700; color:#e8e6f0; margin-bottom:6px; }
     .stv-panel-sub { font-size:12px; color:#555; margin-bottom:14px; line-height:1.5; }
     .stv-textarea { width:100%; background:#07070f; border:1px solid #1e1e30; border-radius:8px; color:#e0dff0; font-size:12px; padding:10px 12px; outline:none; font-family:inherit; resize:vertical; line-height:1.6; }
+    .stv2-label { font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4px;font-weight:600; }
+    .stv2-input { width:100%;background:#0d0d1f;border:1px solid #2a2a45;border-radius:6px;color:#e2e2f0;font-size:12px;padding:6px 10px;outline:none;box-sizing:border-box;font-family:inherit; }
+    .stv2-input:focus { border-color:#7c5cbf; }
+    .stv2-textarea { width:100%;background:#0d0d1f;border:1px solid #2a2a45;border-radius:6px;color:#e2e2f0;font-size:12px;padding:8px 10px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit;line-height:1.6; }
+    .stv2-textarea:focus { border-color:#7c5cbf; }
     .stv-textarea:focus { border-color:#7c6dff; }
     .stv-textarea.stv-json { font-family:'Courier New',monospace; font-size:11px; color:#a78bfa; }
     .stv-select { height:30px; background:#0f0f1a; border:1px solid #1e1e30; border-radius:6px; color:#ccc; font-size:11px; padding:0 8px; outline:none; cursor:pointer; }
     .stv-select:focus { border-color:#7c6dff; }
     .stv-prod-upload { border:1.5px dashed #1e1e30; border-radius:10px; padding:16px; text-align:center; cursor:pointer; transition:border-color .15s; }
     .stv-prod-upload:hover { border-color:#7c6dff; }
-    .stv-frames-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:10px; }
-    .stv-frame-card { background:#07070f; border:1px solid #1e1e30; border-radius:10px; overflow:hidden; }
-    .stv-frame-card-header { padding:8px 12px; font-size:11px; font-weight:700; color:#a78bfa; border-bottom:1px solid #1e1e30; }
-    .stv-frame-row { display:grid; grid-template-columns:1fr 1fr; gap:0; }
-    .stv-frame-cell { position:relative; aspect-ratio:9/16; overflow:hidden; background:#07070f; }
-    .stv-frame-cell img { width:100%; height:100%; object-fit:cover; display:block; }
-    .stv-frame-label { position:absolute; bottom:5px; left:5px; background:rgba(0,0,0,.7); border-radius:4px; padding:2px 6px; font-size:9px; font-weight:600; color:#ccc; }
+    /* ── Step 4: Scene rows ─────────────────────────────────────────── */
+    .stv-frames-grid { display:flex; flex-direction:column; gap:12px; margin-top:10px; }
+    .stv-frame-card { background:#07070f; border:1px solid #1e1e30; border-radius:12px; overflow:hidden; }
+    /* Header */
+    .stv-frame-card-header { padding:10px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #1e1e30; }
+    .stv-frame-card-header input[type=checkbox] { width:16px; height:16px; accent-color:#7c6dff; cursor:pointer; flex-shrink:0; }
+    .stv-frame-card-scene-num { font-size:11px; font-weight:700; color:#555; background:#111126; border:1px solid #1e1e30; border-radius:5px; padding:2px 7px; }
+    .stv-frame-card-title { font-size:13px; font-weight:700; color:#a78bfa; flex:1; }
+    .stv-frame-card-status { font-size:11px; color:#555; white-space:nowrap; }
+    /* ── Step 4 scene card layout ── */
+    /* 3-column media row: first frame | last frame | video */
+    .stv-frame-card-media { display:grid; grid-template-columns:1fr 1fr 1fr; border-bottom:1px solid #1e1e30; }
+    .stv-media-cell { position:relative; aspect-ratio:9/16; overflow:hidden; background:#0d0d1f; }
+    .stv-media-cell + .stv-media-cell { border-left:1px solid #1e1e30; }
+    .stv-media-cell img, .stv-media-cell video { width:100%; height:100%; object-fit:cover; display:block; }
+    /* Loading state */
+    .stv-media-cell.loading { display:flex; align-items:center; justify-content:center; }
+    /* Video empty / generating states */
+    .stv-vid-empty, .stv-vid-generating { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+    .stv-vid-empty svg, .stv-vid-generating svg { opacity:.15; }
+    .stv-vid-empty span { font-size:10px; color:#333; text-align:center; line-height:1.5; }
+    .stv-vid-generating span { font-size:11px; color:#a78bfa; }
+    /* Labels */
+    .stv-media-label { position:absolute; top:8px; left:8px; background:rgba(0,0,0,.72); border-radius:5px; padding:3px 8px; font-size:10px; font-weight:600; color:#ccc; backdrop-filter:blur(6px); }
+    .stv-media-label.video { background:rgba(124,93,191,.5); color:#e0d4ff; }
+    /* Regen button */
+    .stv-regen-frame-btn { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.78); border:1px solid rgba(255,255,255,.15); border-radius:5px; padding:4px 12px; font-size:10px; color:#bbb; cursor:pointer; backdrop-filter:blur(6px); white-space:nowrap; transition:background .15s,color .15s,border-color .15s; z-index:20; }
+    .stv-regen-frame-btn:hover { background:rgba(124,93,191,.9); color:#fff; border-color:#7c6dff; }
+    .stv-regen-frame-btn:disabled { opacity:.4; cursor:not-allowed; }
+    /* Video hover controls */
+    .vid-hover-controls { position:absolute; bottom:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:8px 8px 6px; background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%); opacity:0; transition:opacity .2s ease; pointer-events:none; z-index:10; }
+    .stv-media-cell:hover .vid-hover-controls { opacity:1; pointer-events:auto; }
+    .vid-ctrl-btn { background:rgba(255,255,255,.12); border:none; border-radius:6px; color:#fff; cursor:pointer; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:13px; transition:background .15s; backdrop-filter:blur(4px); text-decoration:none; }
+    .vid-ctrl-btn:hover { background:rgba(255,255,255,.25); }
+    /* Text section below media */
+    .stv-frame-card-body { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:14px 16px; }
+    .stv-scene-field label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#555; margin-bottom:4px; font-weight:600; }
+    .stv-scene-field textarea { width:100%; background:#0d0d1f; border:1px solid #1e1e30; border-radius:7px; color:#c8c8e0; font-size:12px; padding:9px 11px; outline:none; resize:vertical; font-family:inherit; line-height:1.65; box-sizing:border-box; }
+    .stv-scene-field textarea:focus { border-color:#7c5cbf; }
+    .stv-regen-frame-btn { position:absolute; bottom:6px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.75); border:1px solid rgba(255,255,255,.18); border-radius:5px; padding:3px 9px; font-size:10px; color:#ccc; cursor:pointer; backdrop-filter:blur(4px); z-index:2; transition:background .15s,color .15s; white-space:nowrap; }
+    .stv-regen-frame-btn:hover { background:rgba(124,93,191,.85); color:#fff; border-color:#7c6dff; }
+    .stv-regen-frame-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .stv-frame-label { position:absolute; top:5px; left:5px; background:rgba(0,0,0,.7); border-radius:4px; padding:2px 6px; font-size:9px; font-weight:600; color:#ccc; }
     .stv-frame-status { padding:8px 12px; font-size:10px; color:#555; }
+
+    /* ── Frame Regen Modal ──────────────────────────────────────────── */
+    #frameRegenModal { display:none; position:fixed; inset:0; z-index:9000; align-items:center; justify-content:center; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); padding:16px; }
+    #frameRegenModal.open { display:flex; }
+    .frm-dialog {
+      background:#0c0c1a; border:1px solid #1e1e30; border-radius:16px;
+      width:100%; max-width:820px; max-height:90vh; overflow:hidden;
+      display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.8);
+    }
+    .frm-header {
+      padding:14px 18px; border-bottom:1px solid #1e1e30;
+      display:flex; align-items:center; gap:10px;
+    }
+    .frm-header-title { font-size:14px; font-weight:700; color:#fff; flex:1; }
+    .frm-header-sub { font-size:11px; color:#555; }
+    .frm-close { background:none; border:none; color:#555; cursor:pointer; font-size:18px; line-height:1; padding:2px 6px; border-radius:5px; }
+    .frm-close:hover { color:#fff; background:#1e1e30; }
+    .frm-body { display:grid; grid-template-columns:auto 1fr; overflow:hidden; }
+    /* Left — current image 9:16 */
+    .frm-current {
+      border-right:1px solid #1e1e30; display:flex; flex-direction:column;
+    }
+    .frm-current-img {
+      width:auto; height:480px; aspect-ratio:9/16;
+      overflow:hidden; background:#07070f; flex-shrink:0;
+    }
+    .frm-current-img img { width:100%; height:100%; object-fit:cover; display:block; }
+    .frm-current-label {
+      padding:8px 14px; font-size:10px; font-weight:600; text-transform:uppercase;
+      letter-spacing:.06em; color:#555; border-top:1px solid #1e1e30; background:#07070f;
+    }
+    /* Right — prompt + refs */
+    .frm-right { display:flex; flex-direction:column; overflow-y:auto; padding:16px; gap:14px; justify-content:flex-start; }
+    .frm-section-label { font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+
+    /* Reference images row */
+    .frm-refs { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; }
+    .frm-ref-thumb {
+      position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden;
+      border:1px solid #2a2a45; flex-shrink:0; cursor:pointer;
+    }
+    .frm-ref-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .frm-ref-thumb .frm-ref-tag {
+      position:absolute; bottom:0; left:0; right:0;
+      background:rgba(0,0,0,.75); font-size:9px; font-weight:700; color:#a78bfa;
+      text-align:center; padding:2px 4px;
+    }
+    .frm-ref-thumb .frm-ref-remove {
+      position:absolute; top:3px; right:3px; width:16px; height:16px;
+      background:rgba(0,0,0,.8); border:none; border-radius:50%;
+      color:#f87171; font-size:10px; cursor:pointer; display:none;
+      align-items:center; justify-content:center; line-height:1;
+    }
+    .frm-ref-thumb:hover .frm-ref-remove { display:flex; }
+    .frm-ref-add {
+      width:64px; height:64px; border-radius:8px; border:1.5px dashed #2a2a45;
+      background:none; color:#555; font-size:22px; cursor:pointer; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      transition:border-color .15s, color .15s;
+    }
+    .frm-ref-add:hover { border-color:#7c6dff; color:#a78bfa; }
+
+    /* Prompt contenteditable with @mention */
+    .frm-prompt-wrap { position:relative; display:flex; flex-direction:column; }
+    .frm-prompt-editor {
+      background:#0d0d1f; border:1px solid #1e1e30; border-radius:8px;
+      color:#c8c8e0; font-size:12px; padding:10px 12px; outline:none;
+      font-family:inherit; line-height:1.9; min-height:120px; max-height:220px;
+      white-space:pre-wrap; word-break:break-word; overflow-y:auto; cursor:text;
+    }
+    .frm-prompt-editor:focus { border-color:#7c5cbf; }
+    .frm-prompt-editor:empty::before { content:attr(data-placeholder); color:#333; pointer-events:none; }
+    .mention-chip {
+      display:inline-block; background:rgba(124,93,255,.18); color:#c4b5fd;
+      border:1px solid rgba(124,93,255,.35); border-radius:5px; padding:1px 7px 2px;
+      font-size:11px; font-weight:700; cursor:default; user-select:all;
+      margin:0 1px; vertical-align:baseline;
+    }
+    .frm-prompt-hint { margin-top:5px; font-size:11px; color:#2e2e4a; }
+    .frm-prompt-hint .at { color:#a78bfa; font-weight:700; }
+
+    /* @mention suggestion dropdown */
+    .frm-mention-drop {
+      position:absolute; bottom:calc(100% + 6px); left:0;
+      background:#111126; border:1px solid #2a2a45; border-radius:10px;
+      min-width:200px; z-index:100; overflow:hidden;
+      box-shadow:0 12px 32px rgba(0,0,0,.6);
+      opacity:0; transform:translateY(4px) scale(.98);
+      pointer-events:none;
+      transition:opacity .15s ease, transform .15s ease;
+    }
+    .frm-mention-drop.open { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+    .frm-mention-item {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 12px; cursor:pointer; font-size:12px; color:#c8c8e0;
+      transition:background .1s;
+    }
+    .frm-mention-item:hover, .frm-mention-item.active { background:#1e1e38; }
+    .frm-mention-item.active { border-left:2px solid #7c6dff; padding-left:10px; }
+    .frm-mention-item img { width:32px; height:32px; border-radius:5px; object-fit:cover; flex-shrink:0; border:1px solid #2a2a45; }
+    .frm-mention-item-info { display:flex; flex-direction:column; gap:1px; }
+    .frm-mention-item .tag { color:#a78bfa; font-weight:700; font-size:12px; }
+    .frm-mention-item .name { color:#444; font-size:10px; }
+
+    /* Footer */
+    .frm-footer {
+      padding:12px 16px; border-top:1px solid #1e1e30;
+      display:flex; align-items:center; justify-content:flex-end; gap:8px;
+    }
+    .frm-status { font-size:11px; color:#a78bfa; flex:1; }
+
+    /* ── Video Regen Modal ── */
+    #videoRegenModal { display:none; position:fixed; inset:0; z-index:9000; align-items:center; justify-content:center; background:rgba(0,0,0,.75); backdrop-filter:blur(8px); padding:16px; }
+    #videoRegenModal.open { display:flex; }
+    .vrm-dialog { background:#0c0c1a; border:1px solid #1e1e30; border-radius:16px; width:100%; max-width:860px; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(0,0,0,.6); }
+    .vrm-header { padding:16px 20px; border-bottom:1px solid #1e1e30; display:flex; align-items:flex-start; justify-content:space-between; flex-shrink:0; }
+    .vrm-header-title { font-size:15px; font-weight:700; color:#fff; }
+    .vrm-header-sub { font-size:12px; color:#555; margin-top:2px; }
+    .vrm-body { display:grid; grid-template-columns:auto 1fr; overflow:hidden; }
+    .vrm-left { border-right:1px solid #1e1e30; display:flex; flex-direction:column; }
+    .vrm-video-wrap { width:auto; height:480px; aspect-ratio:9/16; background:#07070f; position:relative; overflow:hidden; flex-shrink:0; }
+    .vrm-video-wrap video { width:100%; height:100%; object-fit:cover; display:block; }
+    .vrm-video-wrap::after { content:''; pointer-events:none; position:absolute; inset:0; box-shadow:inset 0 0 0 2px rgba(167,139,250,.45); }
+    .vrm-video-label { padding:8px 14px; font-size:11px; color:#a78bfa; font-weight:700; text-transform:uppercase; letter-spacing:.05em; border-top:1px solid #1e1e30; background:#07070f; display:flex; align-items:center; gap:6px; }
+    .vrm-video-label span { color:#555; font-weight:400; text-transform:none; font-size:10px; }
+    .vrm-right { display:flex; flex-direction:column; padding:16px; gap:14px; overflow-y:auto; justify-content:flex-start; }
+    .vrm-settings { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .vrm-settings select { background:#0d0d1f; border:1px solid #1e1e30; border-radius:7px; color:#c8c8e0; font-size:12px; padding:7px 10px; outline:none; width:100%; }
+    .vrm-settings select:focus { border-color:#7c5cbf; }
+    .vrm-footer { padding:12px 20px; border-top:1px solid #1e1e30; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+    .vrm-status { flex:1; font-size:12px; color:#a78bfa; }
 
   </style>
 </head>
 <body>
 
+<!-- ── Page Loading Overlay ───────────────────────────────────────────── -->
+<div id="pageLoadingOverlay" style="
+  position:fixed;inset:0;background:#07070f;z-index:10001;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+">
+  <div style="width:36px;height:36px;border:3px solid #1e1e30;border-top-color:#7c6dff;border-radius:50%;animation:spin .8s linear infinite"></div>
+  <p style="font-size:13px;color:#444">Loading Studio…</p>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
 <!-- ════ LANDING SCREEN ════ -->
-<!-- ── Email Capture Modal ────────────────────────────────────────────── -->
+<!-- ── Auth Modal (Magic Link) ─────────────────────────────────────────── -->
 <div id="emailCapture" style="
   position:fixed;inset:0;background:rgba(7,7,15,0.92);backdrop-filter:blur(8px);
-  z-index:10000;display:flex;align-items:center;justify-content:center;
+  z-index:10000;display:none;align-items:center;justify-content:center;
 ">
   <div style="
     background:#0f0f1a;border:1px solid #1e1e30;border-radius:20px;
     padding:40px 36px;width:100%;max-width:400px;margin:20px;
     box-shadow:0 24px 80px rgba(0,0,0,0.6);
   ">
-    <div style="text-align:center;margin-bottom:28px">
-      <div style="font-size:36px;margin-bottom:12px">🎬</div>
-      <h2 style="font-size:20px;font-weight:800;color:#fff;margin-bottom:8px">Welcome to Studio</h2>
-      <p style="font-size:13px;color:#666;line-height:1.6;max-width:300px;margin:0 auto">
-        Enter your email to get started. We'll send you updates and tips on getting the most out of Studio.
-      </p>
+    <!-- Sign-in view -->
+    <div id="authSigninView">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:36px;margin-bottom:12px">🎬</div>
+        <h2 style="font-size:20px;font-weight:800;color:#fff;margin-bottom:8px">Welcome to Studio</h2>
+        <p style="font-size:13px;color:#666;line-height:1.6;max-width:300px;margin:0 auto">
+          Sign in with your email — we'll send you a magic link. No password needed.
+        </p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <input
+          id="emailInput"
+          type="email"
+          placeholder="you@example.com"
+          autocomplete="email"
+          style="
+            width:100%;padding:12px 16px;background:#13132a;border:1.5px solid #222238;
+            border-radius:10px;color:#e2e2f0;font-size:14px;outline:none;
+            transition:border-color .15s;
+          "
+          onfocus="this.style.borderColor='#7c6dff'"
+          onblur="this.style.borderColor='#222238'"
+          onkeydown="if(event.key==='Enter') submitEmail()"
+        />
+        <div id="emailError" style="font-size:12px;color:#f87171;display:none;padding-left:4px"></div>
+        <button id="authSigninBtn" onclick="submitEmail()" style="
+          width:100%;padding:12px;background:linear-gradient(135deg,#7c6dff,#c026d3);
+          color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;
+          cursor:pointer;transition:opacity .15s;
+        " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          Send Magic Link →
+        </button>
+      </div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <input
-        id="emailInput"
-        type="email"
-        placeholder="you@example.com"
-        autocomplete="email"
-        style="
-          width:100%;padding:12px 16px;background:#13132a;border:1.5px solid #222238;
-          border-radius:10px;color:#e2e2f0;font-size:14px;outline:none;
-          transition:border-color .15s;
-        "
-        onfocus="this.style.borderColor='#7c6dff'"
-        onblur="this.style.borderColor='#222238'"
-        onkeydown="if(event.key==='Enter') submitEmail()"
-      />
-      <div id="emailError" style="font-size:12px;color:#f87171;display:none;padding-left:4px"></div>
-      <button onclick="submitEmail()" style="
-        width:100%;padding:12px;background:linear-gradient(135deg,#7c6dff,#c026d3);
-        color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;
-        cursor:pointer;transition:opacity .15s;
-      " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-        Get Started →
-      </button>
-      <button onclick="skipEmail()" style="
-        width:100%;padding:10px;background:none;border:none;
-        color:#444;font-size:12px;cursor:pointer;transition:color .15s;
-      " onmouseover="this.style.color='#888'" onmouseout="this.style.color='#444'">
-        Skip for now
-      </button>
+    <!-- Sent confirmation view -->
+    <div id="authSentView" style="display:none;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">📬</div>
+      <h2 style="font-size:18px;font-weight:800;color:#fff;margin-bottom:10px">Check your inbox</h2>
+      <p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:20px">
+        We sent a magic link to <strong id="authSentEmail" style="color:#c4b5fd"></strong>.<br>
+        Click it to sign in — the link expires in 1 hour.
+      </p>
+      <button onclick="authBackToSignin()" style="
+        padding:10px 20px;background:none;border:1px solid #2a2a45;
+        border-radius:8px;color:#888;font-size:12px;cursor:pointer;
+      ">← Use a different email</button>
     </div>
   </div>
 </div>
@@ -602,10 +798,31 @@
 <!-- STEP 2: STRUCTURED JSON -->
 <div class="stv-panel" id="stvPanel2" style="display:none">
   <div class="stv-panel-title">Review & Edit Structured Script</div>
-  <p class="stv-panel-sub">This JSON will be used for all subsequent steps. Edit directly if needed.</p>
-  <textarea id="stvJsonEditor" class="stv-textarea stv-json" rows="16" spellcheck="false"></textarea>
+  <p class="stv-panel-sub">Review each scene below. Edit any field — especially the Motion Brief which drives video generation.</p>
+
+  <!-- Global fields -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+    <div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4px">Storyboard Title</div>
+      <input id="stv2Title" type="text" style="width:100%;background:#0d0d1f;border:1px solid #2a2a45;border-radius:6px;color:#e2e2f0;font-size:13px;padding:7px 10px;outline:none;box-sizing:border-box" />
+    </div>
+    <div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4px">Global Style</div>
+      <input id="stv2Style" type="text" style="width:100%;background:#0d0d1f;border:1px solid #2a2a45;border-radius:6px;color:#e2e2f0;font-size:13px;padding:7px 10px;outline:none;box-sizing:border-box" />
+    </div>
+  </div>
+
+  <!-- Per-scene editors -->
+  <div id="stv2ScenesEditor"></div>
+
+  <!-- Raw JSON toggle -->
+  <details style="margin-top:14px">
+    <summary style="font-size:11px;color:#444;cursor:pointer;user-select:none">View / edit raw JSON</summary>
+    <textarea id="stvJsonEditor" class="stv-textarea stv-json" rows="14" spellcheck="false" style="margin-top:8px" oninput="stv2SyncFromJson()"></textarea>
+  </details>
+
   <div id="stvJsonError" style="font-size:11px;color:#f87171;margin-top:6px;display:none"></div>
-  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+  <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
     <button class="btn btn-ghost btn-sm" onclick="stvGoBack(1)">← Back</button>
     <button class="btn btn-sm" style="background:#14532d;color:#86efac;border:1px solid #166534" onclick="stvApproveStructure()">✓ Approve & Continue</button>
     <button class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b" onclick="stvOpenRejectModal()">✕ Reject & Regenerate</button>
@@ -669,6 +886,7 @@
       <option value="">— select provider first —</option>
     </select>
     <button class="btn btn-purple" id="stvGenStoryboardBtn" onclick="stvGenStoryboard()" disabled>✦ Generate Storyboard</button>
+    <button class="btn btn-sm" id="stvStopStoryboardBtn" onclick="stopGeneration()" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b">⏹ Stop</button>
   </div>
   <div id="stvStep3Status" style="margin-top:10px;font-size:11px;color:#666"></div>
   <div id="stvStoryboardResult" style="margin-top:12px"></div>
@@ -676,12 +894,64 @@
     <button class="btn btn-ghost btn-sm" onclick="stvGoBack(2)">← Back</button>
     <button class="btn btn-teal" onclick="stvApproveStoryboard()">✓ Approve Storyboard →</button>
   </div>
+
+  <!-- Regenerate section — shown after storyboard is generated -->
+  <div id="stvRegenSection" style="display:none;margin-top:20px;border-top:1px solid #1e1e30;padding-top:16px">
+    <div style="font-size:12px;font-weight:600;color:#aaa;margin-bottom:10px;letter-spacing:0.04em">REGENERATE STORYBOARD</div>
+    <textarea id="stvRegenFeedback" placeholder="Describe what to change — e.g. make it more luxurious, change the setting to a beach, add more close-up product shots…" style="width:100%;min-height:80px;background:#0d0d1a;border:1px solid #2a2a40;border-radius:6px;padding:10px;font-size:12px;color:#e0e0f0;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none"></textarea>
+    <!-- Extra product images for regen -->
+    <div style="margin-top:8px">
+      <div class="stv-prod-upload" id="stvRegenUploadArea" onclick="document.getElementById('stvRegenInput').click()" style="padding:10px 14px;min-height:unset;flex-direction:row;gap:8px">
+        <input type="file" id="stvRegenInput" accept="image/*" multiple style="display:none" onchange="stvHandleRegenFiles(this.files)">
+        <span style="font-size:14px">📎</span>
+        <span style="font-size:11px;color:#555" id="stvRegenUploadLabel">Attach additional product / reference photos (optional)</span>
+      </div>
+      <div class="product-thumbs" id="stvRegenThumbs" style="margin-top:6px"></div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-purple" id="stvRegenBtn" onclick="stvRegenStoryboard()">↺ Regenerate Storyboard</button>
+      <button class="btn btn-sm" id="stvRegenStopBtn" onclick="stopGeneration()" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b">⏹ Stop</button>
+    </div>
+    <div id="stvRegenStatus" style="margin-top:8px;font-size:11px;color:#666"></div>
+  </div>
 </div>
 
-<!-- STEP 4: FIRST & LAST FRAMES -->
+<!-- STEP 4: FIRST & LAST FRAMES + VIDEO GEN -->
 <div class="stv-panel" id="stvPanel4" style="display:none">
-  <div class="stv-panel-title">Generate Scene Frames</div>
-  <p class="stv-panel-sub">Generating first &amp; last frame for each scene using the image gen model selected above.</p>
+  <div class="stv-panel-title">Scene Frames & Video Generation</div>
+  <p class="stv-panel-sub">Review frames, edit motion briefs, select scenes, then generate videos — all in one place.</p>
+
+  <!-- Video gen controls -->
+  <div id="stvStep4VideoControls" style="display:none;background:#07070f;border:1px solid #1e1e30;border-radius:10px;padding:10px 16px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">Generate</span>
+      <select id="stv4VideoProvider" class="stv-select" onchange="stv4OnVideoProviderChange()">
+        <option value="">— video provider —</option>
+        <option value="runway">Runway</option>
+        <option value="kling">Kling</option>
+        <option value="luma">Luma</option>
+        <option value="grok_video">Grok Aurora</option>
+        <option value="gemini_video">Google Veo</option>
+      </select>
+      <select id="stv4VideoModel" class="stv-select" disabled>
+        <option value="">— select provider first —</option>
+      </select>
+      <select id="stv4VideoRatio" class="stv-select">
+        <option value="9:16">9:16</option>
+        <option value="16:9">16:9</option>
+        <option value="1:1">1:1</option>
+      </select>
+      <select id="stv4VideoQuality" class="stv-select">
+        <option value="">— quality —</option>
+        <option value="4k">4K</option>
+        <option value="1080p">1080p</option>
+        <option value="720p">720p</option>
+        <option value="480p">480p</option>
+      </select>
+      <button class="btn btn-purple btn-sm" id="stv4GenSelectedBtn" onclick="stv4GenSelected()" disabled style="margin-left:auto">🎬 Generate Selected</button>
+    </div>
+  </div>
+
   <div id="stvFramesGrid" class="stv-frames-grid"></div>
   <div id="stvStep4Status" style="margin-top:10px;font-size:11px;color:#666"></div>
   <div style="margin-top:10px" id="stvStep4StopRow">
@@ -689,11 +959,10 @@
   </div>
   <div style="display:none;margin-top:12px;gap:8px" id="stvStep4Actions">
     <button class="btn btn-ghost btn-sm" onclick="stvGoBack(3)">← Back</button>
-    <button class="btn btn-teal" id="stvToVideoBtn" onclick="stvGoToVideo()">🎬 Create Video →</button>
   </div>
 </div>
 
-<!-- STEP 5: handed off to existing video gen modal -->
+<!-- STEP 5: kept for history resume compatibility -->
 <div class="stv-panel" id="stvPanel5" style="display:none">
   <div class="stv-panel-title">Ready to Generate Video</div>
   <p class="stv-panel-sub" style="margin-bottom:16px">Frames are ready. Click below to open the video generation panel with all scenes pre-loaded.</p>
@@ -721,7 +990,17 @@
 <div class="wrap">
 <div class="settings-page">
   <h2>API Keys</h2>
-  <p class="sub">Keys are stored in your browser's localStorage and never leave your device. Each key is used across summarisation and video generation wherever that provider is supported.</p>
+  <p class="sub">Keys are encrypted and stored securely in your account. They are only decrypted in your browser — never sent to our servers in plain text.</p>
+  <div id="settingsAuthBanner" style="display:none;background:#13132a;border:1px solid #2a2a45;border-radius:10px;padding:12px 16px;margin-bottom:20px;align-items:center;justify-content:space-between;gap:12px">
+    <div>
+      <span style="font-size:12px;color:#888">Signed in as </span>
+      <span id="settingsUserEmail" style="font-size:12px;color:#c4b5fd;font-weight:600"></span>
+    </div>
+    <button onclick="authSignOut()" style="
+      padding:6px 14px;background:none;border:1px solid #3a3a55;border-radius:7px;
+      color:#888;font-size:11px;cursor:pointer;transition:all .15s;
+    " onmouseover="this.style.borderColor='#f87171';this.style.color='#f87171'" onmouseout="this.style.borderColor='#3a3a55';this.style.color='#888'">Sign Out</button>
+  </div>
 
   <!-- Anthropic -->
   <div class="provider-block">
@@ -966,6 +1245,13 @@
           <option value="3:4">3:4</option>
           <option value="21:9">21:9</option>
         </select>
+        <select id="shared-gen-quality">
+          <option value="">— quality —</option>
+          <option value="4k">4K</option>
+          <option value="1080p">1080p</option>
+          <option value="720p">720p</option>
+          <option value="480p">480p</option>
+        </select>
         <button class="btn btn-purple btn-sm" id="shared-gen-btn" disabled onclick="generateAllScenes()">▶ Generate All</button>
         <!-- ⚠ TESTING ONLY — comment out before shipping to production -->
         <button class="btn btn-dummy btn-sm" onclick="insertDummyVideos()">🎲 Create Dummy</button>
@@ -1018,6 +1304,12 @@
 <video id="vid" style="display:none" preload="auto" muted playsinline></video>
 
 <script>
+  // ── Auth key store (hoisted — used by getKey/loadKeys before auth section) ──
+  const _keyStore = {};
+  let _cryptoKey = null;
+  let _currentSession = null;
+  let _keysLoaded = false;  // guard against repeated fetchAndDecryptKeys calls
+
   // ── Tab switching ─────────────────────────────────────────────────────────
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1041,35 +1333,38 @@
 
   function loadKeys() {
     for (const p of Object.keys(PROVIDERS)) {
-      const val = localStorage.getItem(`apikey_${p}`) || '';
+      const val = _keyStore[p] || '';
       const inp = document.getElementById(`key-${p}`);
       if (inp) inp.value = val;
       // Kling has a separate secret
       if (p === 'kling') {
         const sec = document.getElementById('key-kling-secret');
-        if (sec) sec.value = localStorage.getItem('apikey_kling_secret') || '';
+        if (sec) sec.value = _keyStore['kling_secret'] || '';
       }
       refreshStatus(p);
     }
   }
 
-  function saveKey(provider) {
+  async function saveKey(provider) {
     const inp = document.getElementById(`key-${provider}`);
     const val = inp.value.trim();
-    if (val) localStorage.setItem(`apikey_${provider}`, val);
-    else localStorage.removeItem(`apikey_${provider}`);
+    if (val) _keyStore[provider] = val;
+    else delete _keyStore[provider];
     if (provider === 'kling') {
       const sec = document.getElementById('key-kling-secret');
       const sv = sec ? sec.value.trim() : '';
-      if (sv) localStorage.setItem('apikey_kling_secret', sv);
-      else localStorage.removeItem('apikey_kling_secret');
+      if (sv) _keyStore['kling_secret'] = sv;
+      else delete _keyStore['kling_secret'];
+      await persistKey('kling_secret', sv || null);
     }
+    await persistKey(provider, val || null);
     refreshStatus(provider);
     showToast(val ? `${PROVIDERS[provider].label} key saved` : `${PROVIDERS[provider].label} key cleared`, 'ok');
   }
 
   function getKey(provider) {
-    return localStorage.getItem(`apikey_${provider}`) || '';
+    // _keyStore is populated after sign-in; fall back to localStorage for unauthenticated users
+    return _keyStore[provider] || localStorage.getItem(`apikey_${provider}`) || '';
   }
 
   function refreshStatus(provider) {
@@ -1085,6 +1380,7 @@
     inp.type = inp.type === 'password' ? 'text' : 'password';
   }
 
+  // loadKeys() is called after auth + key fetch; no-op call here is safe (returns empty)
   loadKeys();
 
   // ── LLM model options ─────────────────────────────────────────────────────
@@ -1384,8 +1680,9 @@
     let successCount = 0, failCount = 0;
     for (const sc of selScenes) {
       setSummaryLoading(sc);
-      const { text, error } = await callLLM(provider, model, sc.firstFrame, sc.lastFrame, fmtTime(sc.start), fmtTime(sc.end));
+      const { text, motion, error } = await callLLM(provider, model, sc.firstFrame, sc.lastFrame, fmtTime(sc.start), fmtTime(sc.end));
       sc.summary = text;
+      sc.motion = motion;
       sc.summaryError = error;
       setSummaryResult(sc, provider, model);
       if (text) successCount++; else failCount++;
@@ -1405,8 +1702,16 @@
 
   function setSummaryResult(sc, provider, model) {
     const wrap = ensureSummaryWrap(sc.index);
+    // Sync brief tab textareas
+    const briefSummaryEl = document.getElementById(`brief-summary-${sc.index}`);
+    if (briefSummaryEl) briefSummaryEl.value = sc.summary || '';
+    const briefMotionEl = document.getElementById(`brief-motion-${sc.index}`);
+    if (briefMotionEl) briefMotionEl.value = sc.motion || '';
     if (sc.summary) {
-      wrap.innerHTML = `<div class="sc-summary-text">${sc.summary}</div><div class="sc-summary-model">${PROVIDERS[provider].label} · ${model}</div>`;
+      const motionHtml = sc.motion
+        ? `<div class="sc-motion-text" style="margin-top:8px;padding-top:8px;border-top:1px solid #1e1e30"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4px">Motion Brief · video gen prompt</div>${sc.motion}</div>`
+        : '';
+      wrap.innerHTML = `<div class="sc-summary-text">${sc.summary}</div>${motionHtml}<div class="sc-summary-model">${PROVIDERS[provider].label} · ${model}</div>`;
     } else {
       const msg = sc.summaryError || 'Unknown error — check your API key in Settings.';
       wrap.innerHTML = `
@@ -1433,7 +1738,15 @@
   async function callLLM(provider, model, firstFrame, lastFrame, start, end) {
     const key = getKey(provider);
     const dur = (parseFloat(end.replace(/[^0-9.:]/g,'')) - parseFloat(start.replace(/[^0-9.:]/g,''))).toFixed(1);
-    const prompt = `You are analyzing two frames from a video clip: the first frame (scene start) and the last frame (scene end). The clip runs from ${start} to ${end}. Describe this scene for use as a video generation prompt. Include: (1) the subject and main action, (2) camera angle and framing, (3) lighting and color mood, (4) any visible motion or movement direction, (5) background and setting. Be concise but visually specific. Output 2–3 sentences max — no bullet points, just flowing prose.`;
+    const prompt = `You are analyzing two frames from a video clip: the first frame (scene start) and the last frame (scene end). The clip runs from ${start} to ${end} (approximately ${dur} seconds).
+
+Return a JSON object with exactly two keys:
+
+"summary": A concise 2–3 sentence visual description of the scene. Include the subject, camera angle, lighting/color mood, and background setting. No bullet points — flowing prose only.
+
+"motion": A detailed motion brief describing how this scene moves from the first frame to the last frame. This should cover: how subjects move through the frame, camera movement (pan, tilt, zoom, static, tracking, etc.), any transitions in lighting, color, or depth, the pacing and energy of the movement, and the overall visual flow from opening to closing frame. Be specific and directorial — this text will be used directly as the video generation prompt. Write at minimum 5 sentences. Do not summarise — describe the motion in full cinematic detail, as if briefing a VFX team.
+
+Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     const toB64 = url => url.split(',')[1];
 
     const httpError = async (res, providerName) => {
@@ -1451,7 +1764,7 @@
     try {
       if (provider === 'anthropic') {
         const ep = 'https://api.anthropic.com/v1/messages';
-        const reqBody = { model, max_tokens: 80, messages: [{ role: 'user', content: [
+        const reqBody = { model, max_tokens: 800, messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: '[base64]' } },
           { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: '[base64]' } },
           { type: 'text', text: prompt }
@@ -1468,12 +1781,12 @@
         const json = await res.json();
         logApi(`Summarise — Anthropic (${model})`, ep, reqBody, json, res.status);
         if (!res.ok) return httpError(res, 'anthropic');
-        return { text: json.content?.[0]?.text || null, error: null };
+        return { ...parseLLMResponse(json.content?.[0]?.text), error: null };
       }
 
       if (provider === 'openai') {
         const ep = 'https://api.openai.com/v1/chat/completions';
-        const reqBody = { model, max_tokens: 80, messages: [{ role: 'user', content: [
+        const reqBody = { model, max_tokens: 800, messages: [{ role: 'user', content: [
           { type: 'image_url', image_url: { url: '[frame]' } },
           { type: 'image_url', image_url: { url: '[frame]' } },
           { type: 'text', text: prompt }
@@ -1490,12 +1803,12 @@
         const json = await res.json();
         logApi(`Summarise — OpenAI (${model})`, ep, reqBody, json, res.status);
         if (!res.ok) return httpError(res, 'openai');
-        return { text: json.choices?.[0]?.message?.content || null, error: null };
+        return { ...parseLLMResponse(json.choices?.[0]?.message?.content), error: null };
       }
 
       if (provider === 'grok') {
         const ep = 'https://api.x.ai/v1/chat/completions';
-        const reqBody = { model, max_tokens: 80, messages: [{ role: 'user', content: [
+        const reqBody = { model, max_tokens: 800, messages: [{ role: 'user', content: [
           { type: 'image_url', image_url: { url: '[frame]' } },
           { type: 'image_url', image_url: { url: '[frame]' } },
           { type: 'text', text: prompt }
@@ -1512,7 +1825,7 @@
         const json = await res.json();
         logApi(`Summarise — Grok (${model})`, ep, reqBody, json, res.status);
         if (!res.ok) return httpError(res, 'grok');
-        return { text: json.choices?.[0]?.message?.content || null, error: null };
+        return { ...parseLLMResponse(json.choices?.[0]?.message?.content), error: null };
       }
 
       if (provider === 'gemini') {
@@ -1534,12 +1847,25 @@
         const json = await res.json();
         logApi(`Summarise — Gemini (${model})`, ep, reqBody, json, res.status);
         if (!res.ok) return httpError(res, 'gemini');
-        return { text: json.candidates?.[0]?.content?.parts?.[0]?.text || null, error: null };
+        return { ...parseLLMResponse(json.candidates?.[0]?.content?.parts?.[0]?.text), error: null };
       }
     } catch (e) {
       return { text: null, error: `Network error — ${e.message}` };
     }
-    return { text: null, error: 'Unknown provider' };
+    return { text: null, motion: null, error: 'Unknown provider' };
+  }
+
+  function parseLLMResponse(raw) {
+    if (!raw) return { text: null, motion: null };
+    try {
+      // Strip markdown code fences if present
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      const parsed = JSON.parse(cleaned);
+      return { text: parsed.summary || null, motion: parsed.motion || null };
+    } catch {
+      // Fallback: treat entire response as summary (old behaviour)
+      return { text: raw.trim(), motion: null };
+    }
   }
 
   // ── Rendering ─────────────────────────────────────────────────────────────
@@ -1741,13 +2067,17 @@
 
           <!-- Frames -->
           <div class="brief-frames">
-            <div class="brief-frame">
-              <img src="${sc.firstFrame}" />
-              <span class="flabel">First Frame · ${fmtTime(sc.start)}</span>
+            <div class="brief-frame" id="brief-ff-${sc.index}">
+              <img id="brief-ff-img-${sc.index}" src="${sc.firstFrame}" />
+              <span class="flabel">First Frame</span>
+              <span class="ftimecode">${fmtTime(sc.start)}</span>
+              <button class="brief-frame-regen" onclick="briefRegenFrame(${sc.index},'first')">✎ Regenerate</button>
             </div>
-            <div class="brief-frame">
-              <img src="${sc.lastFrame}" />
-              <span class="flabel">Last Frame · ${fmtTime(sc.end)}</span>
+            <div class="brief-frame" id="brief-lf-${sc.index}">
+              <img id="brief-lf-img-${sc.index}" src="${sc.lastFrame}" />
+              <span class="flabel">Last Frame</span>
+              <span class="ftimecode">${fmtTime(sc.end)}</span>
+              <button class="brief-frame-regen" onclick="briefRegenFrame(${sc.index},'last')">✎ Regenerate</button>
             </div>
           </div>
 
@@ -1774,8 +2104,13 @@
 
           <!-- Summary -->
           <div class="brief-prompt">
-            <div class="brief-prompt-label">Summary / Prompt <span style="font-weight:400;opacity:.5;font-size:11px">· editable · used as video gen prompt</span></div>
-            <textarea id="brief-summary-${sc.index}" class="brief-summary-input" rows="4" placeholder="Write the scene summary here, or use the Summarise button above to auto-generate one. This text becomes the video generation prompt." oninput="updateSceneSummary(${sc.index}, this.value)">${sc.summary || ''}</textarea>
+            <div class="brief-prompt-label">Scene Summary <span style="font-weight:400;opacity:.5;font-size:11px">· editable</span></div>
+            <textarea id="brief-summary-${sc.index}" class="brief-summary-input" rows="3" placeholder="Scene description — auto-generated by Summarise or write your own." oninput="updateSceneSummary(${sc.index}, this.value)">${sc.summary || ''}</textarea>
+          </div>
+          <!-- Motion Brief -->
+          <div class="brief-prompt" style="margin-top:8px">
+            <div class="brief-prompt-label">Motion Brief <span style="font-weight:400;opacity:.5;font-size:11px">· used as video gen prompt · editable</span></div>
+            <textarea id="brief-motion-${sc.index}" class="brief-summary-input" rows="4" placeholder="Detailed description of how this scene moves from first to last frame — camera movement, subject motion, lighting transitions. Auto-generated by Summarise or write your own." oninput="updateSceneMotion(${sc.index}, this.value)">${sc.motion || ''}</textarea>
           </div>
 
           <!-- Specs -->
@@ -1866,6 +2201,8 @@
     if (_abortController) _abortController.abort();
     document.getElementById('stopGenBtn')?.setAttribute('disabled', '');
     document.getElementById('stopFramesBtn')?.setAttribute('disabled', '');
+    document.getElementById('stvStopStoryboardBtn')?.setAttribute('disabled', '');
+    document.getElementById('stvRegenStopBtn')?.setAttribute('disabled', '');
     showToast('Generation stopped', 'warn');
   }
 
@@ -1990,34 +2327,65 @@
       { value: 'grok-imagine-video',     label: 'Grok Imagine Video — image + reference frame' },
     ],
     gemini_video: [
-      { value: 'models/veo-3.1-generate-preview',      label: 'Veo 3.1 Cinematic — 4K, highest quality' },
-      { value: 'models/veo-3.1-fast-generate-preview', label: 'Veo 3.1 Fast — speed & scale' },
+      { value: 'models/veo-3.1-generate-preview',      label: 'Veo 3.1 — latest preview, highest quality' },
+      { value: 'models/veo-3.1-fast-generate-preview', label: 'Veo 3.1 Fast — lower latency' },
       { value: 'models/veo-3.1-lite-generate-preview', label: 'Veo 3.1 Lite — cost efficient' },
+      { value: 'models/veo-3.0-generate-001',          label: 'Veo 3.0 — stable generation 3' },
+      { value: 'models/veo-3.0-fast-generate-001',     label: 'Veo 3.0 Fast — stable, lower latency' },
+      { value: 'models/veo-2.0-generate-001',          label: 'Veo 2.0 — base generation 2' },
     ],
   };
 
   async function generateVideo(sceneIdx, overrides = {}) {
-    const sc = scenes.find(s => s.index === sceneIdx);
+    // Support STV inline call: overrides.sceneObj, overrides.statusEl, overrides.resultEl
+    const sc = overrides.sceneObj || scenes.find(s => s.index === sceneIdx);
     if (!sc) return;
     const provider    = overrides.provider    || document.getElementById('shared-gen-provider')?.value || '';
     const model       = overrides.model       || document.getElementById('shared-gen-model')?.value    || '';
     const aspectRatio = overrides.aspectRatio || document.getElementById('shared-gen-ratio')?.value    || '16:9';
+    const quality     = overrides.quality     || document.getElementById('stv4VideoQuality')?.value    || document.getElementById('shared-gen-quality')?.value || '';
     if (!provider || !model) return;
-    const statusEl  = document.getElementById(`gen-status-${sceneIdx}`);
-    const resultEl  = document.getElementById(`gen-result-${sceneIdx}`);
+    const statusEl  = overrides.statusEl || document.getElementById(`gen-status-${sceneIdx}`);
+    const resultEl  = overrides.resultEl || document.getElementById(`gen-result-${sceneIdx}`);
     const keyProvider = provider === 'grok_video' ? 'grok' : provider === 'gemini_video' ? 'gemini' : provider;
     const providerLabel = provider === 'grok_video' ? 'Grok Aurora' : provider === 'gemini_video' ? 'Google Veo' : (PROVIDERS[provider]?.label || provider);
     const key       = getKey(keyProvider);
-    const rawDur    = sc.end - sc.start;
+    const rawDur    = (sc.end != null && sc.start != null) ? (sc.end - sc.start) : (sc.duration || 5);
     const dur       = Math.ceil(rawDur);
     // Runway & Kling only accept 5 or 10 — snap to nearest. Others accept 5–10 range.
     const snapDur   = (provider === 'runway' || provider === 'kling') ? (rawDur <= 7.5 ? 5 : 10) : Math.min(Math.max(dur, 5), 10);
-    const prompt    = sc.summary
-      ? `${sc.summary} The clip is ${dur} second${dur === 1 ? '' : 's'} long. The first reference image shows the opening frame and the last reference image shows the closing frame — maintain visual and motion continuity between them. Recreate this scene faithfully.`
+    // Use motion brief as the video gen prompt (most detailed); fall back to summary, then generic
+    const promptBase = sc.motion || sc.summary || null;
+    const prompt    = promptBase
+      ? `${promptBase} The clip is ${dur} second${dur === 1 ? '' : 's'} long. The first reference image shows the opening frame and the last reference image shows the closing frame — maintain visual and motion continuity between them. Recreate this scene faithfully.`
       : `A video scene lasting ${dur} seconds. The first reference image shows the opening frame and the last reference image shows the closing frame — maintain visual and motion continuity between them.`;
 
     resultEl.innerHTML = '';
     statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Submitting job to ${providerLabel}…</div>`;
+
+    // Frame URLs — STV scenes always have storage URLs from frame_sessions; V2V scenes may be base64 (don't store those)
+    const firstFrameUrl = sc.firstFrame?.startsWith('http') ? sc.firstFrame : null;
+    const lastFrameUrl  = sc.lastFrame?.startsWith('http')  ? sc.lastFrame  : null;
+
+    // Insert DB row immediately when request is created
+    const videoGenRowId = await insertRow('video_generations', {
+      provider,
+      video_provider: provider,
+      model,
+      video_model: model,
+      scene_index: sceneIdx,
+      scene_number: sc.index,
+      scene_name: sc.sceneName || sc.name || null,
+      frame_session_id: _stv?.frameSessionIds?.[sc.index ?? sceneIdx] || null,
+      script_session_id: _stv?.sessionId || null,
+      prompt,
+      aspect_ratio: aspectRatio,
+      duration_seconds: snapDur,
+      first_frame_url: firstFrameUrl,
+      last_frame_url: lastFrameUrl,
+      status: 'in_progress',
+      api_called_at: new Date().toISOString(),
+    });
 
     try {
       let jobId, videoUrl;
@@ -2025,18 +2393,17 @@
       // ── Runway ──────────────────────────────────────────────────────────
       if (provider === 'runway') {
         const ep = 'https://api.dev.runwayml.com/v1/image_to_video';
-        const reqBody = { model, promptImage: '[frame]', promptText: prompt, ratio: aspectRatio, duration: snapDur };
+        const reqBody = { model, promptImage: '[firstFrame]', lastFrame: '[lastFrame]', promptText: prompt, ratio: aspectRatio, duration: snapDur, ...(quality ? { resolution: quality } : {}) };
         const res = await fetch(ep, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${key}`, 'content-type': 'application/json', 'X-Runway-Version': '2024-11-06' },
-          body: JSON.stringify({ ...reqBody, promptImage: sc.firstFrame })
+          body: JSON.stringify({ ...reqBody, promptImage: sc.firstFrame, lastFrame: sc.lastFrame })
         });
         const runwayData = await res.json();
         logApi(`Video Gen — Runway (${model})`, ep, reqBody, runwayData, res.status);
         if (!res.ok) throw new Error(runwayData?.error || `${res.status} ${res.statusText}`);
         jobId = runwayData.id;
-
-        // Poll
+        updateRow('video_generations', videoGenRowId, { job_id: jobId }).catch(() => {});
         videoUrl = await pollRunway(key, jobId, statusEl);
       }
 
@@ -2058,24 +2425,38 @@
         if (!res.ok) throw new Error(data?.message || `${res.status} ${res.statusText}`);
         jobId = data?.data?.task_id;
         if (!jobId) throw new Error('No task_id returned from Kling');
-
+        updateRow('video_generations', videoGenRowId, { job_id: jobId }).catch(() => {});
         videoUrl = await pollKling(jwt, jobId, statusEl);
       }
 
       // ── Luma ────────────────────────────────────────────────────────────
       else if (provider === 'luma') {
+        // Luma requires public HTTP URLs for keyframes — upload frames to storage first
+        statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Uploading reference frames…</div>`;
+        const ts = Date.now();
+        const base = `videogen/scene${sceneIdx}`;
+        let firstFrameUrl, lastFrameUrl;
+        try {
+          [firstFrameUrl, lastFrameUrl] = await Promise.all([
+            uploadToStorage(sc.firstFrame, `${base}_first_${ts}.jpg`),
+            uploadToStorage(sc.lastFrame,  `${base}_last_${ts}.jpg`),
+          ]);
+        } catch (uploadErr) {
+          throw new Error(`Frame upload failed (required for Luma): ${uploadErr.message}`);
+        }
+        statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Submitting job to Luma…</div>`;
         const lumaEp = 'https://api.lumalabs.ai/dream-machine/v1/generations';
-        const lumaBody = { prompt, model, duration: snapDur, aspect_ratio: aspectRatio, keyframes: { frame0: { type: 'image', url: '[frame]' }, frame1: { type: 'image', url: '[frame]' } } };
+        const lumaBody = { prompt, model, duration: snapDur, aspect_ratio: aspectRatio, keyframes: { frame0: { type: 'image', url: '[firstFrameUrl]' }, frame1: { type: 'image', url: '[lastFrameUrl]' } } };
         const res = await fetch(lumaEp, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${key}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ ...lumaBody, keyframes: { frame0: { type: 'image', url: sc.firstFrame }, frame1: { type: 'image', url: sc.lastFrame } } })
+          body: JSON.stringify({ ...lumaBody, keyframes: { frame0: { type: 'image', url: firstFrameUrl }, frame1: { type: 'image', url: lastFrameUrl } } })
         });
         const lumaData = await res.json();
         logApi(`Video Gen — Luma (${model})`, lumaEp, lumaBody, lumaData, res.status);
         if (!res.ok) throw new Error(lumaData?.detail || lumaData?.message || `${res.status} ${res.statusText}`);
         jobId = lumaData.id;
-
+        updateRow('video_generations', videoGenRowId, { job_id: jobId, first_frame_url: firstFrameUrl, last_frame_url: lastFrameUrl }).catch(() => {});
         videoUrl = await pollLuma(key, jobId, statusEl);
       }
 
@@ -2087,7 +2468,7 @@
           model,
           prompt,
           duration: snapDur,
-          resolution: '480p',
+          resolution: quality || '480p',
           aspect_ratio: aspectRatio,
           reference_images: [
             { url: sc.firstFrame },
@@ -2106,19 +2487,43 @@
         jobId = grokResp.request_id;
         if (!jobId) throw new Error(`No request_id returned from Grok. Response: ${JSON.stringify(grokResp)}`);
         statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Submitted — Request ID: <code style="user-select:all;font-size:11px">${jobId}</code></div>`;
+        updateRow('video_generations', videoGenRowId, { job_id: jobId }).catch(() => {});
         videoUrl = await pollGrokVideo(key, jobId, statusEl);
       }
 
       // ── Google Veo ───────────────────────────────────────────────────────
       else if (provider === 'gemini_video') {
         const veoEp = `https://generativelanguage.googleapis.com/v1beta/${model}:predictLongRunning`;
+
+        // Normalise firstFrame — may be a storage URL (history resume) or a base64 data URL
+        let veoMime = 'image/jpeg';
+        let veoB64;
+        if (sc.firstFrame.startsWith('data:')) {
+          veoMime = sc.firstFrame.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg';
+          veoB64  = sc.firstFrame.split(',')[1];
+        } else {
+          // Fetch URL and convert to base64
+          statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Fetching reference frame…</div>`;
+          const imgRes = await fetch(sc.firstFrame);
+          const imgBlob = await imgRes.blob();
+          veoMime = imgBlob.type || 'image/jpeg';
+          veoB64  = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result.split(',')[1]);
+            reader.readAsDataURL(imgBlob);
+          });
+        }
+
         const veoInstance = {
           prompt,
-          image:     { inlineData: { mimeType: 'image/jpeg', data: sc.firstFrame.split(',')[1] } },
-          lastFrame: { inlineData: { mimeType: 'image/jpeg', data: sc.lastFrame.split(',')[1]  } },
+          image: {
+            bytesBase64Encoded: veoB64,
+            mimeType: veoMime,
+          },
         };
+        // Only pass aspectRatio — durationSeconds and resolution vary by model and cause validation errors on preview variants
         const veoParams = { aspectRatio };
-        const veoBody = { instances: [{ ...veoInstance, image: { inlineData: { mimeType: 'image/jpeg', data: '[base64]' } }, lastFrame: { inlineData: { mimeType: 'image/jpeg', data: '[base64]' } } }], parameters: veoParams };
+        const veoBody = { instances: [{ prompt, image: { bytesBase64Encoded: '[base64]', mimeType: veoMime } }], parameters: veoParams };
         let res;
         try {
           res = await fetch(`${veoEp}?key=${key}`, {
@@ -2134,6 +2539,7 @@
         if (!res.ok) throw new Error(veoData?.error?.message || `${res.status} ${res.statusText}`);
         const opName = veoData.name;
         if (!opName) throw new Error('No operation name returned from Veo');
+        updateRow('video_generations', videoGenRowId, { job_id: opName }).catch(() => {});
         videoUrl = await pollGeminiVideo(key, opName, statusEl);
       }
 
@@ -2150,13 +2556,45 @@
         sc.generatedVideoBlob = null;
         statusEl.innerHTML = `<div class="brief-gen-status success">✓ Video generated</div>`;
       }
-      resultEl.innerHTML = renderVideoResult(videoUrl, sceneIdx) +
-        (!sc.generatedVideoBlob ? `<button class="scene-pkg-btn" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:#f59e0b;margin-top:6px" onclick="captureGeneratedBlob(${sceneIdx}, this)">📥 Save generated video for ZIP</button>` : '') +
-        `<button class="scene-pkg-btn" id="pkg-btn-${sceneIdx}" onclick="downloadScenePackage(${sceneIdx}, this)">⬇ Download Scene Package</button>`;
+      // STV inline cell vs V2V result panel
+      if (overrides.resultEl) {
+        const scn = overrides.sceneObj?.index;
+        resultEl.innerHTML = `
+          <div class="stv-media-cell" style="position:relative;width:100%;height:100%"
+            onmouseenter="this.querySelector('video').play()"
+            onmouseleave="this.querySelector('video').pause()">
+            <video src="${videoUrl}" muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
+            <div class="stv-media-label video">Video ✓</div>
+            <button class="stv-regen-frame-btn" onclick="stvOpenVideoRegenModal(${scn})">↺ Regenerate</button>
+            <div class="vid-hover-controls">
+              <button class="vid-ctrl-btn" title="Toggle sound"
+                onclick="event.stopPropagation();var v=this.closest('[onmouseenter]').querySelector('video');v.muted=!v.muted;this.textContent=v.muted?'🔇':'🔊'">🔇</button>
+              <a class="vid-ctrl-btn" title="Download" href="${videoUrl}" download onclick="event.stopPropagation()">⬇</a>
+            </div>
+          </div>`;
+        resultEl.style.position = 'relative';
+      } else {
+        resultEl.innerHTML = renderVideoResult(videoUrl, sceneIdx) +
+          (!sc.generatedVideoBlob ? `<button class="scene-pkg-btn" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:#f59e0b;margin-top:6px" onclick="captureGeneratedBlob(${sceneIdx}, this)">📥 Save generated video for ZIP</button>` : '') +
+          `<button class="scene-pkg-btn" id="pkg-btn-${sceneIdx}" onclick="downloadScenePackage(${sceneIdx}, this)">⬇ Download Scene Package</button>`;
+      }
+
+      // Update DB row with success + video URL
+      await updateRow('video_generations', videoGenRowId, {
+        status: 'success',
+        video_url: videoUrl,
+        response_received_at: new Date().toISOString(),
+      });
 
       updateBriefZipBtn();
     } catch (err) {
       statusEl.innerHTML = `<div class="brief-gen-status error"><strong>⚠ Generation failed</strong><br>${err.message}</div>`;
+      // Update DB row with error
+      await updateRow('video_generations', videoGenRowId, {
+        status: 'error',
+        error_message: err.message,
+        response_received_at: new Date().toISOString(),
+      });
     }
   }
 
@@ -2372,9 +2810,23 @@
     else                   { sc.lastFrame  = dataUrl; }
 
     frameEl.src = dataUrl;
-    tcEl.textContent = fmtTimeMs(t);
+    if (tcEl) tcEl.textContent = fmtTimeMs(t);
     scrubber.remove();
+
+    // Sync brief tab frame image
+    const briefImgEl = document.getElementById(which === 'first' ? `brief-ff-img-${sceneIdx}` : `brief-lf-img-${sceneIdx}`);
+    if (briefImgEl) briefImgEl.src = dataUrl;
+
     showToast(`${which === 'first' ? 'First' : 'Last'} frame updated`, 'ok');
+  }
+
+  function briefRegenFrame(sceneIdx, which) {
+    // Open the scrubber on the scene card — confirm will sync both cards
+    openFrameScrubber(sceneIdx, which);
+    // Scroll the scene card into view so user can interact with the scrubber
+    const sceneCard = document.getElementById(`scene-card-${sceneIdx}`);
+    if (sceneCard) sceneCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast(`Scrubber opened on Scene ${sceneIdx} — pick your ${which} frame`, 'ok');
   }
 
   function fmtTimeMs(s) {
@@ -2386,6 +2838,11 @@
   function updateSceneSummary(sceneIndex, value) {
     const sc = scenes.find(s => s.index === sceneIndex);
     if (sc) sc.summary = value.trim();
+  }
+
+  function updateSceneMotion(sceneIndex, value) {
+    const sc = scenes.find(s => s.index === sceneIndex);
+    if (sc) sc.motion = value.trim();
   }
 
   async function downloadScenePackage(sceneIndex, btn) {
@@ -2457,7 +2914,12 @@
       { value: 'gpt-image-1', label: 'GPT Image 1' },
     ],
     gemini: [
-      { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash — image gen (recommended)' },
+      { value: 'models/gemini-2.5-flash-image',             label: 'Gemini 2.5 Flash Image' },
+      { value: 'models/gemini-3.1-flash-image',             label: 'Gemini 3.1 Flash Image' },
+      { value: 'models/gemini-3.1-flash-image-preview',     label: 'Gemini 3.1 Flash Image (Preview)' },
+      { value: 'models/gemini-3-pro-image',                 label: 'Gemini 3 Pro Image' },
+      { value: 'models/gemini-3-pro-image-preview',         label: 'Gemini 3 Pro Image (Preview)' },
+      { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash — image gen (legacy)' },
     ],
   };
 
@@ -2707,7 +3169,7 @@
         return data.data[0].url;
       } else {
         const endpoint = 'https://api.openai.com/v1/images/generations';
-        const reqBody = { model, prompt: promptText, n: 1, size: '1024x1536', response_format: 'b64_json' };
+        const reqBody = { model, prompt: promptText, n: 1, size: '1024x1536' };
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -2723,14 +3185,31 @@
     }
 
     if (provider === 'gemini') {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      // model may already include 'models/' prefix (e.g. 'models/gemini-2.5-flash-image')
+      const modelPath = model.startsWith('models/') ? model : `models/${model}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent`;
+
+      // Convert a URL (data: or https:) to { mime_type, data } for Gemini inline_data
+      async function toInlineData(url) {
+        if (!url) return null;
+        if (url.startsWith('data:')) {
+          return { mime_type: url.match(/data:(.*?);/)?.[1] || 'image/jpeg', data: url.split(',')[1] };
+        }
+        // HTTPS URL — fetch and convert to base64
+        const resp = await fetch(url);
+        const blob = await resp.blob();
+        const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.readAsDataURL(blob); });
+        return { mime_type: blob.type || 'image/jpeg', data: b64 };
+      }
+
       const parts = [{ text: promptText }];
       if (sceneFrameDataUrl) {
-        parts.push({ inline_data: { mime_type: sceneFrameDataUrl.match(/data:(.*?);/)?.[1] || 'image/jpeg', data: sceneFrameDataUrl.split(',')[1] } });
+        const inl = await toInlineData(sceneFrameDataUrl);
+        if (inl) parts.push({ inline_data: inl });
       }
-      productImages.forEach(u => {
-        if (u) parts.push({ inline_data: { mime_type: u.match(/data:(.*?);/)?.[1] || 'image/jpeg', data: u.split(',')[1] } });
-      });
+      for (const u of productImages) {
+        if (u) { const inl = await toInlineData(u); if (inl) parts.push({ inline_data: inl }); }
+      }
       const reqBody = { contents: [{ parts }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } };
       const res = await fetch(`${endpoint}?key=${key}`, {
         method: 'POST',
@@ -2979,42 +3458,170 @@
   }
 
   // ── LANDING SCREEN ─────────────────────────────────────────────────────────
-  // ── Email Capture ────────────────────────────────────────────────────────────
-  const EMAIL_KEY     = 'studio_email';
-  const EMAIL_TS_KEY  = 'studio_email_ts';
-  const EMAIL_EXPIRY_DAYS = 7;
-
+  // ── Supabase + Auth + Encrypted API Keys ─────────────────────────────────────
   const SUPABASE_URL  = 'https://cnxnsqdcupckhwggquxs.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueG5zcWRjdXBja2h3Z2dxdXhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTM3MDksImV4cCI6MjA5ODM4OTcwOX0.dmVIUAkbC7BnAqiMPFIHNjXNNR5Ik7p17RGuGU2JnPY';
 
-  async function saveEmailToSupabase(email) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON,
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({ email, last_seen_at: new Date().toISOString() }),
+  // Supabase client — UMD bundle sets `var supabase` globally
+  const _sbLib = window.supabase;
+  let _sb = null;
+  if (!_sbLib) {
+    console.error('[studio] Supabase SDK not loaded — check CDN script tag');
+  } else {
+    _sb = _sbLib.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.message || `${res.status}`);
+  }
+
+  // ── Crypto helpers ────────────────────────────────────────────────────────────
+  async function deriveEncryptionKey(session) {
+    // Derive a deterministic AES-GCM key from the JWT signature using HKDF
+    // The key is bound to the user's session — changes on token refresh
+    const sig = session.access_token.split('.')[2]; // base64url signature
+    const raw = Uint8Array.from(atob(sig.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+    const baseKey = await crypto.subtle.importKey('raw', raw, 'HKDF', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('studio-apikeys-v1'), info: new TextEncoder().encode(session.user.id) },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function encryptValue(plaintext, key) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext));
+    // Store as base64(iv):base64(ciphertext)
+    const b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+    return `${b64(iv)}:${b64(enc)}`;
+  }
+
+  async function decryptValue(ciphertext, key) {
+    const [ivB64, encB64] = ciphertext.split(':');
+    const fromB64 = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
+    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(ivB64) }, key, fromB64(encB64));
+    return new TextDecoder().decode(dec);
+  }
+
+  // ── Key store management ──────────────────────────────────────────────────────
+  async function fetchAndDecryptKeys() {
+    if (!_cryptoKey) return;
+    const { data, error } = await _sb.from('user_api_keys').select('provider,encrypted_value');
+    if (error) { console.warn('fetchAndDecryptKeys error:', error.message); return; }
+    for (const row of (data || [])) {
+      try {
+        _keyStore[row.provider] = await decryptValue(row.encrypted_value, _cryptoKey);
+      } catch(e) {
+        console.warn(`Failed to decrypt key for ${row.provider}:`, e.message);
+      }
+    }
+    // Migrate any existing localStorage keys to DB (one-time)
+    await migrateLocalStorageKeys();
+    loadKeys();
+  }
+
+  async function migrateLocalStorageKeys() {
+    const providers = [...Object.keys(PROVIDERS), 'kling_secret'];
+    for (const p of providers) {
+      const lsKey = `apikey_${p}`;
+      const val = localStorage.getItem(lsKey);
+      if (val && !_keyStore[p]) {
+        _keyStore[p] = val;
+        await persistKey(p, val);
+        localStorage.removeItem(lsKey);
+        console.log(`[migrate] moved ${p} key to DB`);
+      }
     }
   }
 
-  function checkEmailCapture() {
-    const ts = localStorage.getItem(EMAIL_TS_KEY);
-    const email = localStorage.getItem(EMAIL_KEY);
-    const expired = !ts || (Date.now() - parseInt(ts)) > EMAIL_EXPIRY_DAYS * 86400000;
-    if (expired) {
+  async function persistKey(provider, value) {
+    if (!_cryptoKey) return;
+    if (!value) {
+      await _sb.from('user_api_keys').delete().eq('provider', provider);
+      return;
+    }
+    const encrypted = await encryptValue(value, _cryptoKey);
+    const user_id = _currentSession.user.id;
+    await _sb.from('user_api_keys').upsert({ user_id, provider, encrypted_value: encrypted }, { onConflict: 'user_id,provider' });
+  }
+
+  async function reEncryptAllKeys(newKey) {
+    // Called on TOKEN_REFRESHED — re-encrypt with new derived key
+    const entries = Object.entries(_keyStore);
+    const user_id = _currentSession.user.id;
+    for (const [provider, plaintext] of entries) {
+      if (!plaintext) continue;
+      const encrypted = await encryptValue(plaintext, newKey);
+      await _sb.from('user_api_keys').upsert({ user_id, provider, encrypted_value: encrypted }, { onConflict: 'user_id,provider' });
+    }
+  }
+
+  // ── Auth flow ─────────────────────────────────────────────────────────────────
+  async function initAuth() {
+    if (!_sb) {
+      // SDK failed to load — skip auth, go straight to sign-in modal
+      document.getElementById('pageLoadingOverlay').style.display = 'none';
       document.getElementById('emailCapture').style.display = 'flex';
+      return;
+    }
+    _sb.auth.onAuthStateChange(async (event, session) => {
+      console.log('[auth]', event, session?.user?.email);
+
+      const overlay = document.getElementById('pageLoadingOverlay');
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (!session) {
+          // No session — hide loader, show auth modal
+          if (overlay) overlay.style.display = 'none';
+          document.getElementById('emailCapture').style.display = 'flex';
+          return;
+        }
+        _currentSession = session;
+        // Only derive key + fetch keys once per page load
+        if (!_keysLoaded) {
+          _keysLoaded = true;
+          _cryptoKey = await deriveEncryptionKey(session);
+          await fetchAndDecryptKeys();
+          updateSettingsAuthBanner(session.user.email);
+          // Only upsert users table on actual sign-in (not on every page load INITIAL_SESSION)
+          if (event === 'SIGNED_IN') {
+            _sb.from('users').upsert(
+              { id: session.user.id, email: session.user.email, last_seen_at: new Date().toISOString() },
+              { onConflict: 'id' }
+            ).then(({ error }) => { if (error) console.warn('[auth] users upsert:', error.message); });
+          }
+        }
+        if (overlay) overlay.style.display = 'none';
+        document.getElementById('emailCapture').style.display = 'none';
+        showLanding();
+
+      } else if (event === 'TOKEN_REFRESHED') {
+        const newKey = await deriveEncryptionKey(session);
+        await reEncryptAllKeys(newKey);
+        _cryptoKey = newKey;
+        _currentSession = session;
+
+      } else if (event === 'SIGNED_OUT') {
+        _cryptoKey = null;
+        _currentSession = null;
+        _keysLoaded = false;
+        Object.keys(_keyStore).forEach(k => delete _keyStore[k]);
+        updateSettingsAuthBanner(null);
+        document.getElementById('emailCapture').style.display = 'flex';
+        document.getElementById('authSigninView').style.display = 'block';
+        document.getElementById('authSentView').style.display = 'none';
+      }
+    });
+  }
+
+  function updateSettingsAuthBanner(email) {
+    const banner = document.getElementById('settingsAuthBanner');
+    const emailEl = document.getElementById('settingsUserEmail');
+    if (email) {
+      banner.style.display = 'flex';
+      emailEl.textContent = email;
     } else {
-      // Returning user — silently update last_seen_at
-      if (email) saveEmailToSupabase(email).catch(() => {});
-      document.getElementById('emailCapture').style.display = 'none';
-      showLanding();
+      banner.style.display = 'none';
     }
   }
 
@@ -3025,7 +3632,7 @@
   async function submitEmail() {
     const input = document.getElementById('emailInput');
     const errEl = document.getElementById('emailError');
-    const btn   = document.querySelector('#emailCapture button[onclick="submitEmail()"]');
+    const btn   = document.getElementById('authSigninBtn');
     const val   = input.value.trim();
     const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
     if (!valid) {
@@ -3035,25 +3642,46 @@
       return;
     }
     errEl.style.display = 'none';
-    btn.textContent = 'Saving…'; btn.disabled = true;
-    try {
-      await saveEmailToSupabase(val);
-    } catch (e) {
-      // Non-blocking — still proceed even if DB save fails
-      console.warn('Supabase email save failed:', e.message);
+    btn.textContent = 'Sending…'; btn.disabled = true;
+    const { error } = await _sb.auth.signInWithOtp({ email: val, options: { emailRedirectTo: window.location.href } });
+    btn.textContent = 'Send Magic Link →'; btn.disabled = false;
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+      return;
     }
-    localStorage.setItem(EMAIL_KEY, val);
-    localStorage.setItem(EMAIL_TS_KEY, Date.now().toString());
-    btn.textContent = 'Get Started →'; btn.disabled = false;
-    document.getElementById('emailCapture').style.display = 'none';
-    showLanding();
+    // Show confirmation view
+    document.getElementById('authSigninView').style.display = 'none';
+    document.getElementById('authSentView').style.display = 'block';
+    document.getElementById('authSentEmail').textContent = val;
   }
 
-  function skipEmail() {
-    // Store timestamp so we don't ask again for 7 days, but no email saved
-    localStorage.setItem(EMAIL_TS_KEY, Date.now().toString());
-    document.getElementById('emailCapture').style.display = 'none';
-    showLanding();
+  function authBackToSignin() {
+    document.getElementById('authSigninView').style.display = 'block';
+    document.getElementById('authSentView').style.display = 'none';
+  }
+
+  async function authSignOut() {
+    await _sb.auth.signOut();
+  }
+
+  function checkEmailCapture() {
+    // Fallback: if auth doesn't resolve within 4s, show sign-in modal anyway
+    const fallbackTimer = setTimeout(() => {
+      const overlay = document.getElementById('pageLoadingOverlay');
+      if (overlay && overlay.style.display !== 'none') {
+        console.warn('[auth] session check timed out — showing sign-in');
+        overlay.style.display = 'none';
+        document.getElementById('emailCapture').style.display = 'flex';
+      }
+    }, 4000);
+
+    initAuth().catch(err => {
+      console.error('[auth] initAuth error:', err);
+      clearTimeout(fallbackTimer);
+      document.getElementById('pageLoadingOverlay').style.display = 'none';
+      document.getElementById('emailCapture').style.display = 'flex';
+    });
   }
 
   function choosePath(path) {
@@ -3077,9 +3705,93 @@
     imgProvider: '',
     imgModel: '',
     sceneFrames: [],
-    sessionId: null,         // Supabase row ID for current script session
-    regeneratedFrom: null,   // ID of session being regenerated from
+    sessionId: null,         // Supabase script_sessions row ID
+    regeneratedFrom: null,   // ID of immediate previous session
+    parentId: null,          // ID of the original root session (never changes across chain)
+    storyboardSessionId: null, // Supabase storyboard_sessions row ID
+    frameSessionIds: {},     // { sceneNumber: rowId }
+    prodUploadIds: [],       // Supabase product_uploads row IDs (index-matched to prodImages)
+    prodMeta: [],            // { name, size } metadata for each prodImage
+    regenImages: [],         // extra images added during regen
+    regenMeta: [],           // { name, size } for regenImages
   };
+
+  // ── Step 2: structured scene editor ─────────────────────────────────────────
+  function stv2RenderScenes() {
+    const raw = document.getElementById('stvJsonEditor').value.trim();
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { return; }
+
+    // Populate global fields
+    document.getElementById('stv2Title').value = parsed.storyboard_title || '';
+    document.getElementById('stv2Style').value = parsed.global_style || '';
+
+    const container = document.getElementById('stv2ScenesEditor');
+    container.innerHTML = (parsed.scenes || []).map((sc, i) => `
+      <div style="background:#07070f;border:1px solid #1e1e30;border-radius:10px;padding:14px 16px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:#7c6dff;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Scene ${sc.scene_number || i+1} · <span style="color:#555;font-weight:400;text-transform:none">${sc.scene_name || ''}</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <div class="stv2-label">Scene Name</div>
+            <input class="stv2-input" data-scene="${i}" data-field="scene_name" value="${esc(sc.scene_name || '')}" />
+          </div>
+          <div>
+            <div class="stv2-label">Duration</div>
+            <input class="stv2-input" data-scene="${i}" data-field="duration" value="${esc(sc.duration || '')}" />
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div class="stv2-label">Description</div>
+          <textarea class="stv2-textarea" rows="2" data-scene="${i}" data-field="description">${esc(sc.description || '')}</textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <div class="stv2-label">First Frame</div>
+            <textarea class="stv2-textarea" rows="3" data-scene="${i}" data-field="first_frame">${esc(sc.first_frame || '')}</textarea>
+          </div>
+          <div>
+            <div class="stv2-label">Last Frame</div>
+            <textarea class="stv2-textarea" rows="3" data-scene="${i}" data-field="last_frame">${esc(sc.last_frame || '')}</textarea>
+          </div>
+        </div>
+        <div>
+          <div class="stv2-label" style="color:#a78bfa">Motion Brief <span style="color:#555;font-weight:400;text-transform:none;font-size:10px">· used as video generation prompt</span></div>
+          <textarea class="stv2-textarea" rows="5" data-scene="${i}" data-field="motion" style="border-color:#3a2a6a">${esc(sc.motion || '')}</textarea>
+        </div>
+      </div>
+    `).join('');
+
+    // Wire up all inputs/textareas to sync back to JSON
+    container.querySelectorAll('.stv2-input, .stv2-textarea').forEach(el => {
+      el.addEventListener('input', stv2SyncToJson);
+    });
+    document.getElementById('stv2Title').addEventListener('input', stv2SyncToJson);
+    document.getElementById('stv2Style').addEventListener('input', stv2SyncToJson);
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function stv2SyncToJson() {
+    // Read from editor fields back into JSON
+    let parsed;
+    try { parsed = JSON.parse(document.getElementById('stvJsonEditor').value); } catch { return; }
+    parsed.storyboard_title = document.getElementById('stv2Title').value;
+    parsed.global_style = document.getElementById('stv2Style').value;
+    const sceneEls = document.getElementById('stv2ScenesEditor').querySelectorAll('[data-scene]');
+    sceneEls.forEach(el => {
+      const i = parseInt(el.dataset.scene);
+      const field = el.dataset.field;
+      if (parsed.scenes[i]) parsed.scenes[i][field] = el.value;
+    });
+    document.getElementById('stvJsonEditor').value = JSON.stringify(parsed, null, 2);
+  }
+
+  function stv2SyncFromJson() {
+    // Raw JSON was edited — re-render structured editor
+    stv2RenderScenes();
+  }
 
   // Step indicators
   function stvSetStep(n) {
@@ -3130,7 +3842,12 @@
       { value: 'grok-2-image-1212',          label: 'Grok 2 Image' },
     ],
     gemini: [
-      { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash — image gen (recommended)' },
+      { value: 'models/gemini-2.5-flash-image',             label: 'Gemini 2.5 Flash Image' },
+      { value: 'models/gemini-3.1-flash-image',             label: 'Gemini 3.1 Flash Image' },
+      { value: 'models/gemini-3.1-flash-image-preview',     label: 'Gemini 3.1 Flash Image (Preview)' },
+      { value: 'models/gemini-3-pro-image',                 label: 'Gemini 3 Pro Image' },
+      { value: 'models/gemini-3-pro-image-preview',         label: 'Gemini 3 Pro Image (Preview)' },
+      { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash — image gen (legacy)' },
     ],
   };
 
@@ -3150,14 +3867,44 @@
   document.getElementById('stvImgModel').addEventListener('change', e => { _stv.imgModel = e.target.value; });
 
   // Product upload (step 3)
+  // Store file metadata alongside dataUrl so we can log to DB later once sessionId is set
   function stvHandleProdFiles(files) {
     for (const f of files) {
       const reader = new FileReader();
       reader.onload = e => {
         _stv.prodImages.push(e.target.result);
+        _stv.prodMeta.push({ name: f.name, size: f.size });
         stvRenderProdThumbs();
       };
       reader.readAsDataURL(f);
+    }
+  }
+
+  // Called after sessionId is set (before storyboard gen) to flush pending uploads to DB
+  async function flushProductUploads() {
+    console.log('[flush] sessionId:', _stv.sessionId, '| prodImages:', _stv.prodImages.length, '| prodMeta:', _stv.prodMeta.length);
+    if (!_stv.sessionId) { console.warn('[flush] SKIPPED — sessionId is null'); return; }
+    for (let i = 0; i < _stv.prodImages.length; i++) {
+      if (_stv.prodUploadIds[i]) { console.log(`[flush] index ${i} already uploaded, skipping`); continue; }
+      const dataUrl = _stv.prodImages[i];
+      const meta = _stv.prodMeta[i] || { name: `product_${i}.png`, size: 0 };
+      console.log(`[flush] uploading index ${i}:`, meta.name, '| dataUrl starts with:', dataUrl?.slice(0, 30));
+      try {
+        const safeName = meta.name.replace(/\s+/g, '_');
+        const path = `products/${_stv.sessionId}/${Date.now()}_${safeName}`;
+        const storageUrl = await uploadToStorage(dataUrl, path);
+        console.log(`[flush] storage upload success:`, storageUrl);
+        const rowId = await insertRow('product_uploads', {
+          script_session_id: _stv.sessionId,
+          image_url: storageUrl,
+          file_name: meta.name,
+          file_size_bytes: meta.size,
+        });
+        console.log(`[flush] DB row inserted, rowId:`, rowId);
+        _stv.prodUploadIds[i] = rowId;
+        // Replace in-memory dataUrl with storage URL for resume
+        _stv.prodImages[i] = storageUrl;
+      } catch(err) { console.error('[flush] FAILED at index', i, ':', err.message, err); }
     }
   }
 
@@ -3171,7 +3918,7 @@
     document.getElementById('stvProdUploadLabel').textContent = `${_stv.prodImages.length} image${_stv.prodImages.length !== 1 ? 's' : ''} uploaded — click to add more`;
   }
 
-  function stvRemoveProd(i) { _stv.prodImages.splice(i, 1); stvRenderProdThumbs(); }
+  function stvRemoveProd(i) { _stv.prodImages.splice(i, 1); _stv.prodMeta.splice(i, 1); _stv.prodUploadIds.splice(i, 1); stvRenderProdThumbs(); }
 
   // ── STEP 1 → 2: Structure script ──────────────────────────────────────────
   const STRUCTURED_SCRIPT_PROMPT = `You are a cinematic storyboard generator for premium advertising videos.
@@ -3214,7 +3961,8 @@ JSON Structure:
       "duration": "0:00 - 0:05",
       "description": "Detailed description of the action and emotion",
       "first_frame": "Detailed description of the opening frame including camera angle, subject placement, lighting",
-      "last_frame": "Detailed description of the ending frame"
+      "last_frame": "Detailed description of the ending frame",
+      "motion": "A detailed directorial motion brief describing how this scene moves from the first frame to the last frame. Cover: how subjects move through the frame, camera movement (pan, tilt, zoom, tracking, static, etc.), transitions in lighting or depth, pacing and energy of the movement, and the overall visual flow. Write at minimum 5 sentences. Be specific and cinematic — this text will be used directly as the video generation prompt."
     }
   ]
 }`;
@@ -3231,6 +3979,23 @@ JSON Structure:
     btn.disabled = true; btn.textContent = '⏳ Structuring…';
     status.textContent = 'Calling LLM to structure your script…';
     status.style.color = '#7c6dff';
+
+    // ── Insert row BEFORE API call ──────────────────────────────────────────
+    _stv.sessionId = await logScriptSession({
+      llm_provider: provider,
+      llm_model: model,
+      raw_script: script,
+      status: 'in_progress',
+      api_called_at: new Date().toISOString(),
+      regenerated_from: _stv.regeneratedFrom || null,
+      parent_id: _stv.parentId || null, // will self-reference if no parent
+    }).catch(() => null);
+
+    // If no parent (original session), set parent_id = its own id
+    if (_stv.sessionId && !_stv.parentId) {
+      _stv.parentId = _stv.sessionId;
+      await updateScriptSession(_stv.sessionId, { parent_id: _stv.sessionId }).catch(() => {});
+    }
 
     try {
       const key = getKey(provider);
@@ -3277,36 +4042,35 @@ JSON Structure:
       status.textContent = '✓ Script structured successfully';
       status.style.color = '#22c55e';
 
-      logScriptSession({
-        llm_provider: provider,
-        llm_model: model,
-        raw_script: script,
-        structured_json: clean,
+      // ── PATCH with response ─────────────────────────────────────────────
+      await updateScriptSession(_stv.sessionId, {
         status: 'success',
-        regenerated_from: _stv.regeneratedFrom || null,
-      }).then(id => { _stv.sessionId = id; }).catch(() => {});
+        structured_json: clean,
+        response_received_at: new Date().toISOString(),
+      }).catch(() => {});
 
       stvSetStep(2);
+      stv2RenderScenes();
     } catch(err) {
       status.textContent = `✕ ${err.message}`;
       status.style.color = '#f87171';
 
-      logScriptSession({
-        llm_provider: provider,
-        llm_model: model,
-        raw_script: script,
-        structured_json: null,
+      await updateScriptSession(_stv.sessionId, {
         status: 'error',
         error_message: err.message,
-        regenerated_from: _stv.regeneratedFrom || null,
-      }).then(id => { _stv.sessionId = id; }).catch(() => {});
+        response_received_at: new Date().toISOString(),
+      }).catch(() => {});
     }
     btn.disabled = false; btn.textContent = '✦ Structure Script';
   }
 
   // ── Approve / Reject ─────────────────────────────────────────────────────────
   function stvApproveStructure() {
-    updateScriptSession(_stv.sessionId, { approval_status: 'approved' }).catch(() => {});
+    stv2SyncToJson(); // flush any unsaved editor edits into the JSON textarea
+    updateScriptSession(_stv.sessionId, {
+      approval_status: 'approved',
+      approved_at: new Date().toISOString(),
+    }).catch(() => {});
     stvConfirmJson();
   }
 
@@ -3344,11 +4108,13 @@ JSON Structure:
     await updateScriptSession(_stv.sessionId, {
       approval_status: 'rejected',
       rejection_reason: reason,
+      approved_at: new Date().toISOString(),
     }).catch(() => {});
 
     stvCloseRejectModal();
 
-    // Set regeneration context
+    // Set regeneration context — parentId is the original root, never changes
+    _stv.parentId = _stv.parentId || _stv.sessionId;
     _stv.regeneratedFrom = _stv.sessionId;
     _stv.sessionId = null;
 
@@ -3417,30 +4183,200 @@ STORYBOARD STYLE:
     ).join('\n');
     const prompt = `${STORYBOARD_SYSTEM_PROMPT}\n\nScript:\nTitle: ${parsed.storyboard_title}\nStyle: ${parsed.global_style}\nLocation: ${parsed.location}\n\nScenes:\n${sceneDesc}`;
 
-    const status = document.getElementById('stvStep3Status');
-    const btn    = document.getElementById('stvGenStoryboardBtn');
-    const result = document.getElementById('stvStoryboardResult');
+    const status  = document.getElementById('stvStep3Status');
+    const btn     = document.getElementById('stvGenStoryboardBtn');
+    const stopBtn = document.getElementById('stvStopStoryboardBtn');
+    const result  = document.getElementById('stvStoryboardResult');
     const actions = document.getElementById('stvStep3Actions');
+    startGenSession();
     btn.disabled = true; btn.textContent = '⏳ Generating…';
+    stopBtn.style.display = 'inline-flex'; stopBtn.removeAttribute('disabled');
     status.textContent = 'Generating storyboard image…'; status.style.color = '#7c6dff';
     result.innerHTML = ''; actions.style.display = 'none';
+
+    // Flush any pending product uploads now that sessionId is guaranteed
+    await flushProductUploads();
+
+    // Insert DB row before API call
+    _stv.storyboardSessionId = await insertRow('storyboard_sessions', {
+      script_session_id: _stv.sessionId,
+      img_provider: provider,
+      img_model: model,
+      prompt,
+      status: 'in_progress',
+      api_called_at: new Date().toISOString(),
+    });
 
     try {
       _stv.imgProvider = provider; _stv.imgModel = model;
       const dataUrl = await callImgGenApi(provider, model, getKey(provider), prompt, null, _stv.prodImages);
-      _stv.storyboardDataUrl = dataUrl;
-      result.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:8px;border:1px solid #1e1e30;margin-top:4px">`;
-      actions.style.display = 'flex';
-      status.textContent = '✓ Storyboard generated — review and approve';
-      status.style.color = '#22c55e';
+
+      if (_cancelled) {
+        await updateRow('storyboard_sessions', _stv.storyboardSessionId, {
+          status: 'cancelled', response_received_at: new Date().toISOString(),
+        });
+        status.textContent = '⏹ Storyboard generation stopped';
+        status.style.color = '#f87171';
+      } else {
+        _stv.storyboardDataUrl = dataUrl;
+
+        // Upload to storage
+        let storageUrl = null;
+        try {
+          const path = `storyboards/${_stv.sessionId || 'unknown'}/${Date.now()}.png`;
+          storageUrl = await uploadToStorage(dataUrl, path);
+        } catch(e) { console.warn('Storyboard storage upload failed:', e.message); }
+
+        await updateRow('storyboard_sessions', _stv.storyboardSessionId, {
+          status: 'success',
+          storyboard_image_url: storageUrl,
+          response_received_at: new Date().toISOString(),
+        });
+
+        result.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:8px;border:1px solid #1e1e30;margin-top:4px">`;
+        actions.style.display = 'flex';
+        status.textContent = '✓ Storyboard generated — review and approve';
+        status.style.color = '#22c55e';
+        document.getElementById('stvRegenSection').style.display = 'block';
+      }
     } catch(err) {
-      status.textContent = `✕ ${err.message}`;
+      const wasCancelled = err.name === 'AbortError' || _cancelled;
+      await updateRow('storyboard_sessions', _stv.storyboardSessionId, {
+        status: wasCancelled ? 'cancelled' : 'error',
+        error_message: wasCancelled ? 'User cancelled' : err.message,
+        response_received_at: new Date().toISOString(),
+      });
+      status.textContent = wasCancelled ? '⏹ Storyboard generation stopped' : `✕ ${err.message}`;
       status.style.color = '#f87171';
     }
+    stopBtn.style.display = 'none';
     btn.disabled = false; btn.textContent = '✦ Generate Storyboard';
   }
 
   function stvApproveStoryboard() { stvSetStep(4); stvGenAllFrames(); }
+
+  // ── STORYBOARD REGEN ─────────────────────────────────────────────────────────
+
+  function stvHandleRegenFiles(files) {
+    if (!files || !files.length) return;
+    const thumbs = document.getElementById('stvRegenThumbs');
+    const label  = document.getElementById('stvRegenUploadLabel');
+    Array.from(files).forEach(f => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        _stv.regenImages.push(e.target.result);
+        _stv.regenMeta.push({ name: f.name, size: f.size });
+        const idx = _stv.regenImages.length - 1;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:relative;display:inline-block';
+        wrap.innerHTML = `<img src="${e.target.result}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #2a2a40">
+          <button onclick="stvRemoveRegenImg(${idx})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:#3a1c1c;border:none;border-radius:50%;color:#f87171;font-size:10px;cursor:pointer;line-height:1;padding:0">✕</button>`;
+        thumbs.appendChild(wrap);
+        label.textContent = `${_stv.regenImages.length} extra image(s) attached`;
+      };
+      reader.readAsDataURL(f);
+    });
+    document.getElementById('stvRegenInput').value = '';
+  }
+
+  function stvRemoveRegenImg(idx) {
+    _stv.regenImages.splice(idx, 1);
+    _stv.regenMeta.splice(idx, 1);
+    const thumbs = document.getElementById('stvRegenThumbs');
+    thumbs.innerHTML = '';
+    _stv.regenImages.forEach((src, i) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative;display:inline-block';
+      wrap.innerHTML = `<img src="${src}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #2a2a40">
+        <button onclick="stvRemoveRegenImg(${i})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:#3a1c1c;border:none;border-radius:50%;color:#f87171;font-size:10px;cursor:pointer;line-height:1;padding:0">✕</button>`;
+      thumbs.appendChild(wrap);
+    });
+    document.getElementById('stvRegenUploadLabel').textContent =
+      _stv.regenImages.length ? `${_stv.regenImages.length} extra image(s) attached` : 'Attach additional product / reference photos (optional)';
+  }
+
+  async function stvRegenStoryboard() {
+    const provider  = _stv.imgProvider;
+    const model     = _stv.imgModel;
+    if (!provider || !model) { showToast('No image provider set — generate the first storyboard first', 'err'); return; }
+
+    const feedback  = document.getElementById('stvRegenFeedback').value.trim();
+    const status    = document.getElementById('stvRegenStatus');
+    const btn       = document.getElementById('stvRegenBtn');
+    const stopBtn   = document.getElementById('stvRegenStopBtn');
+    const result    = document.getElementById('stvStoryboardResult');
+    const actions   = document.getElementById('stvStep3Actions');
+
+    startGenSession();
+    btn.disabled = true; btn.textContent = '⏳ Regenerating…';
+    stopBtn.style.display = 'inline-flex'; stopBtn.removeAttribute('disabled');
+    status.textContent = 'Regenerating storyboard…'; status.style.color = '#7c6dff';
+    result.innerHTML = ''; actions.style.display = 'none';
+
+    // Build prompt: original script + storyboard context + user feedback
+    const parsed   = JSON.parse(_stv.structuredJson);
+    const sceneDesc = parsed.scenes.map(s =>
+      `Scene ${s.scene_number} — ${s.scene_name}: First frame: ${s.first_frame}. Last frame: ${s.last_frame}.`
+    ).join('\n');
+    const originalScript = `Title: ${parsed.storyboard_title}\nStyle: ${parsed.global_style}\nLocation: ${parsed.location}\n\nScenes:\n${sceneDesc}`;
+    const feedbackLine   = feedback ? `\n\nUSER FEEDBACK FOR THIS REVISION:\n${feedback}` : '';
+    const prompt = `${STORYBOARD_SYSTEM_PROMPT}\n\nORIGINAL SCRIPT:\n${originalScript}${feedbackLine}\n\nThe previous storyboard is provided as a reference image. Revise it according to the feedback above while keeping the same scene structure.`;
+
+    // Combine original product images + any new regen images
+    const allImages = [..._stv.prodImages, ..._stv.regenImages];
+
+    _stv.storyboardSessionId = await insertRow('storyboard_sessions', {
+      script_session_id: _stv.sessionId,
+      img_provider: provider,
+      img_model: model,
+      prompt,
+      status: 'in_progress',
+      api_called_at: new Date().toISOString(),
+    });
+
+    try {
+      // Pass the previous storyboard as the reference image so the model can iterate on it
+      const dataUrl = await callImgGenApi(provider, model, getKey(provider), prompt, _stv.storyboardDataUrl, allImages);
+
+      if (_cancelled) {
+        await updateRow('storyboard_sessions', _stv.storyboardSessionId, {
+          status: 'cancelled', response_received_at: new Date().toISOString(),
+        });
+        status.textContent = '⏹ Regeneration stopped';
+        status.style.color = '#f87171';
+      } else {
+        _stv.storyboardDataUrl = dataUrl;
+
+        let storageUrl = null;
+        try {
+          const path = `storyboards/${_stv.sessionId || 'unknown'}/${Date.now()}_regen.png`;
+          storageUrl = await uploadToStorage(dataUrl, path);
+        } catch(e) { console.warn('Regen storyboard storage upload failed:', e.message); }
+
+        await updateRow('storyboard_sessions', _stv.storyboardSessionId, {
+          status: 'success',
+          storyboard_image_url: storageUrl,
+          response_received_at: new Date().toISOString(),
+        });
+
+        result.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:8px;border:1px solid #1e1e30;margin-top:4px">`;
+        actions.style.display = 'flex';
+        status.textContent = '✓ Storyboard updated — review and approve or regenerate again';
+        status.style.color = '#22c55e';
+      }
+    } catch(err) {
+      const wasCancelled = err.name === 'AbortError' || _cancelled;
+      await updateRow('storyboard_sessions', _stv.storyboardSessionId, {
+        status: wasCancelled ? 'cancelled' : 'error',
+        error_message: wasCancelled ? 'User cancelled' : err.message,
+        response_received_at: new Date().toISOString(),
+      });
+      status.textContent = wasCancelled ? '⏹ Regeneration stopped' : `✕ ${err.message}`;
+      status.style.color = '#f87171';
+    }
+    stopBtn.style.display = 'none';
+    btn.disabled = false; btn.textContent = '↺ Regenerate Storyboard';
+  }
 
   // ── STEP 4: Generate first & last frames ──────────────────────────────────
   const FRAME_GEN_SYSTEM = `Create a standalone full-frame cinematic portrait image in true 9:16 aspect ratio.
@@ -3482,18 +4418,43 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       const cardId = `stvFC-${sc.scene_number}`;
       grid.innerHTML += `
         <div class="stv-frame-card" id="${cardId}">
-          <div class="stv-frame-card-header">Scene ${sc.scene_number} — ${sc.scene_name || ''}</div>
-          <div class="stv-frame-row">
-            <div class="stv-frame-cell" id="${cardId}-ff"><div class="stv-frame-label">First Frame</div></div>
-            <div class="stv-frame-cell" id="${cardId}-lf"><div class="stv-frame-label">Last Frame</div></div>
+          <div class="stv-frame-card-header">
+            <input type="checkbox" id="${cardId}-chk" checked onchange="stv4UpdateSelectBtn()">
+            <div class="stv-frame-card-scene-num">${String(sc.scene_number).padStart(2,'0')}</div>
+            <div class="stv-frame-card-title">${sc.scene_name || 'Scene ' + sc.scene_number}</div>
+            <div class="stv-frame-card-status" id="${cardId}-st">Generating frames…</div>
           </div>
-          <div class="stv-frame-status" id="${cardId}-st">Generating…</div>
+          <div class="stv-frame-card-media">
+            <div class="stv-media-cell" id="${cardId}-ff">
+              <div class="stv-media-label">First Frame</div>
+            </div>
+            <div class="stv-media-cell" id="${cardId}-lf">
+              <div class="stv-media-label">Last Frame</div>
+            </div>
+            <div class="stv-media-cell" id="${cardId}-vid-result">
+              <div class="stv-vid-empty">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Select scene &amp;<br>click Generate</span>
+              </div>
+              <div class="stv-media-label video">Video</div>
+            </div>
+          </div>
+          <div class="stv-frame-card-body">
+            <div class="stv-scene-field">
+              <label>Summary</label>
+              <textarea rows="4" id="${cardId}-summary" oninput="stv4UpdateSceneField(${sc.scene_number},'summary',this.value)">${sc.description || ''}</textarea>
+            </div>
+            <div class="stv-scene-field">
+              <label style="color:#a78bfa">Motion Brief <span style="color:#2e2e4a;font-weight:400;text-transform:none;font-size:10px">· video gen prompt</span></label>
+              <textarea rows="4" id="${cardId}-motion" oninput="stv4UpdateSceneField(${sc.scene_number},'motion',this.value)">${sc.motion || ''}</textarea>
+            </div>
+          </div>
         </div>`;
     }
 
-    let allDone = true;
-    for (const sc of scenes) {
-      if (_cancelled) { allDone = false; break; }
+    // Generate all scenes in parallel — each scene's first+last frames run sequentially
+    // so the per-card status updates are clean, but all scenes fire at the same time.
+    const results = await Promise.all(scenes.map(async sc => {
       const cardId = `stvFC-${sc.scene_number}`;
       const stEl = document.getElementById(`${cardId}-st`);
       const ffEl = document.getElementById(`${cardId}-ff`);
@@ -3502,43 +4463,208 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       const ffPrompt = `${FRAME_GEN_SYSTEM}\n\nGlobal style: ${globalStyle}\n\nFrame to generate:\nScene ${sc.scene_number} — First frame (opening moment)\nDescription: ${sc.first_frame}`;
       const lfPrompt = `${FRAME_GEN_SYSTEM}\n\nGlobal style: ${globalStyle}\n\nFrame to generate:\nScene ${sc.scene_number} — Last frame (closing moment)\nDescription: ${sc.last_frame}`;
 
-      stEl.textContent = 'Generating first frame…'; stEl.style.color = '#7c6dff';
+      stEl.textContent = 'Generating…'; stEl.style.color = '#7c6dff';
       let firstFrame = null, lastFrame = null;
-      try {
-        firstFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), ffPrompt, _stv.storyboardDataUrl, _stv.prodImages);
-        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; allDone = false; break; }
-        ffEl.innerHTML = `<img src="${firstFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-frame-label">First Frame</div>`;
-        stEl.textContent = 'Generating last frame…';
-        lastFrame  = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), lfPrompt, _stv.storyboardDataUrl, _stv.prodImages);
-        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; allDone = false; break; }
-        lfEl.innerHTML = `<img src="${lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-frame-label">Last Frame</div>`;
-        stEl.textContent = '✓ Done'; stEl.style.color = '#22c55e';
-      } catch(err) {
-        if (err.name === 'AbortError') {
-          stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; allDone = false; break;
-        }
-        stEl.textContent = `✕ ${err.message}`; stEl.style.color = '#f87171';
-        allDone = false;
-      }
 
-      _stv.sceneFrames.push({
-        sceneNumber: sc.scene_number,
-        sceneName:   sc.scene_name || `Scene ${sc.scene_number}`,
-        description: sc.description || '',
-        summary:     sc.description || '',
-        firstFrame,
-        lastFrame,
+      // Insert DB row before API calls
+      const frameRowId = await insertRow('frame_sessions', {
+        script_session_id: _stv.sessionId,
+        storyboard_session_id: _stv.storyboardSessionId,
+        scene_number: sc.scene_number,
+        scene_name: sc.scene_name || '',
+        img_provider: _stv.imgProvider,
+        img_model: _stv.imgModel,
+        first_frame_prompt: ffPrompt,
+        last_frame_prompt: lfPrompt,
+        status: 'in_progress',
+        api_called_at: new Date().toISOString(),
       });
-    }
+      _stv.frameSessionIds[sc.scene_number] = frameRowId;
+
+      try {
+        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
+
+        // Generate first frame — upload immediately so it's saved even if last frame fails
+        firstFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), ffPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
+        ffEl.innerHTML = `<img src="${firstFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">First Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sc.scene_number},'first')">↺ Regenerate</button>`;
+        let ffUrl = null;
+        try {
+          const base = `frames/${_stv.sessionId || 'unknown'}/scene${sc.scene_number}`;
+          ffUrl = await uploadToStorage(firstFrame, `${base}_first_${Date.now()}.png`);
+          await updateRow('frame_sessions', frameRowId, { first_frame_url: ffUrl });
+        } catch(e) { console.warn('First frame upload failed:', e.message); }
+
+        stEl.textContent = 'Last frame…';
+
+        // Generate last frame — upload immediately too
+        lastFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), lfPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
+        lfEl.innerHTML = `<img src="${lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">Last Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sc.scene_number},'last')">↺ Regenerate</button>`;
+        stEl.textContent = '✓ Done'; stEl.style.color = '#22c55e';
+
+        let lfUrl = null;
+        try {
+          const base = `frames/${_stv.sessionId || 'unknown'}/scene${sc.scene_number}`;
+          lfUrl = await uploadToStorage(lastFrame, `${base}_last_${Date.now()}.png`);
+        } catch(e) { console.warn('Last frame upload failed:', e.message); }
+        await updateRow('frame_sessions', frameRowId, {
+          status: 'success',
+          last_frame_url: lfUrl,
+          response_received_at: new Date().toISOString(),
+        });
+        return true;
+      } catch(err) {
+        const wasCancelled = err.name === 'AbortError' || _cancelled;
+        stEl.textContent = wasCancelled ? 'Stopped' : `✕ ${err.message}`; stEl.style.color = '#f87171';
+        await updateRow('frame_sessions', frameRowId, {
+          status: wasCancelled ? 'cancelled' : 'error',
+          error_message: wasCancelled ? 'User cancelled' : err.message,
+          response_received_at: new Date().toISOString(),
+        });
+        return false;
+      } finally {
+        _stv.sceneFrames.push({
+          sceneNumber: sc.scene_number,
+          sceneName:   sc.scene_name || `Scene ${sc.scene_number}`,
+          description: sc.description || '',
+          summary:     sc.description || '',
+          motion:      sc.motion || '',
+          firstFrame,
+          lastFrame,
+        });
+      }
+    }));
+
+    _stv.sceneFrames.sort((a, b) => a.sceneNumber - b.sceneNumber);
 
     if (stopBtn) stopBtn.style.display = 'none';
+    const allDone = results.every(r => r === true);
     const wasCancelled = _cancelled;
     status.textContent = wasCancelled ? '⏹ Generation stopped' : allDone ? `✓ All ${scenes.length} scenes — frames ready` : '⚠ Some frames failed — you can still proceed';
     status.style.color = wasCancelled ? '#f87171' : allDone ? '#22c55e' : '#eab308';
     actions.style.display = 'flex';
+    // Show video gen controls once frames are done
+    document.getElementById('stvStep4VideoControls').style.display = 'block';
+    stv4UpdateSelectBtn();
+  }
+
+  // ── Step 4 video gen helpers ───────────────────────────────────────────────
+  function stv4OnVideoProviderChange() {
+    const provider = document.getElementById('stv4VideoProvider').value;
+    const modelSel = document.getElementById('stv4VideoModel');
+    const models = VIDEO_GEN_MODELS[provider] || [];
+    modelSel.innerHTML = models.length
+      ? models.map(m => `<option value="${m.value}">${m.label}</option>`).join('')
+      : '<option value="">— no models —</option>';
+    modelSel.disabled = !models.length;
+    stv4UpdateSelectBtn();
+  }
+
+  function stv4UpdateSelectBtn() {
+    const btn = document.getElementById('stv4GenSelectedBtn');
+    if (!btn) return;
+    const provider = document.getElementById('stv4VideoProvider')?.value;
+    const model = document.getElementById('stv4VideoModel')?.value;
+    const anyChecked = _stv.sceneFrames.some((_, i) => {
+      const cardId = `stvFC-${_stv.sceneFrames[i].sceneNumber}`;
+      return document.getElementById(`${cardId}-chk`)?.checked;
+    });
+    btn.disabled = !(provider && model && anyChecked);
+  }
+
+  function stv4UpdateSceneField(sceneNumber, field, value) {
+    const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+    if (sf) sf[field] = value;
+  }
+
+  async function stv4GenSelected() {
+    const provider = document.getElementById('stv4VideoProvider').value;
+    const model    = document.getElementById('stv4VideoModel').value;
+    const ratio    = document.getElementById('stv4VideoRatio').value;
+    const quality  = document.getElementById('stv4VideoQuality').value;
+    if (!provider || !model) return;
+
+    const btn = document.getElementById('stv4GenSelectedBtn');
+    btn.disabled = true;
+
+    const selected = _stv.sceneFrames.filter(sf => {
+      const cardId = `stvFC-${sf.sceneNumber}`;
+      return document.getElementById(`${cardId}-chk`)?.checked;
+    });
+
+    await Promise.all(selected.map(async sf => {
+      const cardId = `stvFC-${sf.sceneNumber}`;
+      const stEl    = document.getElementById(`${cardId}-st`);
+      const vidResult = document.getElementById(`${cardId}-vid-result`);
+
+      if (stEl) { stEl.textContent = '🎬 Generating video…'; stEl.style.color = '#a78bfa'; }
+      // Show generating state in video cell
+      vidResult.innerHTML = `<div class="stv-vid-generating"><div class="spin-sm" style="border-color:#2a2a45;border-top-color:#a78bfa"></div><span>Generating…</span></div><div class="stv-media-label video">Video</div>`;
+
+      // generateVideo manages statusEl/resultEl internally
+      await generateVideo(sf.sceneNumber, {
+        provider, model, aspectRatio: ratio, quality,
+        sceneObj: {
+          index: sf.sceneNumber,
+          sceneName: sf.sceneName,
+          firstFrame: sf.firstFrame,
+          lastFrame: sf.lastFrame,
+          motion: sf.motion,
+          summary: sf.description,
+          duration: 5,
+        },
+        statusEl: stEl || vidResult,
+        resultEl: vidResult,
+      });
+    }));
+
+    btn.disabled = false;
   }
 
   // ── STEP 5: Hand off to video gen ─────────────────────────────────────────
+  async function stvRegenSingleFrame(sceneNumber, which) {
+    const sc = (JSON.parse(_stv.structuredJson || '{}').scenes || []).find(s => s.scene_number === sceneNumber);
+    if (!sc) return;
+
+    const cardId = `stvFC-${sceneNumber}`;
+    const cellEl = document.getElementById(`${cardId}-${which === 'first' ? 'ff' : 'lf'}`);
+    const btn    = cellEl?.querySelector('.stv-regen-frame-btn');
+    if (!cellEl) return;
+
+    const prompt = which === 'first' ? sc.first_frame : sc.last_frame;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+    cellEl.style.opacity = '0.5';
+
+    try {
+      const newFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), prompt, _stv.storyboardDataUrl, _stv.prodImages);
+
+      cellEl.innerHTML = `<img src="${newFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">${which === 'first' ? 'First' : 'Last'} Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sceneNumber},'${which}')">↺ Regenerate</button>`;
+      cellEl.style.opacity = '1';
+
+      // Update sceneFrames in memory
+      const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+      if (sf) { if (which === 'first') sf.firstFrame = newFrame; else sf.lastFrame = newFrame; }
+
+      // Upload to storage + patch DB
+      const frameRowId = _stv.frameSessionIds[sceneNumber];
+      try {
+        const base = `frames/${_stv.sessionId || 'unknown'}/scene${sceneNumber}`;
+        const url = await uploadToStorage(newFrame, `${base}_${which}_regen_${Date.now()}.png`);
+        await updateRow('frame_sessions', frameRowId, {
+          [which === 'first' ? 'first_frame_url' : 'last_frame_url']: url,
+        });
+        if (sf) { if (which === 'first') sf.firstFrame = url; else sf.lastFrame = url; }
+      } catch(e) { console.warn('Regen frame upload failed:', e.message); }
+
+      showToast(`Scene ${sceneNumber} ${which} frame regenerated`, 'ok');
+    } catch(err) {
+      cellEl.style.opacity = '1';
+      if (btn) { btn.disabled = false; btn.textContent = '↺ Regenerate'; }
+      showToast(`Regen failed: ${err.message}`, 'err');
+    }
+  }
+
   function stvGoToVideo() { stvSetStep(5); }
 
   function stvLaunchVideoGen() {
@@ -3552,6 +4678,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
         firstFrame: f.firstFrame,
         lastFrame:  f.lastFrame,
         summary:    f.summary,
+        motion:     f.motion,
         clipBlob:   null,
         clipUrl:    null,
       }));
@@ -3591,18 +4718,49 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     showToast(`${scenes.length} scenes loaded from script`, 'ok');
   }
 
-  // ── Script Session Logging ───────────────────────────────────────────────────
-  async function logScriptSession(data) {
-    const email = localStorage.getItem(EMAIL_KEY) || null;
-    const payload = { user_email: email, approval_status: 'pending', ...data };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/script_sessions`, {
+  // ── Supabase Storage ─────────────────────────────────────────────────────────
+  const STORAGE_URL = `${SUPABASE_URL}/storage/v1`;
+
+  async function uploadToStorage(dataUrl, path) {
+    // Convert base64 dataUrl to blob
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const uploadRes = await fetch(`${STORAGE_URL}/object/studio-assets/${path}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${_authToken()}`,
         'apikey': SUPABASE_ANON,
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'Prefer': 'return=representation',
+        'Content-Type': blob.type || 'image/png',
+        'x-upsert': 'true',
       },
+      body: blob,
+    });
+    if (!uploadRes.ok) {
+      const err = await uploadRes.json().catch(() => ({}));
+      throw new Error(err?.message || `Storage upload failed: ${uploadRes.status}`);
+    }
+    return `${STORAGE_URL}/object/public/studio-assets/${path}`;
+  }
+
+  // Returns the current user's JWT (falls back to anon key if not signed in)
+  function _authToken() {
+    return _currentSession?.access_token || SUPABASE_ANON;
+  }
+  function _authHeaders(extra = {}) {
+    return { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${_authToken()}`, ...extra };
+  }
+
+  // ── Script Session Logging ───────────────────────────────────────────────────
+  async function logScriptSession(data) {
+    const payload = {
+      user_id: _currentSession?.user?.id || null,
+      user_email: _currentSession?.user?.email || null,
+      approval_status: 'pending',
+      ...data,
+    };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/script_sessions`, {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Prefer': 'return=representation' },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -3618,26 +4776,45 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     if (!id) return;
     await fetch(`${SUPABASE_URL}/rest/v1/script_sessions?id=eq.${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON,
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'Prefer': 'return=minimal',
-      },
+      headers: { ..._authHeaders(), 'Prefer': 'return=minimal' },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async function insertRow(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: { ..._authHeaders(), 'Prefer': 'return=representation' },
+      body: JSON.stringify({
+        user_id: _currentSession?.user?.id || null,
+        user_email: _currentSession?.user?.email || null,
+        ...data,
+      }),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); console.warn(`insertRow(${table}) failed — ${res.status}:`, JSON.stringify(e)); return null; }
+    const rows = await res.json();
+    return rows?.[0]?.id || null;
+  }
+
+  async function updateRow(table, id, data) {
+    if (!id) return;
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { ..._authHeaders(), 'Prefer': 'return=minimal' },
       body: JSON.stringify(data),
     });
   }
 
   async function loadHistory() {
     const el = document.getElementById('historyList');
-    const email = localStorage.getItem(EMAIL_KEY);
-    if (!email) {
-      el.innerHTML = `<div style="text-align:center;padding:60px 0;color:#444;font-size:13px">No email on record — submit your email on the welcome screen to track history.</div>`;
+    if (!_currentSession) {
+      el.innerHTML = `<div style="text-align:center;padding:60px 0;color:#444;font-size:13px">Sign in to see your history.</div>`;
       return;
     }
     el.innerHTML = `<div style="text-align:center;padding:40px 0;color:#555;font-size:13px">Loading…</div>`;
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/script_sessions?user_email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=50`, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` },
+    const userId = _currentSession.user.id;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/script_sessions?user_id=eq.${userId}&order=created_at.desc&limit=50`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${_authToken()}` },
     });
     if (!res.ok) { el.innerHTML = `<div style="color:#f87171;font-size:13px">Failed to load history.</div>`; return; }
     const rows = await res.json();
@@ -3687,13 +4864,745 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
         </div>
         ${r.rejection_reason ? `<div style="font-size:11px;color:#f87171;margin-top:6px;font-style:italic">Rejected: "${r.rejection_reason}"</div>` : ''}
         ${r.error_message ? `<div style="font-size:11px;color:#f87171;margin-top:6px">Error: ${r.error_message}</div>` : ''}
+        ${r.status === 'success' ? `<div style="margin-top:12px"><button class="btn btn-purple btn-sm" onclick="resumeSession('${r.id}')">▶ Continue</button></div>` : ''}
       </div>`;
     }).join('');
+  }
+
+  // ── Render frames from restored session (no API calls) ──────────────────────
+  function stvRenderRestoredFrames() {
+    const grid = document.getElementById('stvFramesGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    document.getElementById('stvStep4Actions').style.display = 'flex';
+    document.getElementById('stvStep4VideoControls').style.display = 'block';
+
+    _stv.sceneFrames.forEach(sf => {
+      const cardId = `stvFC-${sf.sceneNumber}`;
+      grid.innerHTML += `
+        <div class="stv-frame-card" id="${cardId}">
+          <div class="stv-frame-card-header">
+            <input type="checkbox" id="${cardId}-chk" checked onchange="stv4UpdateSelectBtn()">
+            <div class="stv-frame-card-scene-num">${String(sf.sceneNumber).padStart(2,'0')}</div>
+            <div class="stv-frame-card-title">${sf.sceneName}</div>
+            <div class="stv-frame-card-status" id="${cardId}-st" style="color:${sf.generatedVideoUrl ? '#22c55e' : (!sf.firstFrame || !sf.lastFrame) ? '#f87171' : '#22c55e'}">${sf.generatedVideoUrl ? '✓ Video ready' : (!sf.firstFrame || !sf.lastFrame) ? '⚠ Partial — retry missing frame' : '✓ Frames ready'}</div>
+          </div>
+          <div class="stv-frame-card-media">
+            <div class="stv-media-cell" id="${cardId}-ff">
+              ${sf.firstFrame
+                ? `<img src="${sf.firstFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">First Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sf.sceneNumber},'first')">↺ Regenerate</button>`
+                : `<div class="stv-vid-empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color:#f87171">Failed</span></div><div class="stv-media-label">First Frame</div><button class="stv-regen-frame-btn" onclick="stvRegenSingleFrame(${sf.sceneNumber},'first')" style="border-color:#7c6dff;color:#a78bfa">↺ Try Again</button>`}
+            </div>
+            <div class="stv-media-cell" id="${cardId}-lf">
+              ${sf.lastFrame
+                ? `<img src="${sf.lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">Last Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sf.sceneNumber},'last')">↺ Regenerate</button>`
+                : `<div class="stv-vid-empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color:#f87171">Failed</span></div><div class="stv-media-label">Last Frame</div><button class="stv-regen-frame-btn" onclick="stvRegenSingleFrame(${sf.sceneNumber},'last')" style="border-color:#7c6dff;color:#a78bfa">↺ Try Again</button>`}
+            </div>
+            <div class="stv-media-cell" id="${cardId}-vid-result"
+              ${sf.generatedVideoUrl ? `onmouseenter="this.querySelector('video').play()" onmouseleave="this.querySelector('video').pause()"` : ''}>
+              ${sf.generatedVideoUrl ? `
+                <video src="${sf.generatedVideoUrl}" muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
+                <div class="stv-media-label video">Video ✓</div>
+                <button class="stv-regen-frame-btn" onclick="stvOpenVideoRegenModal(${sf.sceneNumber})">↺ Regenerate</button>
+                <div class="vid-hover-controls">
+                  <button class="vid-ctrl-btn" title="Toggle sound"
+                    onclick="event.stopPropagation();var v=this.closest('.stv-media-cell').querySelector('video');v.muted=!v.muted;this.textContent=v.muted?'🔇':'🔊'">🔇</button>
+                  <a class="vid-ctrl-btn" title="Download" href="${sf.generatedVideoUrl}" download onclick="event.stopPropagation()">⬇</a>
+                </div>
+              ` : `
+                <div class="stv-vid-empty">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <span>Select scene &amp;<br>click Generate</span>
+                </div>
+                <div class="stv-media-label video">Video</div>
+              `}
+            </div>
+          </div>
+          <div class="stv-frame-card-body">
+            <div class="stv-scene-field">
+              <label>Summary</label>
+              <textarea rows="4" id="${cardId}-summary" oninput="stv4UpdateSceneField(${sf.sceneNumber},'summary',this.value)">${sf.description || ''}</textarea>
+            </div>
+            <div class="stv-scene-field">
+              <label style="color:#a78bfa">Motion Brief <span style="color:#2e2e4a;font-weight:400;text-transform:none;font-size:10px">· video gen prompt</span></label>
+              <textarea rows="4" id="${cardId}-motion" oninput="stv4UpdateSceneField(${sf.sceneNumber},'motion',this.value)">${sf.motion || ''}</textarea>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    stv4UpdateSelectBtn();
+  }
+
+  // ── Resume Session ───────────────────────────────────────────────────────────
+  async function resumeSession(scriptSessionId) {
+    showToast('Loading session…', 'ok');
+
+    // 1. Load script session
+    const sRes = await fetch(`${SUPABASE_URL}/rest/v1/script_sessions?id=eq.${scriptSessionId}`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${_authToken()}` },
+    });
+    const [session] = await sRes.json();
+    if (!session) { showToast('Session not found', 'err'); return; }
+
+    // 2. Restore _stv base state
+    _stv.sessionId      = session.id;
+    _stv.parentId       = session.parent_id;
+    _stv.regeneratedFrom = session.regenerated_from;
+    _stv.structuredJson = session.structured_json;
+    _stv.sceneFrames    = [];
+    _stv.frameSessionIds = {};
+
+    // Fill step 1 script
+    document.getElementById('stvRawScript').value = session.raw_script || '';
+    if (session.structured_json) {
+      document.getElementById('stvJsonEditor').value = JSON.stringify(JSON.parse(session.structured_json), null, 2);
+      stv2RenderScenes();
+    }
+
+    // 3. Load storyboard
+    const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/storyboard_sessions?script_session_id=eq.${scriptSessionId}&order=created_at.desc&limit=1`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${_authToken()}` },
+    });
+    const [storyboard] = await sbRes.json() || [];
+    if (storyboard?.storyboard_image_url) {
+      _stv.storyboardSessionId = storyboard.id;
+      _stv.storyboardDataUrl   = storyboard.storyboard_image_url;
+      _stv.imgProvider = storyboard.img_provider || '';
+      _stv.imgModel    = storyboard.img_model || '';
+      // Render storyboard image
+      document.getElementById('stvStoryboardResult').innerHTML =
+        `<img src="${storyboard.storyboard_image_url}" style="width:100%;border-radius:8px;border:1px solid #1e1e30;margin-top:4px">`;
+      document.getElementById('stvStep3Actions').style.display = 'flex';
+      document.getElementById('stvRegenSection').style.display = 'block';
+    }
+
+    // 4. Load product uploads
+    const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/product_uploads?script_session_id=eq.${scriptSessionId}`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${_authToken()}` },
+    });
+    const products = await prodRes.json() || [];
+    _stv.prodImages    = products.map(p => p.image_url);
+    _stv.prodUploadIds = products.map(p => p.id);
+    if (_stv.prodImages.length) stvRenderProdThumbs();
+
+    // 5. Load frames
+    const frRes = await fetch(`${SUPABASE_URL}/rest/v1/frame_sessions?script_session_id=eq.${scriptSessionId}&order=scene_number.asc`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${_authToken()}` },
+    });
+    const frames = await frRes.json() || [];
+    // Build a lookup from structured_json so summary/motion are available
+    const structuredScenes = (() => {
+      try { return JSON.parse(session.structured_json || '{}').scenes || []; } catch { return []; }
+    })();
+    const sceneDataByNumber = {};
+    structuredScenes.forEach(sc => { sceneDataByNumber[sc.scene_number] = sc; });
+
+    frames.forEach(f => {
+      const scData = sceneDataByNumber[f.scene_number] || {};
+      _stv.frameSessionIds[f.scene_number] = f.id;
+      _stv.sceneFrames.push({
+        sceneNumber: f.scene_number,
+        sceneName:   f.scene_name || scData.scene_name || `Scene ${f.scene_number}`,
+        description: scData.description || '',
+        summary:     scData.description || '',
+        motion:      scData.motion || '',
+        firstFrame:  f.first_frame_url,
+        lastFrame:   f.last_frame_url,
+      });
+    });
+
+    // 5b. Load generated videos for this session (any row with a video_url)
+    const vidRes = await fetch(`${SUPABASE_URL}/rest/v1/video_generations?script_session_id=eq.${scriptSessionId}&video_url=not.is.null&order=scene_number.asc`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${_authToken()}` },
+    });
+    const videos = await vidRes.json() || [];
+    console.log('[resume] video_generations rows:', videos.length, videos.map(v => ({ scene: v.scene_number ?? v.scene_index, status: v.status, hasUrl: !!v.video_url })));
+    // Attach the latest video URL per scene to sceneFrames
+    videos.forEach(v => {
+      const sceneNum = v.scene_number ?? v.scene_index;
+      const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNum);
+      if (sf && v.video_url) sf.generatedVideoUrl = v.video_url;
+    });
+
+    // 5c. Render restored frames into the grid
+    if (frames.length > 0) stvRenderRestoredFrames();
+
+    // 6. Determine which step to resume at
+    // Always land on step 4 (frames+video view) when any frames exist — step 5 is the old launch-modal flow
+    let resumeStep = 2; // at minimum we have structured JSON
+    if (storyboard?.status === 'success') resumeStep = 3;
+    if (frames.length > 0) resumeStep = 4;
+
+    // 7. Switch to Script tab and go to correct step
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('[data-tab="script"]').classList.add('active');
+    document.getElementById('tab-script').classList.add('active');
+    stvSetStep(resumeStep);
+
+    showToast(`Session restored — resuming at step ${resumeStep}`, 'ok');
   }
 
   // Run on load
   checkEmailCapture();
 
+  // ── Frame Regen Modal ──────────────────────────────────────────────────────
+  const _regenModal = { sceneNumber: null, which: null, refs: [] };
+  // Lazily resolved — modal HTML is below this script block
+  let frmPromptEl = null;
+  let frmDropEl   = null;
+  let _frmHits = [], _frmIdx = -1;
+  function _frmEls() {
+    if (!frmPromptEl) frmPromptEl = document.getElementById('frmPrompt');
+    if (!frmDropEl)   frmDropEl   = document.getElementById('frmMentionDrop');
+  }
+
+  function stvOpenRegenModal(sceneNumber, which) {
+    _frmEls();
+    const cardId  = `stvFC-${sceneNumber}`;
+    const cellEl  = document.getElementById(`${cardId}-${which === 'first' ? 'ff' : 'lf'}`);
+    const currentSrc = cellEl?.querySelector('img')?.src || null;
+    const sc = (JSON.parse(_stv.structuredJson || '{}').scenes || []).find(s => s.scene_number === sceneNumber);
+
+    _regenModal.sceneNumber = sceneNumber;
+    _regenModal.which = which;
+    _regenModal.refs = [];
+
+    // Pre-seed opposite frame as reference
+    const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+    if (sf) {
+      const otherSrc = which === 'first' ? sf.lastFrame : sf.firstFrame;
+      if (otherSrc) _regenModal.refs.push({ tag: '@frame2', src: otherSrc, name: which === 'first' ? 'Last Frame' : 'First Frame' });
+    }
+
+    const imgEl = document.getElementById('frmCurrentImg');
+    if (imgEl) { imgEl.src = currentSrc || ''; imgEl.style.display = currentSrc ? 'block' : 'none'; }
+    document.getElementById('frmCurrentLabel').textContent = `Current ${which === 'first' ? 'First' : 'Last'} Frame — Scene ${sceneNumber}`;
+    document.getElementById('frmModalTitle').textContent = `Regenerate ${which === 'first' ? 'First' : 'Last'} Frame`;
+    document.getElementById('frmModalSub').textContent = `Scene ${sceneNumber}${sc?.scene_name ? ' — ' + sc.scene_name : ''}`;
+
+    const defaultPrompt = sc ? (which === 'first' ? sc.first_frame : sc.last_frame) : '';
+    document.getElementById('frmStatus').textContent = '';
+    frmRenderRefs();
+    frmSetPrompt(defaultPrompt);
+    document.getElementById('frameRegenModal').classList.add('open');
+    frmPromptEl.focus();
+  }
+
+  function stvCloseRegenModal() {
+    document.getElementById('frameRegenModal').classList.remove('open');
+  }
+
+  function frmRenderRefs() {
+    const container = document.getElementById('frmRefsContainer');
+    container.innerHTML = '';
+    _regenModal.refs.forEach((ref, i) => {
+      const div = document.createElement('div');
+      div.className = 'frm-ref-thumb';
+      div.innerHTML = `<img src="${ref.src}" alt="${ref.name}"><div class="frm-ref-tag">${ref.tag}</div><button class="frm-ref-remove" onclick="frmRemoveRef(${i})">×</button>`;
+      container.appendChild(div);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'frm-ref-add'; addBtn.title = 'Add reference image'; addBtn.innerHTML = '+';
+    addBtn.onclick = () => document.getElementById('frmRefFileInput').click();
+    container.appendChild(addBtn);
+  }
+
+  function frmRemoveRef(i) { _regenModal.refs.splice(i, 1); frmRenderRefs(); }
+
+  document.getElementById('frmRefFileInput').addEventListener('change', e => {
+    Array.from(e.target.files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const idx = _regenModal.refs.length + 1;
+        _regenModal.refs.push({ tag: `@image${idx}`, src: ev.target.result, name: file.name });
+        frmRenderRefs();
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
+
+  function frmGetCursorInfo() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const textBefore = node.textContent.slice(0, range.startOffset);
+    const match = textBefore.match(/@(\w*)$/);
+    if (!match) return null;
+    return { node, offset: range.startOffset, match, atStart: range.startOffset - match[0].length };
+  }
+
+  function frmSetPrompt(text) {
+    frmPromptEl.innerHTML = '';
+    text.split(/(@\w+)/g).forEach(part => {
+      const ref = _regenModal.refs.find(r => r.tag === part);
+      if (ref) {
+        const chip = document.createElement('span');
+        chip.className = 'mention-chip'; chip.contentEditable = 'false';
+        chip.dataset.tag = part; chip.textContent = part;
+        frmPromptEl.appendChild(chip);
+        frmPromptEl.appendChild(document.createTextNode('\u00A0'));
+      } else {
+        frmPromptEl.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
+  function frmGetPromptText() {
+    let text = '';
+    frmPromptEl.childNodes.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+      else if (node.classList?.contains('mention-chip')) text += node.dataset.tag;
+      else text += node.textContent;
+    });
+    return text.trim();
+  }
+
+  frmPromptEl.addEventListener('input', () => {
+    const info = frmGetCursorInfo();
+    if (info && _regenModal.refs.length > 0) {
+      const q = info.match[1].toLowerCase();
+      const hits = _regenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      if (hits.length) {
+        _frmHits = hits; _frmIdx = -1;
+        frmDropEl.innerHTML = hits.map((r, i) =>
+          `<div class="frm-mention-item" data-i="${i}" onmousedown="event.preventDefault();frmInsertMention('${r.tag}','${r.src}')">
+            <img src="${r.src}" alt=""><div class="frm-mention-item-info"><span class="tag">${r.tag}</span><span class="name">${r.name}</span></div>
+          </div>`).join('');
+        frmDropEl.classList.add('open'); return;
+      }
+    }
+    frmDropEl.classList.remove('open');
+  });
+
+  frmPromptEl.addEventListener('keydown', e => {
+    if (!frmDropEl.classList.contains('open')) return;
+    const n = _frmHits.length;
+    if (e.key === 'ArrowDown') { e.preventDefault(); _frmIdx = (_frmIdx+1)%n; frmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_frmIdx)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); _frmIdx = (_frmIdx-1+n)%n; frmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_frmIdx)); }
+    else if (e.key==='Enter'||e.key==='Tab') { if(_frmIdx>=0){e.preventDefault();const r=_frmHits[_frmIdx];frmInsertMention(r.tag,r.src);} }
+    else if (e.key==='Escape') { frmDropEl.classList.remove('open'); }
+  });
+
+  document.addEventListener('click', e => {
+    if (!frmDropEl.contains(e.target) && e.target !== frmPromptEl) frmDropEl.classList.remove('open');
+  });
+
+  function frmInsertMention(tag, src) {
+    const info = frmGetCursorInfo();
+    if (!info) return;
+    const { node, offset, atStart } = info;
+    const sel = window.getSelection(); const range = sel.getRangeAt(0);
+    const del = document.createRange(); del.setStart(node, atStart); del.setEnd(node, offset); del.deleteContents();
+    const chip = document.createElement('span');
+    chip.className = 'mention-chip'; chip.contentEditable = 'false'; chip.dataset.tag = tag; chip.textContent = tag;
+    const space = document.createTextNode('\u00A0');
+    range.insertNode(space); range.insertNode(chip);
+    const nr = document.createRange(); nr.setStartAfter(space); nr.collapse(true);
+    sel.removeAllRanges(); sel.addRange(nr);
+    frmDropEl.classList.remove('open'); frmPromptEl.focus();
+  }
+
+  async function frmSubmitRegen() {
+    _frmEls();
+    const { sceneNumber, which, refs } = _regenModal;
+    let promptRaw = frmGetPromptText();
+    if (!promptRaw) return;
+
+    const statusEl = document.getElementById('frmStatus');
+    const submitBtn = document.getElementById('frmSubmitBtn');
+    submitBtn.disabled = true; statusEl.textContent = 'Generating…';
+
+    // Replace @tagN with [reference name] for API clarity
+    refs.forEach(r => { promptRaw = promptRaw.replace(new RegExp(r.tag.replace('@','\\@'), 'g'), `[${r.name}]`); });
+    const extraRefs = refs.map(r => r.src);
+
+    try {
+      const newFrame = await callImgGenApi(
+        _stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider),
+        promptRaw, _stv.storyboardDataUrl, [...(_stv.prodImages || []), ...extraRefs]
+      );
+      const cardId = `stvFC-${sceneNumber}`;
+      const cellEl = document.getElementById(`${cardId}-${which === 'first' ? 'ff' : 'lf'}`);
+      if (cellEl) {
+        cellEl.innerHTML = `<img src="${newFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">${which === 'first' ? 'First' : 'Last'} Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sceneNumber},'${which}')">↺ Regenerate</button>`;
+      }
+      const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+      if (sf) { if (which === 'first') sf.firstFrame = newFrame; else sf.lastFrame = newFrame; }
+      try {
+        const base = `frames/${_stv.sessionId || 'unknown'}/scene${sceneNumber}`;
+        const url = await uploadToStorage(newFrame, `${base}_${which}_regen_${Date.now()}.png`);
+        const frameRowId = _stv.frameSessionIds[sceneNumber];
+        await updateRow('frame_sessions', frameRowId, { [which === 'first' ? 'first_frame_url' : 'last_frame_url']: url });
+        if (sf) { if (which === 'first') sf.firstFrame = url; else sf.lastFrame = url; }
+      } catch(e) { console.warn('Upload failed:', e.message); }
+      statusEl.textContent = '✓ Done';
+      showToast(`Scene ${sceneNumber} ${which} frame regenerated`, 'ok');
+      setTimeout(stvCloseRegenModal, 600);
+    } catch(err) {
+      statusEl.textContent = `✕ ${err.message}`;
+      submitBtn.disabled = false;
+    }
+  }
+
+  // ── Video Regen Modal ──────────────────────────────────────────────────────
+  const _vRegenModal = { sceneNumber: null, refs: [] };
+  // Lazily resolved — modal HTML is below this script block
+  let vrmPromptEl  = null;
+  let vrmDropEl    = null;
+  let vrmSummaryEl = null;
+  let vrmSumDropEl = null;
+  let _vrmHits = [], _vrmIdx = -1;
+  let _vrmSumHits = [], _vrmSumIdx = -1;
+  function _vrmEls() {
+    if (!vrmPromptEl)  vrmPromptEl  = document.getElementById('vrmPrompt');
+    if (!vrmDropEl)    vrmDropEl    = document.getElementById('vrmMentionDrop');
+    if (!vrmSummaryEl) vrmSummaryEl = document.getElementById('vrmSummary');
+    if (!vrmSumDropEl) vrmSumDropEl = document.getElementById('vrmSummaryDrop');
+  }
+
+  function stvOpenVideoRegenModal(sceneNumber) {
+    _vrmEls();
+    const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+    const sc = (JSON.parse(_stv.structuredJson || '{}').scenes || []).find(s => s.scene_number === sceneNumber);
+    if (!sf) return;
+
+    _vRegenModal.sceneNumber = sceneNumber;
+    _vRegenModal.refs = [];
+    if (sf.firstFrame) _vRegenModal.refs.push({ tag: '@firstframe', src: sf.firstFrame, name: 'First Frame' });
+    if (sf.lastFrame)  _vRegenModal.refs.push({ tag: '@lastframe',  src: sf.lastFrame,  name: 'Last Frame'  });
+
+    document.getElementById('vrmTitle').textContent = 'Regenerate Video';
+    document.getElementById('vrmSub').textContent = `Scene ${sceneNumber}${sc?.scene_name ? ' — ' + sc.scene_name : ''}`;
+
+    // Current video
+    const vidWrap = document.getElementById('vrmCurrentVid');
+    const vidSrc = sf.generatedVideoUrl || '';
+    if (vidSrc) {
+      vidWrap.innerHTML = `<video src="${vidSrc}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>`;
+    } else {
+      vidWrap.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#555">No video yet</div>`;
+    }
+
+    // Populate model dropdown from step4 controls
+    const modelSel = document.getElementById('vrmModel');
+    const step4Model = document.getElementById('stv4VideoModel');
+    if (step4Model && modelSel) { modelSel.innerHTML = step4Model.innerHTML; modelSel.value = step4Model.value; }
+
+    document.getElementById('vrmStatus').textContent = '';
+    document.getElementById('vrmSubmitBtn').disabled = false;
+    document.getElementById('vrmSubmitBtn').textContent = '🎬 Regenerate Video';
+
+    vrmRenderRefs();
+    vrmSetEditorContent(vrmSummaryEl, sc?.description || '');
+    vrmSetEditorContent(vrmPromptEl, sc?.motion || '');
+    document.getElementById('videoRegenModal').classList.add('open');
+    vrmPromptEl.focus();
+  }
+
+  function stvCloseVideoRegenModal() {
+    document.getElementById('videoRegenModal').classList.remove('open');
+  }
+
+  function vrmRenderRefs() {
+    const container = document.getElementById('vrmRefsContainer');
+    container.innerHTML = '';
+    _vRegenModal.refs.forEach((ref, i) => {
+      const div = document.createElement('div');
+      div.className = 'frm-ref-thumb';
+      div.innerHTML = `<img src="${ref.src}" alt="${ref.name}"><div class="frm-ref-tag">${ref.tag}</div><button class="frm-ref-remove" onclick="vrmRemoveRef(${i})">×</button>`;
+      container.appendChild(div);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'frm-ref-add'; addBtn.innerHTML = '+';
+    addBtn.onclick = () => document.getElementById('vrmRefFileInput').click();
+    container.appendChild(addBtn);
+  }
+
+  function vrmRemoveRef(i) { _vRegenModal.refs.splice(i, 1); vrmRenderRefs(); }
+
+  document.getElementById('vrmRefFileInput').addEventListener('change', e => {
+    Array.from(e.target.files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const idx = _vRegenModal.refs.length + 1;
+        _vRegenModal.refs.push({ tag: `@image${idx}`, src: ev.target.result, name: file.name });
+        vrmRenderRefs();
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
+
+  function vrmSetEditorContent(el, text) {
+    el.innerHTML = '';
+    text.split(/(@\w+)/g).forEach(part => {
+      const ref = _vRegenModal.refs.find(r => r.tag === part);
+      if (ref) {
+        const chip = document.createElement('span');
+        chip.className = 'mention-chip'; chip.contentEditable = 'false';
+        chip.dataset.tag = part; chip.textContent = part;
+        el.appendChild(chip); el.appendChild(document.createTextNode('\u00A0'));
+      } else {
+        el.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
+  function vrmGetCursorInfo(el) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (!el.contains(range.startContainer)) return null;
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const textBefore = node.textContent.slice(0, range.startOffset);
+    const match = textBefore.match(/@(\w*)$/);
+    if (!match) return null;
+    return { node, offset: range.startOffset, match, atStart: range.startOffset - match[0].length };
+  }
+
+  function vrmInsertChip(el, dropEl, tag, src) {
+    const info = vrmGetCursorInfo(el);
+    if (!info) return;
+    const { node, offset, atStart } = info;
+    const sel = window.getSelection(); const range = sel.getRangeAt(0);
+    const del = document.createRange(); del.setStart(node, atStart); del.setEnd(node, offset); del.deleteContents();
+    const chip = document.createElement('span');
+    chip.className = 'mention-chip'; chip.contentEditable = 'false'; chip.dataset.tag = tag; chip.textContent = tag;
+    const space = document.createTextNode('\u00A0');
+    range.insertNode(space); range.insertNode(chip);
+    const nr = document.createRange(); nr.setStartAfter(space); nr.collapse(true);
+    sel.removeAllRanges(); sel.addRange(nr);
+    dropEl.classList.remove('open'); el.focus();
+  }
+
+  function vrmMakeDropHtml(hits, insertFn) {
+    return hits.map((r, i) =>
+      `<div class="frm-mention-item" data-i="${i}" onmousedown="event.preventDefault();${insertFn}('${r.tag}','${r.src}')">
+        <img src="${r.src}" alt=""><div class="frm-mention-item-info"><span class="tag">${r.tag}</span><span class="name">${r.name}</span></div>
+      </div>`).join('');
+  }
+
+  // Motion brief @mention
+  vrmPromptEl.addEventListener('input', () => {
+    const info = vrmGetCursorInfo(vrmPromptEl);
+    if (info && _vRegenModal.refs.length > 0) {
+      const q = info.match[1].toLowerCase();
+      const hits = _vRegenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      if (hits.length) { _vrmHits = hits; _vrmIdx = -1; vrmDropEl.innerHTML = vrmMakeDropHtml(hits, 'vrmInsertMotion'); vrmDropEl.classList.add('open'); return; }
+    }
+    vrmDropEl.classList.remove('open');
+  });
+  vrmPromptEl.addEventListener('keydown', e => {
+    if (!vrmDropEl.classList.contains('open')) return;
+    const n = _vrmHits.length;
+    if (e.key==='ArrowDown') { e.preventDefault(); _vrmIdx=(_vrmIdx+1)%n; vrmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmIdx)); }
+    else if (e.key==='ArrowUp') { e.preventDefault(); _vrmIdx=(_vrmIdx-1+n)%n; vrmDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmIdx)); }
+    else if (e.key==='Enter'||e.key==='Tab') { if(_vrmIdx>=0){e.preventDefault();const r=_vrmHits[_vrmIdx];vrmInsertMotion(r.tag,r.src);} }
+    else if (e.key==='Escape') { vrmDropEl.classList.remove('open'); }
+  });
+
+  // Summary @mention
+  vrmSummaryEl.addEventListener('input', () => {
+    const info = vrmGetCursorInfo(vrmSummaryEl);
+    if (info && _vRegenModal.refs.length > 0) {
+      const q = info.match[1].toLowerCase();
+      const hits = _vRegenModal.refs.filter(r => r.tag.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      if (hits.length) { _vrmSumHits = hits; _vrmSumIdx = -1; vrmSumDropEl.innerHTML = vrmMakeDropHtml(hits, 'vrmInsertSummary'); vrmSumDropEl.classList.add('open'); return; }
+    }
+    vrmSumDropEl.classList.remove('open');
+  });
+  vrmSummaryEl.addEventListener('keydown', e => {
+    if (!vrmSumDropEl.classList.contains('open')) return;
+    const n = _vrmSumHits.length;
+    if (e.key==='ArrowDown') { e.preventDefault(); _vrmSumIdx=(_vrmSumIdx+1)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmSumIdx)); }
+    else if (e.key==='ArrowUp') { e.preventDefault(); _vrmSumIdx=(_vrmSumIdx-1+n)%n; vrmSumDropEl.querySelectorAll('.frm-mention-item').forEach((el,i)=>el.classList.toggle('active',i===_vrmSumIdx)); }
+    else if (e.key==='Enter'||e.key==='Tab') { if(_vrmSumIdx>=0){e.preventDefault();const r=_vrmSumHits[_vrmSumIdx];vrmInsertSummary(r.tag,r.src);} }
+    else if (e.key==='Escape') { vrmSumDropEl.classList.remove('open'); }
+  });
+
+  document.addEventListener('click', e => {
+    if (!vrmDropEl.contains(e.target) && e.target !== vrmPromptEl) vrmDropEl.classList.remove('open');
+    if (!vrmSumDropEl.contains(e.target) && e.target !== vrmSummaryEl) vrmSumDropEl.classList.remove('open');
+  });
+
+  function vrmInsertMotion(tag, src) { vrmInsertChip(vrmPromptEl, vrmDropEl, tag, src); }
+  function vrmInsertSummary(tag, src) { vrmInsertChip(vrmSummaryEl, vrmSumDropEl, tag, src); }
+
+  function vrmGetEditorText(el) {
+    let text = '';
+    el.childNodes.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+      else if (node.classList?.contains('mention-chip')) text += node.dataset.tag;
+      else text += node.textContent;
+    });
+    return text.trim();
+  }
+
+  async function stvSubmitVideoRegen() {
+    _vrmEls();
+    const { sceneNumber, refs } = _vRegenModal;
+    const statusEl  = document.getElementById('vrmStatus');
+    const submitBtn = document.getElementById('vrmSubmitBtn');
+    const vidWrap   = document.getElementById('vrmCurrentVid');
+
+    submitBtn.disabled = true; statusEl.textContent = 'Generating…';
+    vidWrap.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#07070f"><div class="spin-sm" style="border-color:#2a2a45;border-top-color:#a78bfa;width:32px;height:32px"></div><span style="font-size:11px;color:#a78bfa">Generating…</span></div>`;
+
+    const cardId   = `stvFC-${sceneNumber}`;
+    const vidResult = document.getElementById(`${cardId}-vid-result`);
+    const stEl      = document.getElementById(`${cardId}-st`);
+    const sf        = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+
+    const provider = document.getElementById('stv4VideoProvider')?.value || document.getElementById('vrmModel')?.value;
+    const model    = document.getElementById('vrmModel')?.value;
+    const quality  = document.getElementById('vrmQuality')?.value;
+    const motion   = vrmGetEditorText(vrmPromptEl);
+    const summary  = vrmGetEditorText(vrmSummaryEl);
+
+    if (stEl) { stEl.textContent = '🎬 Regenerating video…'; stEl.style.color = '#a78bfa'; }
+    if (vidResult) {
+      vidResult.innerHTML = `<div class="stv-vid-generating"><div class="spin-sm" style="border-color:#2a2a45;border-top-color:#a78bfa"></div><span>Generating…</span></div><div class="stv-media-label video">Video</div>`;
+    }
+
+    try {
+      await generateVideo(sceneNumber, {
+        provider, model, quality,
+        aspectRatio: document.getElementById('stv4VideoRatio')?.value || '9:16',
+        sceneObj: {
+          index: sceneNumber,
+          sceneName: sf?.sceneName || '',
+          firstFrame: sf?.firstFrame,
+          lastFrame: sf?.lastFrame,
+          motion: motion,
+          summary: summary,
+          duration: 5,
+        },
+        statusEl: stEl || vidResult,
+        resultEl: vidResult,
+      });
+      statusEl.textContent = '✓ Video regenerated';
+      submitBtn.disabled = false;
+      submitBtn.textContent = '🎬 Regenerate Again';
+      // Refresh preview in modal
+      const newSf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+      const newUrl = newSf?.generatedVideoUrl || sf?.generatedVideoUrl;
+      if (newUrl) {
+        vidWrap.innerHTML = `<video src="${newUrl}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>`;
+      }
+    } catch(err) {
+      statusEl.textContent = `✕ ${err.message}`;
+      submitBtn.disabled = false;
+      if (vidResult) vidResult.innerHTML = `<div class="stv-vid-empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Failed</span></div><div class="stv-media-label video">Video</div>`;
+    }
+  }
+
 </script>
+
+<!-- ── Video Regen Modal ─────────────────────────────────────────────────── -->
+<div id="videoRegenModal" onclick="if(event.target===this)stvCloseVideoRegenModal()">
+  <div class="vrm-dialog">
+    <div class="vrm-header">
+      <div>
+        <div class="vrm-header-title" id="vrmTitle">Regenerate Video</div>
+        <div class="vrm-header-sub" id="vrmSub"></div>
+      </div>
+      <button class="frm-close" onclick="stvCloseVideoRegenModal()">×</button>
+    </div>
+    <div class="vrm-body">
+      <div class="vrm-left">
+        <div class="vrm-video-wrap" id="vrmCurrentVid"></div>
+        <div class="vrm-video-label">🎬 Current Video <span>· will be replaced on regeneration</span></div>
+      </div>
+      <div class="vrm-right">
+        <div>
+          <div class="frm-section-label">Reference Images</div>
+          <div class="frm-refs" id="vrmRefsContainer"></div>
+          <div style="margin-top:8px;font-size:11px;color:#333">First &amp; last frames are pre-loaded. Add more and tag them with <span style="color:#a78bfa;font-weight:600">@tag</span></div>
+        </div>
+        <div class="frm-prompt-wrap">
+          <div class="frm-section-label">Scene Summary <span style="color:#333;font-weight:400;text-transform:none;letter-spacing:0">· context for the video</span></div>
+          <div class="frm-prompt-editor" id="vrmSummary" contenteditable="true"
+            data-placeholder="Describe the scene… type @ to tag a reference image"></div>
+          <div class="frm-mention-drop" id="vrmSummaryDrop"></div>
+        </div>
+        <div class="frm-prompt-wrap">
+          <div class="frm-section-label">Motion Brief <span style="color:#333;font-weight:400;text-transform:none;letter-spacing:0">· camera &amp; motion instructions</span></div>
+          <div class="frm-prompt-editor" id="vrmPrompt" contenteditable="true"
+            data-placeholder="Describe the motion… type @ to tag a reference image"></div>
+          <div class="frm-mention-drop" id="vrmMentionDrop"></div>
+          <div class="frm-prompt-hint">Type <span class="at">@</span> to tag a reference image</div>
+        </div>
+        <div>
+          <div class="frm-section-label">Model &amp; Quality</div>
+          <div class="vrm-settings">
+            <select id="vrmModel"></select>
+            <select id="vrmQuality">
+              <option value="1080p">1080p</option>
+              <option value="4k">4K</option>
+              <option value="720p">720p</option>
+              <option value="480p">480p</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="vrm-footer">
+      <div class="vrm-status" id="vrmStatus"></div>
+      <button class="btn btn-ghost btn-sm" onclick="stvCloseVideoRegenModal()">Cancel</button>
+      <button class="btn btn-purple btn-sm" id="vrmSubmitBtn" onclick="stvSubmitVideoRegen()">🎬 Regenerate Video</button>
+    </div>
+  </div>
+  <input type="file" id="vrmRefFileInput" accept="image/*" multiple style="display:none">
+</div>
+
+<!-- ── Frame Regen Modal ─────────────────────────────────────────────────── -->
+<div id="frameRegenModal" onclick="if(event.target===this)stvCloseRegenModal()">
+  <div class="frm-dialog">
+    <div class="frm-header">
+      <div>
+        <div class="frm-header-title" id="frmModalTitle">Regenerate Frame</div>
+        <div class="frm-header-sub" id="frmModalSub"></div>
+      </div>
+      <button class="frm-close" onclick="stvCloseRegenModal()">×</button>
+    </div>
+    <div class="frm-body">
+      <!-- Left: current frame -->
+      <div class="frm-current">
+        <div class="frm-current-img">
+          <img id="frmCurrentImg" src="" alt="Current frame">
+        </div>
+        <div class="frm-current-label" id="frmCurrentLabel">Current Frame</div>
+      </div>
+      <!-- Right: refs + prompt -->
+      <div class="frm-right">
+        <div>
+          <div class="frm-section-label">Reference Images</div>
+          <div class="frm-refs" id="frmRefsContainer"></div>
+          <div style="margin-top:8px;font-size:11px;color:#333">Upload images and reference them in the prompt using <span style="color:#a78bfa;font-weight:600">@tag</span></div>
+        </div>
+        <div class="frm-prompt-wrap">
+          <div class="frm-section-label">Prompt</div>
+          <div class="frm-prompt-editor" id="frmPrompt" contenteditable="true"
+            data-placeholder="Describe what to change… type @ to reference an image"></div>
+          <div class="frm-mention-drop" id="frmMentionDrop"></div>
+          <div class="frm-prompt-hint">Type <span class="at">@</span> to tag a reference image in your prompt</div>
+        </div>
+      </div>
+    </div>
+    <div class="frm-footer">
+      <div class="frm-status" id="frmStatus"></div>
+      <button class="btn btn-ghost btn-sm" onclick="stvCloseRegenModal()">Cancel</button>
+      <button class="btn btn-purple btn-sm" id="frmSubmitBtn" onclick="frmSubmitRegen()">↺ Regenerate</button>
+    </div>
+  </div>
+  <input type="file" id="frmRefFileInput" accept="image/*" multiple style="display:none">
+</div>
+
 </body>
 </html>
