@@ -4768,7 +4768,10 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     }
 
     btn.textContent = 'Sending…'; btn.disabled = true;
-    const { error } = await _sb.auth.signInWithOtp({ email: val, options: { emailRedirectTo: window.location.href } });
+    const redirectTo = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? window.location.href
+      : window.location.origin + window.location.pathname;
+    const { error } = await _sb.auth.signInWithOtp({ email: val, options: { emailRedirectTo: redirectTo } });
     btn.textContent = 'Send Magic Link →'; btn.disabled = false;
     if (error) {
       errEl.textContent = error.message;
