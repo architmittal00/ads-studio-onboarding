@@ -5019,9 +5019,12 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     const redirectTo = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? window.location.href
       : window.location.origin + window.location.pathname;
-    const { error } = await _sb.auth.signInWithOtp({ email: val, options: { emailRedirectTo: redirectTo } });
+    console.log('[Auth] signInWithOtp →', { email: val, redirectTo });
+    const { data: otpData, error } = await _sb.auth.signInWithOtp({ email: val, options: { emailRedirectTo: redirectTo } });
+    console.log('[Auth] signInWithOtp result →', { data: otpData, error: error ? { message: error.message, status: error.status, code: error.code ?? error.__isAuthError } : null });
     btn.textContent = 'Send Magic Link →'; btn.disabled = false;
     if (error) {
+      console.error('[Auth] OTP error detail →', error);
       errEl.textContent = error.message;
       errEl.style.display = 'block';
       return;
@@ -7143,6 +7146,14 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     const submitBtn = document.getElementById('frmSubmitBtn');
     submitBtn.disabled = true; statusEl.textContent = 'Generating…';
 
+    // Overlay shimmer on current frame image
+    const frmImgWrap = document.querySelector('.frm-current-img');
+    const shimmerOverlay = document.createElement('div');
+    shimmerOverlay.id = 'frmShimmerOverlay';
+    shimmerOverlay.style.cssText = 'position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(7,7,17,.6);backdrop-filter:blur(2px)';
+    shimmerOverlay.innerHTML = `<div class="stv-frame-loader-shimmer" style="position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(124,109,255,.12) 50%,transparent 70%);background-size:200% 100%;animation:shimmer 1.6s infinite"></div><div class="stv-frame-loader-spinner" style="position:relative;z-index:1;width:32px;height:32px;border:2.5px solid rgba(124,109,255,.2);border-top-color:#7c6dff;border-radius:50%;animation:spin .8s linear infinite"></div><span style="position:relative;z-index:1;font-size:11px;color:#a78bfa;font-weight:600;letter-spacing:.04em">Generating…</span>`;
+    if (frmImgWrap) { frmImgWrap.style.position = 'relative'; frmImgWrap.appendChild(shimmerOverlay); }
+
     // Replace @tagN with [reference name] for API clarity
     refs.forEach(r => { promptRaw = promptRaw.replace(new RegExp(r.tag.replace('@','\\@'), 'g'), `[${r.name}]`); });
     const extraRefs = refs.map(r => r.src);
@@ -7166,10 +7177,12 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
         await updateRow('frame_sessions', frameRowId, { [which === 'first' ? 'first_frame_url' : 'last_frame_url']: url });
         if (sf) { if (which === 'first') sf.firstFrame = url; else sf.lastFrame = url; }
       } catch(e) { console.warn('Upload failed:', e.message); }
+      document.getElementById('frmShimmerOverlay')?.remove();
       statusEl.textContent = '✓ Done';
       showToast(`Scene ${sceneNumber} ${which} frame regenerated`, 'ok');
       setTimeout(stvCloseRegenModal, 600);
     } catch(err) {
+      document.getElementById('frmShimmerOverlay')?.remove();
       statusEl.textContent = `✕ ${err.message}`;
       submitBtn.disabled = false;
     }
