@@ -530,37 +530,63 @@
     }
     .home-nav {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 36px; height: 60px; flex-shrink: 0;
+      padding: 0 32px; height: 56px; flex-shrink: 0;
       border-bottom: 1px solid var(--border-1);
-      background: rgba(7,7,15,.9); backdrop-filter: blur(12px);
-      position: sticky; top: 0; z-index: 10;
+      background: rgba(7,7,15,.85); backdrop-filter: blur(16px);
+      position: sticky; top: 0; z-index: 100;
     }
-    .home-nav-logo { display: flex; align-items: center; gap: 10px; }
+    .home-nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .home-nav-logo-mark {
-      width: 30px; height: 30px; border-radius: 9px; background: var(--gradient);
+      width: 28px; height: 28px; border-radius: 8px; background: var(--gradient);
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .home-nav-logo-mark svg { width: 14px; height: 14px; fill: #fff; }
-    .home-nav-wordmark { font-size: 15px; font-weight: 800; color: var(--text-1); letter-spacing: -.02em; }
-    .home-nav-right { display: flex; align-items: center; gap: 8px; }
-    .home-nav-user {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-2);
-      background: var(--surface-1); cursor: pointer; transition: border-color .15s;
+    .home-nav-logo-mark svg { width: 13px; height: 13px; fill: #fff; }
+    .home-nav-wordmark { font-size: 14px; font-weight: 800; color: var(--text-1); letter-spacing: -.02em; }
+    .home-nav-center { display: flex; align-items: center; gap: 2px; }
+    .home-nav-tab {
+      padding: 6px 14px; border-radius: 8px; border: none; background: transparent;
+      color: var(--text-4); font-size: 13px; font-weight: 500; cursor: pointer;
+      font-family: inherit; transition: all .15s;
     }
-    .home-nav-user:hover { border-color: var(--accent); }
+    .home-nav-tab:hover { color: var(--text-1); background: var(--surface-1); }
+    .home-nav-tab.active { color: var(--text-1); background: var(--surface-2); }
+    .home-nav-right { display: flex; align-items: center; gap: 10px; position: relative; }
+
+    /* User menu */
+    .home-nav-user-btn {
+      display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px;
+      border-radius: 40px; border: 1.5px solid var(--border-2); background: var(--surface-1);
+      cursor: pointer; font-family: inherit; transition: all .2s;
+    }
+    .home-nav-user-btn:hover { border-color: var(--accent-border); background: var(--accent-dim); }
     .home-nav-avatar {
-      width: 24px; height: 24px; border-radius: 50%; background: var(--gradient);
+      width: 26px; height: 26px; border-radius: 50%; background: var(--gradient);
       display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 800; color: #fff; flex-shrink: 0;
+      font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
     }
-    .home-nav-email { font-size: 12px; color: var(--text-3); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .home-nav-signout {
-      padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border-2);
-      background: transparent; color: var(--text-4); font-size: 12px; font-weight: 500;
-      cursor: pointer; transition: all .15s; font-family: inherit;
+    .home-nav-email { font-size: 12px; font-weight: 600; color: var(--text-2); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-nav-chevron { color: var(--text-5); transition: transform .2s; }
+    .home-nav-user-btn.open .home-nav-chevron { transform: rotate(180deg); }
+
+    /* Dropdown */
+    .home-nav-dropdown {
+      display: none; position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface-2); border: 1.5px solid var(--border-2);
+      border-radius: 14px; padding: 6px; min-width: 200px;
+      box-shadow: 0 16px 48px rgba(0,0,0,.5); z-index: 200;
     }
-    .home-nav-signout:hover { border-color: var(--error); color: var(--error-light); }
+    .home-nav-dropdown.open { display: block; }
+    .home-nav-dropdown-header { padding: 10px 12px 8px; border-bottom: 1px solid var(--border-1); margin-bottom: 4px; }
+    .home-nav-dropdown-email { font-size: 12px; font-weight: 600; color: var(--text-2); }
+    .home-nav-dropdown-label { font-size: 10px; color: var(--text-5); margin-top: 1px; }
+    .home-nav-dropdown-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+      border-radius: 9px; border: none; background: transparent; width: 100%;
+      text-align: left; font-size: 13px; font-weight: 500; color: var(--text-3);
+      cursor: pointer; font-family: inherit; transition: all .15s;
+    }
+    .home-nav-dropdown-item:hover { background: var(--surface-1); color: var(--text-1); }
+    .home-nav-dropdown-item.danger:hover { background: rgba(239,68,68,.08); color: #f87171; }
 
     .home-body { max-width: 1100px; margin: 0 auto; padding: 48px 36px 80px; width: 100%; }
 
@@ -845,9 +871,49 @@
     .stv-char-count { font-size: 11px; color: var(--text-4); font-variant-numeric: tabular-nums; }
 
     /* AI pill selector */
-    .stv-ai-section { margin-bottom: 24px; }
+    .stv-ai-section { margin-bottom: 28px; }
     .stv-ai-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
     .stv-ai-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--text-4); }
+
+    /* Compact AI selector card */
+    .stv-ai-card {
+      background: var(--surface-1); border: 1.5px solid var(--border-2); border-radius: 18px; overflow: hidden;
+    }
+
+    /* Provider tab row */
+    .stv-provider-tabs { display: flex; border-bottom: 1px solid var(--border-1); }
+    .stv-provider-tab {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px;
+      border: none; background: transparent; cursor: pointer; font-family: inherit;
+      color: var(--text-4); font-size: 11px; font-weight: 600; transition: all .18s;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+    }
+    .stv-provider-tab:hover { color: var(--text-2); background: var(--surface-2); }
+    .stv-provider-tab.active { color: var(--text-1); border-bottom-color: var(--accent); background: var(--accent-dim); }
+    .stv-provider-tab-icon { font-size: 16px; line-height: 1; }
+
+    /* Model list inside card */
+    .stv-model-inner { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .stv-model-row {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+      border-radius: 12px; border: 1.5px solid transparent; background: transparent;
+      cursor: pointer; font-family: inherit; text-align: left; transition: all .15s; width: 100%;
+    }
+    .stv-model-row:hover { background: var(--surface-2); border-color: var(--border-2); }
+    .stv-model-row.active { background: var(--accent-dim); border-color: var(--accent-border); }
+    .stv-model-row-info { flex: 1; min-width: 0; }
+    .stv-model-row-name { font-size: 13px; font-weight: 700; color: var(--text-1); }
+    .stv-model-row-desc { font-size: 11px; color: var(--text-4); margin-top: 1px; }
+    .stv-model-bars { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+    .stv-model-bar-col { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+    .stv-model-bar-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-5); }
+    .stv-model-bar-track { width: 44px; height: 3px; border-radius: 4px; background: var(--border-2); overflow: hidden; }
+    .stv-model-bar-fill { height: 100%; border-radius: 4px; }
+
+    /* Model section wrapper (no longer needed as separate block) */
+    .stv-model-section { margin-top: 0; }
+
+    /* Legacy pill fallback — keep for model pills rendered by JS in other contexts */
     .stv-ai-pills { display: flex; flex-wrap: wrap; gap: 8px; }
     .stv-ai-pill {
       display: flex; align-items: center; gap: 8px; padding: 9px 18px;
@@ -861,7 +927,6 @@
       color: var(--accent-light); box-shadow: 0 0 0 1px rgba(124,109,255,.15);
     }
     .stv-pill-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .stv-model-section { margin-top: 14px; }
 
     /* Hidden compat selects */
     .stv-select {
@@ -989,6 +1054,10 @@
     }
     .stv-reject-btn:hover { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); }
 
+    /* @mention dropdown in storyboard regen */
+    .sb-mention-item { display:flex; align-items:center; gap:10px; padding:9px 14px; cursor:pointer; transition:background .15s; }
+    .sb-mention-item:hover { background:rgba(124,109,255,.12); }
+
     /* Rejection modal provider pills */
     .rjct-provider-pill {
       display: inline-flex; align-items: center; gap: 7px;
@@ -1051,10 +1120,37 @@
     }
     .stv-provider-label { font-size: 11px; color: var(--text-4); font-weight: 600; letter-spacing: .04em; white-space: nowrap; }
 
-    /* Product upload */
+    /* Product upload strip */
+    .stv-upload-strip { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:20px; min-height:72px; padding:4px 0; }
+    .stv-upload-add-btn {
+      display:flex; align-items:center; gap:8px; padding:0 16px; height:64px; min-width:64px;
+      border:1.5px dashed rgba(124,109,255,.25); border-radius:14px;
+      background:rgba(124,109,255,.04); color:var(--text-4); font-size:12px; font-weight:600;
+      cursor:pointer; transition:all .2s; white-space:nowrap; font-family:inherit;
+    }
+    .stv-upload-add-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(124,109,255,.09); }
+    .stv-upload-add-btn .stv-upload-add-icon {
+      width:28px; height:28px; border-radius:8px; background:rgba(124,109,255,.12);
+      display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .2s;
+    }
+    .stv-upload-add-btn:hover .stv-upload-add-icon { background:rgba(124,109,255,.22); }
+    .stv-upload-add-btn.compact { padding:0; width:64px; justify-content:center; }
+    .stv-upload-add-btn.compact .stv-upload-add-text { display:none; }
+    .stv-upload-thumb {
+      position:relative; width:64px; height:64px; border-radius:14px; overflow:visible; flex-shrink:0;
+    }
+    .stv-upload-thumb img { width:64px; height:64px; object-fit:cover; border-radius:14px; border:1.5px solid rgba(124,109,255,.2); display:block; }
+    .stv-upload-thumb-remove {
+      position:absolute; top:-6px; right:-6px; width:18px; height:18px;
+      background:var(--surface-2); border:1.5px solid var(--border-2); border-radius:50%;
+      color:var(--text-3); font-size:9px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:all .15s; line-height:1; padding:0;
+    }
+    .stv-upload-thumb-remove:hover { background:rgba(239,68,68,.18); border-color:#f87171; color:#f87171; }
+    /* Keep legacy prod-upload used in regen modal */
     .stv-prod-upload {
-      border: 1.5px dashed var(--border-2); border-radius: 12px; padding: 20px; text-align: center;
-      cursor: pointer; transition: all .2s; background: var(--bg);
+      border: 1.5px dashed var(--border-2); border-radius: 12px; padding: 12px 16px; text-align: center;
+      cursor: pointer; transition: all .2s; background: var(--bg); display:flex; align-items:center; gap:10px;
     }
     .stv-prod-upload:hover { border-color: var(--accent); background: var(--accent-dim); }
 
@@ -1079,6 +1175,12 @@
     .stv-media-cell + .stv-media-cell { border-left:1px solid var(--border-1); }
     .stv-media-cell img, .stv-media-cell video { width:100%; height:100%; object-fit:cover; display:block; }
     .stv-media-cell.loading { display:flex; align-items:center; justify-content:center; }
+    .stv-frame-loader { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:var(--surface-1); }
+    .stv-frame-loader-shimmer { position:absolute; inset:0; background:linear-gradient(110deg, transparent 30%, rgba(124,109,255,.08) 50%, transparent 70%); background-size:200% 100%; animation:shimmer 1.6s infinite; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .stv-frame-loader-spinner { width:28px; height:28px; border:2.5px solid rgba(124,109,255,.2); border-top-color:#7c6dff; border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .stv-frame-loader-text { font-size:10px; color:var(--text-5); font-weight:600; letter-spacing:.04em; }
     .stv-vid-empty, .stv-vid-generating { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
     .stv-vid-empty svg, .stv-vid-generating svg { opacity:.15; }
     .stv-vid-empty span { font-size:10px; color:var(--text-5); text-align:center; line-height:1.5; }
@@ -1130,6 +1232,37 @@
       background: var(--gradient); box-shadow: 0 0 12px rgba(124,109,255,.7);
     }
     @keyframes stv-spin { to { transform: rotate(360deg); } }
+    @keyframes stv-shimmer { 0%,100% { opacity:.4; } 50% { opacity:1; } }
+    @keyframes stv-progress { 0% { width:5%; } 60% { width:75%; } 100% { width:92%; } }
+    @keyframes stv-dots { 0%,80%,100% { transform:scale(0.6); opacity:.4; } 40% { transform:scale(1); opacity:1; } }
+
+    /* Inline generation state — shown in place of result area while generating */
+    .stv-gen-state {
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+      padding: 40px 24px; border-radius: 20px;
+      background: linear-gradient(135deg, rgba(124,109,255,.06), rgba(168,85,247,.04));
+      border: 1.5px solid rgba(124,109,255,.15);
+      text-align: center;
+    }
+    .stv-gen-state-ring {
+      width: 56px; height: 56px; position: relative;
+    }
+    .stv-gen-state-ring svg { width: 56px; height: 56px; animation: stv-spin 1.4s linear infinite; }
+    .stv-gen-state-label { font-size: 15px; font-weight: 700; color: var(--text-1); }
+    .stv-gen-state-sub { font-size: 12px; color: var(--text-4); margin-top: 2px; }
+    .stv-gen-state-bar-wrap { width: 100%; max-width: 280px; height: 3px; background: var(--border-2); border-radius: 4px; overflow: hidden; }
+    .stv-gen-state-bar { height: 100%; background: var(--gradient); border-radius: 4px; animation: stv-progress 12s ease-out forwards; }
+    .stv-gen-dots { display: flex; gap: 5px; align-items: center; justify-content: center; }
+    .stv-gen-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: stv-dots 1.2s ease-in-out infinite; }
+    .stv-gen-dots span:nth-child(2) { animation-delay: .2s; }
+    .stv-gen-dots span:nth-child(3) { animation-delay: .4s; }
+
+    /* Animated generate button */
+    .stv-action-btn.generating {
+      background: linear-gradient(135deg, rgba(124,109,255,.3), rgba(168,85,247,.3));
+      box-shadow: none; animation: stv-shimmer 1.5s ease-in-out infinite;
+      pointer-events: none;
+    }
     .stv-loader-headline {
       font-size: 22px; font-weight: 900; letter-spacing: -.03em;
       background: linear-gradient(135deg, #fff 30%, var(--accent-light));
@@ -1443,18 +1576,43 @@
 <div id="landingScreen">
   <!-- Nav -->
   <nav class="home-nav">
+    <!-- Logo -->
     <div class="home-nav-logo">
       <div class="home-nav-logo-mark">
         <svg viewBox="0 0 24 24" fill="#fff"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
       </div>
       <span class="home-nav-wordmark">Studio</span>
     </div>
+
+    <!-- Center tabs -->
+    <div class="home-nav-center">
+      <button class="home-nav-tab active" onclick="choosePath('home')">Home</button>
+      <button class="home-nav-tab" onclick="choosePath('video')">Video to Video</button>
+      <button class="home-nav-tab" onclick="choosePath('script')">Script to Video</button>
+      <button class="home-nav-tab" onclick="choosePath('history')">History</button>
+    </div>
+
+    <!-- Right: user menu -->
     <div class="home-nav-right">
-      <div class="home-nav-user" id="homeNavUser">
+      <button class="home-nav-user-btn" id="homeNavUserBtn" onclick="toggleNavDropdown()">
         <div class="home-nav-avatar" id="homeNavAvatar">A</div>
         <span class="home-nav-email" id="homeNavEmail">—</span>
+        <svg class="home-nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="home-nav-dropdown" id="homeNavDropdown">
+        <div class="home-nav-dropdown-header">
+          <div class="home-nav-dropdown-email" id="homeNavDropdownEmail">—</div>
+          <div class="home-nav-dropdown-label">Signed in</div>
+        </div>
+        <button class="home-nav-dropdown-item" onclick="choosePath('settings');closeNavDropdown()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </button>
+        <button class="home-nav-dropdown-item danger" onclick="authSignOut();closeNavDropdown()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign out
+        </button>
       </div>
-      <button class="home-nav-signout" onclick="authSignOut()">Sign out</button>
     </div>
   </nav>
 
@@ -1755,29 +1913,43 @@ Scene 3: She steps outside, city skyline in the background..."
       </div>
     </div>
 
-    <!-- AI Provider pill selector -->
+    <!-- AI selector — compact tabbed card -->
     <div class="stv-ai-section">
       <div class="stv-ai-top">
         <div class="stv-ai-label">Pick your AI brain</div>
       </div>
-      <div class="stv-ai-pills" id="stvProviderPills">
-        <button class="stv-ai-pill" data-provider="anthropic" onclick="stvSelectProvider('anthropic')">
-          <span class="stv-pill-dot" style="background:#d97757"></span>Claude
-        </button>
-        <button class="stv-ai-pill" data-provider="openai" onclick="stvSelectProvider('openai')">
-          <span class="stv-pill-dot" style="background:#10a37f"></span>GPT-4o
-        </button>
-        <button class="stv-ai-pill" data-provider="grok" onclick="stvSelectProvider('grok')">
-          <span class="stv-pill-dot" style="background:#e5e5e5"></span>Grok
-        </button>
-        <button class="stv-ai-pill" data-provider="gemini" onclick="stvSelectProvider('gemini')">
-          <span class="stv-pill-dot" style="background:#4285f4"></span>Gemini
-        </button>
-      </div>
-      <!-- Model pills — rendered by JS after provider selected -->
-      <div class="stv-model-section" id="stvModelSection" style="display:none">
-        <div class="stv-ai-label" style="margin-top:16px">Choose model</div>
-        <div class="stv-ai-pills" id="stvModelPills"></div>
+      <div class="stv-ai-card">
+        <!-- Provider tabs -->
+        <div class="stv-provider-tabs" id="stvProviderPills">
+          <button class="stv-provider-tab" data-provider="anthropic" onclick="stvSelectProvider('anthropic')">
+            <span class="stv-provider-tab-icon">
+              <!-- Anthropic logo -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#d97757"><path d="M17.304 3h-3.007l-5.992 18h3.007l1.37-4.243h6.235L20.311 21h3.007L17.304 3zm-3.87 11.208 2.37-7.333 2.37 7.333h-4.74zM6.696 3H3.689L.375 21h3.007l.902-2.792h1.412L6.696 3z"/></svg>
+            </span>Claude
+          </button>
+          <button class="stv-provider-tab" data-provider="openai" onclick="stvSelectProvider('openai')">
+            <span class="stv-provider-tab-icon">
+              <!-- OpenAI logo -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#10a37f"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.032.067L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.896zm16.597 3.855-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365 2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/></svg>
+            </span>GPT
+          </button>
+          <button class="stv-provider-tab" data-provider="grok" onclick="stvSelectProvider('grok')">
+            <span class="stv-provider-tab-icon">
+              <!-- xAI/Grok logo -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#e5e5e5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </span>Grok
+          </button>
+          <button class="stv-provider-tab" data-provider="gemini" onclick="stvSelectProvider('gemini')">
+            <span class="stv-provider-tab-icon">
+              <!-- Google Gemini logo -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 24A14.304 14.304 0 0 0 0 12 14.304 14.304 0 0 0 12 0a14.304 14.304 0 0 0 12 12 14.304 14.304 0 0 0-12 12z" fill="url(#gemini-grad)"/><defs><linearGradient id="gemini-grad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4285f4"/><stop offset="50%" stop-color="#9b72cb"/><stop offset="100%" stop-color="#d96570"/></linearGradient></defs></svg>
+            </span>Gemini
+          </button>
+        </div>
+        <!-- Model rows — rendered by JS -->
+        <div class="stv-model-section" id="stvModelSection" style="display:none">
+          <div class="stv-model-inner" id="stvModelPills"></div>
+        </div>
       </div>
     </div>
 
@@ -1855,8 +2027,12 @@ Scene 3: She steps outside, city skyline in the background..."
 </div>
 
 <!-- Rejection Modal -->
-<div id="rejectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:24px;padding:36px;width:100%;max-width:500px;margin:20px;box-shadow:0 24px 80px rgba(0,0,0,.6)">
+<div id="rejectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:9000;align-items:center;justify-content:center" onclick="if(event.target===this)stvCloseRejectModal()">
+  <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:24px;padding:36px;width:100%;max-width:500px;margin:20px;box-shadow:0 24px 80px rgba(0,0,0,.6);position:relative">
+    <!-- Close button -->
+    <button onclick="stvCloseRejectModal()" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border-2);background:var(--surface-1);color:var(--text-4);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s" onmouseover="this.style.borderColor='var(--border-3)';this.style.color='var(--text-1)'" onmouseout="this.style.borderColor='';this.style.color=''">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
     <!-- Header -->
     <div style="margin-bottom:24px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--accent-light);margin-bottom:10px">Reject &amp; Regenerate</div>
@@ -1917,58 +2093,90 @@ Scene 3: She steps outside, city skyline in the background..."
 
 <!-- STEP 3: STORYBOARD -->
 <div class="stv-panel" id="stvPanel3" style="display:none">
-  <div class="stv-panel-eyebrow">Step 3</div>
-  <div class="stv-panel-title">Generate Storyboard</div>
-  <p class="stv-panel-sub">Upload product/reference photos, then generate a storyboard image showing all scenes.</p>
+  <div class="stv-p1-inner">
+    <div class="stv-p1-step-context">
+      <span class="stv-p1-num">03 — STORYBOARD</span>
+      <span class="stv-p1-divider"></span>
+      <span class="stv-p1-of">5 steps</span>
+    </div>
+    <h2 class="stv-p1-title">Bring scenes<br><em>to life.</em></h2>
+    <p class="stv-p1-sub">Upload reference photos, pick an image AI, and generate a visual storyboard for all your scenes.</p>
 
-  <!-- Product upload -->
-  <div class="stv-prod-upload" id="stvProdUploadArea" onclick="document.getElementById('stvProdInput').click()">
+    <!-- Product upload strip -->
     <input type="file" id="stvProdInput" accept="image/*" multiple style="display:none" onchange="stvHandleProdFiles(this.files)">
-    <div style="font-size:20px">📦</div>
-    <div style="font-size:12px;color:#555;margin-top:4px" id="stvProdUploadLabel">Click to upload product / reference photos (optional)</div>
-  </div>
-  <div class="product-thumbs" id="stvProdThumbs" style="margin-top:8px"></div>
+    <div class="stv-upload-strip" id="stvProdStrip">
+      <button class="stv-upload-add-btn" id="stvProdAddBtn" onclick="document.getElementById('stvProdInput').click()">
+        <span class="stv-upload-add-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </span>
+        <span class="stv-upload-add-text">Add reference photos <span style="color:var(--text-5);font-weight:400">(optional)</span></span>
+      </button>
+    </div>
 
-  <!-- Image gen provider -->
-  <div class="stv-provider-row" style="margin-top:16px">
-    <span class="stv-provider-label">Image Gen</span>
-    <select id="stvImgProvider" class="stv-select" onchange="stvOnImgProviderChange()">
+    <!-- Image gen provider — tabbed card -->
+    <div class="stv-ai-section">
+      <div class="stv-ai-top">
+        <div class="stv-ai-label">Image AI</div>
+      </div>
+      <div class="stv-ai-card">
+        <div class="stv-provider-tabs" id="stvImgProviderTabs">
+          <button class="stv-provider-tab" data-imgprovider="openai" onclick="stvSelectImgProvider('openai')">
+            <span class="stv-provider-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#10a37f"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.032.067L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.896zm16.597 3.855-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365 2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/></svg>
+            </span>DALL·E
+          </button>
+          <button class="stv-provider-tab" data-imgprovider="grok" onclick="stvSelectImgProvider('grok')">
+            <span class="stv-provider-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#e5e5e5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </span>Grok
+          </button>
+          <button class="stv-provider-tab" data-imgprovider="gemini" onclick="stvSelectImgProvider('gemini')">
+            <span class="stv-provider-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 24A14.304 14.304 0 0 0 0 12 14.304 14.304 0 0 0 12 0a14.304 14.304 0 0 0 12 12 14.304 14.304 0 0 0-12 12z" fill="url(#gem-grad3)"/><defs><linearGradient id="gem-grad3" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4285f4"/><stop offset="50%" stop-color="#9b72cb"/><stop offset="100%" stop-color="#d96570"/></linearGradient></defs></svg>
+            </span>Gemini
+          </button>
+        </div>
+        <div id="stvImgModelSection" style="display:none">
+          <div class="stv-model-inner" id="stvImgModelPills"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden selects for JS compat -->
+    <select id="stvImgProvider" style="display:none" onchange="stvOnImgProviderChange()">
       <option value="">— select provider —</option>
-      <option value="openai">OpenAI (DALL·E / GPT-4o)</option>
-      <option value="grok">xAI (Grok Aurora)</option>
-      <option value="gemini">Google (Gemini Imagen)</option>
+      <option value="openai">OpenAI</option>
+      <option value="grok">xAI (Grok)</option>
+      <option value="gemini">Google (Gemini)</option>
     </select>
-    <select id="stvImgModel" class="stv-select" disabled>
+    <select id="stvImgModel" style="display:none" disabled>
       <option value="">— select provider first —</option>
     </select>
-    <button class="btn btn-purple" id="stvGenStoryboardBtn" onclick="stvGenStoryboard()" disabled style="margin-left:auto">Generate Storyboard →</button>
-    <button class="btn btn-sm" id="stvStopStoryboardBtn" onclick="stopGeneration()" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b">⏹ Stop</button>
-  </div>
-  <div id="stvStep3Status" style="margin-top:10px;font-size:11px;color:#666"></div>
-  <div id="stvStoryboardResult" style="margin-top:12px"></div>
-  <div id="stvStep3Actions" style="display:none;margin-top:12px;display:flex;gap:8px">
-    <button class="btn btn-ghost btn-sm" onclick="stvGoBack(2)">← Back</button>
-    <button class="btn btn-teal" onclick="stvApproveStoryboard()">✓ Approve Storyboard →</button>
-  </div>
 
-  <!-- Regenerate section — shown after storyboard is generated -->
-  <div id="stvRegenSection" style="display:none;margin-top:20px;border-top:1px solid #1e1e30;padding-top:16px">
-    <div style="font-size:12px;font-weight:600;color:#aaa;margin-bottom:10px;letter-spacing:0.04em">REGENERATE STORYBOARD</div>
-    <textarea id="stvRegenFeedback" placeholder="Describe what to change — e.g. make it more luxurious, change the setting to a beach, add more close-up product shots…" style="width:100%;min-height:80px;background:#0d0d1a;border:1px solid #2a2a40;border-radius:6px;padding:10px;font-size:12px;color:#e0e0f0;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none"></textarea>
-    <!-- Extra product images for regen -->
-    <div style="margin-top:8px">
-      <div class="stv-prod-upload" id="stvRegenUploadArea" onclick="document.getElementById('stvRegenInput').click()" style="padding:10px 14px;min-height:unset;flex-direction:row;gap:8px">
-        <input type="file" id="stvRegenInput" accept="image/*" multiple style="display:none" onchange="stvHandleRegenFiles(this.files)">
-        <span style="font-size:14px">📎</span>
-        <span style="font-size:11px;color:#555" id="stvRegenUploadLabel">Attach additional product / reference photos (optional)</span>
-      </div>
-      <div class="product-thumbs" id="stvRegenThumbs" style="margin-top:6px"></div>
+    <div id="stvStep3Status" style="margin-top:4px;font-size:12px;color:var(--text-4);min-height:18px"></div>
+    <div id="stvStoryboardResult" style="margin-top:16px"></div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap">
+      <button class="stv-ghost-btn" onclick="stvGoBack(2)">← Back</button>
+      <button class="stv-action-btn stv-action-btn--sm" id="stvGenStoryboardBtn" onclick="stvGenStoryboard()" disabled>
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Generate Storyboard
+      </button>
+      <button class="btn btn-sm" id="stvStopStoryboardBtn" onclick="stopGeneration()" style="display:none;background:rgba(239,68,68,.1);color:#fca5a5;border:1.5px solid rgba(239,68,68,.3);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">⏹ Stop</button>
     </div>
-    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-purple" id="stvRegenBtn" onclick="stvRegenStoryboard()">↺ Regenerate Storyboard</button>
-      <button class="btn btn-sm" id="stvRegenStopBtn" onclick="stopGeneration()" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b">⏹ Stop</button>
+
+    <div id="stvStep3Actions" style="display:none;margin-top:16px;gap:10px;flex-wrap:wrap">
+      <button class="stv-action-btn stv-action-btn--sm" onclick="stvApproveStoryboard()">
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Approve &amp; Continue
+      </button>
+      <button class="stv-ghost-btn" id="stvOpenRegenModalBtn" onclick="openSbRegenModal()">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+        Regenerate
+      </button>
     </div>
-    <div id="stvRegenStatus" style="margin-top:8px;font-size:11px;color:#666"></div>
+
   </div>
 </div>
 
@@ -1978,33 +2186,55 @@ Scene 3: She steps outside, city skyline in the background..."
   <div class="stv-panel-title">Scene Frames & Video Generation</div>
   <p class="stv-panel-sub">Review frames, edit motion briefs, select scenes, then generate videos — all in one place.</p>
 
+  <!-- Hidden inputs for JS to read -->
+  <input type="hidden" id="stv4VideoProvider">
+  <input type="hidden" id="stv4VideoModel">
+  <input type="hidden" id="stv4VideoRatio" value="9:16">
+  <input type="hidden" id="stv4VideoQuality" value="">
+
   <!-- Video gen controls -->
-  <div id="stvStep4VideoControls" style="display:none;background:#07070f;border:1px solid #1e1e30;border-radius:10px;padding:10px 16px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">Generate</span>
-      <select id="stv4VideoProvider" class="stv-select" onchange="stv4OnVideoProviderChange()">
-        <option value="">— video provider —</option>
-        <option value="runway">Runway</option>
-        <option value="kling">Kling</option>
-        <option value="luma">Luma</option>
-        <option value="grok_video">Grok Aurora</option>
-        <option value="gemini_video">Google Veo</option>
-      </select>
-      <select id="stv4VideoModel" class="stv-select" disabled>
-        <option value="">— select provider first —</option>
-      </select>
-      <select id="stv4VideoRatio" class="stv-select">
-        <option value="9:16">9:16</option>
-        <option value="16:9">16:9</option>
-        <option value="1:1">1:1</option>
-      </select>
-      <select id="stv4VideoQuality" class="stv-select">
-        <option value="">— quality —</option>
-        <option value="4k">4K</option>
-        <option value="1080p">1080p</option>
-        <option value="720p">720p</option>
-        <option value="480p">480p</option>
-      </select>
+  <div id="stvStep4VideoControls" style="display:none;background:#07070f;border:1px solid #1e1e30;border-radius:12px;padding:16px 20px;margin-bottom:16px">
+    <!-- Provider pills -->
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-5);margin-bottom:10px">Video Provider</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="stv4ProviderPills">
+      <button class="rjct-provider-pill" onclick="stv4SelectProvider(this,'runway')">
+        <span style="width:7px;height:7px;border-radius:50%;background:#e879f9;flex-shrink:0"></span>Runway
+      </button>
+      <button class="rjct-provider-pill" onclick="stv4SelectProvider(this,'kling')">
+        <span style="width:7px;height:7px;border-radius:50%;background:#38bdf8;flex-shrink:0"></span>Kling
+      </button>
+      <button class="rjct-provider-pill" onclick="stv4SelectProvider(this,'luma')">
+        <span style="width:7px;height:7px;border-radius:50%;background:#fb923c;flex-shrink:0"></span>Luma
+      </button>
+      <button class="rjct-provider-pill" onclick="stv4SelectProvider(this,'grok_video')">
+        <span style="width:7px;height:7px;border-radius:50%;background:#e5e5e5;flex-shrink:0"></span>Grok Aurora
+      </button>
+      <button class="rjct-provider-pill" onclick="stv4SelectProvider(this,'gemini_video')">
+        <span style="width:7px;height:7px;border-radius:50%;background:#4285f4;flex-shrink:0"></span>Google Veo
+      </button>
+    </div>
+
+    <!-- Model pills (shown after provider selected) -->
+    <div id="stv4ModelRow" style="display:none;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-5);margin-bottom:10px">Model</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="stv4ModelPills"></div>
+    </div>
+
+    <!-- Ratio + Quality + Generate -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border-1);padding-top:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-5)">Ratio</div>
+      <div style="display:flex;gap:6px">
+        <button class="rjct-provider-pill active" id="stv4Ratio-9:16" onclick="stv4SelectRatio(this,'9:16')" style="padding:6px 12px;font-size:11px">9:16</button>
+        <button class="rjct-provider-pill" id="stv4Ratio-16:9" onclick="stv4SelectRatio(this,'16:9')" style="padding:6px 12px;font-size:11px">16:9</button>
+        <button class="rjct-provider-pill" id="stv4Ratio-1:1" onclick="stv4SelectRatio(this,'1:1')" style="padding:6px 12px;font-size:11px">1:1</button>
+      </div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-5);margin-left:8px">Quality</div>
+      <div style="display:flex;gap:6px">
+        <button class="rjct-provider-pill active" id="stv4Quality-" onclick="stv4SelectQuality(this,'')" style="padding:6px 12px;font-size:11px">Auto</button>
+        <button class="rjct-provider-pill" id="stv4Quality-4k" onclick="stv4SelectQuality(this,'4k')" style="padding:6px 12px;font-size:11px">4K</button>
+        <button class="rjct-provider-pill" id="stv4Quality-1080p" onclick="stv4SelectQuality(this,'1080p')" style="padding:6px 12px;font-size:11px">1080p</button>
+        <button class="rjct-provider-pill" id="stv4Quality-720p" onclick="stv4SelectQuality(this,'720p')" style="padding:6px 12px;font-size:11px">720p</button>
+      </div>
       <button class="btn btn-purple btn-sm" id="stv4GenSelectedBtn" onclick="stv4GenSelected()" disabled style="margin-left:auto">🎬 Generate Selected</button>
     </div>
   </div>
@@ -3424,9 +3654,11 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     const snapDur   = (provider === 'runway' || provider === 'kling') ? (rawDur <= 7.5 ? 5 : 10) : Math.min(Math.max(dur, 5), 10);
     // Use motion brief as the video gen prompt (most detailed); fall back to summary, then generic
     const promptBase = sc.motion || sc.summary || null;
-    const prompt    = promptBase
-      ? `${promptBase} The clip is ${dur} second${dur === 1 ? '' : 's'} long. The first reference image shows the opening frame and the last reference image shows the closing frame — maintain visual and motion continuity between them. Recreate this scene faithfully.`
-      : `A video scene lasting ${dur} seconds. The first reference image shows the opening frame and the last reference image shows the closing frame — maintain visual and motion continuity between them.`;
+    const ffDesc = sc.firstFrameDesc || 'the opening frame (first reference image)';
+    const lfDesc = sc.lastFrameDesc  || 'the closing frame (last reference image)';
+    const prompt = promptBase
+      ? `Start from @firstframe — ${ffDesc}\nEnd at @lastframe — ${lfDesc}\n\nMotion: ${promptBase}\n\nTransition smoothly from @firstframe to @lastframe following the motion description above. The clip is ${dur} second${dur === 1 ? '' : 's'} long.`
+      : `Start from @firstframe — ${ffDesc}\nEnd at @lastframe — ${lfDesc}\n\nTransition smoothly from @firstframe to @lastframe. The clip is ${dur} second${dur === 1 ? '' : 's'} long.`;
 
     resultEl.innerHTML = '';
     statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Submitting job to ${providerLabel}…</div>`;
@@ -3563,35 +3795,31 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
       else if (provider === 'gemini_video') {
         const veoEp = `https://generativelanguage.googleapis.com/v1beta/${model}:predictLongRunning`;
 
-        // Normalise firstFrame — may be a storage URL (history resume) or a base64 data URL
-        let veoMime = 'image/jpeg';
-        let veoB64;
-        if (sc.firstFrame.startsWith('data:')) {
-          veoMime = sc.firstFrame.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg';
-          veoB64  = sc.firstFrame.split(',')[1];
-        } else {
-          // Fetch URL and convert to base64
-          statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Fetching reference frame…</div>`;
-          const imgRes = await fetch(sc.firstFrame);
+        // Helper: normalise a frame (data URL or storage URL) → { b64, mime }
+        const toVeoImage = async (frameUrl, label) => {
+          if (!frameUrl) return null;
+          if (frameUrl.startsWith('data:')) {
+            return { bytesBase64Encoded: frameUrl.split(',')[1], mimeType: frameUrl.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg' };
+          }
+          statusEl.innerHTML = `<div class="brief-gen-status polling"><div class="spin-sm"></div> Fetching ${label}…</div>`;
+          const imgRes = await fetch(frameUrl);
           const imgBlob = await imgRes.blob();
-          veoMime = imgBlob.type || 'image/jpeg';
-          veoB64  = await new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result.split(',')[1]);
-            reader.readAsDataURL(imgBlob);
-          });
-        }
-
-        const veoInstance = {
-          prompt,
-          image: {
-            bytesBase64Encoded: veoB64,
-            mimeType: veoMime,
-          },
+          const b64 = await new Promise(resolve => { const r = new FileReader(); r.onload = e => resolve(e.target.result.split(',')[1]); r.readAsDataURL(imgBlob); });
+          return { bytesBase64Encoded: b64, mimeType: imgBlob.type || 'image/jpeg' };
         };
+
+        const veoImgFirst = await toVeoImage(sc.firstFrame, 'first frame');
+        // lastFrame (in parameters) is only supported by veo-3.1 family
+        const supportsLastFrame = model.includes('veo-3.1');
+        const veoImgLast = (sc.lastFrame && supportsLastFrame) ? await toVeoImage(sc.lastFrame, 'last frame') : null;
+
+        const veoInstance = { prompt, image: veoImgFirst };
+        if (veoImgLast) veoInstance.lastFrame = veoImgLast;
+
         // Only pass aspectRatio — durationSeconds and resolution vary by model and cause validation errors on preview variants
         const veoParams = { aspectRatio };
-        const veoBody = { instances: [{ prompt, image: { bytesBase64Encoded: '[base64]', mimeType: veoMime } }], parameters: veoParams };
+        const veoMime = veoImgFirst?.mimeType || 'image/jpeg';
+        const veoBody = { instances: [{ prompt, image: { bytesBase64Encoded: '[base64]', mimeType: veoMime }, ...(veoImgLast ? { lastFrame: { bytesBase64Encoded: '[base64]', mimeType: veoImgLast.mimeType } } : {}) }], parameters: veoParams };
         let res;
         try {
           res = await fetch(`${veoEp}?key=${key}`, {
@@ -4707,6 +4935,24 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     }
   }
 
+  function toggleNavDropdown() {
+    const btn = document.getElementById('homeNavUserBtn');
+    const dd = document.getElementById('homeNavDropdown');
+    const isOpen = dd.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+    if (isOpen) {
+      // close on outside click
+      setTimeout(() => document.addEventListener('click', closeNavDropdownOutside, { once: true }), 0);
+    }
+  }
+  function closeNavDropdown() {
+    document.getElementById('homeNavDropdown')?.classList.remove('open');
+    document.getElementById('homeNavUserBtn')?.classList.remove('open');
+  }
+  function closeNavDropdownOutside(e) {
+    if (!document.getElementById('homeNavUserBtn')?.contains(e.target)) closeNavDropdown();
+  }
+
   function showLanding() {
     const el = document.getElementById('landingScreen');
     el.style.display = 'flex';
@@ -4714,8 +4960,10 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     const email = _currentSession?.user?.email || localStorage.getItem(DEV_BYPASS_KEY) || '';
     const emailEl = document.getElementById('homeNavEmail');
     const avatarEl = document.getElementById('homeNavAvatar');
+    const dropdownEmail = document.getElementById('homeNavDropdownEmail');
     if (emailEl) emailEl.textContent = email || 'Guest';
     if (avatarEl && email) avatarEl.textContent = email[0].toUpperCase();
+    if (dropdownEmail) dropdownEmail.textContent = email || 'Guest';
     // Load recent history preview
     _homeLoadRecentHistory();
   }
@@ -4795,8 +5043,16 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     _cryptoKey = null; _currentSession = null; _keysLoaded = false;
     Object.keys(_keyStore).forEach(k => delete _keyStore[k]);
     updateSettingsAuthBanner(null);
+    // Hide app shell, show landing
+    const ls = document.getElementById('landingScreen');
+    if (ls) ls.style.display = 'none';
     const lp = document.getElementById('heroLanding');
     if (lp) lp.style.display = 'flex';
+    // Reset auth form state
+    const signinView = document.getElementById('authSigninView');
+    const sentView = document.getElementById('authSentView');
+    if (signinView) signinView.style.display = 'block';
+    if (sentView) sentView.style.display = 'none';
   }
 
   function lpOpenAuth() {
@@ -4906,8 +5162,16 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     if (_stv.sessionId) {
       updateScriptSession(_stv.sessionId, { reviewed_scenes: _stv.reviewedScenes }).catch(() => {});
     } else {
-      // Fallback: save to localStorage so guest/file:// users keep state
       try { localStorage.setItem('stv_reviewed_' + (_stv.parentId || 'local'), JSON.stringify(_stv.reviewedScenes)); } catch {}
+    }
+    // Auto-advance: collapse current, open next scene
+    if (isReviewed) {
+      card.classList.add('collapsed');
+      const next = document.getElementById('stv2Card' + (i + 1));
+      if (next) {
+        next.classList.remove('collapsed');
+        setTimeout(() => next.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150);
+      }
     }
   }
 
@@ -5064,17 +5328,50 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     ],
   };
 
+  function stvSelectImgProvider(provider) {
+    document.querySelectorAll('.stv-provider-tab[data-imgprovider]').forEach(t => {
+      t.classList.toggle('active', t.dataset.imgprovider === provider);
+    });
+    const sel = document.getElementById('stvImgProvider');
+    sel.value = provider;
+    sel.dispatchEvent(new Event('change'));
+  }
+
+  function stvSelectImgModel(model) {
+    document.getElementById('stvImgModel').value = model;
+    _stv.imgModel = model;
+    document.querySelectorAll('#stvImgModelPills .stv-model-row').forEach(r => {
+      r.classList.toggle('active', r.getAttribute('onclick') === `stvSelectImgModel('${model}')`);
+    });
+    document.getElementById('stvGenStoryboardBtn').disabled = !model;
+  }
+
   function stvOnImgProviderChange() {
     const p = document.getElementById('stvImgProvider').value;
     const modelSel = document.getElementById('stvImgModel');
     const btn = document.getElementById('stvGenStoryboardBtn');
+    const modelSection = document.getElementById('stvImgModelSection');
+    const modelGrid = document.getElementById('stvImgModelPills');
     modelSel.innerHTML = '';
-    if (!p) { modelSel.innerHTML = '<option>— select provider first —</option>'; modelSel.disabled = true; btn.disabled = true; return; }
-    (IMG_GEN_MODELS_STV[p] || []).forEach(m => {
-      const o = document.createElement('option'); o.value = m.value; o.textContent = m.label; modelSel.appendChild(o);
-    });
-    modelSel.disabled = false; btn.disabled = false;
-    _stv.imgProvider = p; _stv.imgModel = modelSel.value;
+    if (!p) { modelSel.innerHTML = '<option>— select provider first —</option>'; modelSel.disabled = true; btn.disabled = true; modelSection.style.display = 'none'; return; }
+    const opts = IMG_GEN_MODELS_STV[p] || [];
+    opts.forEach(m => { const o = document.createElement('option'); o.value = m.value; o.textContent = m.label; modelSel.appendChild(o); });
+    modelSel.disabled = false;
+    // Render model rows
+    const providerColor = { openai: '#10a37f', grok: '#aaa', gemini: '#4285f4' };
+    const color = providerColor[p] || '#7c6dff';
+    modelGrid.innerHTML = opts.map((m, i) => {
+      const shortName = m.label.split(' — ')[0];
+      const desc = m.label.includes(' — ') ? m.label.split(' — ')[1] : '';
+      return `<button class="stv-model-row${i === 0 ? ' active' : ''}" onclick="stvSelectImgModel('${m.value}')">
+        <div class="stv-model-row-info">
+          <div class="stv-model-row-name">${shortName}</div>
+          ${desc ? `<div class="stv-model-row-desc">${desc}</div>` : ''}
+        </div>
+      </button>`;
+    }).join('');
+    modelSection.style.display = 'block';
+    if (opts[0]) { modelSel.value = opts[0].value; _stv.imgProvider = p; _stv.imgModel = opts[0].value; btn.disabled = false; }
   }
 
   document.getElementById('stvImgModel').addEventListener('change', e => { _stv.imgModel = e.target.value; });
@@ -5082,15 +5379,21 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
   // Product upload (step 3)
   // Store file metadata alongside dataUrl so we can log to DB later once sessionId is set
   function stvHandleProdFiles(files) {
-    for (const f of files) {
+    const arr = Array.from(files);
+    if (!arr.length) return;
+    const results = new Array(arr.length);
+    let done = 0;
+    arr.forEach((f, i) => {
       const reader = new FileReader();
       reader.onload = e => {
-        _stv.prodImages.push(e.target.result);
-        _stv.prodMeta.push({ name: f.name, size: f.size });
-        stvRenderProdThumbs();
+        results[i] = { src: e.target.result, meta: { name: f.name, size: f.size } };
+        if (++done === arr.length) {
+          results.forEach(r => { _stv.prodImages.push(r.src); _stv.prodMeta.push(r.meta); });
+          stvRenderProdThumbs();
+        }
       };
       reader.readAsDataURL(f);
-    }
+    });
   }
 
   // Called after sessionId is set (before storyboard gen) to flush pending uploads to DB
@@ -5122,13 +5425,22 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
   }
 
   function stvRenderProdThumbs() {
-    const wrap = document.getElementById('stvProdThumbs');
-    wrap.innerHTML = _stv.prodImages.map((src, i) => `
-      <div class="product-thumb">
-        <img src="${src}">
-        <button class="remove-thumb" onclick="stvRemoveProd(${i});event.stopPropagation()">✕</button>
+    const strip = document.getElementById('stvProdStrip');
+    const hasImages = _stv.prodImages.length > 0;
+    // Build thumbs
+    const thumbsHTML = _stv.prodImages.map((src, i) => `
+      <div class="stv-upload-thumb">
+        <img src="${src}" alt="Reference ${i+1}">
+        <button class="stv-upload-thumb-remove" onclick="stvRemoveProd(${i});event.stopPropagation()">✕</button>
       </div>`).join('');
-    document.getElementById('stvProdUploadLabel').textContent = `${_stv.prodImages.length} image${_stv.prodImages.length !== 1 ? 's' : ''} uploaded — click to add more`;
+    // Add button — compact icon-only when images exist, full when empty
+    const addBtn = `<button class="stv-upload-add-btn${hasImages ? ' compact' : ''}" id="stvProdAddBtn" onclick="document.getElementById('stvProdInput').click()">
+      <span class="stv-upload-add-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </span>
+      <span class="stv-upload-add-text">Add reference photos <span style="color:var(--text-5);font-weight:400">(optional)</span></span>
+    </button>`;
+    strip.innerHTML = thumbsHTML + addBtn;
   }
 
   function stvRemoveProd(i) { _stv.prodImages.splice(i, 1); _stv.prodMeta.splice(i, 1); _stv.prodUploadIds.splice(i, 1); stvRenderProdThumbs(); }
@@ -5181,9 +5493,35 @@ JSON Structure:
 }`;
 
   /* ── Provider pill selector ──────────────────────────────── */
+  // Model metadata: speed (1-5), quality (1-5), description
+  const MODEL_META = {
+    'claude-haiku-4-5-20251001': { speed: 5, quality: 3, desc: 'Fastest, ideal for quick iterations' },
+    'claude-sonnet-4-6':         { speed: 3, quality: 4, desc: 'Best balance of speed & intelligence' },
+    'claude-opus-4-6':           { speed: 2, quality: 5, desc: 'Most capable, deep creative reasoning' },
+    'gpt-5.4-mini':              { speed: 5, quality: 3, desc: 'Fast & cost-efficient at scale' },
+    'gpt-5.5':                   { speed: 2, quality: 5, desc: 'Highest quality, complex tasks' },
+    'gpt-4.1-nano':              { speed: 5, quality: 2, desc: 'Fastest & cheapest GPT option' },
+    'gpt-4.1-mini':              { speed: 4, quality: 3, desc: 'Fast with solid performance' },
+    'gpt-4.1':                   { speed: 3, quality: 4, desc: 'Balanced flagship model' },
+    'gpt-4o-mini':               { speed: 4, quality: 3, desc: 'Lightweight multimodal model' },
+    'gpt-4o':                    { speed: 3, quality: 4, desc: 'Strong multimodal reasoning' },
+    'o4-mini':                   { speed: 3, quality: 4, desc: 'Reasoning model, great for structure' },
+    'grok-2-vision-1212':        { speed: 3, quality: 4, desc: 'Vision-enabled, recommended' },
+    'grok-3-mini':               { speed: 5, quality: 3, desc: 'Fast & lean' },
+    'grok-3':                    { speed: 2, quality: 5, desc: 'Most capable Grok model' },
+    'gemini-3.5-flash':          { speed: 5, quality: 3, desc: 'Fast with long context window' },
+    'gemini-3.1-pro':            { speed: 2, quality: 5, desc: 'Most capable Gemini model' },
+    'gemini-3.1-flash-lite':     { speed: 5, quality: 2, desc: 'Cheapest Gemini option' },
+  };
+
+  function _stvBarHTML(value, color) {
+    const pct = Math.round((value / 5) * 100);
+    return `<div class="stv-model-bar-track"><div class="stv-model-bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
+  }
+
   function stvSelectProvider(provider) {
-    // Update pill UI
-    document.querySelectorAll('.stv-ai-pill').forEach(p => {
+    // Update provider tab UI
+    document.querySelectorAll('.stv-provider-tab').forEach(p => {
       p.classList.toggle('active', p.dataset.provider === provider);
     });
     // Sync hidden select
@@ -5191,20 +5529,41 @@ JSON Structure:
     sel.value = provider;
     sel.dispatchEvent(new Event('change'));
 
-    // Render model pills from the populated hidden select
     const modelSel = document.getElementById('stvLlmModel');
     const modelSection = document.getElementById('stvModelSection');
-    const modelPills = document.getElementById('stvModelPills');
+    const modelGrid = document.getElementById('stvModelPills');
 
-    // Wait a tick for the change handler to populate options
     setTimeout(() => {
       const opts = Array.from(modelSel.options).filter(o => o.value);
       if (opts.length === 0) { modelSection.style.display = 'none'; return; }
-      modelPills.innerHTML = opts.map(o =>
-        `<button class="stv-ai-pill ${modelSel.value === o.value ? 'active' : ''}"
-          onclick="stvSelectModel('${o.value}')">${o.text}</button>`
-      ).join('');
-      // Auto-select first model
+
+      const providerAccent = { anthropic: '#d97757', openai: '#10a37f', grok: '#aaa', gemini: '#4285f4' };
+      const color = providerAccent[provider] || '#7c6dff';
+
+      modelGrid.innerHTML = opts.map(o => {
+        const meta = MODEL_META[o.value] || { speed: 3, quality: 3, desc: '' };
+        const isActive = modelSel.value === o.value;
+        const shortName = o.text.split(' — ')[0];
+        const tagText = o.text.includes(' — ') ? o.text.split(' — ')[1] : '';
+        return `
+          <button class="stv-model-row${isActive ? ' active' : ''}" onclick="stvSelectModel('${o.value}')">
+            <div class="stv-model-row-info">
+              <div class="stv-model-row-name">${shortName}</div>
+              ${tagText ? `<div class="stv-model-row-desc">${tagText}</div>` : ''}
+            </div>
+            <div class="stv-model-bars">
+              <div class="stv-model-bar-col">
+                <span class="stv-model-bar-label">Speed</span>
+                ${_stvBarHTML(meta.speed, color)}
+              </div>
+              <div class="stv-model-bar-col">
+                <span class="stv-model-bar-label">Quality</span>
+                ${_stvBarHTML(meta.quality, color)}
+              </div>
+            </div>
+          </button>`;
+      }).join('');
+
       if (!modelSel.value && opts[0]) stvSelectModel(opts[0].value);
       modelSection.style.display = 'block';
     }, 50);
@@ -5213,8 +5572,8 @@ JSON Structure:
   function stvSelectModel(model) {
     const sel = document.getElementById('stvLlmModel');
     sel.value = model;
-    document.querySelectorAll('#stvModelPills .stv-ai-pill').forEach(p => {
-      p.classList.toggle('active', p.textContent.trim() === sel.options[sel.selectedIndex]?.text?.trim());
+    document.querySelectorAll('#stvModelPills .stv-model-row').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('onclick') === `stvSelectModel('${model}')`);
     });
     document.getElementById('stvStructureBtn').disabled = !model;
   }
@@ -5494,10 +5853,20 @@ STORYBOARD STYLE:
     const result  = document.getElementById('stvStoryboardResult');
     const actions = document.getElementById('stvStep3Actions');
     startGenSession();
-    btn.disabled = true; btn.textContent = '⏳ Generating…';
+    btn.disabled = true; btn.classList.add('generating');
+    btn.innerHTML = `<div class="stv-gen-dots"><span></span><span></span><span></span></div><span>Generating…</span>`;
     stopBtn.style.display = 'inline-flex'; stopBtn.removeAttribute('disabled');
-    status.textContent = 'Generating storyboard image…'; status.style.color = '#7c6dff';
-    result.innerHTML = ''; actions.style.display = 'none';
+    status.textContent = ''; actions.style.display = 'none';
+    result.innerHTML = `<div class="stv-gen-state">
+      <div class="stv-gen-state-ring">
+        <svg viewBox="0 0 56 56" fill="none"><circle cx="28" cy="28" r="24" stroke="rgba(124,109,255,.15)" stroke-width="4"/><circle cx="28" cy="28" r="24" stroke="url(#sg1)" stroke-width="4" stroke-linecap="round" stroke-dasharray="40 110"/><defs><linearGradient id="sg1" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse"><stop stop-color="#7c6dff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
+      </div>
+      <div>
+        <div class="stv-gen-state-label">Creating your storyboard</div>
+        <div class="stv-gen-state-sub">AI is painting each scene…</div>
+      </div>
+      <div class="stv-gen-state-bar-wrap"><div class="stv-gen-state-bar"></div></div>
+    </div>`;
 
     // Flush any pending product uploads now that sessionId is guaranteed
     await flushProductUploads();
@@ -5542,7 +5911,7 @@ STORYBOARD STYLE:
         actions.style.display = 'flex';
         status.textContent = '✓ Storyboard generated — review and approve';
         status.style.color = '#22c55e';
-        document.getElementById('stvRegenSection').style.display = 'block';
+        btn.style.display = 'none';
       }
     } catch(err) {
       const wasCancelled = err.name === 'AbortError' || _cancelled;
@@ -5555,68 +5924,230 @@ STORYBOARD STYLE:
       status.style.color = '#f87171';
     }
     stopBtn.style.display = 'none';
-    btn.disabled = false; btn.textContent = '✦ Generate Storyboard';
+    btn.disabled = false; btn.classList.remove('generating');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Generate Storyboard`;
+    // Only re-show gen button if generation didn't succeed (storyboard not yet generated)
+    if (!_stv.storyboardDataUrl) btn.style.display = '';
   }
 
   function stvApproveStoryboard() { stvSetStep(4); stvGenAllFrames(); }
 
+  // ── STORYBOARD REGEN MODAL ───────────────────────────────────────────────────
+  const _sbRegen = { refs: [] };
+
+  function sbRegenSelectProvider(btn, provider) {
+    document.querySelectorAll('[id^="sbRegenProvPill-"]').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sbRegenProvider').value = provider;
+    const wrap = document.getElementById('sbRegenModelPillsWrap');
+    const pillsEl = document.getElementById('sbRegenModelPills');
+    const modelSel = document.getElementById('sbRegenModel');
+    if (!provider) { wrap.style.display = 'none'; modelSel.value = ''; return; }
+    const opts = IMG_GEN_MODELS_STV[provider] || [];
+    modelSel.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    if (opts[0]) modelSel.value = opts[0].value;
+    pillsEl.innerHTML = opts.map((o, i) => {
+      const shortLabel = o.label.split(' — ')[0];
+      return `<button class="rjct-provider-pill${i === 0 ? ' active' : ''}" onclick="sbRegenSelectModel(this,'${o.value}')">${shortLabel}</button>`;
+    }).join('');
+    wrap.style.display = 'block';
+  }
+
+  function sbRegenSelectModel(btn, model) {
+    document.querySelectorAll('#sbRegenModelPills .rjct-provider-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sbRegenModel').value = model;
+  }
+
+  function openSbRegenModal() {
+    _sbRegen.refs = [];
+    sbRegenRenderRefs();
+    const promptEl = document.getElementById('sbRegenPrompt');
+    if (promptEl) { promptEl.innerHTML = ''; }
+    const statusEl = document.getElementById('sbRegenStatus');
+    if (statusEl) statusEl.textContent = '';
+    const submitBtn = document.getElementById('sbRegenSubmitBtn');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '↺ Regenerate'; }
+    // Reset to "Keep same"
+    document.querySelectorAll('[id^="sbRegenProvPill-"]').forEach(p => p.classList.toggle('active', p.id === 'sbRegenProvPill-keep'));
+    document.getElementById('sbRegenModelPillsWrap').style.display = 'none';
+    document.getElementById('sbRegenProvider').value = '';
+    document.getElementById('sbRegenModel').value = '';
+    // Show current storyboard thumbnail
+    const previewEl = document.getElementById('sbRegenCurrentImg');
+    if (previewEl && _stv.storyboardDataUrl) { previewEl.src = _stv.storyboardDataUrl; previewEl.style.display = 'block'; }
+    document.getElementById('sbRegenModal').style.display = 'flex';
+  }
+
+  function closeSbRegenModal() {
+    document.getElementById('sbRegenModal').style.display = 'none';
+  }
+
+  function sbRegenRenderRefs() {
+    const container = document.getElementById('sbRegenRefsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    _sbRegen.refs.forEach((ref, i) => {
+      const div = document.createElement('div');
+      div.className = 'frm-ref-thumb';
+      div.innerHTML = `<img src="${ref.src}" alt="${ref.name}"><div class="frm-ref-tag" style="cursor:pointer" onclick="sbRegenInsertTag('${ref.tag}')" title="Click to insert tag">${ref.tag}</div><button class="frm-ref-remove" onclick="sbRegenRemoveRef(${i})">×</button>`;
+      container.appendChild(div);
+    });
+    // Add button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'frm-ref-add';
+    addBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><path d="M12 5v14M5 12h14"/></svg>`;
+    addBtn.onclick = () => document.getElementById('sbRegenFileInput').click();
+    container.appendChild(addBtn);
+  }
+
+  function sbRegenInsertTag(tag) {
+    const el = document.getElementById('sbRegenPrompt');
+    if (!el) return;
+    el.focus();
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) {
+      // Just append
+      el.innerHTML = (el.innerHTML || '') + tag + '\u00a0';
+    } else {
+      const range = sel.getRangeAt(0);
+      // Delete any @query before cursor
+      const node = range.startContainer;
+      if (node.nodeType === 3) {
+        const txt = node.textContent.slice(0, range.startOffset);
+        const atMatch = txt.match(/@\w*$/);
+        if (atMatch) {
+          node.textContent = node.textContent.slice(0, range.startOffset - atMatch[0].length) + node.textContent.slice(range.startOffset);
+          range.setStart(node, range.startOffset - atMatch[0].length);
+          range.collapse(true);
+        }
+      }
+      const chip = document.createElement('span');
+      chip.className = 'mention-chip'; chip.contentEditable = 'false'; chip.textContent = tag;
+      const space = document.createTextNode('\u00a0');
+      range.deleteContents();
+      range.insertNode(space);
+      range.insertNode(chip);
+      range.setStartAfter(space); range.collapse(true);
+      sel.removeAllRanges(); sel.addRange(range);
+    }
+    sbRegenHideMentionDrop();
+  }
+
+  function sbRegenShowMentionDrop(query) {
+    const drop = document.getElementById('sbRegenMentionDrop');
+    if (!drop) return;
+    const matches = _sbRegen.refs.filter(r => r.tag.toLowerCase().includes(query.toLowerCase()));
+    if (!matches.length) { sbRegenHideMentionDrop(); return; }
+    drop.innerHTML = matches.map(r => `
+      <div class="frm-mention-item" onmousedown="event.preventDefault();sbRegenInsertTag('${r.tag}')">
+        <img src="${r.src}" style="width:24px;height:24px;object-fit:cover;border-radius:4px;flex-shrink:0">
+        <span style="color:#a78bfa;font-weight:700">${r.tag}</span>
+        <span style="color:#555;font-size:11px">${r.name}</span>
+      </div>`).join('');
+    drop.classList.add('open');
+  }
+
+  function sbRegenHideMentionDrop() {
+    const drop = document.getElementById('sbRegenMentionDrop');
+    if (drop) drop.classList.remove('open');
+  }
+
+  function sbRegenRemoveRef(i) { _sbRegen.refs.splice(i, 1); sbRegenRenderRefs(); }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // @mention listener on the storyboard regen contenteditable
+    const sbPrompt = document.getElementById('sbRegenPrompt');
+    if (sbPrompt) {
+      sbPrompt.addEventListener('input', () => {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        const node = sel.getRangeAt(0).startContainer;
+        if (node.nodeType !== 3) return;
+        const txt = node.textContent.slice(0, sel.getRangeAt(0).startOffset);
+        const atMatch = txt.match(/@(\w*)$/);
+        if (atMatch && _sbRegen.refs.length > 0) {
+          sbRegenShowMentionDrop(atMatch[1]);
+        } else {
+          sbRegenHideMentionDrop();
+        }
+      });
+      sbPrompt.addEventListener('keydown', e => {
+        const drop = document.getElementById('sbRegenMentionDrop');
+        if (!drop || drop.style.display === 'none') return;
+        if (e.key === 'Escape') { sbRegenHideMentionDrop(); e.stopPropagation(); }
+        if (e.key === 'Enter') {
+          const first = drop.querySelector('.sb-mention-item');
+          if (first) { e.preventDefault(); first.dispatchEvent(new MouseEvent('mousedown')); }
+        }
+      });
+      sbPrompt.addEventListener('blur', () => setTimeout(sbRegenHideMentionDrop, 150));
+    }
+
+    const fileInput = document.getElementById('sbRegenFileInput');
+    if (fileInput) {
+      fileInput.addEventListener('change', e => {
+        const arr = Array.from(e.target.files);
+        if (!arr.length) return;
+        const results = new Array(arr.length);
+        let done = 0;
+        arr.forEach((file, i) => {
+          const reader = new FileReader();
+          reader.onload = ev => {
+            results[i] = { src: ev.target.result, name: file.name };
+            if (++done === arr.length) {
+              results.forEach(r => {
+                const idx = _sbRegen.refs.length + 1;
+                _sbRegen.refs.push({ tag: `@image${idx}`, src: r.src, name: r.name });
+              });
+              sbRegenRenderRefs();
+            }
+          };
+          reader.readAsDataURL(file);
+        });
+        e.target.value = '';
+      });
+    }
+  });
+
+  async function sbRegenSubmit() {
+    const promptEl = document.getElementById('sbRegenPrompt');
+    const feedback = promptEl ? (promptEl.innerText || promptEl.textContent || '').trim() : '';
+    const submitBtn = document.getElementById('sbRegenSubmitBtn');
+    const statusEl = document.getElementById('sbRegenStatus');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<div class="stv-gen-dots"><span></span><span></span><span></span></div><span>Regenerating…</span>`;
+    statusEl.textContent = '';
+    await stvRegenStoryboard(feedback, _sbRegen.refs);
+    closeSbRegenModal();
+  }
+
   // ── STORYBOARD REGEN ─────────────────────────────────────────────────────────
 
-  function stvHandleRegenFiles(files) {
-    if (!files || !files.length) return;
-    const thumbs = document.getElementById('stvRegenThumbs');
-    const label  = document.getElementById('stvRegenUploadLabel');
-    Array.from(files).forEach(f => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        _stv.regenImages.push(e.target.result);
-        _stv.regenMeta.push({ name: f.name, size: f.size });
-        const idx = _stv.regenImages.length - 1;
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'position:relative;display:inline-block';
-        wrap.innerHTML = `<img src="${e.target.result}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #2a2a40">
-          <button onclick="stvRemoveRegenImg(${idx})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:#3a1c1c;border:none;border-radius:50%;color:#f87171;font-size:10px;cursor:pointer;line-height:1;padding:0">✕</button>`;
-        thumbs.appendChild(wrap);
-        label.textContent = `${_stv.regenImages.length} extra image(s) attached`;
-      };
-      reader.readAsDataURL(f);
-    });
-    document.getElementById('stvRegenInput').value = '';
-  }
+  async function stvRegenStoryboard(feedback = '', refs = []) {
+    const selectedProvider = document.getElementById('sbRegenProvider')?.value;
+    const selectedModel    = document.getElementById('sbRegenModel')?.value;
+    const provider = selectedProvider || _stv.imgProvider;
+    const model    = selectedModel    || _stv.imgModel;
+    if (!provider || !model) { showToast('Select an image AI provider and model', 'err'); return; }
+    // If user switched provider, save back
+    if (selectedProvider) { _stv.imgProvider = provider; _stv.imgModel = model; }
 
-  function stvRemoveRegenImg(idx) {
-    _stv.regenImages.splice(idx, 1);
-    _stv.regenMeta.splice(idx, 1);
-    const thumbs = document.getElementById('stvRegenThumbs');
-    thumbs.innerHTML = '';
-    _stv.regenImages.forEach((src, i) => {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:relative;display:inline-block';
-      wrap.innerHTML = `<img src="${src}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #2a2a40">
-        <button onclick="stvRemoveRegenImg(${i})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:#3a1c1c;border:none;border-radius:50%;color:#f87171;font-size:10px;cursor:pointer;line-height:1;padding:0">✕</button>`;
-      thumbs.appendChild(wrap);
-    });
-    document.getElementById('stvRegenUploadLabel').textContent =
-      _stv.regenImages.length ? `${_stv.regenImages.length} extra image(s) attached` : 'Attach additional product / reference photos (optional)';
-  }
-
-  async function stvRegenStoryboard() {
-    const provider  = _stv.imgProvider;
-    const model     = _stv.imgModel;
-    if (!provider || !model) { showToast('No image provider set — generate the first storyboard first', 'err'); return; }
-
-    const feedback  = document.getElementById('stvRegenFeedback').value.trim();
-    const status    = document.getElementById('stvRegenStatus');
-    const btn       = document.getElementById('stvRegenBtn');
-    const stopBtn   = document.getElementById('stvRegenStopBtn');
     const result    = document.getElementById('stvStoryboardResult');
     const actions   = document.getElementById('stvStep3Actions');
 
     startGenSession();
-    btn.disabled = true; btn.textContent = '⏳ Regenerating…';
-    stopBtn.style.display = 'inline-flex'; stopBtn.removeAttribute('disabled');
-    status.textContent = 'Regenerating storyboard…'; status.style.color = '#7c6dff';
-    result.innerHTML = ''; actions.style.display = 'none';
+    result.innerHTML = `<div class="stv-gen-state">
+      <div class="stv-gen-state-ring">
+        <svg viewBox="0 0 56 56" fill="none"><circle cx="28" cy="28" r="24" stroke="rgba(124,109,255,.15)" stroke-width="4"/><circle cx="28" cy="28" r="24" stroke="url(#sg2)" stroke-width="4" stroke-linecap="round" stroke-dasharray="40 110"/><defs><linearGradient id="sg2" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse"><stop stop-color="#7c6dff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
+      </div>
+      <div>
+        <div class="stv-gen-state-label">Regenerating your storyboard</div>
+        <div class="stv-gen-state-sub">Applying your feedback…</div>
+      </div>
+      <div class="stv-gen-state-bar-wrap"><div class="stv-gen-state-bar"></div></div>
+    </div>`;
+    actions.style.display = 'none';
 
     // Build prompt: original script + storyboard context + user feedback
     const parsed   = JSON.parse(_stv.structuredJson);
@@ -5624,11 +6155,14 @@ STORYBOARD STYLE:
       `Scene ${s.scene_number} — ${s.scene_name}: First frame: ${s.first_frame}. Last frame: ${s.last_frame}.`
     ).join('\n');
     const originalScript = `Title: ${parsed.storyboard_title}\nStyle: ${parsed.global_style}\nLocation: ${parsed.location}\n\nScenes:\n${sceneDesc}`;
-    const feedbackLine   = feedback ? `\n\nUSER FEEDBACK FOR THIS REVISION:\n${feedback}` : '';
-    const prompt = `${STORYBOARD_SYSTEM_PROMPT}\n\nORIGINAL SCRIPT:\n${originalScript}${feedbackLine}\n\nThe previous storyboard is provided as a reference image. Revise it according to the feedback above while keeping the same scene structure.`;
+    const tagMap = refs.map((r, i) => `${r.tag} = reference image #${i + 1} (uploaded by user)`).join('\n');
+    const feedbackLine = feedback ? `\n\nUSER FEEDBACK FOR THIS REVISION:\n${feedback}` : '';
+    const tagLine = refs.length ? `\n\nREFERENCE IMAGE TAGS:\n${tagMap}\nWhen feedback mentions a @tag, apply that reference image's visual to the relevant scenes.` : '';
+    const prompt = `${STORYBOARD_SYSTEM_PROMPT}\n\nORIGINAL SCRIPT:\n${originalScript}${feedbackLine}${tagLine}\n\nThe previous storyboard is provided as a reference image. Revise it according to the feedback above while keeping the same scene structure.`;
 
-    // Combine original product images + any new regen images
-    const allImages = [..._stv.prodImages, ..._stv.regenImages];
+    // Combine original product images + any ref images from modal
+    const refImages = refs.map(r => r.src);
+    const allImages = [..._stv.prodImages, ...refImages];
 
     _stv.storyboardSessionId = await insertRow('storyboard_sessions', {
       script_session_id: _stv.sessionId,
@@ -5647,8 +6181,7 @@ STORYBOARD STYLE:
         await updateRow('storyboard_sessions', _stv.storyboardSessionId, {
           status: 'cancelled', response_received_at: new Date().toISOString(),
         });
-        status.textContent = '⏹ Regeneration stopped';
-        status.style.color = '#f87171';
+        showToast('⏹ Regeneration stopped', 'info');
       } else {
         _stv.storyboardDataUrl = dataUrl;
 
@@ -5666,8 +6199,7 @@ STORYBOARD STYLE:
 
         result.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:8px;border:1px solid #1e1e30;margin-top:4px">`;
         actions.style.display = 'flex';
-        status.textContent = '✓ Storyboard updated — review and approve or regenerate again';
-        status.style.color = '#22c55e';
+        showToast('✓ Storyboard updated', 'ok');
       }
     } catch(err) {
       const wasCancelled = err.name === 'AbortError' || _cancelled;
@@ -5676,11 +6208,8 @@ STORYBOARD STYLE:
         error_message: wasCancelled ? 'User cancelled' : err.message,
         response_received_at: new Date().toISOString(),
       });
-      status.textContent = wasCancelled ? '⏹ Regeneration stopped' : `✕ ${err.message}`;
-      status.style.color = '#f87171';
+      showToast(wasCancelled ? '⏹ Regeneration stopped' : `✕ ${err.message}`, 'err');
     }
-    stopBtn.style.display = 'none';
-    btn.disabled = false; btn.textContent = '↺ Regenerate Storyboard';
   }
 
   // ── STEP 4: Generate first & last frames ──────────────────────────────────
@@ -5731,9 +6260,11 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
           </div>
           <div class="stv-frame-card-media">
             <div class="stv-media-cell" id="${cardId}-ff">
+              <div class="stv-frame-loader"><div class="stv-frame-loader-shimmer"></div><div class="stv-frame-loader-spinner"></div><span class="stv-frame-loader-text">Generating…</span></div>
               <div class="stv-media-label">First Frame</div>
             </div>
             <div class="stv-media-cell" id="${cardId}-lf">
+              <div class="stv-frame-loader"><div class="stv-frame-loader-shimmer"></div><div class="stv-frame-loader-spinner"></div><span class="stv-frame-loader-text">Generating…</span></div>
               <div class="stv-media-label">Last Frame</div>
             </div>
             <div class="stv-media-cell" id="${cardId}-vid-result">
@@ -5786,55 +6317,85 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       });
       _stv.frameSessionIds[sc.scene_number] = frameRowId;
 
+      const MAX_RETRIES = 3;
+      let lastErr = null;
       try {
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
-
-        // Generate first frame — upload immediately so it's saved even if last frame fails
-        firstFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), ffPrompt, _stv.storyboardDataUrl, _stv.prodImages);
-        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
-        ffEl.innerHTML = `<img src="${firstFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">First Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sc.scene_number},'first')">↺ Regenerate</button>`;
-        let ffUrl = null;
         try {
-          const base = `frames/${_stv.sessionId || 'unknown'}/scene${sc.scene_number}`;
-          ffUrl = await uploadToStorage(firstFrame, `${base}_first_${Date.now()}.png`);
-          await updateRow('frame_sessions', frameRowId, { first_frame_url: ffUrl });
-        } catch(e) { console.warn('First frame upload failed:', e.message); }
+          if (attempt > 1) {
+            stEl.textContent = `Retry ${attempt}/${MAX_RETRIES}…`; stEl.style.color = '#f59e0b';
+            ffEl.innerHTML = `<div class="stv-frame-loader"><div class="stv-frame-loader-shimmer"></div><div class="stv-frame-loader-spinner"></div><span class="stv-frame-loader-text">Retry ${attempt}…</span></div><div class="stv-media-label">First Frame</div>`;
+            lfEl.innerHTML = `<div class="stv-frame-loader"><div class="stv-frame-loader-shimmer"></div><div class="stv-frame-loader-spinner"></div><span class="stv-frame-loader-text">Retry ${attempt}…</span></div><div class="stv-media-label">Last Frame</div>`;
+            await new Promise(r => setTimeout(r, 1500 * attempt));
+          }
 
-        stEl.textContent = 'Last frame…';
+          // Generate first frame — upload immediately so it's saved even if last frame fails
+          firstFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), ffPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+          if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
+          ffEl.innerHTML = `<img src="${firstFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">First Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sc.scene_number},'first')">↺ Regenerate</button>`;
+          // Show loader on last frame cell while first frame uploads + last frame generates
+          lfEl.innerHTML = `<div class="stv-frame-loader"><div class="stv-frame-loader-shimmer"></div><div class="stv-frame-loader-spinner"></div><span class="stv-frame-loader-text">Generating…</span></div><div class="stv-media-label">Last Frame</div>`;
+          let ffUrl = null;
+          try {
+            const base = `frames/${_stv.sessionId || 'unknown'}/scene${sc.scene_number}`;
+            ffUrl = await uploadToStorage(firstFrame, `${base}_first_${Date.now()}.png`);
+            await updateRow('frame_sessions', frameRowId, { first_frame_url: ffUrl });
+          } catch(e) { console.warn('First frame upload failed:', e.message); }
 
-        // Generate last frame — upload immediately too
-        lastFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), lfPrompt, _stv.storyboardDataUrl, _stv.prodImages);
-        if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
-        lfEl.innerHTML = `<img src="${lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">Last Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sc.scene_number},'last')">↺ Regenerate</button>`;
-        stEl.textContent = '✓ Done'; stEl.style.color = '#22c55e';
+          stEl.textContent = 'Last frame…';
 
-        let lfUrl = null;
-        try {
-          const base = `frames/${_stv.sessionId || 'unknown'}/scene${sc.scene_number}`;
-          lfUrl = await uploadToStorage(lastFrame, `${base}_last_${Date.now()}.png`);
-        } catch(e) { console.warn('Last frame upload failed:', e.message); }
-        await updateRow('frame_sessions', frameRowId, {
-          status: 'success',
-          last_frame_url: lfUrl,
-          response_received_at: new Date().toISOString(),
+          // Generate last frame — upload immediately too
+          lastFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), lfPrompt, _stv.storyboardDataUrl, _stv.prodImages);
+          if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
+          lfEl.innerHTML = `<img src="${lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">Last Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sc.scene_number},'last')">↺ Regenerate</button>`;
+          stEl.textContent = '✓ Done'; stEl.style.color = '#22c55e';
+
+          let lfUrl = null;
+          try {
+            const base = `frames/${_stv.sessionId || 'unknown'}/scene${sc.scene_number}`;
+            lfUrl = await uploadToStorage(lastFrame, `${base}_last_${Date.now()}.png`);
+          } catch(e) { console.warn('Last frame upload failed:', e.message); }
+          await updateRow('frame_sessions', frameRowId, {
+            status: 'success',
+            last_frame_url: lfUrl,
+            response_received_at: new Date().toISOString(),
+          });
+          lastErr = null;
+          break; // success — exit retry loop
+        } catch(err) {
+          lastErr = err;
+          if (err.name === 'AbortError' || _cancelled) break; // don't retry on cancel
+          console.warn(`Scene ${sc.scene_number} frame gen attempt ${attempt} failed:`, err.message);
+        }
+      }
+      if (lastErr) {
+        const wasCancelled = lastErr.name === 'AbortError' || _cancelled;
+        stEl.textContent = wasCancelled ? 'Stopped' : `✕ ${lastErr.message}`; stEl.style.color = '#f87171';
+        // Show error state in cells if they still have loader
+        [ffEl, lfEl].forEach((el, ci) => {
+          if (el.querySelector('.stv-frame-loader')) {
+            const lbl = ci === 0 ? 'First Frame' : 'Last Frame';
+            el.innerHTML = `<div class="stv-vid-empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color:#f87171">Failed</span></div><div class="stv-media-label">${lbl}</div>`;
+          }
         });
-        return true;
-      } catch(err) {
-        const wasCancelled = err.name === 'AbortError' || _cancelled;
-        stEl.textContent = wasCancelled ? 'Stopped' : `✕ ${err.message}`; stEl.style.color = '#f87171';
         await updateRow('frame_sessions', frameRowId, {
           status: wasCancelled ? 'cancelled' : 'error',
-          error_message: wasCancelled ? 'User cancelled' : err.message,
+          error_message: wasCancelled ? 'User cancelled' : lastErr.message,
           response_received_at: new Date().toISOString(),
         });
         return false;
+      }
+      return true;
       } finally {
         _stv.sceneFrames.push({
-          sceneNumber: sc.scene_number,
-          sceneName:   sc.scene_name || `Scene ${sc.scene_number}`,
-          description: sc.description || '',
-          summary:     sc.description || '',
-          motion:      sc.motion || '',
+          sceneNumber:     sc.scene_number,
+          sceneName:       sc.scene_name || `Scene ${sc.scene_number}`,
+          description:     sc.description || '',
+          summary:         sc.description || '',
+          motion:          sc.motion || '',
+          firstFrameDesc:  sc.first_frame || '',
+          lastFrameDesc:   sc.last_frame  || '',
           firstFrame,
           lastFrame,
         });
@@ -5855,16 +6416,43 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
   }
 
   // ── Step 4 video gen helpers ───────────────────────────────────────────────
-  function stv4OnVideoProviderChange() {
-    const provider = document.getElementById('stv4VideoProvider').value;
-    const modelSel = document.getElementById('stv4VideoModel');
+  function stv4SelectProvider(btn, provider) {
+    document.querySelectorAll('#stv4ProviderPills .rjct-provider-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('stv4VideoProvider').value = provider;
+    const modelRow = document.getElementById('stv4ModelRow');
+    const modelPills = document.getElementById('stv4ModelPills');
     const models = VIDEO_GEN_MODELS[provider] || [];
-    modelSel.innerHTML = models.length
-      ? models.map(m => `<option value="${m.value}">${m.label}</option>`).join('')
-      : '<option value="">— no models —</option>';
-    modelSel.disabled = !models.length;
+    if (!models.length) { modelRow.style.display = 'none'; document.getElementById('stv4VideoModel').value = ''; stv4UpdateSelectBtn(); return; }
+    modelPills.innerHTML = models.map((m, i) => {
+      const short = m.label.split(' — ')[0];
+      return `<button class="rjct-provider-pill${i === 0 ? ' active' : ''}" onclick="stv4SelectModel(this,'${m.value}')">${short}</button>`;
+    }).join('');
+    document.getElementById('stv4VideoModel').value = models[0].value;
+    modelRow.style.display = 'block';
     stv4UpdateSelectBtn();
   }
+
+  function stv4SelectModel(btn, model) {
+    document.querySelectorAll('#stv4ModelPills .rjct-provider-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('stv4VideoModel').value = model;
+    stv4UpdateSelectBtn();
+  }
+
+  function stv4SelectRatio(btn, ratio) {
+    document.querySelectorAll('[id^="stv4Ratio-"]').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('stv4VideoRatio').value = ratio;
+  }
+
+  function stv4SelectQuality(btn, quality) {
+    document.querySelectorAll('[id^="stv4Quality-"]').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('stv4VideoQuality').value = quality;
+  }
+
+  function stv4OnVideoProviderChange() { /* legacy no-op */ }
 
   function stv4UpdateSelectBtn() {
     const btn = document.getElementById('stv4GenSelectedBtn');
@@ -5904,8 +6492,8 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       const vidResult = document.getElementById(`${cardId}-vid-result`);
 
       if (stEl) { stEl.textContent = '🎬 Generating video…'; stEl.style.color = '#a78bfa'; }
-      // Show generating state in video cell
-      vidResult.innerHTML = `<div class="stv-vid-generating"><div class="spin-sm" style="border-color:#2a2a45;border-top-color:#a78bfa"></div><span>Generating…</span></div><div class="stv-media-label video">Video</div>`;
+      // Show shimmer loader in video cell
+      vidResult.innerHTML = `<div class="stv-frame-loader"><div class="stv-frame-loader-shimmer" style="background:linear-gradient(110deg,transparent 30%,rgba(167,139,250,.08) 50%,transparent 70%);background-size:200% 100%;animation:shimmer 1.6s infinite"></div><div class="stv-frame-loader-spinner" style="border-color:rgba(167,139,250,.2);border-top-color:#a78bfa"></div><span class="stv-frame-loader-text" style="color:#a78bfa">Generating video…</span></div><div class="stv-media-label video">Video</div>`;
 
       // generateVideo manages statusEl/resultEl internally
       await generateVideo(sf.sceneNumber, {
@@ -5939,34 +6527,49 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
 
     const prompt = which === 'first' ? sc.first_frame : sc.last_frame;
     if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
-    cellEl.style.opacity = '0.5';
+    const label = which === 'first' ? 'First Frame' : 'Last Frame';
+    cellEl.innerHTML = `<div class="stv-frame-loader"><div class="stv-frame-loader-shimmer"></div><div class="stv-frame-loader-spinner"></div><span class="stv-frame-loader-text">Regenerating…</span></div><div class="stv-media-label">${label}</div>`;
 
-    try {
-      const newFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), prompt, _stv.storyboardDataUrl, _stv.prodImages);
-
-      cellEl.innerHTML = `<img src="${newFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">${which === 'first' ? 'First' : 'Last'} Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sceneNumber},'${which}')">↺ Regenerate</button>`;
-      cellEl.style.opacity = '1';
-
-      // Update sceneFrames in memory
-      const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
-      if (sf) { if (which === 'first') sf.firstFrame = newFrame; else sf.lastFrame = newFrame; }
-
-      // Upload to storage + patch DB
-      const frameRowId = _stv.frameSessionIds[sceneNumber];
+    const MAX_RETRIES = 3;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const base = `frames/${_stv.sessionId || 'unknown'}/scene${sceneNumber}`;
-        const url = await uploadToStorage(newFrame, `${base}_${which}_regen_${Date.now()}.png`);
-        await updateRow('frame_sessions', frameRowId, {
-          [which === 'first' ? 'first_frame_url' : 'last_frame_url']: url,
-        });
-        if (sf) { if (which === 'first') sf.firstFrame = url; else sf.lastFrame = url; }
-      } catch(e) { console.warn('Regen frame upload failed:', e.message); }
+        if (attempt > 1) {
+          const loaderText = cellEl.querySelector('.stv-frame-loader-text');
+          if (loaderText) loaderText.textContent = `Retry ${attempt}/${MAX_RETRIES}…`;
+          else cellEl.innerHTML = `<div class="stv-frame-loader"><div class="stv-frame-loader-shimmer"></div><div class="stv-frame-loader-spinner"></div><span class="stv-frame-loader-text">Retry ${attempt}…</span></div><div class="stv-media-label">${label}</div>`;
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+        const newFrame = await callImgGenApi(_stv.imgProvider, _stv.imgModel, getKey(_stv.imgProvider), prompt, _stv.storyboardDataUrl, _stv.prodImages);
 
-      showToast(`Scene ${sceneNumber} ${which} frame regenerated`, 'ok');
-    } catch(err) {
-      cellEl.style.opacity = '1';
-      if (btn) { btn.disabled = false; btn.textContent = '↺ Regenerate'; }
-      showToast(`Regen failed: ${err.message}`, 'err');
+        cellEl.innerHTML = `<img src="${newFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">${label}</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sceneNumber},'${which}')">↺ Regenerate</button>`;
+
+        // Update sceneFrames in memory
+        const sf = _stv.sceneFrames.find(f => f.sceneNumber === sceneNumber);
+        if (sf) { if (which === 'first') sf.firstFrame = newFrame; else sf.lastFrame = newFrame; }
+
+        // Upload to storage + patch DB
+        const frameRowId = _stv.frameSessionIds[sceneNumber];
+        try {
+          const base = `frames/${_stv.sessionId || 'unknown'}/scene${sceneNumber}`;
+          const url = await uploadToStorage(newFrame, `${base}_${which}_regen_${Date.now()}.png`);
+          await updateRow('frame_sessions', frameRowId, {
+            [which === 'first' ? 'first_frame_url' : 'last_frame_url']: url,
+          });
+          if (sf) { if (which === 'first') sf.firstFrame = url; else sf.lastFrame = url; }
+        } catch(e) { console.warn('Regen frame upload failed:', e.message); }
+
+        showToast(`Scene ${sceneNumber} ${which} frame regenerated`, 'ok');
+        lastErr = null;
+        break;
+      } catch(err) {
+        lastErr = err;
+        console.warn(`Regen attempt ${attempt} failed:`, err.message);
+      }
+    }
+    if (lastErr) {
+      cellEl.innerHTML = `<div class="stv-vid-empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color:#f87171">Failed</span></div><div class="stv-media-label">${label}</div><button class="stv-regen-frame-btn" onclick="stvRegenSingleFrame(${sceneNumber},'${which}')" style="border-color:#7c6dff;color:#a78bfa">↺ Try Again</button>`;
+      showToast(`Regen failed after ${MAX_RETRIES} attempts: ${lastErr.message}`, 'err');
     }
   }
 
@@ -6281,7 +6884,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       document.getElementById('stvStoryboardResult').innerHTML =
         `<img src="${storyboard.storyboard_image_url}" style="width:100%;border-radius:8px;border:1px solid #1e1e30;margin-top:4px">`;
       document.getElementById('stvStep3Actions').style.display = 'flex';
-      document.getElementById('stvRegenSection').style.display = 'block';
+      document.getElementById('stvGenStoryboardBtn').style.display = 'none';
     }
 
     // 4. Load product uploads
@@ -6309,13 +6912,15 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
       const scData = sceneDataByNumber[f.scene_number] || {};
       _stv.frameSessionIds[f.scene_number] = f.id;
       _stv.sceneFrames.push({
-        sceneNumber: f.scene_number,
-        sceneName:   f.scene_name || scData.scene_name || `Scene ${f.scene_number}`,
-        description: scData.description || '',
-        summary:     scData.description || '',
-        motion:      scData.motion || '',
-        firstFrame:  f.first_frame_url,
-        lastFrame:   f.last_frame_url,
+        sceneNumber:    f.scene_number,
+        sceneName:      f.scene_name || scData.scene_name || `Scene ${f.scene_number}`,
+        description:    scData.description || '',
+        summary:        scData.description || '',
+        motion:         scData.motion || '',
+        firstFrameDesc: scData.first_frame || '',
+        lastFrameDesc:  scData.last_frame  || '',
+        firstFrame:     f.first_frame_url,
+        lastFrame:      f.last_frame_url,
       });
     });
 
@@ -6784,7 +7389,7 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     const vidWrap   = document.getElementById('vrmCurrentVid');
 
     submitBtn.disabled = true; statusEl.textContent = 'Generating…';
-    vidWrap.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#07070f"><div class="spin-sm" style="border-color:#2a2a45;border-top-color:#a78bfa;width:32px;height:32px"></div><span style="font-size:11px;color:#a78bfa">Generating…</span></div>`;
+    vidWrap.innerHTML = `<div class="stv-frame-loader"><div class="stv-frame-loader-shimmer" style="background:linear-gradient(110deg,transparent 30%,rgba(167,139,250,.08) 50%,transparent 70%);background-size:200% 100%;animation:shimmer 1.6s infinite"></div><div class="stv-frame-loader-spinner" style="border-color:rgba(167,139,250,.2);border-top-color:#a78bfa"></div><span class="stv-frame-loader-text" style="color:#a78bfa">Generating video…</span></div>`;
 
     const cardId   = `stvFC-${sceneNumber}`;
     const vidResult = document.getElementById(`${cardId}-vid-result`);
@@ -6934,6 +7539,73 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     </div>
   </div>
   <input type="file" id="frmRefFileInput" accept="image/*" multiple style="display:none">
+</div>
+
+<!-- ── Storyboard Regen Modal ─────────────────────────────────────────────── -->
+<div id="sbRegenModal" onclick="if(event.target===this)closeSbRegenModal()" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);padding:16px">
+  <div class="frm-dialog" style="max-width:860px">
+    <div class="frm-header">
+      <div>
+        <div class="frm-header-title">Regenerate Storyboard</div>
+        <div class="frm-header-sub">Type @ to tag a reference image in your prompt</div>
+      </div>
+      <button class="frm-close" onclick="closeSbRegenModal()">×</button>
+    </div>
+    <div class="frm-body">
+      <!-- Left: current storyboard (landscape) -->
+      <div class="frm-current" style="width:320px;min-width:320px">
+        <div style="width:320px;height:auto;overflow:hidden;background:#070711">
+          <img id="sbRegenCurrentImg" src="" alt="Current storyboard" style="width:100%;display:block;object-fit:contain">
+        </div>
+        <div class="frm-current-label">Current Storyboard</div>
+      </div>
+      <!-- Right: AI selector + refs + prompt -->
+      <div class="frm-right">
+        <!-- Switch Image AI -->
+        <div>
+          <div class="frm-section-label">Switch Image AI <span style="color:#222;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <button class="rjct-provider-pill active" id="sbRegenProvPill-keep" onclick="sbRegenSelectProvider(this,'')">Keep same</button>
+            <button class="rjct-provider-pill" id="sbRegenProvPill-openai" onclick="sbRegenSelectProvider(this,'openai')">
+              <span style="width:8px;height:8px;border-radius:50%;background:#74aa9c;flex-shrink:0"></span>DALL·E
+            </button>
+            <button class="rjct-provider-pill" id="sbRegenProvPill-grok" onclick="sbRegenSelectProvider(this,'grok')">
+              <span style="width:8px;height:8px;border-radius:50%;background:#e5e5e5;flex-shrink:0"></span>Grok
+            </button>
+            <button class="rjct-provider-pill" id="sbRegenProvPill-gemini" onclick="sbRegenSelectProvider(this,'gemini')">
+              <span style="width:8px;height:8px;border-radius:50%;background:#4285f4;flex-shrink:0"></span>Gemini
+            </button>
+          </div>
+          <div id="sbRegenModelPillsWrap" style="display:none;margin-top:4px">
+            <div class="frm-section-label" style="margin-bottom:6px">Model</div>
+            <div id="sbRegenModelPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          </div>
+          <select id="sbRegenProvider" style="display:none"></select>
+          <select id="sbRegenModel" style="display:none"></select>
+        </div>
+        <!-- Reference images -->
+        <div>
+          <div class="frm-section-label">Reference Images</div>
+          <div class="frm-refs" id="sbRegenRefsContainer"></div>
+          <div style="margin-top:6px;font-size:11px;color:#333">Upload images · click their <span style="color:#a78bfa;font-weight:600">@tag</span> to insert into prompt</div>
+        </div>
+        <!-- Prompt -->
+        <div class="frm-prompt-wrap">
+          <div class="frm-section-label">Feedback / Changes</div>
+          <div class="frm-prompt-editor" id="sbRegenPrompt" contenteditable="true"
+            data-placeholder="Describe what to change — e.g. use the grey laptop from @image1, more luxurious setting…"></div>
+          <div class="frm-mention-drop" id="sbRegenMentionDrop"></div>
+          <div class="frm-prompt-hint">Type <span class="at">@</span> to tag a reference image in your prompt</div>
+        </div>
+      </div>
+    </div>
+    <div class="frm-footer">
+      <div class="frm-status" id="sbRegenStatus"></div>
+      <button class="btn btn-ghost btn-sm" onclick="closeSbRegenModal()">Cancel</button>
+      <button class="btn btn-purple btn-sm" id="sbRegenSubmitBtn" onclick="sbRegenSubmit()">↺ Regenerate</button>
+    </div>
+  </div>
+  <input type="file" id="sbRegenFileInput" accept="image/*" multiple style="display:none">
 </div>
 
 <!-- Script generation loader overlay -->
