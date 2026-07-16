@@ -1721,6 +1721,10 @@
       Settings
     </button>
   </nav>
+  <div id="sessionCostPill" style="display:none;margin-left:auto;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;white-space:nowrap" title="Session spend so far" onclick="showSessionCostBreakdown()">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span id="sessionCostLabel">$0.000</span>
+  </div>
 </header>
 
 <!-- ════ DETECTOR TAB ════ -->
@@ -1945,6 +1949,12 @@ Scene 3: She steps outside, city skyline in the background..."
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 24A14.304 14.304 0 0 0 0 12 14.304 14.304 0 0 0 12 0a14.304 14.304 0 0 0 12 12 14.304 14.304 0 0 0-12 12z" fill="url(#gemini-grad)"/><defs><linearGradient id="gemini-grad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4285f4"/><stop offset="50%" stop-color="#9b72cb"/><stop offset="100%" stop-color="#d96570"/></linearGradient></defs></svg>
             </span>Gemini
           </button>
+          <button class="stv-provider-tab" data-provider="groq" onclick="stvSelectProvider('groq')">
+            <span class="stv-provider-tab-icon">
+              <!-- Groq logo -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#f55036"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 4a6 6 0 1 1 0 12A6 6 0 0 1 12 6zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 1.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/></svg>
+            </span>Groq <span style="font-size:9px;background:rgba(34,197,94,.15);color:#22c55e;padding:1px 4px;border-radius:3px;margin-left:2px">FREE</span>
+          </button>
         </div>
         <!-- Model rows — rendered by JS -->
         <div class="stv-model-section" id="stvModelSection" style="display:none">
@@ -2134,6 +2144,11 @@ Scene 3: She steps outside, city skyline in the background..."
             <span class="stv-provider-tab-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 24A14.304 14.304 0 0 0 0 12 14.304 14.304 0 0 0 12 0a14.304 14.304 0 0 0 12 12 14.304 14.304 0 0 0-12 12z" fill="url(#gem-grad3)"/><defs><linearGradient id="gem-grad3" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4285f4"/><stop offset="50%" stop-color="#9b72cb"/><stop offset="100%" stop-color="#d96570"/></linearGradient></defs></svg>
             </span>Gemini
+          </button>
+          <button class="stv-provider-tab" data-imgprovider="pollinations" onclick="stvSelectImgProvider('pollinations')">
+            <span class="stv-provider-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#a78bfa"><path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6L12 22l-3.7-7C6.3 13.7 5 11.5 5 9a7 7 0 0 1 7-7zm0 2a5 5 0 0 0-5 5c0 1.9 1 3.6 2.5 4.6L12 18.5l2.5-4.9A5.4 5.4 0 0 0 17 9a5 5 0 0 0-5-5zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+            </span>Pollinations <span style="font-size:9px;background:rgba(34,197,94,.15);color:#22c55e;padding:1px 4px;border-radius:3px;margin-left:2px">FREE</span>
           </button>
         </div>
         <div id="stvImgModelSection" style="display:none">
@@ -2388,6 +2403,29 @@ Scene 3: She steps outside, city skyline in the background..."
     </div>
   </div>
 
+  <!-- Groq -->
+  <div class="provider-block">
+    <div class="provider-header">
+      <span class="provider-icon">🟠</span>
+      <div style="flex:1">
+        <span class="provider-name">Groq — Llama 4 (FREE tier)</span>
+        <div style="display:flex;gap:5px;margin-top:4px"><span class="cap-tag">Summarise</span><span class="cap-tag">Script</span></div>
+      </div>
+      <span class="provider-tag" id="status-groq">Not set</span>
+    </div>
+    <div class="provider-body">
+      <div class="key-row">
+        <label>API Key</label>
+        <div class="key-input-wrap">
+          <input type="password" id="key-groq" placeholder="gsk_…" autocomplete="off" />
+          <button class="toggle-vis" onclick="toggleVis('key-groq')">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="saveKey('groq')">Save</button>
+      <p style="font-size:11px;color:var(--text-5);margin-top:6px">Free tier available at <a href="https://console.groq.com" target="_blank" style="color:#7c6dff">console.groq.com</a>. Supports vision (Llama 4 Scout/Maverick).</p>
+    </div>
+  </div>
+
   <!-- Runway -->
   <div class="provider-block">
     <div class="provider-header">
@@ -2606,7 +2644,8 @@ Scene 3: She steps outside, city skyline in the background..."
   const _keyStore = {};
   let _cryptoKey = null;
   let _currentSession = null;
-  let _keysLoaded = false;  // guard against repeated fetchAndDecryptKeys calls
+  let _keysLoaded = false;      // guard against repeated fetchAndDecryptKeys calls
+  let _appInitialized = false;  // guard against showLanding() on background token refreshes
 
   // ── Tab switching ─────────────────────────────────────────────────────────
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2624,6 +2663,7 @@ Scene 3: She steps outside, city skyline in the background..."
     openai:    { label: 'GPT' },
     grok:      { label: 'Grok' },
     gemini:    { label: 'Gemini' },
+    groq:      { label: 'Groq' },
     runway:    { label: 'Runway' },
     kling:     { label: 'Kling' },
     luma:      { label: 'Luma' },
@@ -2707,6 +2747,12 @@ Scene 3: She steps outside, city skyline in the background..."
       { value: 'gemini-3.5-flash',      label: 'Gemini 3.5 Flash — fast & cheap' },
       { value: 'gemini-3.1-pro',        label: 'Gemini 3.1 Pro — most capable' },
       { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite — cheapest' },
+    ],
+    groq: [
+      { value: 'meta-llama/llama-4-scout-17b-16e-instruct',    label: 'Llama 4 Scout — vision, FREE tier' },
+      { value: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick — vision, FREE tier' },
+      { value: 'llama-3.3-70b-versatile',                      label: 'Llama 3.3 70B — text only, FREE tier' },
+      { value: 'moonshotai/kimi-k2-instruct',                   label: 'Kimi K2 — text only, FREE tier' },
     ],
   };
 
@@ -3123,6 +3169,28 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
         const json = await res.json();
         logApi(`Summarise — Grok (${model})`, ep, reqBody, json, res.status);
         if (!res.ok) return httpError(res, 'grok');
+        return { ...parseLLMResponse(json.choices?.[0]?.message?.content), error: null };
+      }
+
+      if (provider === 'groq') {
+        const ep = 'https://api.groq.com/openai/v1/chat/completions';
+        const reqBody = { model, max_tokens: 800, messages: [{ role: 'user', content: [
+          { type: 'image_url', image_url: { url: '[frame]' } },
+          { type: 'image_url', image_url: { url: '[frame]' } },
+          { type: 'text', text: prompt }
+        ]}]};
+        const res = await fetch(ep, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${key}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ ...reqBody, messages: [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: firstFrame } },
+            { type: 'image_url', image_url: { url: lastFrame } },
+            { type: 'text', text: prompt }
+          ]}]})
+        });
+        const json = await res.json();
+        logApi(`Summarise — Groq (${model})`, ep, reqBody, json, res.status);
+        if (!res.ok) return httpError(res, 'groq');
         return { ...parseLLMResponse(json.choices?.[0]?.message?.content), error: null };
       }
 
@@ -3634,6 +3702,119 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
     ],
   };
 
+  // ── Cost estimates (approximate, per-image or per-second) ──────────────────
+  const COST_PER_IMAGE = {
+    // OpenAI DALL-E
+    'dall-e-3':        0.04,
+    'dall-e-3-hd':     0.08,
+    'gpt-image-1':     0.04,
+    // Grok Aurora
+    'aurora':          0.07,
+    // Gemini Imagen
+    'imagen-3.0-generate-002': 0.03,
+    'imagen-3.0-fast-generate-001': 0.02,
+  };
+
+  const COST_PER_SECOND = {
+    // Runway
+    'gen4_turbo':  0.05,
+    'gen4':        0.05,
+    // Kling
+    'kling-v2-master': 0.14,
+    'kling-v1-6-pro':  0.09,
+    'kling-v1-6':      0.05,
+    // Luma
+    'luma-dream-machine-v1.6': 0.06,
+    'luma-dream-machine':      0.04,
+    // Grok video
+    'grok-imagine-video-1.5': 0.10,
+    'grok-imagine-video':     0.08,
+    // Veo
+    'models/veo-3.1-generate-preview':      0.35,
+    'models/veo-3.1-fast-generate-preview': 0.20,
+    'models/veo-3.1-lite-generate-preview': 0.10,
+    'models/veo-3.0-generate-001':          0.15,
+    'models/veo-3.0-fast-generate-001':     0.08,
+    'models/veo-2.0-generate-001':          0.05,
+  };
+
+  function estimateImageCost(model, count) {
+    const unit = COST_PER_IMAGE[model] ?? null;
+    if (!unit) return null;
+    return { total: unit * count, unit, count, label: `${count} image${count>1?'s':''} × $${unit.toFixed(3)}` };
+  }
+
+  function estimateVideoCost(model, seconds, count) {
+    const unit = COST_PER_SECOND[model] ?? null;
+    if (!unit) return null;
+    const total = unit * seconds * count;
+    return { total, unit, seconds, count, label: `${count} clip${count>1?'s':''} × ${seconds}s × $${unit.toFixed(3)}/s` };
+  }
+
+  function showCostConfirm(lines, onConfirm) {
+    const existing = document.getElementById('costConfirmBanner');
+    if (existing) existing.remove();
+    const total = lines.reduce((s, l) => s + l.total, 0);
+    const banner = document.createElement('div');
+    banner.id = 'costConfirmBanner';
+    banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#0f0f1e;border:1px solid rgba(124,109,255,.4);border-radius:14px;padding:16px 20px;min-width:340px;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:12px';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span style="font-size:12px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.06em">Estimated Cost</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${lines.map(l => `<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa"><span>${l.label}</span><span style="color:#fff;font-weight:600">~$${l.total.toFixed(3)}</span></div>`).join('')}
+        ${lines.length > 1 ? `<div style="display:flex;justify-content:space-between;font-size:13px;color:#fff;font-weight:700;border-top:1px solid #1e1e30;padding-top:6px;margin-top:4px"><span>Total</span><span>~$${total.toFixed(3)}</span></div>` : ''}
+      </div>
+      <div style="font-size:10px;color:#555">Prices are approximate. Actual charges depend on your provider plan.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('costConfirmBanner').remove()" style="padding:8px 16px;border-radius:8px;border:1px solid #2e2e4a;background:transparent;color:#aaa;font-size:12px;cursor:pointer;font-family:inherit">Cancel</button>
+        <button id="costConfirmProceedBtn" style="padding:8px 18px;border-radius:8px;border:none;background:var(--gradient);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Proceed →</button>
+      </div>`;
+    document.body.appendChild(banner);
+    document.getElementById('costConfirmProceedBtn').onclick = () => { banner.remove(); onConfirm(); };
+  }
+
+  // ── Session cost tracker ────────────────────────────────────────────────────
+  const _sessionCost = { total: 0, items: [] };
+
+  function trackCost(type, model, units, unitCost, label) {
+    if (!unitCost) return;
+    const amount = unitCost * units;
+    _sessionCost.total += amount;
+    _sessionCost.items.push({ type, model, units, unitCost, amount, label, at: new Date() });
+    const pill = document.getElementById('sessionCostPill');
+    const lbl  = document.getElementById('sessionCostLabel');
+    if (pill) pill.style.display = 'flex';
+    if (lbl)  lbl.textContent = `$${_sessionCost.total.toFixed(3)} spent`;
+  }
+
+  function showSessionCostBreakdown() {
+    const existing = document.getElementById('costBreakdownPanel');
+    if (existing) { existing.remove(); return; }
+    const panel = document.createElement('div');
+    panel.id = 'costBreakdownPanel';
+    panel.style.cssText = 'position:fixed;top:52px;right:16px;z-index:9999;background:#0f0f1e;border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px 16px;min-width:300px;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.7)';
+    const rows = _sessionCost.items.length
+      ? _sessionCost.items.map(it => `<div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;padding:3px 0"><span>${it.label}</span><span style="color:#fff;font-weight:600">$${it.amount.toFixed(4)}</span></div>`).join('')
+      : '<div style="font-size:11px;color:#555">No charges recorded yet.</div>';
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#f59e0b">Session Spend</span>
+        <button onclick="document.getElementById('costBreakdownPanel').remove()" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;line-height:1">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto">${rows}</div>
+      ${_sessionCost.items.length ? `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#fff;border-top:1px solid #1e1e30;padding-top:8px;margin-top:8px"><span>Total</span><span style="color:#f59e0b">$${_sessionCost.total.toFixed(4)}</span></div>` : ''}
+      <div style="font-size:10px;color:#444;margin-top:8px">Approximate. Resets on page reload.</div>`;
+    document.body.appendChild(panel);
+    document.addEventListener('click', function handler(e) {
+      if (!panel.contains(e.target) && !document.getElementById('sessionCostPill')?.contains(e.target)) {
+        panel.remove(); document.removeEventListener('click', handler);
+      }
+    }, { capture: true });
+  }
+
   async function generateVideo(sceneIdx, overrides = {}) {
     // Support STV inline call: overrides.sceneObj, overrides.statusEl, overrides.resultEl
     const sc = overrides.sceneObj || scenes.find(s => s.index === sceneIdx);
@@ -3848,6 +4029,7 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
         if (!vr.ok) throw new Error('non-200');
         sc.generatedVideoBlob = await vr.blob();
         statusEl.innerHTML = `<div class="brief-gen-status success">✓ Video generated</div>`;
+        trackCost('video', model, snapDur, COST_PER_SECOND[model], `Scene ${sceneIdx} video · ${snapDur}s (${model})`);
       } catch (_) {
         sc.generatedVideoBlob = null;
         statusEl.innerHTML = `<div class="brief-gen-status success">✓ Video generated</div>`;
@@ -4526,6 +4708,20 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
       return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
     }
 
+    if (provider === 'pollinations') {
+      // Pollinations.ai — completely free, no API key required
+      // model is the Pollinations model name (flux, flux-realism, flux-pro, turbo)
+      const encoded = encodeURIComponent(promptText);
+      const url = `https://image.pollinations.ai/prompt/${encoded}?width=576&height=1024&nologo=true&model=${encodeURIComponent(model)}&seed=${Date.now()}`;
+      logApi(`Pollinations Image (${model})`, url, { prompt: promptText, model }, '[image response]', 200);
+      // Fetch and convert to base64 data URL so downstream code can use it uniformly
+      const resp = await fetch(url, { signal });
+      if (!resp.ok) throw new Error(`Pollinations error: ${resp.status}`);
+      const blob = await resp.blob();
+      const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+      return b64;
+    }
+
     throw new Error('Unknown provider');
   }
 
@@ -4902,7 +5098,21 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
         }
         if (overlay) overlay.style.display = 'none';
         _hideAuthModal();
-        showLanding();
+        // Only show landing on first auth — don't reset navigation on token refresh / background session events
+        if (!_appInitialized) {
+          _appInitialized = true;
+          showLanding();
+        } else {
+          // Just refresh user info without redirecting
+          updateSettingsAuthBanner(session.user.email);
+          const emailEl = document.getElementById('homeNavEmail');
+          const avatarEl = document.getElementById('homeNavAvatar');
+          const dropdownEmail = document.getElementById('homeNavDropdownEmail');
+          const email = session.user.email;
+          if (emailEl) emailEl.textContent = email;
+          if (avatarEl) avatarEl.textContent = email[0].toUpperCase();
+          if (dropdownEmail) dropdownEmail.textContent = email;
+        }
 
       } else if (event === 'TOKEN_REFRESHED') {
         const newKey = await deriveEncryptionKey(session);
@@ -5020,7 +5230,7 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
       ? window.location.href
       : window.location.origin + window.location.pathname;
     console.log('[Auth] signInWithOtp →', { email: val, redirectTo });
-    const { data: otpData, error } = await _sb.auth.signInWithOtp({ email: val, options: { emailRedirectTo: redirectTo } });
+    const { data: otpData, error } = await _sb.auth.signInWithOtp({ email: val, options: { emailRedirectTo: redirectTo, shouldCreateUser: false } });
     console.log('[Auth] signInWithOtp result →', { data: otpData, error: error ? { message: error.message, status: error.status, code: error.code ?? error.__isAuthError } : null });
     btn.textContent = 'Send Magic Link →'; btn.disabled = false;
     if (error) {
@@ -5328,6 +5538,12 @@ Respond with only valid JSON. No markdown, no code fences, no explanation.`;
       { value: 'models/gemini-3-pro-image',                 label: 'Gemini 3 Pro Image' },
       { value: 'models/gemini-3-pro-image-preview',         label: 'Gemini 3 Pro Image (Preview)' },
       { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash — image gen (legacy)' },
+    ],
+    pollinations: [
+      { value: 'flux',          label: 'Flux — balanced, FREE' },
+      { value: 'flux-realism',  label: 'Flux Realism — photorealistic, FREE' },
+      { value: 'flux-pro',      label: 'Flux Pro — highest quality, FREE' },
+      { value: 'turbo',         label: 'Turbo (SDXL) — fastest, FREE' },
     ],
   };
 
@@ -5660,6 +5876,13 @@ JSON Structure:
         });
         const d = await res.json(); if (!res.ok) throw new Error(d.error?.message || res.status);
         resultText = d.choices?.[0]?.message?.content;
+      } else if (provider === 'groq') {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ model, messages, max_tokens: 4096 })
+        });
+        const d = await res.json(); if (!res.ok) throw new Error(d.error?.message || res.status);
+        resultText = d.choices?.[0]?.message?.content;
       } else if (provider === 'gemini') {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
           method: 'POST', headers: { 'content-type': 'application/json' },
@@ -5933,7 +6156,18 @@ STORYBOARD STYLE:
     if (!_stv.storyboardDataUrl) btn.style.display = '';
   }
 
-  function stvApproveStoryboard() { stvSetStep(4); stvGenAllFrames(); }
+  function stvApproveStoryboard() {
+    stvSetStep(4);
+    const parsed = JSON.parse(_stv.structuredJson || '{}');
+    const sceneCount = (parsed.scenes || []).length;
+    const imageCount = sceneCount * 2; // first + last frame per scene
+    const costEst = estimateImageCost(_stv.imgModel, imageCount);
+    if (costEst) {
+      showCostConfirm([costEst], () => stvGenAllFrames());
+    } else {
+      stvGenAllFrames();
+    }
+  }
 
   // ── STORYBOARD REGEN MODAL ───────────────────────────────────────────────────
   const _sbRegen = { refs: [] };
@@ -6353,6 +6587,8 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
           if (_cancelled) { stEl.textContent = 'Stopped'; stEl.style.color = '#f87171'; return false; }
           lfEl.innerHTML = `<img src="${lastFrame}" style="width:100%;height:100%;object-fit:cover"><div class="stv-media-label">Last Frame</div><button class="stv-regen-frame-btn" onclick="stvOpenRegenModal(${sc.scene_number},'last')">↺ Regenerate</button>`;
           stEl.textContent = '✓ Done'; stEl.style.color = '#22c55e';
+          // Track cost: 2 images (first + last frame) per scene
+          trackCost('image', _stv.imgModel, 2, COST_PER_IMAGE[_stv.imgModel], `Scene ${sc.scene_number} frames (${_stv.imgModel})`);
 
           let lfUrl = null;
           try {
@@ -6481,13 +6717,29 @@ Premium cinematic advertising photography, realistic lifestyle, natural warm lig
     const quality  = document.getElementById('stv4VideoQuality').value;
     if (!provider || !model) return;
 
-    const btn = document.getElementById('stv4GenSelectedBtn');
-    btn.disabled = true;
-
     const selected = _stv.sceneFrames.filter(sf => {
       const cardId = `stvFC-${sf.sceneNumber}`;
       return document.getElementById(`${cardId}-chk`)?.checked;
     });
+
+    // Show cost estimate before proceeding
+    const rawDur = selected.length > 0 ? (() => {
+      const parsed = JSON.parse(_stv.structuredJson || '{}');
+      const sc = (parsed.scenes || []).find(s => s.scene_number === selected[0].sceneNumber);
+      return sc ? Math.ceil((sc.end ?? 5) - (sc.start ?? 0)) : 5;
+    })() : 5;
+    const snapDur = (provider === 'runway' || provider === 'kling') ? (rawDur <= 7.5 ? 5 : 10) : Math.min(Math.max(rawDur, 5), 10);
+    const costEst = estimateVideoCost(model, snapDur, selected.length);
+    if (costEst) {
+      showCostConfirm([costEst], () => _stv4GenSelectedRun(provider, model, ratio, quality, selected));
+      return;
+    }
+    _stv4GenSelectedRun(provider, model, ratio, quality, selected);
+  }
+
+  async function _stv4GenSelectedRun(provider, model, ratio, quality, selected) {
+    const btn = document.getElementById('stv4GenSelectedBtn');
+    btn.disabled = true;
 
     await Promise.all(selected.map(async sf => {
       const cardId = `stvFC-${sf.sceneNumber}`;
