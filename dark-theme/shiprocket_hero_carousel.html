@@ -4291,25 +4291,95 @@ document.addEventListener('keydown', e => {
 .lm-btn:disabled{opacity:.4;cursor:not-allowed}
 .lm-back{background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:0;margin-top:14px;display:block;width:100%;text-align:center;font-family:inherit;position:relative}
 .lm-back:hover{color:rgba(255,255,255,.7)}
+.lm-google-btn{
+  width:100%;padding:13px 16px;border-radius:10px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  color:#fff;font-family:inherit;font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .15s;position:relative;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.lm-google-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22)}
+.lm-google-logo{width:18px;height:18px;flex-shrink:0}
+.lm-divider{display:flex;align-items:center;gap:12px;margin:18px 0;position:relative}
+.lm-divider::before,.lm-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+.lm-divider-txt{font-size:11.5px;color:rgba(255,255,255,.3);white-space:nowrap}
+.lm-checking{display:flex;align-items:center;justify-content:center;gap:10px;padding:24px 0;flex-direction:column}
+.lm-checking-spinner{width:32px;height:32px;border-radius:50%;border:2.5px solid rgba(175,70,253,.2);border-top-color:#AF46FD;animation:lm-spin .7s linear infinite}
+@keyframes lm-spin{to{transform:rotate(360deg)}}
+.lm-checking-txt{font-size:13px;color:rgba(255,255,255,.5)}
+.lm-registered-badge{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.18);margin-bottom:20px;position:relative;
+}
+.lm-registered-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#F4349D);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.lm-registered-name{font-size:13px;font-weight:700;color:#fff}
+.lm-registered-email{font-size:11.5px;color:rgba(255,255,255,.4)}
+.lm-registered-tick{margin-left:auto;color:#22C55E;font-size:16px}
 </style>
 
 <div class="login-modal-backdrop" id="login-modal-backdrop" onclick="handleLoginBackdropClick(event)">
   <div class="login-modal">
     <button class="lm-close" onclick="closeLoginModal()">✕</button>
 
-    <!-- Step 1: Phone -->
-    <div class="lm-step active" id="lm-step-phone">
-      <div class="lm-title">Welcome back</div>
-      <div class="lm-sub">Enter your phone number to continue</div>
+    <!-- Step 1: Choose method -->
+    <div class="lm-step active" id="lm-step-choose">
+      <div class="lm-title">Welcome to Studio</div>
+      <div class="lm-sub">Sign in to continue to your brand workspace</div>
+      <button class="lm-google-btn" onclick="lmGoogleLogin()">
+        <svg class="lm-google-logo" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+        Continue with Google
+      </button>
+      <div class="lm-divider"><span class="lm-divider-txt">or use phone number</span></div>
       <div class="lm-label">Phone number</div>
       <div class="lm-phone-row">
         <span class="lm-prefix">🇮🇳 +91</span>
         <input class="lm-phone-inp" id="lm-phone-inp" type="tel" maxlength="10" placeholder="98765 43210" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');document.getElementById('lm-phone-btn').disabled=this.value.length<10">
       </div>
-      <button class="lm-btn" id="lm-phone-btn" onclick="lmSubmitPhone()" disabled style="margin-top:20px">Send OTP →</button>
+      <button class="lm-btn" id="lm-phone-btn" onclick="lmSubmitPhone()" disabled style="margin-top:16px">Send OTP →</button>
     </div>
 
-    <!-- Step 2: OTP -->
+    <!-- Step 2: Google checking -->
+    <div class="lm-step" id="lm-step-google-checking">
+      <div class="lm-checking">
+        <div class="lm-checking-spinner"></div>
+        <div class="lm-checking-txt">Checking your account…</div>
+      </div>
+    </div>
+
+    <!-- Step 3a: Google — registered user -->
+    <div class="lm-step" id="lm-step-google-registered">
+      <div class="lm-title">Welcome back! 👋</div>
+      <div class="lm-sub">We found your Studio account</div>
+      <div class="lm-registered-badge">
+        <div class="lm-registered-avatar">A</div>
+        <div>
+          <div class="lm-registered-name">Archit Mittal</div>
+          <div class="lm-registered-email">archit@shiprocket.com</div>
+        </div>
+        <div class="lm-registered-tick">✓</div>
+      </div>
+      <button class="lm-btn" onclick="lmGoogleRegisteredContinue()">Go to my workspace →</button>
+      <button class="lm-back" onclick="lmShowStep('choose')">← Use a different account</button>
+    </div>
+
+    <!-- Step 3b: Google — new user, collect phone -->
+    <div class="lm-step" id="lm-step-google-new">
+      <div class="lm-title">One last step</div>
+      <div class="lm-sub">Add your phone number to secure your account</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);position:relative">
+        <svg width="16" height="16" viewBox="0 0 48 48" style="flex-shrink:0"><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/></svg>
+        <span style="font-size:12.5px;color:rgba(255,255,255,.55)">Signed in as <strong style="color:#fff">newuser@gmail.com</strong></span>
+      </div>
+      <div class="lm-label">Phone number</div>
+      <div class="lm-phone-row">
+        <span class="lm-prefix">🇮🇳 +91</span>
+        <input class="lm-phone-inp" id="lm-gphone-inp" type="tel" maxlength="10" placeholder="98765 43210" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');document.getElementById('lm-gphone-btn').disabled=this.value.length<10">
+      </div>
+      <button class="lm-btn" id="lm-gphone-btn" onclick="lmGoogleNewSubmitPhone()" disabled style="margin-top:16px">Send OTP →</button>
+      <button class="lm-back" onclick="lmShowStep('choose')">← Back</button>
+    </div>
+
+    <!-- Step 4: OTP (used by both phone path and google-new path) -->
     <div class="lm-step" id="lm-step-otp">
       <div class="lm-title">Verify OTP</div>
       <div class="lm-sub" id="lm-otp-sub">Sent to +91 XXXXX XXXXX</div>
@@ -4323,22 +4393,25 @@ document.addEventListener('keydown', e => {
         <input class="lm-otp-box" type="tel" maxlength="1" inputmode="numeric">
       </div>
       <div class="lm-otp-hint">Use any 6 digits for the prototype</div>
-      <button class="lm-btn" id="lm-otp-btn" onclick="lmSubmitOTP()" disabled>Verify OTP →</button>
-      <button class="lm-back" onclick="lmShowStep('phone')">← Change number</button>
+      <button class="lm-btn" id="lm-otp-btn" onclick="lmSubmitOTP()" disabled>Verify & Continue →</button>
+      <button class="lm-back" id="lm-otp-back" onclick="lmShowStep('choose')">← Change number</button>
     </div>
   </div>
 </div>
 
 <script>
 var _lmPhone = '';
+var _lmViaGoogle = false;
+// Simulate: this email is already registered
+var _lmRegisteredEmails = ['archit@shiprocket.com', 'test@shiprocket.com'];
+var _lmGoogleEmail = '';
 
 function openLoginModal() {
-  lmShowStep('phone');
+  lmShowStep('choose');
   var bd = document.getElementById('login-modal-backdrop');
   bd.classList.add('show');
   requestAnimationFrame(function(){ requestAnimationFrame(function(){
     bd.classList.add('visible');
-    setTimeout(function(){ document.getElementById('lm-phone-inp').focus(); }, 120);
   }); });
 }
 
@@ -4357,18 +4430,64 @@ function lmShowStep(s) {
   document.getElementById('lm-step-' + s).classList.add('active');
 }
 
-function lmSubmitPhone() {
-  var val = document.getElementById('lm-phone-inp').value.replace(/[^0-9]/g, '');
+// ── Google flow ──
+function lmGoogleLogin() {
+  lmShowStep('google-checking');
+  // Simulate OAuth + account lookup (1.2s)
+  setTimeout(function(){
+    // Toggle: use 'archit@shiprocket.com' to simulate registered, anything else = new user
+    _lmGoogleEmail = 'archit@shiprocket.com'; // swap to 'new@gmail.com' to test new user path
+    var isRegistered = _lmRegisteredEmails.indexOf(_lmGoogleEmail) > -1;
+    if (isRegistered) {
+      lmShowStep('google-registered');
+    } else {
+      lmShowStep('google-new');
+      setTimeout(function(){ document.getElementById('lm-gphone-inp').focus(); }, 140);
+    }
+  }, 1200);
+}
+
+function lmGoogleRegisteredContinue() {
+  var btn = document.querySelector('#lm-step-google-registered .lm-btn');
+  btn.textContent = 'Opening workspace…';
+  btn.disabled = true;
+  setTimeout(function(){
+    sessionStorage.setItem('authed', '1');
+    closeLoginModal();
+    window.location.href = 'workspace.html';
+  }, 800);
+}
+
+function lmGoogleNewSubmitPhone() {
+  var val = document.getElementById('lm-gphone-inp').value.replace(/[^0-9]/g, '');
   if (val.length < 10) return;
   _lmPhone = val;
+  _lmViaGoogle = true;
   var display = '+91 ' + val.slice(0,5) + ' ' + val.slice(5);
   document.getElementById('lm-otp-sub').textContent = 'Sent to ' + display;
+  document.getElementById('lm-otp-back').onclick = function(){ lmShowStep('google-new'); };
   document.querySelectorAll('.lm-otp-box').forEach(function(b){ b.value=''; b.classList.remove('filled'); });
   document.getElementById('lm-otp-btn').disabled = true;
   lmShowStep('otp');
   setTimeout(function(){ document.querySelectorAll('.lm-otp-box')[0].focus(); }, 140);
 }
 
+// ── Phone flow ──
+function lmSubmitPhone() {
+  var val = document.getElementById('lm-phone-inp').value.replace(/[^0-9]/g, '');
+  if (val.length < 10) return;
+  _lmPhone = val;
+  _lmViaGoogle = false;
+  var display = '+91 ' + val.slice(0,5) + ' ' + val.slice(5);
+  document.getElementById('lm-otp-sub').textContent = 'Sent to ' + display;
+  document.getElementById('lm-otp-back').onclick = function(){ lmShowStep('choose'); };
+  document.querySelectorAll('.lm-otp-box').forEach(function(b){ b.value=''; b.classList.remove('filled'); });
+  document.getElementById('lm-otp-btn').disabled = true;
+  lmShowStep('otp');
+  setTimeout(function(){ document.querySelectorAll('.lm-otp-box')[0].focus(); }, 140);
+}
+
+// ── OTP verification (shared) ──
 function lmSubmitOTP() {
   var boxes = document.querySelectorAll('.lm-otp-box');
   var otp = Array.from(boxes).map(function(b){ return b.value; }).join('');
@@ -4377,13 +4496,16 @@ function lmSubmitOTP() {
   btn.textContent = 'Verifying…';
   btn.disabled = true;
   setTimeout(function(){
-    btn.textContent = 'Verify OTP →';
+    btn.textContent = 'Verify & Continue →';
     btn.disabled = false;
-    closeLoginModal();
+    sessionStorage.setItem('authed', '1');
+    // Phone 8888888888 = existing registered user → workspace
+    // All others = new user → onboarding
     if (_lmPhone === '8888888888') {
-      window.location.href = 'chat.html';
+      closeLoginModal();
+      window.location.href = 'workspace.html';
     } else {
-      sessionStorage.setItem('authed', '1');
+      closeLoginModal();
       sessionStorage.setItem('loginFlow', '1');
       openStartModal();
     }
