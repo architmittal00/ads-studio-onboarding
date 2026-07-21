@@ -371,6 +371,40 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   line-height:1.6;margin-bottom:22px;position:relative;z-index:1}
 .modal-sub strong{color:rgba(255,255,255,.75);font-weight:500}
 
+/* google button */
+.google-btn{
+  width:100%;height:50px;border-radius:11px;
+  background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);
+  color:#fff;font-family:inherit;font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .15s;position:relative;z-index:1;
+  display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0;
+}
+.google-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22)}
+.google-btn-logo{width:18px;height:18px;flex-shrink:0}
+.modal-divider{display:flex;align-items:center;gap:12px;margin:16px 0;position:relative;z-index:1}
+.modal-divider::before,.modal-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+.modal-divider-txt{font-size:11.5px;color:rgba(255,255,255,.3);white-space:nowrap}
+/* google checking state */
+.modal-checking{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 0;gap:12px}
+.modal-checking-spinner{width:32px;height:32px;border-radius:50%;border:2.5px solid rgba(175,70,253,.2);border-top-color:#AF46FD;animation:spin-modal .7s linear infinite}
+@keyframes spin-modal{to{transform:rotate(360deg)}}
+.modal-checking-txt{font-size:13px;color:rgba(255,255,255,.5)}
+/* registered badge */
+.modal-registered-badge{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:11px;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.18);
+  margin-bottom:20px;position:relative;z-index:1;
+}
+.modal-registered-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#AF46FD,#F4349D);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.modal-registered-info{flex:1}
+.modal-registered-name{font-size:13px;font-weight:700;color:#fff}
+.modal-registered-email{font-size:11.5px;color:rgba(255,255,255,.4)}
+.modal-registered-tick{color:#22C55E;font-size:16px;flex-shrink:0}
+/* google new user — signed-in-as row */
+.modal-google-tag{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);margin-bottom:18px;position:relative;z-index:1}
+.modal-google-tag-txt{font-size:12.5px;color:rgba(255,255,255,.5)}
+.modal-google-tag-txt strong{color:#fff}
+
 /* phone input row */
 .phone-row{display:flex;gap:8px;margin-bottom:12px;position:relative;z-index:1}
 .phone-cc{
@@ -693,14 +727,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="modal">
     <button class="modal-close" onclick="closeSignup()">✕</button>
 
-    <!-- STEP 1: Phone -->
-    <div class="modal-step active" id="step-phone">
+    <!-- STEP 1: Choose method -->
+    <div class="modal-step active" id="step-choose">
       <div class="modal-logo">
         <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
         <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
       </div>
-      <h2 class="modal-h" id="modal-heading">See your competitive report</h2>
-      <p class="modal-sub" id="modal-subtext">Enter your mobile number to unlock competitor intelligence, creative scores and full audience insights.</p>
+      <h2 class="modal-h" id="modal-heading">See your creative report</h2>
+      <p class="modal-sub" id="modal-subtext">Sign in to unlock competitor intelligence, creative scores and full audience insights.</p>
+      <button class="google-btn" onclick="modalGoogleLogin()">
+        <svg class="google-btn-logo" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+        Continue with Google
+      </button>
+      <div class="modal-divider"><span class="modal-divider-txt">or use phone number</span></div>
       <div class="phone-row">
         <div class="phone-cc"><span class="phone-cc-flag">🇮🇳</span> +91</div>
         <input class="phone-num" id="phone-inp" type="tel" maxlength="10" placeholder="Enter mobile number" onkeydown="if(event.key==='Enter')submitPhone()" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
@@ -709,7 +748,59 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="modal-fine">We'll send a 6-digit OTP to verify</div>
     </div>
 
-    <!-- STEP 2: OTP -->
+    <!-- STEP 2: Google checking -->
+    <div class="modal-step" id="step-google-checking">
+      <div class="modal-logo">
+        <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+        <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <div class="modal-checking">
+        <div class="modal-checking-spinner"></div>
+        <div class="modal-checking-txt">Checking your account…</div>
+      </div>
+    </div>
+
+    <!-- STEP 3a: Google — registered user -->
+    <div class="modal-step" id="step-google-registered">
+      <div class="modal-logo">
+        <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+        <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <h2 class="modal-h">Welcome back! 👋</h2>
+      <p class="modal-sub" style="margin-bottom:18px">We found your Studio account</p>
+      <div class="modal-registered-badge">
+        <div class="modal-registered-avatar">A</div>
+        <div class="modal-registered-info">
+          <div class="modal-registered-name">Archit Mittal</div>
+          <div class="modal-registered-email">archit@shiprocket.com</div>
+        </div>
+        <div class="modal-registered-tick">✓</div>
+      </div>
+      <button class="modal-btn" id="google-reg-btn" onclick="modalGoogleRegisteredContinue()">Go to my workspace →</button>
+      <button class="modal-fine" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.35);font-family:inherit;font-size:12px;width:100%;margin-top:12px;display:block" onclick="showStep('choose')">← Use a different account</button>
+    </div>
+
+    <!-- STEP 3b: Google — new user, collect phone -->
+    <div class="modal-step" id="step-google-new">
+      <div class="modal-logo">
+        <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
+        <span class="modal-logo-name">Shiprocket <span>Studio</span></span>
+      </div>
+      <h2 class="modal-h">One last step</h2>
+      <p class="modal-sub" style="margin-bottom:16px">Add your phone number to secure your account</p>
+      <div class="modal-google-tag">
+        <svg width="16" height="16" viewBox="0 0 48 48" style="flex-shrink:0"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+        <span class="modal-google-tag-txt">Signed in as <strong id="modal-google-email-tag">newuser@gmail.com</strong></span>
+      </div>
+      <div class="phone-row">
+        <div class="phone-cc"><span class="phone-cc-flag">🇮🇳</span> +91</div>
+        <input class="phone-num" id="gphone-inp" type="tel" maxlength="10" placeholder="Enter mobile number" onkeydown="if(event.key==='Enter')submitGooglePhone()" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+      </div>
+      <button class="modal-btn" id="gphone-btn" onclick="submitGooglePhone()">Send OTP →</button>
+      <button class="modal-fine" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.35);font-family:inherit;font-size:12px;width:100%;margin-top:12px;display:block" onclick="showStep('choose')">← Back</button>
+    </div>
+
+    <!-- STEP 4: OTP (shared by phone + google-new paths) -->
     <div class="modal-step" id="step-otp">
       <div class="modal-logo">
         <div class="modal-logo-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1L12 4V10L7 13L2 10V4L7 1Z" fill="white" opacity=".9"/></svg></div>
@@ -853,13 +944,59 @@ function openSignup(source){
   var s = source || 'report';
   document.getElementById('modal-heading').textContent = headings[s] || headings.report;
   document.getElementById('modal-subtext').textContent = subtexts[s] || subtexts.report;
-  showStep('phone');
+  showStep('choose');
   var bg=document.getElementById('modal-bg');
   bg.classList.add('show');
   requestAnimationFrame(function(){requestAnimationFrame(function(){
     bg.classList.add('visible');
-    setTimeout(function(){document.getElementById('phone-inp').focus();},120);
   });});
+}
+
+// ── Simulated registered emails ──
+var _modalRegisteredEmails = ['archit@shiprocket.com','test@shiprocket.com'];
+var _modalGoogleEmail = '';
+var _modalViaGoogle = false;
+
+function modalGoogleLogin(){
+  showStep('google-checking');
+  setTimeout(function(){
+    _modalGoogleEmail = 'archit@shiprocket.com'; // swap to any other to test new user path
+    document.getElementById('modal-google-email-tag').textContent = _modalGoogleEmail;
+    var isRegistered = _modalRegisteredEmails.indexOf(_modalGoogleEmail) > -1;
+    if(isRegistered){
+      showStep('google-registered');
+    } else {
+      showStep('google-new');
+      setTimeout(function(){ document.getElementById('gphone-inp').focus(); }, 140);
+    }
+  }, 1200);
+}
+
+function modalGoogleRegisteredContinue(){
+  var btn = document.getElementById('google-reg-btn');
+  btn.textContent = 'Opening workspace…';
+  btn.disabled = true;
+  setTimeout(function(){
+    btn.textContent = 'Go to my workspace →';
+    btn.disabled = false;
+    sessionStorage.setItem('authed','1');
+    closeSignup();
+    window.location.href = 'workspace.html';
+  }, 800);
+}
+
+function submitGooglePhone(){
+  var val = document.getElementById('gphone-inp').value.replace(/[^0-9]/g,'');
+  if(val.length < 10){ return; }
+  _modalViaGoogle = true;
+  var display = '+91 '+val.slice(0,5)+' '+val.slice(5);
+  document.getElementById('otp-phone-display').textContent = display;
+  document.getElementById('otp-num-show').textContent = display;
+  document.querySelectorAll('.otp-box').forEach(function(b){b.value='';b.classList.remove('filled');});
+  document.getElementById('otp-btn').disabled = true;
+  showStep('otp');
+  setTimeout(function(){ document.querySelectorAll('.otp-box')[0].focus(); }, 140);
+  startResendTimer();
 }
 function closeSignup(){
   var bg=document.getElementById('modal-bg');
@@ -875,6 +1012,7 @@ function showStep(s){
 }
 
 function submitPhone(){
+  _modalViaGoogle = false;
   var val=document.getElementById('phone-inp').value.replace(/[^0-9]/g,'');
   if(val.length<10){
     var inp=document.getElementById('phone-inp');
@@ -895,8 +1033,8 @@ function submitPhone(){
 
 function backToPhone(){
   clearInterval(window._resendInt);
-  showStep('phone');
-  setTimeout(function(){document.getElementById('phone-inp').focus();},120);
+  if(_modalViaGoogle){ showStep('google-new'); setTimeout(function(){ document.getElementById('gphone-inp').focus(); },120); }
+  else { showStep('choose'); setTimeout(function(){ document.getElementById('phone-inp').focus(); },120); }
 }
 
 function startResendTimer(){
