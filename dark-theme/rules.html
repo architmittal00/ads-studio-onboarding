@@ -636,6 +636,49 @@ a{color:inherit;text-decoration:none}
 .notify-bar-btn:hover{opacity:.9;box-shadow:0 4px 18px rgba(175,70,253,.4)}
 /* ── NOTIFY SETTINGS MODAL ── */
 .ns-modal-body{padding:0 !important;gap:0 !important}
+
+/* account picker inside notify modal */
+.ns-acc-count{
+  font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px;
+  color:var(--t3);
+}
+.ns-acc-count.at-limit{color:rgba(245,158,11,.8)}
+.ns-acc-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.ns-acc-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:10px;
+  background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);
+  cursor:pointer;transition:background .12s,border-color .12s;user-select:none;
+}
+.ns-acc-row:hover:not(.disabled){background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.1)}
+.ns-acc-row.selected{background:rgba(175,70,253,.07);border-color:rgba(175,70,253,.3)}
+.ns-acc-row.disabled{opacity:.38;cursor:not-allowed}
+.ns-acc-avatar{
+  width:28px;height:28px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;
+}
+.ns-acc-avatar.a{background:rgba(175,70,253,.2);color:var(--purple)}
+.ns-acc-avatar.b{background:rgba(96,165,250,.2);color:#93c5fd}
+.ns-acc-avatar.c{background:rgba(34,197,94,.15);color:#4ade80}
+.ns-acc-avatar.d{background:rgba(245,158,11,.15);color:#fbbf24}
+.ns-acc-avatar.e{background:rgba(244,52,157,.15);color:#f9a8d4}
+.ns-acc-info{flex:1;min-width:0}
+.ns-acc-name{font-size:12px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-acc-meta{font-size:10.5px;color:var(--t3);margin-top:1px}
+.ns-acc-check{
+  width:16px;height:16px;border-radius:4px;flex-shrink:0;
+  border:1.5px solid rgba(255,255,255,.15);background:transparent;
+  display:flex;align-items:center;justify-content:center;transition:all .12s;
+}
+.ns-acc-row.selected .ns-acc-check{background:var(--purple);border-color:var(--purple)}
+.ns-acc-check svg{display:none;width:9px;height:9px}
+.ns-acc-row.selected .ns-acc-check svg{display:block}
+.ns-acc-limit-note{
+  display:flex;align-items:center;gap:6px;margin-top:8px;
+  font-size:11px;color:rgba(245,158,11,.75);line-height:1.4;
+}
+.ns-acc-limit-note svg{flex-shrink:0;color:rgba(245,158,11,.7)}
 .ns-section-block{padding:22px 26px}
 .ns-section-title{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:3px;letter-spacing:-.01em}
 .ns-section-sub{font-size:11.5px;color:var(--t3);margin-bottom:16px;line-height:1.5}
@@ -1181,6 +1224,23 @@ a{color:inherit;text-decoration:none}
         </div>
         <div id="nsTimeWrap" style="display:none">
           <div id="nsTimeList" class="ns-time-slots"></div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="ns-divider"></div>
+
+      <!-- Accounts section -->
+      <div class="ns-section-block">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:3px">
+          <div class="ns-section-title">Which accounts should be scanned?</div>
+          <div class="ns-acc-count" id="nsAccCount">0 / 10</div>
+        </div>
+        <div class="ns-section-sub">Select up to 10 ad accounts. Rules will only run on these accounts.</div>
+        <div class="ns-acc-list" id="nsAccList"></div>
+        <div class="ns-acc-limit-note" id="nsAccLimitNote" style="display:none">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Maximum 10 accounts reached. Deselect one to add another.
         </div>
       </div>
 
@@ -1876,6 +1936,54 @@ function removeEmailSlot(i) {
   renderEmailList();
 }
 
+/* ─────────────────────────────────────────
+   NOTIFY MODAL — ACCOUNT PICKER
+───────────────────────────────────────── */
+const NS_ACCOUNTS = [
+  { id:'acc-x', label:'Account X',      meta:'Meta Ads · 12 campaigns',   color:'a', initial:'X' },
+  { id:'acc-b', label:'Shiprocket B2B', meta:'Google Ads · 8 campaigns',  color:'b', initial:'B' },
+  { id:'acc-d', label:'Shiprocket D2C', meta:'Meta Ads · 6 campaigns',    color:'c', initial:'D' },
+  { id:'acc-i', label:'Shiprocket Intl',meta:'Meta Ads · 4 campaigns',    color:'d', initial:'I' },
+  { id:'acc-e', label:'Ecom Brand Co.', meta:'Google Ads · 5 campaigns',  color:'e', initial:'E' },
+  { id:'acc-f', label:'FashionForward', meta:'Meta Ads · 9 campaigns',    color:'a', initial:'F' },
+  { id:'acc-g', label:'GreenLeaf Foods',meta:'Google Ads · 3 campaigns',  color:'b', initial:'G' },
+  { id:'acc-h', label:'HomeDecor Hub',  meta:'Meta Ads · 7 campaigns',    color:'c', initial:'H' },
+  { id:'acc-j', label:'JewelsByRiya',   meta:'Meta Ads · 11 campaigns',   color:'d', initial:'J' },
+  { id:'acc-k', label:'KidsWorld India',meta:'Google Ads · 6 campaigns',  color:'e', initial:'K' },
+  { id:'acc-l', label:'LuxeLiving',     meta:'Meta Ads · 8 campaigns',    color:'a', initial:'L' },
+  { id:'acc-m', label:'MobiTech Ads',   meta:'Google Ads · 4 campaigns',  color:'b', initial:'M' },
+];
+const NS_MAX_ACCOUNTS = 10;
+let nsSelectedAccounts = new Set(['acc-x','acc-b','acc-d','acc-i']); // default: all demo accounts
+
+function renderNsAccList() {
+  const el = document.getElementById('nsAccList');
+  const atLimit = nsSelectedAccounts.size >= NS_MAX_ACCOUNTS;
+  el.innerHTML = NS_ACCOUNTS.map(a => {
+    const sel = nsSelectedAccounts.has(a.id);
+    const disabled = atLimit && !sel;
+    return `<div class="ns-acc-row${sel?' selected':''}${disabled?' disabled':''}" onclick="${disabled?'':'toggleNsAccount(\''+a.id+'\')'}">
+      <div class="ns-acc-avatar ${a.color}">${a.initial}</div>
+      <div class="ns-acc-info">
+        <div class="ns-acc-name">${a.label}</div>
+        <div class="ns-acc-meta">${a.meta}</div>
+      </div>
+      <div class="ns-acc-check"><svg viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="2.2"><path d="M1.5 5l2.5 2.5 4.5-4.5"/></svg></div>
+    </div>`;
+  }).join('');
+  const n = nsSelectedAccounts.size;
+  const countEl = document.getElementById('nsAccCount');
+  countEl.textContent = `${n} / ${NS_MAX_ACCOUNTS}`;
+  countEl.classList.toggle('at-limit', atLimit);
+  document.getElementById('nsAccLimitNote').style.display = atLimit ? 'flex' : 'none';
+}
+
+function toggleNsAccount(id) {
+  if (nsSelectedAccounts.has(id)) nsSelectedAccounts.delete(id);
+  else if (nsSelectedAccounts.size < NS_MAX_ACCOUNTS) nsSelectedAccounts.add(id);
+  renderNsAccList();
+}
+
 function openNotifyModal() {
   document.querySelectorAll('.ns-freq-chip').forEach(c => {
     c.classList.toggle('active', c.dataset.val === notifyState.freq);
@@ -1886,6 +1994,7 @@ function openNotifyModal() {
   tog.classList.toggle('on', notifyState.emailOn);
   document.getElementById('nsEmailBlock').style.display = notifyState.emailOn ? '' : 'none';
   renderEmailList();
+  renderNsAccList();
   document.getElementById('notifyOverlay').classList.add('open');
 }
 
