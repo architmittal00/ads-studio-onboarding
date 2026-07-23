@@ -187,6 +187,7 @@ a{color:inherit;text-decoration:none}
 }
 .acc-drop-check svg{display:none;width:10px;height:10px}
 .acc-drop-item.selected .acc-drop-check svg{display:block}
+.acc-drop-item.disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
 
 .acc-drop-footer{
   padding:10px 16px;border-top:1px solid rgba(255,255,255,.07);
@@ -646,6 +647,13 @@ a{color:inherit;text-decoration:none}
 .asc-acc-item.selected .asc-acc-check{background:var(--purple);border-color:var(--purple)}
 .asc-acc-check svg{display:none;width:11px;height:11px}
 .asc-acc-item.selected .asc-acc-check svg{display:block}
+.asc-acc-item.disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.asc-acc-limit-tag{
+  font-size:10px;font-weight:700;color:rgba(245,158,11,.7);
+  padding:3px 8px;border-radius:20px;
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);
+  white-space:nowrap;flex-shrink:0;
+}
 
 .asc-cta-wrap{margin-top:auto;padding-top:16px}
 .asc-cta{
@@ -1278,11 +1286,13 @@ function renderDropList(query){
   const list = document.getElementById('accDropList');
   const q = query.toLowerCase();
   const filtered = ACCOUNTS.filter(a => a.label.toLowerCase().includes(q));
+  const atLimit = selected.size >= MAX_ACCOUNTS;
   list.innerHTML = filtered.map(a => {
     const total = a.alerts.budget + a.alerts.pause + a.alerts.move;
     const sel = selected.has(a.id);
+    const disabled = atLimit && !sel;
     return `
-    <div class="acc-drop-item${sel?' selected':''}" onclick="toggleAccount('${a.id}')">
+    <div class="acc-drop-item${sel?' selected':''}${disabled?' disabled':''}" onclick="${disabled?'':'toggleAccount(\''+a.id+'\')'}">
       <div class="acc-drop-avatar ${a.color}">${a.initial}</div>
       <div class="acc-drop-info">
         <div class="acc-drop-name">${a.label}</div>
@@ -1298,15 +1308,17 @@ function renderDropList(query){
 
 function filterAccounts(q){ renderDropList(q); }
 
+const MAX_ACCOUNTS = 10;
+
 function toggleAccount(id){
   if(selected.has(id)) selected.delete(id);
-  else selected.add(id);
+  else if(selected.size < MAX_ACCOUNTS) selected.add(id);
   renderDropList(document.getElementById('accSearch').value);
   updateDropFooter();
 }
 
 function selectAll(){
-  ACCOUNTS.forEach(a => selected.add(a.id));
+  ACCOUNTS.forEach(a => { if(selected.size < MAX_ACCOUNTS) selected.add(a.id); });
   renderDropList(document.getElementById('accSearch').value);
   updateDropFooter();
 }
@@ -1318,7 +1330,13 @@ function clearAll(){
 
 function updateDropFooter(){
   const n = selected.size;
-  document.getElementById('dropSelectedLabel').textContent = n===0?'No accounts selected':`${n} account${n>1?'s':''} selected`;
+  const atLimit = n >= MAX_ACCOUNTS;
+  document.getElementById('dropSelectedLabel').textContent =
+    n===0 ? 'No accounts selected' :
+    atLimit ? `${n} / ${MAX_ACCOUNTS} accounts (limit reached)` :
+    `${n} / ${MAX_ACCOUNTS} accounts selected`;
+  const label = document.getElementById('dropSelectedLabel');
+  label.style.color = atLimit ? 'rgba(245,158,11,.8)' : '';
 }
 
 function applySelection(){
@@ -1874,26 +1892,28 @@ let ascSelected = new Set();
 
 function renderAscList(){
   const el = document.getElementById('ascAccList');
+  const atLimit = ascSelected.size >= MAX_ACCOUNTS;
   el.innerHTML = ACCOUNTS.map(a => {
     const total = a.alerts.budget + a.alerts.pause + a.alerts.move;
     const sel = ascSelected.has(a.id);
+    const disabled = atLimit && !sel;
     return `
-    <div class="asc-acc-item${sel?' selected':''}" onclick="toggleAscAccount('${a.id}')">
+    <div class="asc-acc-item${sel?' selected':''}${disabled?' disabled':''}" onclick="${disabled?'':'toggleAscAccount(\''+a.id+'\')'}">
       <div class="asc-acc-avatar ${a.color}">${a.initial}</div>
       <div class="asc-acc-info">
         <div class="asc-acc-name">${a.label}</div>
         <div class="asc-acc-meta">${a.platform} · ${a.campaigns} campaigns · ${a.spend}</div>
       </div>
-      <div class="asc-acc-check">
+      ${disabled ? `<div class="asc-acc-limit-tag">Limit reached</div>` : `<div class="asc-acc-check">
         <svg viewBox="0 0 11 11" fill="none" stroke="white" stroke-width="2.2"><path d="M1.5 5.5l2.5 2.5 5-5"/></svg>
-      </div>
+      </div>`}
     </div>`;
   }).join('');
 }
 
 function toggleAscAccount(id){
   if(ascSelected.has(id)) ascSelected.delete(id);
-  else ascSelected.add(id);
+  else if(ascSelected.size < MAX_ACCOUNTS) ascSelected.add(id);
   renderAscList();
   updateAscCta();
 }
