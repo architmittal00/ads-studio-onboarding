@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment Links — Fastrr Ads Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --purple:#6C5CE7;--purple-light:#EEF0FF;--purple-mid:#5649C0;
+  --bg:#F7F8FA;--white:#fff;--border:#E8E9EE;--border2:#D1D5DB;
+  --text:#0F0F1A;--text2:#6B7280;--text3:#9CA3AF;
+  --green:#10B981;--green-bg:#ECFDF5;
+  --amber:#F59E0B;--amber-bg:#FFFBEB;
+  --red:#EF4444;--red-bg:#FEF2F2;
+  --blue:#3B82F6;--blue-bg:#EFF6FF;
+  --sidebar-w:240px;--sidebar-w-col:56px;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);min-width:var(--sidebar-w);
+  background:var(--white);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  position:fixed;left:0;top:0;bottom:0;z-index:100;
+  transition:width .2s;overflow:hidden;
+}
+.sidebar.collapsed{width:var(--sidebar-w-col);min-width:var(--sidebar-w-col)}
+
+.sb-top{
+  display:flex;align-items:center;gap:10px;
+  padding:16px 14px;border-bottom:1px solid var(--border);
+  min-height:56px;cursor:pointer;
+}
+.sb-logo{
+  width:28px;height:28px;border-radius:8px;
+  background:var(--purple);display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.sb-logo svg{width:16px;height:16px}
+.sb-brand{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:4px}
+.sb-dot{width:6px;height:6px;border-radius:50%;background:var(--purple);flex-shrink:0}
+.sb-collapse-btn{margin-left:auto;color:var(--text3);flex-shrink:0;cursor:pointer}
+.sidebar.collapsed .sb-brand,.sidebar.collapsed .sb-dot,.sidebar.collapsed .sb-collapse-btn{display:none}
+
+.sb-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0}
+.sb-nav::-webkit-scrollbar{width:4px}
+.sb-nav::-webkit-scrollbar-track{background:transparent}
+.sb-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.sb-section-label{
+  font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;
+  letter-spacing:.8px;padding:12px 16px 4px;white-space:nowrap;
+}
+.sidebar.collapsed .sb-section-label{visibility:hidden;height:24px}
+
+.sb-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;cursor:pointer;border-radius:0;
+  color:var(--text2);font-size:13px;font-weight:500;
+  transition:background .15s,color .15s;
+  white-space:nowrap;position:relative;
+}
+.sb-item:hover{background:#F3F4F6;color:var(--text)}
+.sb-item.active{
+  background:var(--purple-light);color:var(--purple);font-weight:600;
+}
+.sb-item.active::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--purple);border-radius:0 3px 3px 0;
+}
+.sb-icon{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.sb-label{overflow:hidden;text-overflow:ellipsis}
+.sidebar.collapsed .sb-label,.sidebar.collapsed .sb-section-label{display:none}
+.sb-chevron{margin-left:auto;color:var(--text3);transition:transform .2s}
+.sb-chevron.open{transform:rotate(180deg)}
+
+.sb-bottom{
+  border-top:1px solid var(--border);padding:12px 14px;
+  display:flex;align-items:center;gap:10px;
+}
+.sb-avatar{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--purple);color:#fff;font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.sb-user{overflow:hidden}
+.sb-user-name{font-size:12px;font-weight:600;color:var(--text)}
+.sb-user-email{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.sidebar.collapsed .sb-user{display:none}
+
+/* ── MAIN ── */
+.main{margin-left:var(--sidebar-w);flex:1;transition:margin-left .2s;min-height:100vh}
+body.collapsed .main{margin-left:var(--sidebar-w-col)}
+
+/* ── TOP BAR ── */
+.topbar{
+  background:var(--white);border-bottom:1px solid var(--border);
+  padding:0 28px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;
+}
+.topbar-title{font-size:15px;font-weight:600;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+
+/* ── BTN ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:none;transition:opacity .15s,background .15s}
+.btn-primary{background:var(--purple);color:#fff}
+.btn-primary:hover{background:var(--purple-mid)}
+.btn-outline{background:var(--white);color:var(--text);border:1px solid var(--border2)}
+.btn-outline:hover{background:#F9FAFB}
+.btn-ghost{background:transparent;color:var(--text2);padding:8px 10px}
+.btn-ghost:hover{background:#F3F4F6}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid #FECACA}
+
+/* ── PAGE CONTENT ── */
+.page{display:none;padding:28px}
+.page.active{display:block}
+
+/* ── SCREEN SWITCHER (dev nav) ── */
+.screen-nav{
+  position:fixed;bottom:20px;right:20px;z-index:200;
+  background:var(--white);border:1px solid var(--border);border-radius:12px;
+  padding:8px;display:flex;flex-direction:column;gap:4px;
+  box-shadow:0 4px 20px rgba(0,0,0,.1);
+}
+.screen-nav button{
+  padding:6px 12px;border-radius:8px;border:none;background:none;
+  font-size:11px;font-weight:500;color:var(--text2);cursor:pointer;text-align:left;white-space:nowrap;
+  font-family:'Inter',sans-serif;
+}
+.screen-nav button:hover{background:#F3F4F6;color:var(--text)}
+.screen-nav button.active{background:var(--purple-light);color:var(--purple);font-weight:600}
+.screen-nav-label{font-size:10px;font-weight:600;color:var(--text3);padding:4px 12px 2px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── CARD ── */
+.card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:600}
+.card-sub{font-size:12px;color:var(--text2);margin-top:2px}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+td{font-size:13px;color:var(--text);padding:13px 16px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFAFA}
+
+/* ── BADGE / STATUS ── */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.badge-created{background:#EFF6FF;color:#2563EB}.badge-created .badge-dot{background:#2563EB}
+.badge-opened{background:var(--amber-bg);color:#92400E}.badge-opened .badge-dot{background:var(--amber)}
+.badge-otp{background:#FFF7ED;color:#9A3412}.badge-otp .badge-dot{background:#F97316}
+.badge-paid{background:var(--green-bg);color:#065F46}.badge-paid .badge-dot{background:var(--green)}
+.badge-expired{background:#F3F4F6;color:var(--text2)}.badge-expired .badge-dot{background:var(--text3)}
+.badge-notpaid{background:var(--red-bg);color:#991B1B}.badge-notpaid .badge-dot{background:var(--red)}
+
+/* ── FILTER ROW ── */
+.filter-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.search-input{
+  display:flex;align-items:center;gap:8px;
+  background:var(--white);border:1px solid var(--border2);border-radius:8px;
+  padding:8px 12px;flex:1;max-width:300px;
+}
+.search-input input{border:none;outline:none;font-size:13px;font-family:inherit;color:var(--text);background:transparent;width:100%}
+.search-input input::placeholder{color:var(--text3)}
+.select-filter{
+  background:var(--white);border:1px solid var(--border2);border-radius:8px;
+  padding:8px 12px;font-size:13px;font-family:inherit;color:var(--text2);
+  appearance:none;-webkit-appearance:none;cursor:pointer;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:6px}
+.stat-value{font-size:22px;font-weight:700;color:var(--text)}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+
+/* ── STEP FLOW ── */
+.step-flow{display:flex;align-items:center;gap:0;margin-bottom:32px}
+.step-item{display:flex;align-items:center;gap:0;flex:1}
+.step-circle{
+  width:32px;height:32px;border-radius:50%;border:2px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;
+  color:var(--text3);background:var(--white);flex-shrink:0;transition:all .2s;
+}
+.step-circle.done{background:var(--purple);border-color:var(--purple);color:#fff}
+.step-circle.active{border-color:var(--purple);color:var(--purple)}
+.step-label{font-size:12px;font-weight:500;color:var(--text3);margin-left:8px;white-space:nowrap}
+.step-label.active{color:var(--purple);font-weight:600}
+.step-label.done{color:var(--text2)}
+.step-line{flex:1;height:1px;background:var(--border);margin:0 8px}
+.step-line.done{background:var(--purple)}
+.step-item:last-child .step-line{display:none}
+
+/* ── FORM ── */
+.form-section{margin-bottom:28px}
+.form-section-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.form-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.form-row{display:grid;gap:16px;margin-bottom:16px}
+.form-row.cols-2{grid-template-columns:1fr 1fr}
+.form-row.cols-3{grid-template-columns:1fr 1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:12px;font-weight:600;color:var(--text2)}
+.form-input{
+  background:var(--white);border:1px solid var(--border2);border-radius:8px;
+  padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);outline:none;
+  transition:border-color .15s;
+}
+.form-input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(108,92,231,.1)}
+.form-input::placeholder{color:var(--text3)}
+.form-input[readonly]{background:#F9FAFB;color:var(--text2)}
+.form-hint{font-size:11px;color:var(--text3)}
+.form-error{font-size:11px;color:var(--red)}
+
+/* prefix input */
+.input-prefix{display:flex;background:var(--white);border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.input-prefix:focus-within{border-color:var(--purple);box-shadow:0 0 0 3px rgba(108,92,231,.1)}
+.prefix-label{padding:10px 12px;background:#F9FAFB;border-right:1px solid var(--border2);font-size:13px;color:var(--text2);font-weight:500;white-space:nowrap}
+.prefix-label.suffix{border-right:none;border-left:1px solid var(--border2)}
+.input-prefix input{border:none;outline:none;flex:1;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:transparent}
+
+/* toggle */
+.toggle-group{display:flex;background:#F3F4F6;border-radius:8px;padding:3px;gap:2px}
+.toggle-opt{
+  flex:1;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:500;
+  color:var(--text2);cursor:pointer;border:none;background:none;font-family:inherit;
+  transition:all .15s;text-align:center;
+}
+.toggle-opt.active{background:var(--white);color:var(--text);font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+/* radio cards */
+.radio-cards{display:flex;gap:12px}
+.radio-card{
+  flex:1;border:2px solid var(--border);border-radius:12px;padding:16px;
+  cursor:pointer;transition:all .15s;position:relative;
+}
+.radio-card.selected{border-color:var(--purple);background:var(--purple-light)}
+.radio-card-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.radio-card-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.radio-card-desc{font-size:11px;color:var(--text2)}
+.radio-card input[type=radio]{position:absolute;top:12px;right:12px;width:16px;height:16px;accent-color:var(--purple)}
+
+/* service line items */
+.service-table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.service-table th{background:#F9FAFB;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+.service-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.service-table tr:last-child td{border-bottom:none}
+.service-table input{border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:12px;font-family:inherit;outline:none;width:100%}
+.service-table input:focus{border-color:var(--purple)}
+.service-table input[readonly]{background:#F9FAFB;color:var(--text2)}
+.service-check{width:16px;height:16px;accent-color:var(--purple);cursor:pointer}
+.recommended-price{font-size:11px;color:var(--text3)}
+
+/* gst callout */
+.gst-box{background:#FAFAFA;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px}
+.gst-breakdown{flex:1}
+.gst-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding:3px 0}
+.gst-row.total{font-size:14px;font-weight:700;color:var(--text);border-top:1px solid var(--border);padding-top:8px;margin-top:4px}
+
+/* success screen */
+.success-icon{width:64px;height:64px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.link-box{
+  background:#F8F9FF;border:1.5px solid #C7C2F7;border-radius:10px;
+  padding:14px 16px;display:flex;align-items:center;gap:10px;margin:16px 0;
+}
+.link-box code{font-size:12px;color:var(--purple);flex:1;font-family:'Courier New',monospace;word-break:break-all}
+.expiry-badge{display:inline-flex;align-items:center;gap:6px;background:var(--amber-bg);color:#92400E;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600}
+
+/* review screen */
+.review-section{background:#FAFAFA;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+.review-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
+.review-row:not(:last-child){border-bottom:1px solid var(--border)}
+.review-key{color:var(--text2)}
+.review-val{font-weight:500;color:var(--text)}
+
+/* pagination */
+.pagination{display:flex;align-items:center;gap:4px;justify-content:space-between;padding-top:16px;border-top:1px solid var(--border)}
+.pag-info{font-size:12px;color:var(--text3)}
+.pag-btns{display:flex;gap:4px;align-items:center}
+.pag-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:var(--white);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all .15s}
+.pag-btn:hover{background:#F3F4F6}
+.pag-btn.active{background:var(--purple);color:#fff;border-color:var(--purple)}
+.pag-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* action menu */
+.action-btn{background:none;border:none;cursor:pointer;color:var(--text3);padding:4px 6px;border-radius:6px;font-size:16px;line-height:1}
+.action-btn:hover{background:#F3F4F6;color:var(--text2)}
+
+/* plan cards */
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.plan-card{border:2px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .15s}
+.plan-card.selected{border-color:var(--purple);background:var(--purple-light)}
+.plan-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.plan-price{font-size:12px;color:var(--text2)}
+.plan-tag{display:inline-block;background:var(--purple-light);color:var(--purple);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;margin-bottom:8px}
+
+.duration-opts{display:flex;gap:10px;margin-top:8px}
+.dur-opt{
+  flex:1;border:2px solid var(--border);border-radius:8px;padding:10px 14px;
+  cursor:pointer;text-align:center;transition:all .15s;
+}
+.dur-opt.selected{border-color:var(--purple);background:var(--purple-light)}
+.dur-opt-label{font-size:13px;font-weight:600;color:var(--text)}
+.dur-opt-sub{font-size:11px;color:var(--text2)}
+
+/* alert banner */
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:8px;font-size:12px;margin-bottom:20px}
+.alert-info{background:var(--blue-bg);color:#1E40AF;border:1px solid #BFDBFE}
+.alert-warn{background:var(--amber-bg);color:#92400E;border:1px solid #FDE68A}
+
+/* phone override note */
+.override-note{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;margin-top:6px}
+
+/* tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple);font-weight:600}
+
+/* empty state */
+.empty-state{text-align:center;padding:48px 24px}
+.empty-state-icon{width:56px;height:56px;border-radius:16px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.empty-state-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
+.empty-state-sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+
+/* tooltip chip */
+.chip{display:inline-flex;align-items:center;gap:4px;background:#F3F4F6;color:var(--text2);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:500}
+
+/* responsive */
+@media(max-width:900px){
+  .stat-grid{grid-template-columns:1fr 1fr}
+  .form-row.cols-3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ SIDEBAR ══════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-top" onclick="toggleSidebar()">
+    <div class="sb-logo">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" fill="white" fill-opacity="0.9"/>
+        <path d="M8 5L11 6.8V10.2L8 12L5 10.2V6.8L8 5Z" fill="white" fill-opacity="0.4"/>
+      </svg>
+    </div>
+    <span class="sb-brand">ShiprocketAds <span class="sb-dot"></span></span>
+    <span class="sb-collapse-btn">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7h6M4 4h6M4 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </span>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-section-label">Main Menu</div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1.5" fill="currentColor" opacity=".7"/><rect x="9" y="2" width="5" height="5" rx="1.5" fill="currentColor" opacity=".7"/><rect x="2" y="9" width="5" height="5" rx="1.5" fill="currentColor" opacity=".4"/><rect x="9" y="9" width="5" height="5" rx="1.5" fill="currentColor" opacity=".4"/></svg></span>
+      <span class="sb-label">Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M8 1a5 5 0 100 10A5 5 0 008 1zM3 14s-.5-1.5 5-1.5 5 1.5 5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+      <span class="sb-label">Chat Bot</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+      <span class="sb-label">Campaigns</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M8 2l1.5 3.5L13 6l-2.5 2.5.6 3.5L8 10.3l-3.1 1.7.6-3.5L3 6l3.5-.5L8 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></span>
+      <span class="sb-label">Recommendation</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M6 10.5C6 9 7 7.5 8 7s2-1 2-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="12" r=".8" fill="currentColor"/></svg></span>
+      <span class="sb-label">Fox AI</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 12V7l5-5 5 5v5H9v-3H7v3H3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></span>
+      <span class="sb-label">Audit</span>
+      <svg class="sb-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1" stroke="currentColor" stroke-width="1.4"/></svg></span>
+      <span class="sb-label">Finance</span>
+      <svg class="sb-chevron open" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <!-- Finance sub-items -->
+    <div class="sb-item active" onclick="showPage('payment-links')" style="padding-left:32px">
+      <span class="sb-icon"><svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 5h10M2 9h6M7 12H2a1 1 0 01-1-1V3a1 1 0 011-1h10a1 1 0 011 1v5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M10 8.5v1.5l1 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sb-label">Payment Links</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')" style="padding-left:32px">
+      <span class="sb-icon"><svg width="14" height="14" fill="none" viewBox="0 0 14 14"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M4 9h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>
+      <span class="sb-label">Transactions</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 3h10v2H3zM3 7h4v6H3zM9 7h4v6H9z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></span>
+      <span class="sb-label">File Uploads</span>
+    </div>
+
+    <div class="sb-section-label">Seller Management</div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 13c0-2.5 2-4 5-4s5 1.5 5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M11 7l2 2 2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sb-label">Seller Management</span>
+    </div>
+
+    <div class="sb-section-label">Campaign Management</div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+      <span class="sb-label">Create Campaign</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M4 12L8 3l4 9M6 9h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sb-label">Generate Ads</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M6 7l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sb-label">Ads Library</span>
+    </div>
+    <div class="sb-item" onclick="showPage('dashboard')">
+      <span class="sb-icon"><svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 6l4 2-4 2V6z" fill="currentColor" opacity=".7"/></svg></span>
+      <span class="sb-label">Video Generation</span>
+    </div>
+  </nav>
+
+  <div class="sb-bottom">
+    <div class="sb-avatar">A</div>
+    <div class="sb-user">
+      <div class="sb-user-name">Archit</div>
+      <div class="sb-user-email">archit.mittal@pickrr.com</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════════════════════ MAIN ══════════════════════════ -->
+<main class="main" id="main">
+
+  <!-- ── PAGE: Payment Links Dashboard ── -->
+  <div class="page active" id="page-payment-links">
+    <div class="topbar">
+      <span class="topbar-title">Payment Links</span>
+      <div class="topbar-right">
+        <button class="btn btn-outline btn-sm" onclick="showPage('create-step1')">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          New Payment Link
+        </button>
+      </div>
+    </div>
+
+    <div style="padding:28px">
+      <!-- Stats -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#EFF6FF"><svg width="18" height="18" fill="none" viewBox="0 0 18 18"><path d="M3 6h12M3 10.5h7.5" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round"/><rect x="1.5" y="3" width="15" height="12" rx="2" stroke="#2563EB" stroke-width="1.5"/></svg></div>
+          <div class="stat-label">Total Links Generated</div>
+          <div class="stat-value">142</div>
+          <div class="stat-sub">+18 this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--green-bg)"><svg width="18" height="18" fill="none" viewBox="0 0 18 18"><path d="M5 9.5l3 3 5-6" stroke="#10B981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="9" r="7" stroke="#10B981" stroke-width="1.5"/></svg></div>
+          <div class="stat-label">Paid</div>
+          <div class="stat-value">89</div>
+          <div class="stat-sub" style="color:var(--green)">62.7% conversion</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--red-bg)"><svg width="18" height="18" fill="none" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="#EF4444" stroke-width="1.5"/><path d="M9 5.5v4M9 11.5v1" stroke="#EF4444" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="stat-label">Expired / Not Paid</div>
+          <div class="stat-value">37</div>
+          <div class="stat-sub" style="color:var(--red)">Need follow-up</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--amber-bg)"><svg width="18" height="18" fill="none" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" stroke="#F59E0B" stroke-width="1.5"/><path d="M9 6v3.5l2.5 1.5" stroke="#F59E0B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="stat-label">Pending (Active Links)</div>
+          <div class="stat-value">16</div>
+          <div class="stat-sub">Awaiting payment</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-row">
+        <div class="search-input">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="6" cy="6" r="4.5" stroke="#9CA3AF" stroke-width="1.3"/><path d="M10 10l2.5 2.5" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <input type="text" placeholder="Search by merchant or phone…">
+        </div>
+        <select class="select-filter">
+          <option>All Statuses</option>
+          <option>Created / Sent</option>
+          <option>Opened</option>
+          <option>OTP Verified</option>
+          <option>Paid</option>
+          <option>Not Paid</option>
+          <option>Expired</option>
+        </select>
+        <select class="select-filter">
+          <option>All Types</option>
+          <option>Service Purchase</option>
+          <option>Subscription</option>
+        </select>
+        <select class="select-filter">
+          <option>All Reps</option>
+          <option>Archit M.</option>
+          <option>Priya S.</option>
+          <option>Ravi K.</option>
+        </select>
+        <input type="date" class="select-filter" value="2025-07-01">
+        <input type="date" class="select-filter" value="2025-07-31">
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm">
+            <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M1 3h10M3 6h6M5 9h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Filter
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="showPage('create-step1')">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            New Link
+          </button>
+        </div>
+      </div>
+
+      <!-- Follow-up alert -->
+      <div class="alert alert-warn" style="margin-bottom:16px">
+        <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v4M8 10.5v.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <div><strong>5 links expired unpaid</strong> in the last 24 hours. Consider following up with merchants or generating new links.</div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <div class="tab active">All Links <span class="chip" style="margin-left:4px">142</span></div>
+        <div class="tab">Needs Follow-up <span class="chip" style="margin-left:4px;background:#FEF2F2;color:var(--red)">37</span></div>
+        <div class="tab">Active <span class="chip" style="margin-left:4px;background:#FFFBEB;color:#92400E">16</span></div>
+        <div class="tab">Paid <span class="chip" style="margin-left:4px;background:var(--green-bg);color:#065F46">89</span></div>
+      </div>
+
+      <!-- Table -->
+      <div class="card" style="padding:0">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Merchant</th>
+                <th>Phone</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Created By</th>
+                <th>Created</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div style="font-weight:600">Teezo Brand</div><div style="font-size:11px;color:var(--text3)">Vinay Kumar Jayswal</div></td>
+                <td>+91 98765 43210</td>
+                <td><span class="chip">Service</span></td>
+                <td>
+                  <div style="font-weight:600">₹14,160</div>
+                  <div style="font-size:11px;color:var(--text3)">Incl. GST</div>
+                </td>
+                <td>Archit M.</td>
+                <td style="color:var(--text2)">Jul 18, 3:45 PM</td>
+                <td style="color:var(--text2)">Jul 18, 4:45 PM</td>
+                <td><span class="badge badge-paid"><span class="badge-dot"></span>Paid</span></td>
+                <td><button class="action-btn">⋯</button></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">SoleSelect</div><div style="font-size:11px;color:var(--text3)">sole select</div></td>
+                <td>+91 87654 32109</td>
+                <td><span class="chip">Subscription</span></td>
+                <td>
+                  <div style="font-weight:600">₹23,600</div>
+                  <div style="font-size:11px;color:var(--text3)">Incl. GST</div>
+                </td>
+                <td>Priya S.</td>
+                <td style="color:var(--text2)">Jul 18, 2:12 PM</td>
+                <td style="color:var(--amber);font-weight:600">Expires 3:12 PM</td>
+                <td><span class="badge badge-otp"><span class="badge-dot"></span>OTP Verified</span></td>
+                <td><button class="action-btn">⋯</button></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Simpli Kurta</div><div style="font-size:11px;color:var(--text3)">Simplikurta</div></td>
+                <td>+91 76543 21098</td>
+                <td><span class="chip">Service</span></td>
+                <td>
+                  <div style="font-weight:600">₹8,260</div>
+                  <div style="font-size:11px;color:var(--text3)">Incl. GST</div>
+                </td>
+                <td>Archit M.</td>
+                <td style="color:var(--text2)">Jul 17, 11:30 AM</td>
+                <td style="color:var(--text2)">Jul 17, 12:30 PM</td>
+                <td><span class="badge badge-expired"><span class="badge-dot"></span>Expired</span></td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-outline btn-sm" onclick="showPage('create-step1')">Regenerate</button>
+                    <button class="action-btn">⋯</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Stufffactory</div><div style="font-size:11px;color:var(--text3)">The Stuff Factory</div></td>
+                <td>+91 65432 10987</td>
+                <td><span class="chip">Service</span></td>
+                <td>
+                  <div style="font-weight:600">₹5,900</div>
+                  <div style="font-size:11px;color:var(--text3)">Incl. GST</div>
+                </td>
+                <td>Ravi K.</td>
+                <td style="color:var(--text2)">Jul 17, 9:00 AM</td>
+                <td style="color:var(--text2)">Jul 17, 10:00 AM</td>
+                <td><span class="badge badge-notpaid"><span class="badge-dot"></span>Not Paid</span></td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-outline btn-sm" onclick="showPage('create-step1')">Regenerate</button>
+                    <button class="action-btn">⋯</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Presha</div><div style="font-size:11px;color:var(--text3)">Vijay Arora</div></td>
+                <td>+91 54321 09876</td>
+                <td><span class="chip">Subscription</span></td>
+                <td>
+                  <div style="font-weight:600">₹47,200</div>
+                  <div style="font-size:11px;color:var(--text3)">Incl. GST</div>
+                </td>
+                <td>Priya S.</td>
+                <td style="color:var(--text2)">Jul 16, 4:22 PM</td>
+                <td style="color:var(--text2)">Jul 16, 5:22 PM</td>
+                <td><span class="badge badge-paid"><span class="badge-dot"></span>Paid</span></td>
+                <td><button class="action-btn">⋯</button></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">SHUKLESHA</div><div style="font-size:11px;color:var(--text3)">SHUKLESHA</div></td>
+                <td>+91 43210 98765</td>
+                <td><span class="chip">Service</span></td>
+                <td>
+                  <div style="font-weight:600">₹3,540</div>
+                  <div style="font-size:11px;color:var(--text3)">Incl. GST</div>
+                </td>
+                <td>Archit M.</td>
+                <td style="color:var(--text2)">Jul 16, 2:05 PM</td>
+                <td style="color:var(--text2)">3 min ago</td>
+                <td><span class="badge badge-opened"><span class="badge-dot"></span>Opened</span></td>
+                <td><button class="action-btn">⋯</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" style="padding:12px 16px">
+          <span class="pag-info">1–10 of 142 items</span>
+          <div class="pag-btns">
+            <button class="pag-btn" disabled>‹</button>
+            <button class="pag-btn active">1</button>
+            <button class="pag-btn">2</button>
+            <button class="pag-btn">3</button>
+            <span style="font-size:12px;color:var(--text3);padding:0 4px">…</span>
+            <button class="pag-btn">15</button>
+            <button class="pag-btn">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: Create Step 1 — Phone + Type ── -->
+  <div class="page" id="page-create-step1">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-ghost btn-sm" onclick="showPage('payment-links')" style="padding:6px 8px">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="topbar-title">Create Payment Link</span>
+      </div>
+    </div>
+
+    <div style="padding:28px;max-width:720px">
+      <!-- Steps -->
+      <div class="step-flow">
+        <div class="step-item">
+          <div class="step-circle active">1</div>
+          <span class="step-label active">Merchant & Type</span>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle">2</div>
+          <span class="step-label">Line Items & Pricing</span>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle">3</div>
+          <span class="step-label">Review & Generate</span>
+          <div class="step-line"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <!-- Phone -->
+        <div class="form-section">
+          <div class="form-section-title">Merchant Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Merchant Phone Number</label>
+              <div class="input-prefix">
+                <span class="prefix-label">🇮🇳 +91</span>
+                <input type="text" placeholder="98765 43210" maxlength="10">
+              </div>
+              <span class="form-hint">A WhatsApp message with the payment link will be sent to this number.</span>
+              <div class="override-note">
+                <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 4v3M6 8.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                The merchant can override this number on the payment page (e.g. pay from accountant's number).
+              </div>
+            </div>
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Merchant / Brand Name <span style="color:var(--text3)">(optional)</span></label>
+              <input class="form-input" type="text" placeholder="e.g. Teezo Brand">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Company ID <span style="color:var(--text3)">(optional)</span></label>
+              <input class="form-input" type="text" placeholder="e.g. 4544944">
+            </div>
+          </div>
+        </div>
+
+        <!-- Link Type -->
+        <div class="form-section">
+          <div class="form-section-title">Link Type</div>
+          <div class="radio-cards">
+            <div class="radio-card selected" onclick="selectType('service', this)">
+              <input type="radio" name="link-type" value="service" checked>
+              <div class="radio-card-icon" style="background:#EFF6FF">
+                <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><path d="M3 5h14M3 10h10M3 15h7" stroke="#2563EB" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </div>
+              <div class="radio-card-title">Service Purchase</div>
+              <div class="radio-card-desc">One-off purchase of individual services (image generation, video, audiences, etc.)</div>
+            </div>
+            <div class="radio-card" onclick="selectType('subscription', this)">
+              <input type="radio" name="link-type" value="subscription">
+              <div class="radio-card-icon" style="background:#F5F3FF">
+                <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><path d="M4 10a6 6 0 0112 0" stroke="#6C5CE7" stroke-width="1.6" stroke-linecap="round"/><path d="M16 10a6 6 0 01-12 0" stroke="#6C5CE7" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2 3"/><path d="M10 7v6M7 10h6" stroke="#6C5CE7" stroke-width="1.4" stroke-linecap="round"/></svg>
+              </div>
+              <div class="radio-card-title">Subscription Purchase</div>
+              <div class="radio-card-desc">Activate or extend a Starter / Mid Tier / Enterprise plan for 1 or 3 months</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px">
+          <button class="btn btn-outline" onclick="showPage('payment-links')">Cancel</button>
+          <button class="btn btn-primary" onclick="showPage('create-step2-service')">
+            Continue
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: Create Step 2 — Service ── -->
+  <div class="page" id="page-create-step2-service">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-ghost btn-sm" onclick="showPage('create-step1')" style="padding:6px 8px">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="topbar-title">Create Payment Link — Service Purchase</span>
+      </div>
+    </div>
+
+    <div style="padding:28px;max-width:860px">
+      <!-- Steps -->
+      <div class="step-flow">
+        <div class="step-item">
+          <div class="step-circle done"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="step-label done">Merchant & Type</span>
+          <div class="step-line done"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle active">2</div>
+          <span class="step-label active">Line Items & Pricing</span>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle">3</div>
+          <span class="step-label">Review & Generate</span>
+          <div class="step-line"></div>
+        </div>
+      </div>
+
+      <!-- Merchant pill -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 16px">
+        <div style="width:36px;height:36px;border-radius:10px;background:var(--purple-light);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--purple)">T</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Teezo Brand</div>
+          <div style="font-size:12px;color:var(--text2)">+91 98765 43210 · Service Purchase</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('create-step1')" style="margin-left:auto;font-size:12px;color:var(--purple)">Edit</button>
+      </div>
+
+      <div class="card">
+        <div class="form-section">
+          <div class="form-section-title">Select Services</div>
+          <div class="alert alert-info">
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5v3.5M7 10v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <div>Select one or more services. Services with a quantity dimension (images, videos, audiences) show a quantity field. Recommended price is a reference — you can set any agreed price.</div>
+          </div>
+
+          <table class="service-table">
+            <thead>
+              <tr>
+                <th style="width:28px"></th>
+                <th>Service</th>
+                <th>Qty</th>
+                <th>Recommended Price</th>
+                <th>Agreed Price (₹)</th>
+                <th>Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Row 1 - checked -->
+              <tr id="svc-row-1">
+                <td><input type="checkbox" class="service-check" checked onchange="toggleServiceRow('svc-row-1', this)"></td>
+                <td>
+                  <div style="font-weight:600;font-size:13px">Image Generation</div>
+                  <div style="font-size:11px;color:var(--text3)">AI-powered product images</div>
+                </td>
+                <td><input type="number" value="500" min="1" style="width:70px" oninput="calcRow(1)"></td>
+                <td>
+                  <div class="recommended-price">₹3,000</div>
+                  <div style="font-size:10px;color:var(--text3)">@₹6/image</div>
+                </td>
+                <td><input type="number" id="agreed-1" value="3000" min="0" style="width:110px" oninput="calcRow(1)"></td>
+                <td id="total-1" style="font-weight:600">₹3,000</td>
+              </tr>
+              <!-- Row 2 - checked -->
+              <tr id="svc-row-2">
+                <td><input type="checkbox" class="service-check" checked onchange="toggleServiceRow('svc-row-2', this)"></td>
+                <td>
+                  <div style="font-weight:600;font-size:13px">Video Ads Generation</div>
+                  <div style="font-size:11px;color:var(--text3)">Short-form video ads</div>
+                </td>
+                <td><input type="number" value="10" min="1" style="width:70px" oninput="calcRow(2)"></td>
+                <td>
+                  <div class="recommended-price">₹5,000</div>
+                  <div style="font-size:10px;color:var(--text3)">@₹500/video</div>
+                </td>
+                <td><input type="number" id="agreed-2" value="5000" min="0" style="width:110px" oninput="calcRow(2)"></td>
+                <td id="total-2" style="font-weight:600">₹5,000</td>
+              </tr>
+              <!-- Row 3 - unchecked -->
+              <tr id="svc-row-3" style="opacity:.5">
+                <td><input type="checkbox" class="service-check" onchange="toggleServiceRow('svc-row-3', this)"></td>
+                <td>
+                  <div style="font-weight:600;font-size:13px">Audience Builder</div>
+                  <div style="font-size:11px;color:var(--text3)">Custom audience segments</div>
+                </td>
+                <td><input type="number" value="5" min="1" style="width:70px" disabled></td>
+                <td>
+                  <div class="recommended-price">₹2,500</div>
+                  <div style="font-size:10px;color:var(--text3)">@₹500/audience</div>
+                </td>
+                <td><input type="number" id="agreed-3" value="2500" min="0" style="width:110px" disabled></td>
+                <td id="total-3" style="font-weight:600;color:var(--text3)">—</td>
+              </tr>
+              <!-- Row 4 - unchecked, flat -->
+              <tr id="svc-row-4" style="opacity:.5">
+                <td><input type="checkbox" class="service-check" onchange="toggleServiceRow('svc-row-4', this)"></td>
+                <td>
+                  <div style="font-weight:600;font-size:13px">Competitor Analysis Report</div>
+                  <div style="font-size:11px;color:var(--text3)">Flat service — no quantity</div>
+                </td>
+                <td><input type="text" value="—" readonly style="width:70px;background:#F9FAFB;text-align:center" disabled></td>
+                <td>
+                  <div class="recommended-price">₹4,000</div>
+                  <div style="font-size:10px;color:var(--text3)">Flat fee</div>
+                </td>
+                <td><input type="number" id="agreed-4" value="4000" min="0" style="width:110px" disabled></td>
+                <td id="total-4" style="font-weight:600;color:var(--text3)">—</td>
+              </tr>
+              <!-- Row 5 -->
+              <tr id="svc-row-5" style="opacity:.5">
+                <td><input type="checkbox" class="service-check" onchange="toggleServiceRow('svc-row-5', this)"></td>
+                <td>
+                  <div style="font-weight:600;font-size:13px">Fox AI Credits</div>
+                  <div style="font-size:11px;color:var(--text3)">AI content generation credits</div>
+                </td>
+                <td><input type="number" value="1000" min="1" style="width:70px" disabled></td>
+                <td>
+                  <div class="recommended-price">₹2,000</div>
+                  <div style="font-size:10px;color:var(--text3)">@₹2/credit</div>
+                </td>
+                <td><input type="number" id="agreed-5" value="2000" min="0" style="width:110px" disabled></td>
+                <td id="total-5" style="font-weight:600;color:var(--text3)">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- GST -->
+        <div class="form-section">
+          <div class="form-section-title">GST Settings</div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Agreed price is GST…</label>
+              <div class="toggle-group">
+                <button class="toggle-opt active" onclick="setGst('exclusive', this)">Exclusive (add 18%)</button>
+                <button class="toggle-opt" onclick="setGst('inclusive', this)">Inclusive (back-calculate)</button>
+              </div>
+              <span class="form-hint">GST rate is fixed at 18%</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Price Summary</label>
+              <div class="gst-box">
+                <div class="gst-breakdown">
+                  <div class="gst-row"><span>Subtotal (agreed)</span><span id="gst-sub">₹8,000</span></div>
+                  <div class="gst-row"><span>GST @ 18%</span><span id="gst-amount">+ ₹1,440</span></div>
+                  <div class="gst-row total"><span>Merchant pays</span><span id="gst-total" style="color:var(--purple)">₹9,440</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn btn-outline" onclick="showPage('create-step1')">Back</button>
+          <button class="btn btn-primary" onclick="showPage('create-step3-service')">
+            Review & Generate
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: Create Step 2 — Subscription ── -->
+  <div class="page" id="page-create-step2-subscription">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-ghost btn-sm" onclick="showPage('create-step1')" style="padding:6px 8px">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="topbar-title">Create Payment Link — Subscription Purchase</span>
+      </div>
+    </div>
+
+    <div style="padding:28px;max-width:720px">
+      <div class="step-flow">
+        <div class="step-item">
+          <div class="step-circle done"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="step-label done">Merchant & Type</span>
+          <div class="step-line done"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle active">2</div>
+          <span class="step-label active">Line Items & Pricing</span>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle">3</div>
+          <span class="step-label">Review & Generate</span>
+          <div class="step-line"></div>
+        </div>
+      </div>
+
+      <!-- Merchant pill -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 16px">
+        <div style="width:36px;height:36px;border-radius:10px;background:var(--purple-light);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--purple)">T</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Teezo Brand</div>
+          <div style="font-size:12px;color:var(--text2)">+91 98765 43210 · Subscription Purchase</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('create-step1')" style="margin-left:auto;font-size:12px;color:var(--purple)">Edit</button>
+      </div>
+
+      <div class="card">
+        <div class="form-section">
+          <div class="form-section-title">Select Plan</div>
+          <div class="plan-grid">
+            <div class="plan-card" onclick="selectPlan(this)">
+              <div class="plan-tag">Entry</div>
+              <div class="plan-name">Starter</div>
+              <div class="plan-price">Base price ₹4,999/mo</div>
+            </div>
+            <div class="plan-card selected" onclick="selectPlan(this)">
+              <div class="plan-tag">Popular</div>
+              <div class="plan-name">Mid Tier</div>
+              <div class="plan-price">Base price ₹12,999/mo</div>
+            </div>
+            <div class="plan-card" onclick="selectPlan(this)">
+              <div class="plan-tag">Premium</div>
+              <div class="plan-name">Enterprise</div>
+              <div class="plan-price">Base price ₹24,999/mo</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Duration</div>
+          <div class="duration-opts">
+            <div class="dur-opt selected" onclick="selectDuration(this)">
+              <div class="dur-opt-label">1 Month</div>
+              <div class="dur-opt-sub">Standard monthly</div>
+            </div>
+            <div class="dur-opt" onclick="selectDuration(this)">
+              <div class="dur-opt-label">3 Months</div>
+              <div class="dur-opt-sub">Save ~10%</div>
+            </div>
+          </div>
+          <div class="alert alert-info" style="margin-top:14px;margin-bottom:0">
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5v3.5M7 10v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <div>If the merchant already has an active Mid Tier plan, the new duration will <strong>extend</strong> the existing subscription rather than replace it.</div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Pricing</div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Recommended Price</label>
+              <div class="input-prefix">
+                <span class="prefix-label">₹</span>
+                <input type="text" value="12,999" readonly style="color:var(--text3)">
+              </div>
+              <span class="form-hint">Reference from rate card — not enforced</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Agreed Price</label>
+              <div class="input-prefix">
+                <span class="prefix-label">₹</span>
+                <input type="number" placeholder="Enter agreed price" value="12000">
+              </div>
+              <span class="form-hint">Enter the price agreed with the merchant</span>
+            </div>
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Agreed price is GST…</label>
+              <div class="toggle-group">
+                <button class="toggle-opt active" onclick="setGstSub('exclusive', this)">Exclusive (add 18%)</button>
+                <button class="toggle-opt" onclick="setGstSub('inclusive', this)">Inclusive (back-calc)</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Price Summary</label>
+              <div class="gst-box">
+                <div class="gst-breakdown">
+                  <div class="gst-row"><span>Agreed price</span><span>₹12,000</span></div>
+                  <div class="gst-row"><span>GST @ 18%</span><span>+ ₹2,160</span></div>
+                  <div class="gst-row total"><span>Merchant pays</span><span style="color:var(--purple)">₹14,160</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn btn-outline" onclick="showPage('create-step1')">Back</button>
+          <button class="btn btn-primary" onclick="showPage('create-step3-subscription')">
+            Review & Generate
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: Create Step 3 — Review (Service) ── -->
+  <div class="page" id="page-create-step3-service">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-ghost btn-sm" onclick="showPage('create-step2-service')" style="padding:6px 8px">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="topbar-title">Review & Generate Link</span>
+      </div>
+    </div>
+
+    <div style="padding:28px;max-width:640px">
+      <div class="step-flow">
+        <div class="step-item">
+          <div class="step-circle done"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="step-label done">Merchant & Type</span>
+          <div class="step-line done"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle done"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="step-label done">Line Items & Pricing</span>
+          <div class="step-line done"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle active">3</div>
+          <span class="step-label active">Review & Generate</span>
+          <div class="step-line"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="review-section">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Merchant</div>
+          <div class="review-row"><span class="review-key">Brand</span><span class="review-val">Teezo Brand</span></div>
+          <div class="review-row"><span class="review-key">Phone</span><span class="review-val">+91 98765 43210</span></div>
+          <div class="review-row"><span class="review-key">Type</span><span class="review-val">Service Purchase</span></div>
+        </div>
+
+        <div class="review-section">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Services</div>
+          <div class="review-row">
+            <span class="review-key">Image Generation (500)</span>
+            <span class="review-val">₹3,000</span>
+          </div>
+          <div class="review-row">
+            <span class="review-key">Video Ads Generation (10)</span>
+            <span class="review-val">₹5,000</span>
+          </div>
+        </div>
+
+        <div class="review-section" style="background:#F8F9FF;border-color:#C7C2F7">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Payment Summary</div>
+          <div class="review-row"><span class="review-key">Subtotal</span><span class="review-val">₹8,000</span></div>
+          <div class="review-row"><span class="review-key">GST @ 18% (exclusive)</span><span class="review-val">₹1,440</span></div>
+          <div class="review-row" style="border:none;padding-top:10px">
+            <span style="font-weight:700;font-size:14px">Total Payable</span>
+            <span style="font-weight:700;font-size:18px;color:var(--purple)">₹9,440</span>
+          </div>
+        </div>
+
+        <div class="review-section">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Link Settings</div>
+          <div class="review-row"><span class="review-key">Valid for</span><span class="review-val">1 hour from generation</span></div>
+          <div class="review-row"><span class="review-key">Delivery</span><span class="review-val">WhatsApp to +91 98765 43210</span></div>
+          <div class="review-row" style="border:none"><span class="review-key">OTP required</span><span class="review-val" style="color:var(--green)">Yes — before payment</span></div>
+        </div>
+
+        <div class="alert alert-warn" style="margin:0 0 16px">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5v3.5M7 10v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <div>Once generated, this link is valid for <strong>exactly 1 hour</strong>. Share it with the merchant promptly.</div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn btn-outline" onclick="showPage('create-step2-service')">Back</button>
+          <button class="btn btn-primary" onclick="showPage('link-generated')" style="gap:8px">
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 7l4 4 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Generate & Send Link
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: Create Step 3 — Review (Subscription) ── -->
+  <div class="page" id="page-create-step3-subscription">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-ghost btn-sm" onclick="showPage('create-step2-subscription')" style="padding:6px 8px">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="topbar-title">Review & Generate Link</span>
+      </div>
+    </div>
+
+    <div style="padding:28px;max-width:640px">
+      <div class="step-flow">
+        <div class="step-item">
+          <div class="step-circle done"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="step-label done">Merchant & Type</span>
+          <div class="step-line done"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle done"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="step-label done">Line Items & Pricing</span>
+          <div class="step-line done"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle active">3</div>
+          <span class="step-label active">Review & Generate</span>
+          <div class="step-line"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="review-section">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Merchant</div>
+          <div class="review-row"><span class="review-key">Brand</span><span class="review-val">Teezo Brand</span></div>
+          <div class="review-row"><span class="review-key">Phone</span><span class="review-val">+91 98765 43210</span></div>
+          <div class="review-row"><span class="review-key">Type</span><span class="review-val">Subscription Purchase</span></div>
+        </div>
+
+        <div class="review-section">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Subscription</div>
+          <div class="review-row"><span class="review-key">Plan</span><span class="review-val" style="display:flex;align-items:center;gap:6px">Mid Tier <span class="badge badge-paid" style="font-size:10px;padding:2px 8px">Popular</span></span></div>
+          <div class="review-row"><span class="review-key">Duration</span><span class="review-val">1 Month</span></div>
+          <div class="review-row" style="border:none"><span class="review-key">On success</span><span class="review-val" style="color:var(--green)">Plan activates instantly</span></div>
+        </div>
+
+        <div class="review-section" style="background:#F8F9FF;border-color:#C7C2F7">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Payment Summary</div>
+          <div class="review-row"><span class="review-key">Agreed price</span><span class="review-val">₹12,000</span></div>
+          <div class="review-row"><span class="review-key">GST @ 18% (exclusive)</span><span class="review-val">₹2,160</span></div>
+          <div class="review-row" style="border:none;padding-top:10px">
+            <span style="font-weight:700;font-size:14px">Total Payable</span>
+            <span style="font-weight:700;font-size:18px;color:var(--purple)">₹14,160</span>
+          </div>
+        </div>
+
+        <div class="review-section">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Link Settings</div>
+          <div class="review-row"><span class="review-key">Valid for</span><span class="review-val">1 hour from generation</span></div>
+          <div class="review-row"><span class="review-key">Delivery</span><span class="review-val">WhatsApp to +91 98765 43210</span></div>
+          <div class="review-row" style="border:none"><span class="review-key">OTP required</span><span class="review-val" style="color:var(--green)">Yes — before payment</span></div>
+        </div>
+
+        <div class="alert alert-warn" style="margin:0 0 16px">
+          <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5v3.5M7 10v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <div>Once generated, this link is valid for <strong>exactly 1 hour</strong>. Share it with the merchant promptly.</div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn btn-outline" onclick="showPage('create-step2-subscription')">Back</button>
+          <button class="btn btn-primary" onclick="showPage('link-generated')" style="gap:8px">
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 7l4 4 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Generate & Send Link
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: Link Generated (Success) ── -->
+  <div class="page" id="page-link-generated">
+    <div class="topbar">
+      <span class="topbar-title">Payment Link Generated</span>
+    </div>
+
+    <div style="padding:28px;max-width:560px;margin:0 auto">
+      <div class="card" style="text-align:center;padding:36px 32px">
+        <div class="success-icon">
+          <svg width="28" height="28" fill="none" viewBox="0 0 28 28"><path d="M5 14l6 6 12-12" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Link Generated & Sent!</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:20px">A WhatsApp message has been sent to <strong>+91 98765 43210</strong>. The merchant can click the link to view and complete payment.</div>
+
+        <div class="link-box">
+          <svg width="16" height="16" fill="none" viewBox="0 0 16 16" style="flex-shrink:0;color:var(--purple)"><path d="M6.5 9.5l-1.5 1.5a2.5 2.5 0 01-3.5-3.5L4 5l1 1M9.5 6.5l1.5-1.5a2.5 2.5 0 013.5 3.5L12 10l-1-1M6 10l4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <code>https://pay.fastrrads.com/p/TZB8-xK3m-9P2q</code>
+          <button onclick="copyLink()" style="background:var(--purple-light);border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--purple);cursor:pointer;white-space:nowrap">Copy</button>
+        </div>
+
+        <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:24px">
+          <div class="expiry-badge">
+            <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M6 4v2.5l1.5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Expires in 1 hour (3:45 PM today)
+          </div>
+          <div style="display:inline-flex;align-items:center;gap:5px;background:var(--green-bg);color:#065F46;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">
+            <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M3 6l2.5 2.5 4-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            WhatsApp Sent
+          </div>
+        </div>
+
+        <!-- Summary chip row -->
+        <div style="background:#FAFAFA;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:left;margin-bottom:24px">
+          <div class="review-row"><span class="review-key">Merchant</span><span class="review-val">Teezo Brand (+91 98765 43210)</span></div>
+          <div class="review-row"><span class="review-key">Type</span><span class="review-val">Service Purchase</span></div>
+          <div class="review-row"><span class="review-key">Services</span><span class="review-val">Image Gen (500), Video Ads (10)</span></div>
+          <div class="review-row" style="border:none"><span class="review-key">Total Payable</span><span class="review-val" style="font-weight:700;color:var(--purple)">₹9,440</span></div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-outline" onclick="showPage('payment-links')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            View All Links
+          </button>
+          <button class="btn btn-primary" onclick="showPage('create-step1')">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Create Another Link
+          </button>
+        </div>
+      </div>
+
+      <!-- Link timeline (live tracking preview) -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Link Activity</div>
+            <div class="card-sub">Live updates as the merchant interacts</div>
+          </div>
+          <span class="badge badge-created"><span class="badge-dot"></span>Sent</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          <!-- Event 1 -->
+          <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;flex-direction:column;align-items:center;padding-top:2px">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
+              <div style="flex:1;width:1px;background:var(--border);margin-top:4px"></div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:600;color:var(--text)">Link Generated</div>
+              <div style="font-size:11px;color:var(--text3)">2:45 PM — Today</div>
+            </div>
+          </div>
+          <!-- Event 2 -->
+          <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;flex-direction:column;align-items:center;padding-top:2px">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+              <div style="flex:1;width:1px;background:var(--border);margin-top:4px"></div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:600;color:var(--text)">WhatsApp Sent</div>
+              <div style="font-size:11px;color:var(--text3)">2:45 PM — Today</div>
+            </div>
+          </div>
+          <!-- Pending events -->
+          <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);opacity:.4">
+            <div style="display:flex;flex-direction:column;align-items:center;padding-top:2px">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--border2);border:2px solid var(--border2);flex-shrink:0"></div>
+              <div style="flex:1;width:1px;background:var(--border);margin-top:4px"></div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500;color:var(--text2)">Merchant Opens Link</div>
+              <div style="font-size:11px;color:var(--text3)">Waiting…</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);opacity:.4">
+            <div style="display:flex;flex-direction:column;align-items:center;padding-top:2px">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--border2);flex-shrink:0"></div>
+              <div style="flex:1;width:1px;background:var(--border);margin-top:4px"></div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500;color:var(--text2)">OTP Verified</div>
+              <div style="font-size:11px;color:var(--text3)">Waiting…</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;padding:10px 0;opacity:.4">
+            <div style="padding-top:2px">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--border2);flex-shrink:0"></div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500;color:var(--text2)">Payment Completed</div>
+              <div style="font-size:11px;color:var(--text3)">Waiting…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: Placeholder ── -->
+  <div class="page" id="page-dashboard">
+    <div class="topbar">
+      <span class="topbar-title">Dashboard</span>
+    </div>
+    <div style="padding:28px">
+      <div class="empty-state">
+        <div class="empty-state-icon"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2" fill="#D1D5DB"/><rect x="13" y="3" width="8" height="8" rx="2" fill="#D1D5DB"/><rect x="3" y="13" width="8" height="8" rx="2" fill="#D1D5DB" opacity=".5"/><rect x="13" y="13" width="8" height="8" rx="2" fill="#D1D5DB" opacity=".5"/></svg></div>
+        <div class="empty-state-title">This page is a placeholder</div>
+        <div class="empty-state-sub">Use the screen switcher (bottom right) to navigate the Payment Links flow.</div>
+        <button class="btn btn-primary" onclick="showPage('payment-links')">Go to Payment Links</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── SCREEN SWITCHER (prototype nav) ── -->
+<div class="screen-nav">
+  <div class="screen-nav-label">Screen Switcher</div>
+  <button onclick="showPage('payment-links')" class="active" id="nav-payment-links">1. Payment Links List</button>
+  <button onclick="showPage('create-step1')" id="nav-create-step1">2. Create — Step 1</button>
+  <button onclick="showPage('create-step2-service')" id="nav-create-step2-service">3a. Step 2 (Service)</button>
+  <button onclick="showPage('create-step2-subscription')" id="nav-create-step2-subscription">3b. Step 2 (Subscription)</button>
+  <button onclick="showPage('create-step3-service')" id="nav-create-step3-service">4a. Step 3 Review (Service)</button>
+  <button onclick="showPage('create-step3-subscription')" id="nav-create-step3-subscription">4b. Step 3 Review (Sub)</button>
+  <button onclick="showPage('link-generated')" id="nav-link-generated">5. Link Generated</button>
+</div>
+
+<script>
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+
+  // Update sidebar active state
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  if (['payment-links','create-step1','create-step2-service','create-step2-subscription','create-step3-service','create-step3-subscription','link-generated'].includes(id)) {
+    document.querySelector('.sb-item[onclick*="payment-links"]').classList.add('active');
+  }
+
+  // Update screen nav
+  document.querySelectorAll('.screen-nav button').forEach(b => b.classList.remove('active'));
+  const navBtn = document.getElementById('nav-' + id);
+  if (navBtn) navBtn.classList.add('active');
+
+  window.scrollTo(0,0);
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.body.classList.toggle('collapsed');
+}
+
+function selectType(type, el) {
+  document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  // Wire continue button based on type
+  const btn = el.closest('.card').querySelector('.btn-primary');
+  btn.onclick = () => showPage(type === 'service' ? 'create-step2-service' : 'create-step2-subscription');
+}
+
+function selectPlan(el) {
+  document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectDuration(el) {
+  document.querySelectorAll('.dur-opt').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function setGst(mode, btn) {
+  btn.closest('.toggle-group').querySelectorAll('.toggle-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const sub = parseFloat(document.getElementById('gst-sub').textContent.replace(/[₹,]/g,'')) || 8000;
+  if (mode === 'exclusive') {
+    document.getElementById('gst-amount').textContent = '+ ₹' + (sub * 0.18).toLocaleString('en-IN');
+    document.getElementById('gst-total').textContent = '₹' + (sub * 1.18).toLocaleString('en-IN');
+  } else {
+    const base = sub / 1.18;
+    document.getElementById('gst-amount').textContent = '₹' + (sub - base).toFixed(0) + ' (included)';
+    document.getElementById('gst-total').textContent = '₹' + sub.toLocaleString('en-IN');
+  }
+}
+
+function setGstSub(mode, btn) {
+  btn.closest('.toggle-group').querySelectorAll('.toggle-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function toggleServiceRow(rowId, checkbox) {
+  const row = document.getElementById(rowId);
+  const inputs = row.querySelectorAll('input:not([type=checkbox])');
+  inputs.forEach(inp => {
+    inp.disabled = !checkbox.checked;
+  });
+  row.style.opacity = checkbox.checked ? '1' : '0.5';
+  if (!checkbox.checked) {
+    const n = rowId.split('-')[2];
+    document.getElementById('total-' + n).textContent = '—';
+    document.getElementById('total-' + n).style.color = 'var(--text3)';
+  } else {
+    calcRow(rowId.split('-')[2]);
+  }
+  updateGstSummary();
+}
+
+function calcRow(n) {
+  const agreedEl = document.getElementById('agreed-' + n);
+  if (!agreedEl || agreedEl.disabled) return;
+  const val = parseFloat(agreedEl.value) || 0;
+  document.getElementById('total-' + n).textContent = '₹' + val.toLocaleString('en-IN');
+  document.getElementById('total-' + n).style.color = 'var(--text)';
+  updateGstSummary();
+}
+
+function updateGstSummary() {
+  let total = 0;
+  [1,2,3,4,5].forEach(n => {
+    const el = document.getElementById('agreed-' + n);
+    const totalEl = document.getElementById('total-' + n);
+    if (el && !el.disabled && totalEl && totalEl.textContent !== '—') {
+      total += parseFloat(el.value) || 0;
+    }
+  });
+  document.getElementById('gst-sub').textContent = '₹' + total.toLocaleString('en-IN');
+  const gst = Math.round(total * 0.18);
+  document.getElementById('gst-amount').textContent = '+ ₹' + gst.toLocaleString('en-IN');
+  document.getElementById('gst-total').textContent = '₹' + (total + gst).toLocaleString('en-IN');
+}
+
+function copyLink() {
+  const link = 'https://pay.fastrrads.com/p/TZB8-xK3m-9P2q';
+  if (navigator.clipboard) navigator.clipboard.writeText(link);
+  const btn = event.target;
+  btn.textContent = 'Copied!';
+  btn.style.background = 'var(--green-bg)';
+  btn.style.color = 'var(--green)';
+  setTimeout(() => { btn.textContent = 'Copy'; btn.style.background = ''; btn.style.color = ''; }, 2000);
+}
+</script>
+</body>
+</html>
