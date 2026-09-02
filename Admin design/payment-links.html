@@ -1351,6 +1351,270 @@ tr:hover td{background:#FAFAFA}
     </div>
   </div>
 
+  <!-- ── PAGE: WhatsApp Template ── -->
+  <div class="page" id="page-whatsapp-template">
+    <div class="topbar">
+      <span class="topbar-title">WhatsApp Message Template</span>
+      <div class="topbar-right">
+        <button class="btn btn-outline btn-sm" onclick="copyTemplate()">
+          <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 4V2.5A1.5 1.5 0 006.5 1h-4A1.5 1.5 0 001 2.5v4A1.5 1.5 0 002.5 8H4" stroke="currentColor" stroke-width="1.3"/></svg>
+          Copy Template Text
+        </button>
+      </div>
+    </div>
+
+    <div style="padding:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px">
+
+      <!-- LEFT: Template spec -->
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header" style="margin-bottom:12px">
+            <div>
+              <div class="card-title">Template Definition</div>
+              <div class="card-sub">Submit this to Meta WhatsApp Business API for approval</div>
+            </div>
+            <span class="badge badge-paid"><span class="badge-dot"></span>Approved</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <!-- Meta info -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group">
+                <div class="form-label">Template Name</div>
+                <div style="font-family:'Courier New',monospace;font-size:12px;background:#F9FAFB;border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text)">payment_link_v2</div>
+              </div>
+              <div class="form-group">
+                <div class="form-label">Category</div>
+                <div style="font-family:'Courier New',monospace;font-size:12px;background:#F9FAFB;border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text)">UTILITY</div>
+              </div>
+              <div class="form-group">
+                <div class="form-label">Language</div>
+                <div style="font-family:'Courier New',monospace;font-size:12px;background:#F9FAFB;border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text)">en_IN</div>
+              </div>
+              <div class="form-group">
+                <div class="form-label">Namespace</div>
+                <div style="font-family:'Courier New',monospace;font-size:12px;background:#F9FAFB;border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text)">fastrrads_payments</div>
+              </div>
+            </div>
+
+            <hr style="border:none;border-top:1px solid var(--border)">
+
+            <!-- Header -->
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Header — TEXT</div>
+              <div style="font-family:'Courier New',monospace;font-size:13px;background:#F8F9FF;border:1.5px solid #C7C2F7;border-radius:8px;padding:10px 14px;color:var(--purple);font-weight:600">
+                Your payment link is ready 🔗
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Body</div>
+              <div id="template-body-text" style="font-family:'Courier New',monospace;font-size:12px;line-height:1.7;background:#F9FAFB;border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);white-space:pre-wrap">Hi {{1}},
+
+Your Fastrr Ads payment link is ready.
+
+*What you're paying for:*
+{{2}}
+
+*Amount payable:* ₹{{3}} (incl. GST)
+
+Tap the button below to complete payment. You'll need to verify a one-time OTP first.
+
+⏱ This link expires in 1 hour.</div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
+                <div class="chip">{{1}} Merchant first name</div>
+                <div class="chip">{{2}} Line items summary</div>
+                <div class="chip">{{3}} Total payable amount</div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Footer</div>
+              <div style="font-family:'Courier New',monospace;font-size:12px;background:#F9FAFB;border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text2)">Need help? Reply HELP or call your sales contact.</div>
+            </div>
+
+            <!-- Button -->
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Button — URL (Call to Action)</div>
+              <div style="background:#F9FAFB;border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+                <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px">Pay Now</div>
+                <div style="font-family:'Courier New',monospace;font-size:11px;color:var(--text3)">https://pay.fastrrads.com/p/{{4}}</div>
+                <div class="chip" style="margin-top:6px">{{4}} Unique link token</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Variable mapping -->
+        <div class="card">
+          <div class="card-header" style="margin-bottom:12px">
+            <div class="card-title">Variable Mapping</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Variable</th>
+                <th style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Source</th>
+                <th style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border)"><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">{{1}}</code></td>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)">merchant_name (first word)</td>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">Vinay</td>
+              </tr>
+              <tr>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border)"><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">{{2}}</code></td>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)">link_line_items joined with newline</td>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">• Image Gen × 500<br>• Video Ads × 10</td>
+              </tr>
+              <tr>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border)"><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">{{3}}</code></td>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)">payment_links.amount_total</td>
+                <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">9,440</td>
+              </tr>
+              <tr>
+                <td style="padding:9px 12px"><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">{{4}}</code></td>
+                <td style="padding:9px 12px;font-size:12px;color:var(--text2)">payment_links.link_id (short token)</td>
+                <td style="padding:9px 12px;font-size:12px;color:var(--text)">TZB8-xK3m-9P2q</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RIGHT: Live preview -->
+      <div>
+        <!-- Toggle between variants -->
+        <div style="margin-bottom:16px">
+          <div class="form-label" style="margin-bottom:8px">Preview variant</div>
+          <div class="toggle-group" style="max-width:320px">
+            <button class="toggle-opt active" onclick="switchVariant('service', this)">Service Purchase</button>
+            <button class="toggle-opt" onclick="switchVariant('subscription', this)">Subscription</button>
+          </div>
+        </div>
+
+        <!-- Phone mockup -->
+        <div style="display:flex;justify-content:center">
+          <div style="width:320px">
+            <!-- Phone shell -->
+            <div style="background:#1A1A2E;border-radius:40px;padding:12px;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+              <!-- Status bar -->
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 8px;color:#fff;font-size:11px">
+                <span>9:41</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <svg width="12" height="10" fill="white" viewBox="0 0 12 10"><rect x="0" y="4" width="2" height="6" rx=".5"/><rect x="3" y="2.5" width="2" height="7.5" rx=".5"/><rect x="6" y="1" width="2" height="9" rx=".5"/><rect x="9" y="0" width="2" height="10" rx=".5"/></svg>
+                  <svg width="14" height="10" fill="white" viewBox="0 0 14 10"><path d="M7 2.5C9.2 2.5 11.2 3.4 12.6 4.9L14 3.4C12.2 1.3 9.7 0 7 0S1.8 1.3 0 3.4l1.4 1.5C2.8 3.4 4.8 2.5 7 2.5z" opacity=".5"/><path d="M7 5c1.4 0 2.7.6 3.6 1.5L12 5.1C10.8 3.8 9 3 7 3S3.2 3.8 2 5.1l1.4 1.4C4.3 5.6 5.6 5 7 5z"/><circle cx="7" cy="8.5" r="1.5"/></svg>
+                  <svg width="22" height="10" fill="none" viewBox="0 0 22 10"><rect x="0" y="1" width="18" height="8" rx="2" stroke="white" stroke-width="1"/><rect x="1" y="2" width="12" height="6" rx="1" fill="white"/><path d="M19.5 3.5v3a1.5 1.5 0 000-3z" fill="white" opacity=".5"/></svg>
+                </div>
+              </div>
+
+              <!-- WA screen -->
+              <div style="background:#ECE5DD;border-radius:28px;overflow:hidden">
+                <!-- WA header -->
+                <div style="background:#075E54;padding:10px 14px;display:flex;align-items:center;gap:10px">
+                  <div style="width:34px;height:34px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <svg width="18" height="18" fill="white" viewBox="0 0 18 18"><path d="M9 1C4.6 1 1 4.6 1 9c0 1.4.4 2.8 1 4L1 17l4.2-1.1C6.5 16.6 7.7 17 9 17c4.4 0 8-3.6 8-8S13.4 1 9 1z"/></svg>
+                  </div>
+                  <div>
+                    <div style="color:white;font-size:13px;font-weight:600">Fastrr Ads</div>
+                    <div style="color:rgba(255,255,255,.7);font-size:10px">Business Account · Verified ✓</div>
+                  </div>
+                </div>
+
+                <!-- Chat area -->
+                <div style="padding:12px 10px;min-height:440px;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect width=%22100%22 height=%22100%22 fill=%22%23ECE5DD%22/><circle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22none%22 stroke=%22%23D5CBC2%22 stroke-width=%22.4%22 opacity=%22.3%22/></svg>')">
+
+                  <!-- Date chip -->
+                  <div style="text-align:center;margin-bottom:10px">
+                    <span style="background:rgba(0,0,0,.12);color:#555;font-size:10px;padding:3px 10px;border-radius:10px">TODAY</span>
+                  </div>
+
+                  <!-- WA message bubble -->
+                  <div style="max-width:88%;margin-left:auto">
+                    <div style="background:white;border-radius:12px 2px 12px 12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.12)">
+
+                      <!-- Header -->
+                      <div style="background:#075E54;padding:10px 12px">
+                        <div style="color:white;font-size:13px;font-weight:600" id="wa-header">Your payment link is ready 🔗</div>
+                      </div>
+
+                      <!-- Body -->
+                      <div style="padding:10px 12px">
+                        <div id="wa-body" style="font-size:12px;line-height:1.6;color:#111;white-space:pre-wrap">Hi <b>Vinay</b>,
+
+Your Fastrr Ads payment link is ready.
+
+<b>What you're paying for:</b>
+• Image Gen × 500
+• Video Ads × 10
+
+<b>Amount payable:</b> ₹9,440 (incl. GST)
+
+Tap the button below to complete payment. You'll need to verify a one-time OTP first.
+
+⏱ This link expires in 1 hour.</div>
+                      </div>
+
+                      <!-- Footer -->
+                      <div style="padding:4px 12px 8px;border-top:1px solid #f0f0f0">
+                        <div style="font-size:10px;color:#888">Need help? Reply HELP or call your sales contact.</div>
+                      </div>
+
+                      <!-- CTA Button -->
+                      <div style="border-top:1px solid #f0f0f0">
+                        <div style="padding:10px 12px;text-align:center;color:#00A5F4;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px">
+                          <svg width="13" height="13" fill="none" viewBox="0 0 13 13"><path d="M6.5 1l5.5 5.5-5.5 5.5M1 6.5h11" stroke="#00A5F4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                          Pay Now
+                        </div>
+                      </div>
+
+                      <!-- Timestamp -->
+                      <div style="padding:2px 10px 8px;text-align:right">
+                        <span style="font-size:10px;color:#aaa">2:45 PM ✓✓</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="card" style="margin-top:20px">
+          <div class="card-title" style="margin-bottom:10px">Implementation Notes</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;gap:8px;font-size:12px">
+              <span style="color:var(--green);font-weight:700;flex-shrink:0">✓</span>
+              <span><strong>Category: UTILITY</strong> — not MARKETING, so it reaches users even if they haven't messaged first (within 24-hr window or with opt-in).</span>
+            </div>
+            <div style="display:flex;gap:8px;font-size:12px">
+              <span style="color:var(--green);font-weight:700;flex-shrink:0">✓</span>
+              <span><strong>Single CTA button</strong> with dynamic URL — the link token is injected per message, not hardcoded in the template.</span>
+            </div>
+            <div style="display:flex;gap:8px;font-size:12px">
+              <span style="color:var(--amber);font-weight:700;flex-shrink:0">!</span>
+              <span><strong>{{2}} line items</strong> max length is ~160 chars in WhatsApp. Truncate to "Service A, Service B + 2 more" if the list is long.</span>
+            </div>
+            <div style="display:flex;gap:8px;font-size:12px">
+              <span style="color:var(--amber);font-weight:700;flex-shrink:0">!</span>
+              <span><strong>Subscription variant:</strong> swap {{2}} to "Mid Tier Plan · 1 Month" — same template, different variable values.</span>
+            </div>
+            <div style="display:flex;gap:8px;font-size:12px">
+              <span style="color:var(--text3);font-weight:700;flex-shrink:0">i</span>
+              <span>Template approval typically takes 24–48 hrs on Meta. Submit via <strong>WhatsApp Manager → Message Templates</strong>.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── PAGE: Placeholder ── -->
   <div class="page" id="page-dashboard">
     <div class="topbar">
@@ -1378,6 +1642,7 @@ tr:hover td{background:#FAFAFA}
   <button onclick="showPage('create-step3-service')" id="nav-create-step3-service">4a. Step 3 Review (Service)</button>
   <button onclick="showPage('create-step3-subscription')" id="nav-create-step3-subscription">4b. Step 3 Review (Sub)</button>
   <button onclick="showPage('link-generated')" id="nav-link-generated">5. Link Generated</button>
+  <button onclick="showPage('whatsapp-template')" id="nav-whatsapp-template">6. WhatsApp Template</button>
 </div>
 
 <script>
@@ -1481,6 +1746,53 @@ function updateGstSummary() {
   const gst = Math.round(total * 0.18);
   document.getElementById('gst-amount').textContent = '+ ₹' + gst.toLocaleString('en-IN');
   document.getElementById('gst-total').textContent = '₹' + (total + gst).toLocaleString('en-IN');
+}
+
+function switchVariant(type, btn) {
+  btn.closest('.toggle-group').querySelectorAll('.toggle-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const body = document.getElementById('wa-body');
+  if (type === 'service') {
+    body.innerHTML = 'Hi <b>Vinay</b>,\n\nYour Fastrr Ads payment link is ready.\n\n<b>What you\'re paying for:</b>\n• Image Gen × 500\n• Video Ads × 10\n\n<b>Amount payable:</b> ₹9,440 (incl. GST)\n\nTap the button below to complete payment. You\'ll need to verify a one-time OTP first.\n\n⏱ This link expires in 1 hour.';
+  } else {
+    body.innerHTML = 'Hi <b>Vinay</b>,\n\nYour Fastrr Ads payment link is ready.\n\n<b>What you\'re paying for:</b>\n• Mid Tier Plan · 1 Month\n\n<b>Amount payable:</b> ₹14,160 (incl. GST)\n\nTap the button below to complete payment. You\'ll need to verify a one-time OTP first.\n\n⏱ This link expires in 1 hour.';
+  }
+}
+
+function copyTemplate() {
+  const text = `Template name: payment_link_v2
+Category: UTILITY | Language: en_IN
+
+HEADER: Your payment link is ready 🔗
+
+BODY:
+Hi {{1}},
+
+Your Fastrr Ads payment link is ready.
+
+*What you're paying for:*
+{{2}}
+
+*Amount payable:* ₹{{3}} (incl. GST)
+
+Tap the button below to complete payment. You'll need to verify a one-time OTP first.
+
+⏱ This link expires in 1 hour.
+
+FOOTER: Need help? Reply HELP or call your sales contact.
+
+BUTTON (URL): Pay Now → https://pay.fastrrads.com/p/{{4}}
+
+Variables:
+{{1}} = Merchant first name
+{{2}} = Line items (e.g. "• Image Gen × 500\n• Video Ads × 10")
+{{3}} = Total payable amount
+{{4}} = Unique link token`;
+  if (navigator.clipboard) navigator.clipboard.writeText(text);
+  const btn = event.target;
+  const orig = btn.innerHTML;
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.innerHTML = orig; }, 2000);
 }
 
 function copyLink() {
