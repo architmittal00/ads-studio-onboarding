@@ -305,6 +305,11 @@ tr:hover td{background:#FAFAFA}
 .plan-tag{display:inline-block;background:var(--purple-light);color:var(--purple);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;margin-bottom:8px}
 
 .duration-opts{display:flex;gap:10px;margin-top:8px}
+.disc-dur-opt{
+  padding:7px 14px;border-radius:8px;border:2px solid var(--border2);
+  font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;
+}
+.disc-dur-opt.selected{border-color:var(--purple);background:var(--purple-light);color:var(--purple);font-weight:600}
 .dur-opt{
   flex:1;border:2px solid var(--border);border-radius:8px;padding:10px 14px;
   cursor:pointer;text-align:center;transition:all .15s;
@@ -1003,18 +1008,67 @@ tr:hover td{background:#FAFAFA}
         </div>
 
         <div class="form-section">
-          <div class="form-section-title">Duration</div>
-          <div class="duration-opts">
-            <div class="dur-opt selected" onclick="selectDuration(this)">
+          <div class="form-section-title">Duration & Payment Type</div>
+          <div class="duration-opts" id="dur-opts-row">
+            <div class="dur-opt selected" id="dur-1m" onclick="selectDuration('1m', this)">
               <div class="dur-opt-label">1 Month</div>
-              <div class="dur-opt-sub">Standard monthly</div>
+              <div class="dur-opt-sub">Recurring via UPI mandate</div>
             </div>
-            <div class="dur-opt" onclick="selectDuration(this)">
+            <div class="dur-opt" id="dur-3m" onclick="selectDuration('3m', this)">
               <div class="dur-opt-label">3 Months</div>
-              <div class="dur-opt-sub">Save ~10%</div>
+              <div class="dur-opt-sub">One-time payment</div>
             </div>
           </div>
-          <div class="alert alert-info" style="margin-top:14px;margin-bottom:0">
+
+          <!-- Payment type — only shown for 1 month -->
+          <div id="payment-type-section" style="margin-top:16px">
+            <div class="form-label" style="margin-bottom:8px">Payment type</div>
+            <div class="radio-cards" style="gap:10px">
+              <div class="radio-card selected" id="pt-recurring" onclick="selectPaymentType('recurring')">
+                <input type="radio" name="payment-type" value="recurring" checked>
+                <div class="radio-card-icon" style="background:#F0FDF4">
+                  <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><path d="M4 10a6 6 0 0111.2-3M16 10a6 6 0 01-11.2 3" stroke="#10B981" stroke-width="1.6" stroke-linecap="round"/><path d="M15.5 7l.5 3-3-.5M4.5 13L4 10l3 .5" stroke="#10B981" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="radio-card-title">Recurring (UPI Mandate)</div>
+                <div class="radio-card-desc">Auto-debit every month. Merchant approves mandate once — no manual renewal needed.</div>
+              </div>
+              <div class="radio-card" id="pt-onetime" onclick="selectPaymentType('onetime')">
+                <input type="radio" name="payment-type" value="onetime">
+                <div class="radio-card-icon" style="background:#EFF6FF">
+                  <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><rect x="3" y="5" width="14" height="11" rx="2" stroke="#3B82F6" stroke-width="1.6"/><path d="M3 9h14M7 13h2" stroke="#3B82F6" stroke-width="1.4" stroke-linecap="round"/></svg>
+                </div>
+                <div class="radio-card-title">One-time Payment</div>
+                <div class="radio-card-desc">Single charge for this month only. Merchant will need a new link to renew.</div>
+              </div>
+            </div>
+
+            <!-- Discount duration — shown when agreed < recommended and recurring selected -->
+            <div id="discount-duration-section" style="margin-top:16px">
+              <div class="form-label" style="margin-bottom:4px">Discounted price applies for</div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Since you're offering a discount, set how long the reduced rate should run before reverting to the standard price via UPI mandate.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap" id="discount-dur-opts">
+                <div class="disc-dur-opt selected" onclick="selectDiscountDur(this)">1 month</div>
+                <div class="disc-dur-opt" onclick="selectDiscountDur(this)">3 months</div>
+                <div class="disc-dur-opt" onclick="selectDiscountDur(this)">6 months</div>
+                <div class="disc-dur-opt" onclick="selectDiscountDur(this)">12 months</div>
+                <div class="disc-dur-opt" onclick="selectDiscountDur(this)">Always</div>
+              </div>
+              <div class="alert alert-info" style="margin-top:12px;margin-bottom:0">
+                <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5v3.5M7 10v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                <div>After the discount period ends, the UPI mandate will auto-debit the <strong>standard price (₹12,999 + GST)</strong> each month going forward.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3-month note (one-time, no recurring) -->
+          <div id="threemonth-note" style="display:none;margin-top:14px">
+            <div class="alert alert-info" style="margin-bottom:0">
+              <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5v3.5M7 10v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <div>3-month packs are always a <strong>one-time payment</strong> — no UPI mandate is set up. If you're offering a discounted rate, it applies to this single charge only.</div>
+            </div>
+          </div>
+
+          <div class="alert alert-info" style="margin-top:14px;margin-bottom:0" id="extend-note">
             <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 5v3.5M7 10v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
             <div>If the merchant already has an active Mid Tier plan, the new duration will <strong>extend</strong> the existing subscription rather than replace it.</div>
           </div>
@@ -1032,12 +1086,12 @@ tr:hover td{background:#FAFAFA}
               <span class="form-hint">Reference from rate card — not enforced</span>
             </div>
             <div class="form-group">
-              <label class="form-label">Agreed Price</label>
+              <label class="form-label">Agreed Price <span id="discount-tag" style="display:none;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;margin-left:4px">Discounted</span></label>
               <div class="input-prefix">
                 <span class="prefix-label">₹</span>
-                <input type="number" placeholder="Enter agreed price" value="12000">
+                <input type="number" id="sub-agreed-price" placeholder="Enter agreed price" value="12000" oninput="checkSubDiscount()">
               </div>
-              <span class="form-hint">Enter the price agreed with the merchant</span>
+              <span class="form-hint" id="sub-price-hint">Enter the price agreed with the merchant</span>
             </div>
           </div>
           <div class="form-row cols-2">
@@ -1676,6 +1730,50 @@ function selectType(type, el) {
   // Wire continue button based on type
   const btn = el.closest('.card').querySelector('.btn-primary');
   btn.onclick = () => showPage(type === 'service' ? 'create-step2-service' : 'create-step2-subscription');
+}
+
+function selectDuration(dur, el) {
+  document.querySelectorAll('.dur-opt').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const is1m = dur === '1m';
+  document.getElementById('payment-type-section').style.display = is1m ? 'block' : 'none';
+  document.getElementById('threemonth-note').style.display = is1m ? 'none' : 'block';
+  document.getElementById('extend-note').style.display = 'block';
+  // re-check discount visibility in case price was already filled
+  checkSubDiscount();
+}
+
+function selectPaymentType(type) {
+  document.querySelectorAll('#payment-type-section .radio-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('pt-' + type).classList.add('selected');
+  document.getElementById('pt-' + type).querySelector('input').checked = true;
+  checkSubDiscount();
+}
+
+function selectDiscountDur(el) {
+  document.querySelectorAll('.disc-dur-opt').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function checkSubDiscount() {
+  const agreed = parseFloat(document.getElementById('sub-agreed-price').value) || 0;
+  const recommended = 12999;
+  const isDiscounted = agreed > 0 && agreed < recommended;
+  const is1m = document.getElementById('dur-1m').classList.contains('selected');
+  const isRecurring = document.getElementById('pt-recurring')?.classList.contains('selected');
+  const discSection = document.getElementById('discount-duration-section');
+  const discTag = document.getElementById('discount-tag');
+  const hint = document.getElementById('sub-price-hint');
+
+  if (discTag) discTag.style.display = isDiscounted ? 'inline' : 'none';
+  if (hint) hint.textContent = isDiscounted
+    ? `₹${(recommended - agreed).toLocaleString('en-IN')} below recommended — set discount duration below`
+    : 'Enter the price agreed with the merchant';
+
+  // Show discount-duration only for 1m + recurring + discounted
+  if (discSection) {
+    discSection.style.display = (is1m && isRecurring && isDiscounted) ? 'block' : 'none';
+  }
 }
 
 function selectPlan(el) {
