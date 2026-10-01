@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plans & Pricing · Shiprocket Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --t1:#fff;--t2:rgba(255,255,255,.5);--t3:rgba(255,255,255,.28);
+  --purple:#AF46FD;--pink:#F4349D;
+  --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --grad-btn:linear-gradient(90deg,#AF46FD,#F4349D);
+  --green:#22C55E;--amber:#F59E0B;
+}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 45% at 50% -5%,rgba(175,70,253,.10) 0%,transparent 65%);pointer-events:none;z-index:0}
+
+.page{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 24px 28px;position:relative;z-index:1;gap:0}
+
+/* HEADER */
+.hdr{width:100%;max-width:1040px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.hdr-logo{display:flex;align-items:center;gap:9px}
+.logo-mark{width:30px;height:30px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:13px;height:13px}
+.logo-name{font-size:14px;font-weight:800}
+.logo-sub{font-size:9px;color:var(--t3)}
+.hdr-back{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,.02)}
+.hdr-back svg{width:13px;height:13px}
+
+/* TRIAL BANNER */
+.trial-banner{width:100%;max-width:1040px;margin-bottom:16px;display:flex;align-items:center;gap:12px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:10px 16px}
+.trial-icon{width:26px;height:26px;border-radius:7px;background:rgba(245,158,11,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.trial-icon svg{width:13px;height:13px;color:#F59E0B}
+.trial-text{flex:1}
+.trial-title{font-size:12px;font-weight:700;color:#FCD34D}
+.trial-sub{font-size:11px;color:rgba(245,158,11,.6)}
+.trial-right{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.trial-days-num{font-size:26px;font-weight:800;color:#FCD34D;line-height:1}
+.trial-days-lbl{font-size:9px;color:rgba(245,158,11,.55);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.trial-prog{width:80px}
+.trial-track{height:3px;border-radius:2px;background:rgba(245,158,11,.12);margin-bottom:3px}
+.trial-fill{height:3px;border-radius:2px;background:linear-gradient(90deg,#F59E0B,#FCD34D);width:29%}
+.trial-prog-lbl{font-size:9px;color:rgba(245,158,11,.45)}
+
+/* HERO */
+.hero{text-align:center;margin-bottom:18px}
+.hero h1{font-size:22px;font-weight:800;letter-spacing:-.3px;margin-bottom:3px}
+.hero p{font-size:11.5px;color:var(--t2)}
+.toggle-wrap{display:inline-flex;align-items:center;gap:9px;margin-top:10px}
+.toggle-label{font-size:11.5px;color:var(--t2)}
+.toggle-label.on{color:var(--t1);font-weight:600}
+.toggle{width:34px;height:18px;border-radius:9px;background:rgba(255,255,255,.09);border:1px solid var(--border2);position:relative;cursor:pointer}
+.toggle-thumb{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.35);position:absolute;top:2px;left:2px}
+.save-badge{font-size:9px;font-weight:700;color:var(--green);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.18);padding:2px 7px;border-radius:20px}
+
+/* GRID */
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:1040px;align-items:stretch}
+
+/* CARD */
+.plan-card{border-radius:16px;position:relative;display:flex;flex-direction:column}
+.card-starter{background:rgba(255,255,255,.035);border:1px solid var(--border2)}
+.card-mid{background:linear-gradient(155deg,#271142 0%,#1C0D36 55%,#180B30 100%);border:1px solid rgba(175,70,253,.30);box-shadow:0 0 50px rgba(175,70,253,.11)}
+.card-enterprise{background:rgba(255,255,255,.035);border:1px solid var(--border2)}
+
+/* POPULAR */
+.popular-pill{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--grad-btn);color:#fff;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 14px;border-radius:20px;white-space:nowrap}
+
+/* TRIAL PILL ON CARD */
+.on-trial-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.22);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;color:#FCD34D;margin-bottom:10px}
+.on-trial-pill svg{width:9px;height:9px}
+
+/* INNER */
+.plan-inner{padding:18px 20px 18px;display:flex;flex-direction:column;flex:1}
+.plan-inner.pop{padding-top:24px}
+
+/* PLAN NAME */
+.plan-name{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.plan-name.mid{color:#B87DFF}
+
+/* PRICE */
+.price-row{display:flex;align-items:baseline;gap:2px;margin-bottom:2px}
+.price-curr{font-size:15px;font-weight:700;color:var(--t2)}
+.price-amt{font-size:32px;font-weight:800;letter-spacing:-.8px;line-height:1}
+.price-per{font-size:11px;color:var(--t2);margin-left:2px}
+.price-desc{font-size:11px;color:var(--t3);margin-bottom:14px}
+
+/* DIVIDER */
+.div{height:1px;background:rgba(255,255,255,.07);margin-bottom:14px}
+
+/* BASE LIMITS (Starter only) */
+.limits-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;margin-bottom:14px}
+.limit-item{display:flex;flex-direction:column;gap:1px}
+.limit-num{font-size:18px;font-weight:800;line-height:1;color:var(--t1)}
+.limit-lbl{font-size:10px;color:var(--t2);font-weight:500}
+
+/* MULTIPLIER BLOCK (Mid / Enterprise) */
+.mult-block{display:flex;align-items:center;gap:10px;background:rgba(175,70,253,.09);border:1px solid rgba(175,70,253,.18);border-radius:10px;padding:10px 13px;margin-bottom:14px}
+.mult-badge{font-size:22px;font-weight:800;color:#C97BFF;line-height:1;flex-shrink:0}
+.mult-desc{font-size:11px;color:rgba(175,70,253,.8);line-height:1.4}
+.mult-desc strong{color:#D4A0FF;font-weight:700}
+
+/* EXACT NUMBERS BLOCK (Enterprise override) */
+.ent-nums{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.ent-num-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:7px;padding:5px 9px;text-align:center}
+.ent-num-chip .n{font-size:15px;font-weight:800;color:var(--t1);line-height:1}
+.ent-num-chip .l{font-size:9px;color:var(--t2);margin-top:2px}
+
+/* PLUS FEATURES */
+.plus-label{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.plus-feats{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;flex:1}
+.feat{display:flex;align-items:center;gap:8px}
+.feat-icon{width:15px;height:15px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.feat-icon.chk{background:rgba(34,197,94,.13)}
+.feat-icon.chk svg{color:#22C55E}
+.feat-text{font-size:12px;color:var(--t1);font-weight:500}
+.new-chip{display:inline-block;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;background:rgba(175,70,253,.18);color:#C97BFF;border:1px solid rgba(175,70,253,.22)}
+.excl-chip{display:inline-block;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;background:rgba(251,191,36,.12);color:#FCD34D;border:1px solid rgba(251,191,36,.22)}
+
+/* CTA */
+.cta{width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;border:none;transition:all .15s;text-align:center}
+.cta-sub{display:block;font-size:9.5px;font-weight:500;opacity:.7;margin-top:2px}
+.cta-trial{background:rgba(245,158,11,.1);color:#FCD34D;border:1px solid rgba(245,158,11,.26)}
+.cta-trial:hover{background:rgba(245,158,11,.17)}
+.cta-grad{background:var(--grad-btn);color:#fff}
+.cta-grad:hover{opacity:.88}
+.cta-outline{background:transparent;color:var(--t1);border:1px solid var(--border2)}
+.cta-outline:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.2)}
+
+/* BOTTOM NOTE */
+.note{margin-top:12px;font-size:10.5px;color:var(--t3);text-align:center}
+.note a{color:var(--purple);text-decoration:none}
+
+/* STARS */
+.star{position:absolute;border-radius:50%;background:#fff;pointer-events:none}
+
+/* THEME TOGGLE */
+.theme-toggle-btn{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--t3);transition:background .15s,color .15s;font-family:inherit;margin-left:8px}
+.theme-toggle-btn:hover{background:rgba(255,255,255,.08);color:var(--t2)}
+
+[data-theme="light"]{
+  --bg:#fbf5f0;--border:rgba(15,15,25,.1);--border2:rgba(15,15,25,.15);
+  --t1:#16151f;--t2:rgba(22,21,31,.55);--t3:rgba(22,21,31,.28);
+  --purple:#ec7c6f;--pink:#f2a98e;--grad:linear-gradient(135deg,#ec7c6f,#ef9182,#f2a98e);
+}
+[data-theme="light"] body::before{background:radial-gradient(ellipse 80% 45% at 50% -5%,rgba(236,124,111,.08) 0%,transparent 65%)}
+[data-theme="light"] .hdr-back{background:rgba(15,15,25,.04);border-color:rgba(15,15,25,.1)}
+[data-theme="light"] .hdr-back:hover{background:rgba(15,15,25,.07)}
+[data-theme="light"] .trial-banner{background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.15)}
+[data-theme="light"] .theme-toggle-btn{background:rgba(15,15,25,.04);border-color:rgba(15,15,25,.1);color:rgba(22,21,31,.5)}
+[data-theme="light"] .theme-toggle-btn:hover{background:rgba(15,15,25,.07);color:rgba(22,21,31,.8)}
+[data-theme="light"] .star{background:rgba(236,124,111,.3)}
+[data-theme="light"] .card-mid{border-color:rgba(236,124,111,.3);box-shadow:0 0 50px rgba(236,124,111,.11)}
+[data-theme="light"] .mult-block{background:rgba(236,124,111,.07);border-color:rgba(236,124,111,.18)}
+[data-theme="light"] .mult-desc{color:rgba(236,124,111,.85)}
+[data-theme="light"] .new-chip{background:rgba(236,124,111,.15);color:#ec7c6f;border-color:rgba(236,124,111,.22)}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div>
+        <div class="logo-name">Studio</div>
+        <div class="logo-sub">by Shiprocket</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode">
+        <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"/></svg>
+        <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="hdr-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Back to dashboard
+      </div>
+    </div>
+  </div>
+
+  <!-- TRIAL BANNER -->
+  <div class="trial-banner">
+    <div class="trial-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div class="trial-text">
+      <div class="trial-title">You're on a free trial of Starter</div>
+      <div class="trial-sub">Trial ends Aug 20, 2026 · Activate Starter to unlock a full 30-day billing cycle</div>
+    </div>
+    <div class="trial-right">
+      <div>
+        <div class="trial-days-num">5</div>
+        <div class="trial-days-lbl">days left</div>
+      </div>
+      <div class="trial-prog">
+        <div class="trial-track"><div class="trial-fill"></div></div>
+        <div class="trial-prog-lbl">Day 2 of 7</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Choose your plan</h1>
+    <p>Caps reset each billing cycle · No top-ups · Upgrade anytime</p>
+    <div class="toggle-wrap">
+      <span class="toggle-label on">Monthly</span>
+      <div class="toggle"><div class="toggle-thumb"></div></div>
+      <span class="toggle-label">Annual</span>
+      <span class="save-badge">Save 20%</span>
+    </div>
+  </div>
+
+  <!-- PLANS -->
+  <div class="plans">
+
+    <!-- STARTER -->
+    <div class="plan-card card-starter">
+      <div class="plan-inner">
+        <div class="on-trial-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Free trial · 5 days left
+        </div>
+        <div class="plan-name">Starter</div>
+        <div class="price-row">
+          <span class="price-curr">₹</span>
+          <span class="price-amt">999</span>
+          <span class="price-per">/mo</span>
+        </div>
+        <div class="price-desc">For brands just getting started</div>
+        <div class="div"></div>
+
+        <!-- base limits grid -->
+        <div class="limits-grid">
+          <div class="limit-item">
+            <div class="limit-num">10</div>
+            <div class="limit-lbl">Self Reports</div>
+          </div>
+          <div class="limit-item">
+            <div class="limit-num">5</div>
+            <div class="limit-lbl">Competitor Reports</div>
+          </div>
+          <div class="limit-item">
+            <div class="limit-num">10</div>
+            <div class="limit-lbl">Static Ads</div>
+          </div>
+          <div class="limit-item">
+            <div class="limit-num">3</div>
+            <div class="limit-lbl">Competitors Followed</div>
+          </div>
+          <div class="limit-item">
+            <div class="limit-num">1</div>
+            <div class="limit-lbl">Workspace</div>
+          </div>
+        </div>
+
+        <div class="plus-label">Also included</div>
+        <div class="plus-feats">
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">Alerts & Daily Performance Emailer</div>
+          </div>
+        </div>
+
+        <button class="cta cta-trial">
+          Activate Starter · ₹999/mo
+          <span class="cta-sub">Extends your access to a full 30 days</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MID TIER -->
+    <div class="plan-card card-mid" style="margin-top:-10px">
+      <div class="star" style="width:2px;height:2px;top:14%;right:15%;opacity:.5"></div>
+      <div class="star" style="width:3px;height:3px;top:30%;left:11%;opacity:.28"></div>
+      <div class="star" style="width:2px;height:2px;top:62%;right:9%;opacity:.38"></div>
+      <div class="popular-pill">Most Popular</div>
+      <div class="plan-inner pop">
+        <div class="plan-name mid">Mid Tier</div>
+        <div class="price-row">
+          <span class="price-curr">₹</span>
+          <span class="price-amt">2,999</span>
+          <span class="price-per">/mo</span>
+        </div>
+        <div class="price-desc">For growing brands & small teams</div>
+        <div class="div"></div>
+
+        <!-- multiplier -->
+        <div class="mult-block">
+          <div class="mult-badge">5×</div>
+          <div class="mult-desc">
+            <strong>All Starter limits, 5×</strong><br>
+            50 reports · 25 competitor · 50 static ads · 15 followed · 3 workspaces
+          </div>
+        </div>
+
+        <div class="plus-label">+ 3 features unlocked</div>
+        <div class="plus-feats">
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">Custom Rules<span class="new-chip">New</span></div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">Multiple Accounts<span class="new-chip">New</span></div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">AI Chatbot (limited)<span class="new-chip">New</span></div>
+          </div>
+        </div>
+
+        <button class="cta cta-grad">Upgrade to Mid Tier</button>
+      </div>
+    </div>
+
+    <!-- ENTERPRISE -->
+    <div class="plan-card card-enterprise">
+      <div class="plan-inner">
+        <div class="plan-name">Enterprise</div>
+        <div class="price-row">
+          <span class="price-curr">₹</span>
+          <span class="price-amt">4,999</span>
+          <span class="price-per">/mo</span>
+        </div>
+        <div class="price-desc">For agencies & multi-brand accounts</div>
+        <div class="div"></div>
+
+        <!-- multiplier from mid -->
+        <div class="mult-block" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)">
+          <div class="mult-badge" style="color:rgba(255,255,255,.5);font-size:18px">1.6×</div>
+          <div class="mult-desc" style="color:rgba(255,255,255,.45)">
+            <strong style="color:rgba(255,255,255,.7)">All Mid Tier limits, 1.6×</strong><br>
+            80 reports · 40 competitor · 80 static ads · 25 followed · 5 workspaces
+          </div>
+        </div>
+
+        <div class="plus-label">+ 4 exclusive features</div>
+        <div class="plus-feats">
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">AI Chatbot (3× depth)<span class="excl-chip">Enterprise</span></div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">Custom Reports (2, lifetime)<span class="excl-chip">Enterprise</span></div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">Audience & Delivered Reports<span class="excl-chip">Enterprise</span></div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon chk"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="feat-text">Dedicated KAM Assignment<span class="excl-chip">Enterprise</span></div>
+          </div>
+        </div>
+
+        <button class="cta cta-outline">Upgrade to Enterprise</button>
+      </div>
+    </div>
+
+  </div><!-- /plans -->
+
+  <div class="note">
+    Caps pool across workspaces · No rollovers · <a href="#">Billing FAQ →</a>
+  </div>
+
+</div>
+<script>
+const THEME_KEY = 'fastrr_theme';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const sun = document.getElementById('theme-icon-sun');
+  const moon = document.getElementById('theme-icon-moon');
+  if(sun && moon){ sun.style.display = t==='light'?'block':'none'; moon.style.display = t==='light'?'none':'block'; }
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme')==='light' ? 'dark' : 'light';
+  localStorage.setItem(THEME_KEY, cur);
+  applyTheme(cur);
+}
+(function(){ applyTheme(localStorage.getItem(THEME_KEY)||'dark'); })();
+</script>
+</body>
+</html>

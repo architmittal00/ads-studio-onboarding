@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ready to Launch · Fastrr Ads</title>
+<style>
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-Medium.ttf') format('truetype');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-ExtraBold.ttf') format('truetype');font-weight:800;font-style:normal;font-display:swap}
+</style>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.28);
+  --purple:#AF46FD;--pink:#F4349D;--grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --orange-grad:linear-gradient(135deg,#F97316,#F59E0B);
+}
+[data-theme="light"]{
+  --bg:#fbf5f0;--card:rgba(15,15,25,.04);--card2:rgba(15,15,25,.06);
+  --border:rgba(15,15,25,.1);--border2:rgba(15,15,25,.15);
+  --t1:#16151f;--t2:rgba(22,21,31,.55);--t3:rgba(22,21,31,.28);
+  --purple:#ec7c6f;--pink:#f2a98e;--grad:linear-gradient(135deg,#ec7c6f,#ef9182,#f2a98e);
+}
+[data-theme="light"] .sb{background:#f5eee9;border-right-color:rgba(15,15,25,.1)}
+[data-theme="light"] .sb-item{color:rgba(22,21,31,.38)}
+[data-theme="light"] .sb-item:hover{background:rgba(15,15,25,.06);color:rgba(22,21,31,.7)}
+[data-theme="light"] .sb-item.active{background:rgba(236,124,111,.12);color:var(--purple)}
+[data-theme="light"] .sb-div{background:rgba(15,15,25,.1)}
+[data-theme="light"] .sb-logo{background:rgba(15,15,25,.08)}
+[data-theme="light"] .theme-toggle-btn{color:rgba(22,21,31,.4)}
+[data-theme="light"] .theme-toggle-btn:hover{background:rgba(15,15,25,.06);color:rgba(22,21,31,.8)}
+[data-theme="light"] .modal{background:#fff;border-color:rgba(15,15,25,.12);box-shadow:0 24px 64px rgba(15,15,25,.12)}
+[data-theme="light"] .modal-close{background:rgba(15,15,25,.06);color:rgba(22,21,31,.4)}
+[data-theme="light"] .modal-close:hover{background:rgba(15,15,25,.1);color:#16151f}
+[data-theme="light"] .toast{background:#fff;border-color:rgba(34,197,94,.4);color:#16151f;box-shadow:0 8px 32px rgba(15,15,25,.1)}
+[data-theme="light"] .toolbar{border-bottom-color:rgba(15,15,25,.1)}
+[data-theme="light"] .search-wrap input{background:rgba(15,15,25,.04);border-color:rgba(15,15,25,.15);color:var(--t1)}
+[data-theme="light"] .search-wrap input::placeholder{color:rgba(22,21,31,.35)}
+[data-theme="light"] .ad-list::-webkit-scrollbar-thumb{background:rgba(15,15,25,.15)}
+[data-theme="light"] .search-wrap input:focus{border-color:rgba(236,124,111,.4)}
+[data-theme="light"] .field-input:focus{border-color:rgba(236,124,111,.5)}
+[data-theme="light"] .field-select:focus{border-color:rgba(236,124,111,.5)}
+[data-theme="light"] .modal-bell{background:rgba(236,124,111,.15);border-color:rgba(236,124,111,.25)}
+[data-theme="light"] .info-banner{background:rgba(236,124,111,.06);border-color:rgba(236,124,111,.15)}
+[data-theme="light"] .info-icon{background:rgba(236,124,111,.15);border-color:rgba(236,124,111,.25)}
+[data-theme="light"] .adset-card.selected{background:rgba(236,124,111,.06)}
+[data-theme="light"] .tp-line.p{background:rgba(236,124,111,.5)}
+[data-theme="light"] .tp-dot{background:rgba(236,124,111,.6)}
+[data-theme="light"] .info-banner{background:rgba(236,124,111,.06) !important;border-color:rgba(236,124,111,.15) !important}
+[data-theme="light"] .adset-chip{background:rgba(236,124,111,.15) !important;border-color:rgba(236,124,111,.3) !important}
+[data-theme="light"] .adset-chip-x{color:rgba(236,124,111,.5) !important}
+[data-theme="light"] .adset-row-sel{background:rgba(236,124,111,.08) !important}
+[data-theme="light"] #adset-dropdown{background:#fff !important}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;overflow:hidden}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+a.sb-item{color:var(--t3);text-decoration:none}
+.app{display:flex;height:100vh;width:100%}
+
+/* SIDEBAR */
+.sb{width:64px;flex-shrink:0;background:#0d0d1a;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px;}
+.sb-logo{width:36px;height:36px;border-radius:10px;background:#000;display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
+.sb-item{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;color:var(--t3);}
+.sb-item:hover{background:var(--card2);color:var(--t2)}
+.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.sb-item svg{width:17px;height:17px}
+.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0}
+.sb-spacer{flex:1}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer;}
+.theme-toggle-btn{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:none;color:var(--t3);transition:background .15s,color .15s;font-family:inherit}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* HEADER */
+.page-header{flex-shrink:0;padding:20px 28px 0;}
+.breadcrumb{font-size:12px;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.bc-link{color:var(--t2);cursor:pointer;text-decoration:none}
+.bc-link:hover{color:#fff}
+.page-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:0;gap:16px;min-width:0}
+.page-title-left{flex-shrink:0}
+.page-title{font-size:20px;font-weight:700;color:var(--purple);white-space:nowrap}
+.page-sub{font-size:13px;color:var(--t3);margin-top:3px;white-space:nowrap}
+.header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.meta-row{display:flex;align-items:center;gap:8px}
+.meta-label{font-size:12px;color:var(--t3);white-space:nowrap}
+.meta-dropdown{display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:12px;font-weight:600;color:var(--t1);cursor:pointer;width:190px;justify-content:space-between;min-width:0;white-space:nowrap;overflow:hidden}
+.meta-dropdown span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.btn-ghost{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn-ghost:hover{border-color:rgba(255,255,255,.22);color:#fff}
+.btn-ghost svg{width:14px;height:14px}
+.btn-ai-powered{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;background:var(--orange-grad);border:none;font-size:12.5px;font-weight:700;color:#fff;cursor:pointer;transition:opacity .15s;white-space:nowrap;position:relative;}
+.btn-ai-powered:hover{opacity:.88}
+.ai-badge{position:absolute;top:-8px;right:-8px;background:var(--orange-grad);border-radius:20px;font-size:9px;font-weight:700;color:#fff;padding:2px 7px;white-space:nowrap;border:2px solid var(--bg);}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:10px;padding:16px 28px;flex-shrink:0;border-bottom:1px solid var(--border);}
+.rtl-count{font-size:13px;font-weight:600;color:var(--t2)}
+.search-wrap{flex:1;position:relative;max-width:260px;}
+.search-wrap input{width:100%;padding:8px 12px 8px 34px;background:var(--card);border:1px solid var(--border2);border-radius:9px;color:var(--t1);font-size:12.5px;outline:none;}
+.search-wrap input::placeholder{color:var(--t3)}
+.search-wrap input:focus{border-color:rgba(175,70,253,.4)}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3)}
+.filter-sel{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer;}
+.toolbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn-add{display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:9px;background:var(--grad);border:none;color:#fff;font-size:13px;font-weight:700;transition:opacity .15s;text-decoration:none;}
+.btn-add:hover{opacity:.88}
+.btn-icon{width:36px;height:36px;border-radius:9px;background:var(--card);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--t3);cursor:pointer;}
+.cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border2);background:transparent;appearance:none;cursor:pointer;accent-color:var(--purple);}
+.cb:checked{background:var(--purple);border-color:var(--purple)}
+
+/* AD LIST */
+.ad-list{padding:16px 28px 0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1}
+.ad-list::-webkit-scrollbar{width:4px}
+.ad-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+.ad-list-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:14px;color:var(--t3);min-height:260px}
+.ad-list-empty-title{font-size:14px;font-weight:600;color:var(--t2)}
+.ad-list-empty-sub{font-size:12.5px;max-width:280px;text-align:center;line-height:1.6}
+
+.ad-item{border-radius:14px;background:var(--card);border:1px solid var(--border);overflow:hidden;flex-shrink:0;}
+.ad-item-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;}
+.ad-thumb{width:54px;height:42px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);}
+.ad-thumb img{width:100%;height:100%;object-fit:cover}
+.ad-info{flex:1;min-width:0}
+.ad-name-wrap{display:flex;align-items:center;gap:8px;min-width:0}
+.ad-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-edit{color:var(--t3);cursor:pointer;flex-shrink:0}
+.ad-edit:hover{color:var(--t2)}
+.status-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(251,191,36,.12);color:#FBB524;border:1px solid rgba(251,191,36,.2);white-space:nowrap;display:inline-block;margin-top:5px;}
+.ad-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto;padding-left:8px}
+.btn-regen{display:flex;align-items:center;gap:5px;padding:7px 10px;border-radius:8px;background:var(--card2);border:1px solid var(--border2);font-size:11.5px;font-weight:600;color:var(--t2);cursor:pointer;white-space:nowrap;transition:all .15s}
+.btn-regen:hover{color:#fff;border-color:rgba(255,255,255,.25)}
+.btn-regen .btn-label{display:none}
+.ad-item:hover .btn-regen .btn-label{display:inline}
+.btn-ai-copy{display:flex;align-items:center;gap:5px;padding:7px 10px;border-radius:8px;background:var(--orange-grad);border:none;font-size:11.5px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.btn-ai-copy:hover{opacity:.88}
+.btn-ai-copy .btn-label{display:none}
+.ad-item:hover .btn-ai-copy .btn-label{display:inline}
+.btn-del{width:30px;height:30px;border-radius:8px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--t3);cursor:pointer;flex-shrink:0}
+.btn-del:hover{color:#f87171;border-color:rgba(248,113,113,.3)}
+.btn-chev{width:26px;height:26px;border-radius:7px;background:none;border:none;color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .2s;flex-shrink:0}
+.btn-chev.open{transform:rotate(180deg)}
+
+.ad-divider{height:1px;background:var(--border);display:none;}
+.ad-divider.open{display:block}
+.ad-body{display:none;padding:0 16px 16px;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.ad-body.open{display:grid}
+.field-group{display:flex;flex-direction:column;gap:6px}
+.field-label{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:4px;}
+.req{color:#f87171}
+.field-input{padding:10px 13px;background:var(--card2);border:1px solid var(--border2);border-radius:9px;color:var(--t1);font-size:13px;outline:none;width:100%;}
+.field-input:focus{border-color:rgba(175,70,253,.5)}
+.field-input::placeholder{color:var(--t3)}
+.field-select{padding:10px 13px;background:rgba(255,255,255,.07);border:1px solid var(--border2);border-radius:9px;color:var(--t1);font-size:13px;outline:none;appearance:none;width:100%;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.3)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:calc(100% - 12px) center;padding-right:32px;}
+.field-select:focus{border-color:rgba(175,70,253,.5)}
+
+/* BOTTOM BAR */
+.bottom-bar{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.bottom-label{font-size:12.5px;color:var(--t3)}
+.bottom-label strong{color:var(--t2)}
+.btn-launch{padding:11px 28px;border-radius:9px;background:var(--grad);border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.btn-launch:hover{opacity:.88}
+.btn-launch:disabled{opacity:.35;cursor:not-allowed}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{width:100%;max-width:500px;background:#13112b;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.6);padding:28px;transform:translateY(16px);transition:transform .2s;}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}
+.modal-title-group{display:flex;align-items:center;gap:10px}
+.modal-bell{width:36px;height:36px;border-radius:10px;background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.modal-title{font-size:16px;font-weight:700}
+.modal-sub{font-size:12.5px;color:var(--t3);margin-top:2px}
+.modal-close{width:30px;height:30px;border-radius:8px;background:var(--card2);border:none;color:var(--t3);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
+.modal-close:hover{color:#fff;background:rgba(255,255,255,.1)}
+.modal-progress{display:flex;gap:6px;margin:20px 0}
+.prog{height:4px;border-radius:2px;flex:1;background:rgba(255,255,255,.1);transition:background .3s;}
+.prog.done{background:var(--purple)}
+.prog.active{background:var(--grad)}
+
+.info-banner{display:flex;align-items:flex-start;gap:10px;padding:13px;border-radius:10px;background:rgba(175,70,253,.08);border:1px solid rgba(175,70,253,.15);margin-bottom:18px;}
+.info-icon{width:26px;height:26px;border-radius:7px;background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.info-text{font-size:12.5px;color:var(--t2);line-height:1.55}
+.prefill-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.prefill-label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}
+.btn-edit-link{display:flex;align-items:center;gap:5px;background:none;border:none;font-size:12.5px;font-weight:600;color:var(--t3);cursor:pointer;}
+.btn-edit-link:hover{color:var(--t2)}
+.prefill-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+.prefill-cell{padding:13px 15px;background:#1a1730}
+.pc-label{font-size:11px;font-weight:700;color:var(--t3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.pc-val{font-size:13px;font-weight:600}
+.prefill-note{font-size:12px;color:var(--t3);margin-top:12px;line-height:1.5}
+.modal-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:22px}
+.btn-back{padding:10px 22px;border-radius:9px;background:var(--card2);border:1px solid var(--border2);color:var(--t2);font-size:13.5px;font-weight:600;cursor:pointer;}
+.btn-back:hover{color:#fff;border-color:rgba(255,255,255,.25)}
+.btn-next{padding:10px 28px;border-radius:9px;background:var(--purple);border:none;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.btn-next:hover{opacity:.88}
+.btn-confirm{padding:10px 24px;border-radius:9px;background:var(--grad);border:none;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.btn-confirm:hover{opacity:.88}
+
+.section-title{font-size:13px;font-weight:700;margin-bottom:12px;color:var(--t2)}
+.adset-cards{display:flex;gap:10px;margin-bottom:18px}
+.adset-card{flex:1;padding:13px;border-radius:10px;border:2px solid var(--border);cursor:pointer;transition:border-color .15s;background:var(--card);}
+.adset-card.selected{border-color:var(--purple);background:rgba(175,70,253,.06)}
+.adset-card-name{font-size:13px;font-weight:700;margin-bottom:3px}
+.adset-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:5px;}
+.adset-sub{font-size:11.5px;color:var(--t3);margin-top:4px}
+
+.warn-banner{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);margin-bottom:20px;}
+.warn-text{font-size:12.5px;color:rgba(251,191,36,.85);line-height:1.5}
+.launch-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.launch-opt{padding:14px;border-radius:12px;border:2px solid var(--border);cursor:pointer;transition:border-color .15s,background .15s;display:flex;align-items:center;gap:12px;}
+.launch-opt:hover{border-color:rgba(255,255,255,.2)}
+.launch-opt.selected{border-color:var(--pink);background:rgba(244,52,157,.06)}
+.lo-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.lo-icon.green{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25)}
+.lo-icon.gray{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.lo-name{font-size:13.5px;font-weight:700;margin-bottom:2px}
+.lo-desc{font-size:11.5px;color:var(--t3)}
+.launch-summary{background:var(--card2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.ls-title{font-size:12.5px;font-weight:700;padding:13px 16px;border-bottom:1px solid var(--border)}
+.ls-row{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.03)}
+.ls-row:last-child{border-bottom:none}
+.ls-key{font-size:12.5px;color:var(--t3)}
+.ls-val{font-size:12.5px;font-weight:700}
+
+/* SUCCESS SCREEN */
+.success-screen{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:20px;padding:40px}
+.success-screen.show{display:flex}
+.success-icon{width:72px;height:72px;border-radius:20px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);display:flex;align-items:center;justify-content:center;}
+
+/* TOAST */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1535;border:1px solid rgba(34,197,94,.35);border-radius:12px;padding:13px 22px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:#fff;z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .2s;opacity:0;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast-icon{width:22px;height:22px;border-radius:6px;background:rgba(34,197,94,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* THUMB PLACEHOLDER */
+.thumb-placeholder{width:100%;height:100%;background:linear-gradient(135deg,#1a1040,#2a1060,#1a0830);display:flex;align-items:center;justify-content:center;}
+.tp-inner{width:85%;height:80%;border-radius:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:4px;padding:5px;overflow:hidden;}
+.tp-line{height:3px;border-radius:2px;background:rgba(255,255,255,.15)}
+.tp-line.p{background:rgba(175,70,253,.5)}
+.tp-rows{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+.tp-row{display:flex;align-items:center;gap:2px}
+.tp-dot{width:4px;height:4px;border-radius:2px;background:rgba(175,70,253,.6);flex-shrink:0}
+.tp-dline{height:2px;border-radius:2px;background:rgba(255,255,255,.12);flex:1}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sb">
+  <div class="sb-logo">
+    <svg viewBox="0 0 20 20" fill="none" width="20" height="20"><path d="M10 2L18 7V13L10 18L2 13V7L10 2Z" fill="url(#lg)"/><defs><linearGradient id="lg" x1="2" y1="2" x2="18" y2="18"><stop stop-color="#AF46FD"/><stop offset="1" stop-color="#F4349D"/></linearGradient></defs></svg>
+  </div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 3.5 3.5" stroke-linecap="round"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M4 18V9m4 9V5m4 13v-6m4 6v-3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-div"></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-div"></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <a href="ad-selection.html" class="sb-item" title="Ad Selection"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M13 10V3L4 14h7v7l9-11h-7Z" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  <a href="partnership-ads.html" class="sb-item" title="Partnership Ads Hub"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  <div class="sb-item" title="Email"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-spacer"></div>
+  <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode">
+    <svg id="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"/></svg>
+    <svg id="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg></div>
+  <div style="margin-top:8px"><div class="sb-avatar">F</div></div>
+</nav>
+
+<div class="main">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="breadcrumb">
+      <a href="ad-selection.html" class="bc-link">Fastrr Ads</a>
+      <span style="color:var(--t3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+      <a href="ad-selection.html" class="bc-link">Ad Selection</a>
+      <span style="color:var(--t3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+      <span style="color:var(--t1);font-weight:600">Ready to Launch</span>
+    </div>
+    <div class="page-title-row">
+      <div class="page-title-left">
+        <div class="page-title">Ready to Launch</div>
+        <div class="page-sub" id="page-sub">0 ad(s) in queue</div>
+      </div>
+      <div class="header-actions">
+        <div class="meta-row">
+          <span class="meta-label">Meta account</span>
+          <div class="meta-dropdown">
+            <span>Banaraswala 1 &lt;&gt; Shiprocket_...</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+        <button class="btn-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Update Tag
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <button class="btn-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Apply template
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <button class="btn-ai-powered">
+          <div class="ai-badge">AI-Powered</div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 10V3L4 14h7v7l9-11h-7Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Ad Copies
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <input type="checkbox" class="cb" id="sel-all" onchange="toggleAll(this)">
+    <span class="rtl-count" id="total-label">0 total ads</span>
+    <div class="search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 3.5 3.5"/></svg>
+      <input type="text" placeholder="Search ads name..." oninput="filterAds(this.value)">
+    </div>
+    <div class="filter-sel">
+      All Ads
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-ghost" id="clear-queue-btn" onclick="clearQueue()" style="display:none;color:#f87171;border-color:rgba(248,113,113,.25)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Clear All
+      </button>
+      <a href="partnership-ads.html" class="btn-add">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Add Ads
+      </a>
+      <div class="btn-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- AD LIST -->
+  <div class="ad-list" id="ad-list">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <div class="bottom-label" id="bottom-label">Select ads above to launch</div>
+    <button class="btn-launch" id="btn-launch" onclick="openModal(1)" disabled>Launch Selected Ads</button>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══ MODAL ═══ -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+
+    <!-- STEP 1: Editable prefill settings -->
+    <div id="step-1">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-bell"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>
+          <div>
+            <div class="modal-title">Ready to Launch Ads – Step 1 of 3</div>
+            <div class="modal-sub" id="modal-sub">Configure essential details</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-progress"><div class="prog active"></div><div class="prog"></div><div class="prog"></div></div>
+      <div class="info-banner">
+        <div class="info-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2.2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+        <div class="info-text">Pixel, UTM, and Page settings are pre-filled from your General Settings but can be edited if needed.</div>
+      </div>
+      <div class="prefill-label" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;margin-bottom:14px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Pre-filled Settings
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <div class="pc-label" style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Facebook Pixel ID <span style="color:#f87171">*</span></div>
+          <input id="s1-pixel" class="field-input" value="7657856458675282" style="width:100%">
+        </div>
+        <div>
+          <div class="pc-label" style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">UTM Parameter <span style="color:#f87171">*</span></div>
+          <input id="s1-utm" class="field-input" value="ihuhe" style="width:100%">
+        </div>
+        <div>
+          <div class="pc-label" style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Facebook Page <span style="color:#f87171">*</span></div>
+          <select id="s1-fb" class="field-select" style="width:100%">
+            <option>FaishionInsta</option>
+            <option>Kraftedmillets</option>
+            <option>Deyga Organics</option>
+          </select>
+        </div>
+        <div>
+          <div class="pc-label" style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Instagram page <span style="color:#f87171">*</span></div>
+          <select id="s1-ig" class="field-select" style="width:100%">
+            <option>@deyga_organics</option>
+            <option>@kraftedmillets</option>
+            <option>@faishioninsta</option>
+          </select>
+        </div>
+      </div>
+      <div class="prefill-note">Any changes made here will be applied to General Settings.</div>
+      <div class="modal-footer"><button class="btn-next" onclick="openModal(2)">Next</button></div>
+    </div>
+
+    <!-- STEP 2: Searchable ad set dropdown -->
+    <div id="step-2" style="display:none">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-bell"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>
+          <div>
+            <div class="modal-title">Ready to Launch Ads – Step 2 of 3</div>
+            <div class="modal-sub" id="modal-sub-2">Configure essential details</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-progress"><div class="prog done"></div><div class="prog active"></div><div class="prog"></div></div>
+
+      <div class="info-banner" style="background:rgba(175,70,253,.08);border-color:rgba(175,70,253,.15)">
+        <div class="info-text" id="s2-banner-text">Select the ad set where you want to launch these ads</div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">
+        Target Ad Sets <span style="color:#f87171">*</span>
+      </div>
+
+      <!-- Dropdown trigger -->
+      <div id="adset-trigger" onclick="toggleAdsetDropdown()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2);border:1px solid var(--border2);border-radius:9px;cursor:pointer;min-height:44px;gap:8px">
+        <div id="adset-chips" style="display:flex;flex-wrap:wrap;gap:6px;flex:1">
+          <span style="color:var(--t3);font-size:13px" id="adset-placeholder">Loading ad sets...</span>
+        </div>
+        <svg id="adset-caret" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2.5" style="flex-shrink:0;transition:transform .2s"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+
+      <!-- Dropdown list -->
+      <div id="adset-dropdown" style="display:none;border:1px solid var(--border2);border-radius:9px;overflow:hidden;margin-top:4px;background:#13112b;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+        <div style="padding:8px;border-bottom:1px solid var(--border)">
+          <div style="position:relative">
+            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3)" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 3.5 3.5"/></svg>
+            <input id="adset-search" type="text" placeholder="Select target ad sets"
+              style="width:100%;padding:8px 12px 8px 32px;background:var(--card2);border:1px solid var(--border2);border-radius:7px;color:var(--t1);font-size:13px;outline:none;font-family:inherit"
+              oninput="filterAdsets(this.value)" onfocus="this.style.borderColor='rgba(175,70,253,.5)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
+        </div>
+        <div id="adset-list" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+
+      <!-- Selected ad set detail card -->
+      <div id="adset-detail" style="display:none;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-top:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:6px">Selected Ad Set</div>
+        <div id="adset-detail-name" style="font-size:14px;font-weight:700;margin-bottom:12px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:3px">Budget</div>
+            <div id="adset-detail-budget" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:3px">Status</div>
+            <div id="adset-detail-status" style="font-size:13px;font-weight:700;color:#22c55e"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:3px">Objective</div>
+            <div id="adset-detail-obj" style="font-size:13px;font-weight:600"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer"><button class="btn-back" onclick="openModal(1)">Back</button><button class="btn-next" onclick="openModal(3)">Next</button></div>
+    </div>
+
+    <!-- STEP 3: Launch status -->
+    <div id="step-3" style="display:none">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-bell"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>
+          <div>
+            <div class="modal-title">Ready to Launch Ads – Step 3 of 3</div>
+            <div class="modal-sub">Set launch status</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-progress"><div class="prog done"></div><div class="prog done"></div><div class="prog active"></div></div>
+      <div class="warn-banner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(251,191,36,.8)" stroke-width="2" style="flex-shrink:0"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="warn-text">Your ads will be launched in paused mode as per your settings.</div>
+      </div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:5px">Launch Status</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px">Choose how you'd like to proceed.</div>
+      <div class="launch-opts">
+        <div class="launch-opt" onclick="selectLaunch(this,'Active')">
+          <div class="lo-icon green"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg></div>
+          <div><div class="lo-name">Active</div><div class="lo-desc">Start running immediately</div></div>
+        </div>
+        <div class="launch-opt selected" onclick="selectLaunch(this,'Paused')">
+          <div class="lo-icon gray"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></div>
+          <div><div class="lo-name">Paused</div><div class="lo-desc">Review before activating</div></div>
+        </div>
+      </div>
+      <div class="launch-summary">
+        <div class="ls-title">Launch Summary</div>
+        <div class="ls-row"><span class="ls-key">Number of ads</span><span class="ls-val" id="sum-count">0</span></div>
+        <div class="ls-row"><span class="ls-key">Target ad set:</span><span class="ls-val" id="sum-adset">–</span></div>
+        <div class="ls-row"><span class="ls-key">Launch status:</span><span class="ls-val" id="sum-status">Paused</span></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-back" onclick="openModal(2)">Back</button>
+        <button class="btn-confirm" onclick="confirmLaunch()">Confirm &amp; launch</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+  <span id="toast-msg">Done!</span>
+</div>
+
+<script>
+// ── THEME ──
+const THEME_KEY = 'fastrr_theme';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const sun = document.getElementById('theme-icon-sun');
+  const moon = document.getElementById('theme-icon-moon');
+  if(sun && moon){ sun.style.display = t==='light'?'block':'none'; moon.style.display = t==='light'?'none':'block'; }
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme')==='light' ? 'dark' : 'light';
+  localStorage.setItem(THEME_KEY, cur);
+  applyTheme(cur);
+}
+(function(){ applyTheme(localStorage.getItem(THEME_KEY)||'dark'); })();
+
+const QUEUE_KEY = 'fastrr_ad_queue';
+let checkedIds = new Set();
+let selectedAdSet = 'high Tier';
+let selectedStatus = 'Paused';
+let searchQuery = '';
+
+// ── QUEUE ──
+function loadQueue() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(QUEUE_KEY)) || [];
+    // Deduplicate by ID on every load
+    const seen = new Set();
+    const deduped = raw.filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+    if (deduped.length !== raw.length) saveQueue(deduped); // auto-clean
+    return deduped;
+  } catch { return []; }
+}
+function saveQueue(q) {
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+}
+
+// ── RENDER ──
+function render() {
+  const queue = loadQueue();
+  const filtered = queue.filter(ad => ad.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  document.getElementById('page-sub').textContent = queue.length + ' ad(s) in queue';
+  document.getElementById('total-label').textContent = queue.length + ' total ads';
+  const clearBtn = document.getElementById('clear-queue-btn');
+  if (clearBtn) clearBtn.style.display = queue.length > 0 ? 'flex' : 'none';
+
+  const list = document.getElementById('ad-list');
+  list.innerHTML = '';
+
+  if (queue.length === 0) {
+    list.innerHTML = `
+      <div class="ad-list-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="ad-list-empty-title">No ads in queue yet</div>
+        <div class="ad-list-empty-sub">Go to Ad Selection to upload or pick ads to add to your launch queue</div>
+        <a href="ad-selection.html" class="btn-add" style="margin-top:4px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add Ads
+        </a>
+      </div>`;
+    updateBottomBar();
+    return;
+  }
+
+  filtered.forEach((ad, i) => {
+    const isChecked = checkedIds.has(ad.id);
+    const thumbHTML = ad.thumbSmall
+      ? `<img src="${ad.thumbSmall}" style="width:100%;height:100%;object-fit:cover">`
+      : `<div class="thumb-placeholder"><div class="tp-inner">
+          <div class="tp-line p" style="width:100%"></div>
+          <div class="tp-rows">
+            <div class="tp-row"><div class="tp-dot"></div><div class="tp-dline"></div></div>
+            <div class="tp-row"><div class="tp-dot"></div><div class="tp-dline" style="width:70%"></div></div>
+            <div class="tp-row"><div class="tp-dot"></div><div class="tp-dline" style="width:55%"></div></div>
+          </div>
+        </div></div>`;
+
+    const item = document.createElement('div');
+    item.className = 'ad-item';
+    item.id = 'item-' + ad.id;
+    item.innerHTML = `
+      <div class="ad-item-header" onclick="toggleExpand('${ad.id}')">
+        <input type="checkbox" class="cb item-cb" data-id="${ad.id}"
+          ${isChecked ? 'checked' : ''}
+          onchange="onCheck(event)"
+          onclick="event.stopPropagation()">
+        <div class="ad-thumb">${thumbHTML}</div>
+        <div class="ad-info">
+          <div class="ad-name-wrap">
+            <span class="ad-name">${ad.name}</span>
+            <span class="ad-edit" onclick="event.stopPropagation()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </div>
+          <span class="status-badge">Ready for Review</span>
+        </div>
+        <div class="ad-actions">
+          ${i > 0 ? `<button class="btn-regen" onclick="event.stopPropagation()" title="Regenerate Ad copy">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="btn-label">Regenerate</span></button>` : ''}
+          <button class="btn-ai-copy" onclick="event.stopPropagation()" title="AI-Ad copy">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 10V3L4 14h7v7l9-11h-7Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="btn-label">AI Copy</span>
+          </button>
+          <button class="btn-del" onclick="event.stopPropagation();removeAd('${ad.id}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="btn-chev" id="chev-${ad.id}" onclick="event.stopPropagation();toggleExpand('${ad.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="ad-divider" id="div-${ad.id}"></div>
+      <div class="ad-body" id="body-${ad.id}">
+        <div class="field-group"><div class="field-label">Primary Text <span class="req">*</span></div><input class="field-input" placeholder="Enter primary text..."></div>
+        <div class="field-group"><div class="field-label">Headline <span class="req">*</span></div><input class="field-input" placeholder="Enter headline..."></div>
+        <div class="field-group"><div class="field-label">Description <span class="req">*</span></div><input class="field-input" placeholder="Enter description..."></div>
+        <div class="field-group"><div class="field-label">CTA <span class="req">*</span></div>
+          <select class="field-select"><option>Shop Now</option><option>Learn More</option><option>Sign Up</option><option>Get Offer</option><option>Book Now</option></select>
+        </div>
+        <div class="field-group" style="grid-column:2/-1"><div class="field-label">Redirection Link <span class="req">*</span></div><input class="field-input" placeholder="https://..."></div>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  updateBottomBar();
+  syncSelectAll();
+}
+
+function toggleExpand(id) {
+  const body = document.getElementById('body-' + id);
+  const div = document.getElementById('div-' + id);
+  const chev = document.getElementById('chev-' + id);
+  const open = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  div.classList.toggle('open', !open);
+  chev.classList.toggle('open', !open);
+}
+
+function removeAd(id) {
+  const q = loadQueue().filter(a => a.id !== id);
+  saveQueue(q);
+  checkedIds.delete(id);
+  render();
+}
+
+function clearQueue() {
+  if (!confirm('Remove all ads from the queue?')) return;
+  saveQueue([]);
+  checkedIds.clear();
+  render();
+}
+
+// ── CHECKBOXES ──
+function onCheck(e) {
+  const id = e.target.dataset.id;
+  e.target.checked ? checkedIds.add(id) : checkedIds.delete(id);
+  updateBottomBar();
+  syncSelectAll();
+}
+
+function toggleAll(master) {
+  const cbs = document.querySelectorAll('.item-cb');
+  cbs.forEach(cb => {
+    cb.checked = master.checked;
+    master.checked ? checkedIds.add(cb.dataset.id) : checkedIds.delete(cb.dataset.id);
+  });
+  updateBottomBar();
+}
+
+function syncSelectAll() {
+  const cbs = document.querySelectorAll('.item-cb');
+  const checked = Array.from(cbs).filter(c => c.checked).length;
+  const sa = document.getElementById('sel-all');
+  if (!sa) return;
+  sa.indeterminate = checked > 0 && checked < cbs.length;
+  sa.checked = cbs.length > 0 && checked === cbs.length;
+}
+
+function updateBottomBar() {
+  const queue = loadQueue();
+  const sel = checkedIds.size;
+  const btn = document.getElementById('btn-launch');
+  const label = document.getElementById('bottom-label');
+  if (sel > 0) {
+    btn.disabled = false;
+    label.innerHTML = `<strong>${sel}</strong> of ${queue.length} ads selected`;
+  } else if (queue.length > 0) {
+    btn.disabled = true;
+    label.textContent = 'Select ads above to launch';
+  } else {
+    btn.disabled = true;
+    label.textContent = 'No ads in queue';
+  }
+}
+
+// ── SEARCH ──
+function filterAds(q) {
+  searchQuery = q;
+  render();
+}
+
+// ── AD SET DATA ──
+const adSets = [
+  { id:'ht', name:'High Tier',   budget:'₹500/day', status:'Active',  objective:'Sales',       dot:'#22c55e' },
+  { id:'mt', name:'Mid Tier',    budget:'₹250/day', status:'Active',  objective:'Traffic',     dot:'#FBB524' },
+  { id:'bs', name:'Base',        budget:'₹100/day', status:'Paused',  objective:'Awareness',   dot:'rgba(255,255,255,.3)' },
+  { id:'rt', name:'Retargeting', budget:'₹200/day', status:'Active',  objective:'Conversions', dot:'#22c55e' },
+];
+// Multi-select: array of selected ad set objects
+let selectedAdSets = [];
+
+function syncAdSetSummary() {
+  document.getElementById('sum-adset').textContent =
+    selectedAdSets.length ? selectedAdSets.map(a => a.name).join(', ') : '–';
+}
+
+function renderAdsetChips() {
+  const chips = document.getElementById('adset-chips');
+  if (selectedAdSets.length === 0) {
+    chips.innerHTML = '<span style="color:var(--t3);font-size:13px">Select target ad sets</span>';
+    return;
+  }
+  chips.innerHTML = selectedAdSets.map(a => `
+    <span class="adset-chip" style="display:inline-flex;align-items:center;gap:5px;background:rgba(175,70,253,.15);border:1px solid rgba(175,70,253,.3);border-radius:6px;padding:3px 9px;font-size:12px;font-weight:600;color:var(--purple)">
+      <span style="width:6px;height:6px;border-radius:50%;background:${a.dot};display:inline-block;flex-shrink:0"></span>
+      ${a.name}
+      <span class="adset-chip-x" onclick="event.stopPropagation();deselectAdSet('${a.id}')" style="cursor:pointer;font-size:15px;line-height:1;color:rgba(175,70,253,.5);padding-left:1px;margin-top:-1px">×</span>
+    </span>`).join('');
+}
+
+function renderAdsetDetail() {
+  const det = document.getElementById('adset-detail');
+  if (selectedAdSets.length === 0) { det.style.display = 'none'; return; }
+  // Show detail for the last selected ad set
+  const a = selectedAdSets[selectedAdSets.length - 1];
+  det.style.display = '';
+  document.getElementById('adset-detail-name').textContent =
+    selectedAdSets.length === 1 ? a.name : selectedAdSets.map(x => x.name).join(' · ');
+  document.getElementById('adset-detail-budget').textContent = a.budget;
+  const statusEl = document.getElementById('adset-detail-status');
+  statusEl.textContent = a.status;
+  statusEl.style.color = a.status === 'Active' ? '#22c55e' : 'rgba(251,191,36,.85)';
+  document.getElementById('adset-detail-obj').textContent = a.objective;
+}
+
+function renderAdsetList(filter) {
+  const list = document.getElementById('adset-list');
+  const q = (filter || '').toLowerCase();
+  const results = adSets.filter(a => a.name.toLowerCase().includes(q));
+  if (results.length === 0) {
+    list.innerHTML = '<div style="padding:14px 16px;font-size:12.5px;color:var(--t3);text-align:center">No ad sets found</div>';
+    return;
+  }
+  const _lt = document.documentElement.getAttribute('data-theme')==='light';
+  const _selBg = _lt ? 'rgba(236,124,111,.08)' : 'rgba(175,70,253,.08)';
+  const _selHov = _lt ? 'rgba(236,124,111,.14)' : 'rgba(175,70,253,.12)';
+  const _defHov = _lt ? 'rgba(15,15,25,.04)' : 'rgba(255,255,255,.04)';
+  list.innerHTML = results.map(a => {
+    const sel = selectedAdSets.some(x => x.id === a.id);
+    return `<div onclick="toggleAdSet('${a.id}')"
+      style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;transition:background .12s;background:${sel ? _selBg : 'transparent'}"
+      onmouseover="this.style.background='${sel ? _selHov : _defHov}'" onmouseout="this.style.background='${sel ? _selBg : 'transparent'}'">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${sel ? 'var(--purple)' : 'var(--border2)'};background:${sel ? 'var(--purple)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s">
+          ${sel ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><path d="M5 13l4 4L19 7"/></svg>` : ''}
+        </div>
+        <div style="width:8px;height:8px;border-radius:50%;background:${a.dot};flex-shrink:0"></div>
+        <span style="font-size:13px;font-weight:${sel ? '700' : '500'};color:var(--t1)">${a.name}</span>
+        <span style="font-size:11.5px;color:var(--t3)">${a.budget}</span>
+      </div>
+      <span style="font-size:11.5px;color:${a.status === 'Active' ? '#22c55e' : 'rgba(251,191,36,.8)'}">${a.status}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleAdsetDropdown() {
+  const dd = document.getElementById('adset-dropdown');
+  const caret = document.getElementById('adset-caret');
+  const open = dd.style.display !== 'none';
+  dd.style.display = open ? 'none' : '';
+  caret.style.transform = open ? '' : 'rotate(180deg)';
+  if (!open) {
+    document.getElementById('adset-search').value = '';
+    renderAdsetList('');
+    setTimeout(() => document.getElementById('adset-search').focus(), 50);
+  }
+}
+
+function filterAdsets(q) {
+  renderAdsetList(q);
+}
+
+// Toggle an ad set in/out of selection (multi-select)
+function toggleAdSet(id) {
+  const adset = adSets.find(a => a.id === id);
+  if (!adset) return;
+  const idx = selectedAdSets.findIndex(a => a.id === id);
+  if (idx >= 0) {
+    selectedAdSets.splice(idx, 1);
+  } else {
+    selectedAdSets.push(adset);
+  }
+  renderAdsetList(document.getElementById('adset-search').value);
+  renderAdsetChips();
+  renderAdsetDetail();
+  syncAdSetSummary();
+}
+
+// Remove a specific ad set chip
+function deselectAdSet(id) {
+  selectedAdSets = selectedAdSets.filter(a => a.id !== id);
+  renderAdsetChips();
+  renderAdsetDetail();
+  syncAdSetSummary();
+  renderAdsetList(document.getElementById('adset-search').value || '');
+}
+
+// close adset dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  const trigger = document.getElementById('adset-trigger');
+  const dd = document.getElementById('adset-dropdown');
+  if (dd && dd.style.display !== 'none' && trigger && !trigger.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
+    document.getElementById('adset-caret').style.transform = '';
+  }
+});
+
+// ── MODAL ──
+function openModal(step) {
+  const n = checkedIds.size;
+  document.getElementById('sum-count').textContent = n;
+  document.getElementById('modal-sub').textContent = 'Configure essential details for ' + n + ' ad' + (n !== 1 ? 's' : '');
+  document.getElementById('modal-sub-2').textContent = 'Select target ad sets for ' + n + ' ad' + (n !== 1 ? 's' : '');
+  document.getElementById('modal-overlay').classList.add('open');
+  [1,2,3].forEach(s => document.getElementById('step-' + s).style.display = s === step ? '' : 'none');
+  if (step === 2) {
+    renderAdsetChips();
+    renderAdsetDetail();
+    renderAdsetList('');
+  }
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  const dd = document.getElementById('adset-dropdown');
+  if (dd) { dd.style.display = 'none'; document.getElementById('adset-caret').style.transform = ''; }
+}
+function selectLaunch(el, status) {
+  document.querySelectorAll('.launch-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedStatus = status;
+  document.getElementById('sum-status').textContent = status;
+}
+function confirmLaunch() {
+  const launched = [...checkedIds];
+  const remaining = loadQueue().filter(a => !launched.includes(a.id));
+  saveQueue(remaining);
+  checkedIds.clear();
+  closeModal();
+  showToast(launched.length + ' ad' + (launched.length > 1 ? 's' : '') + ' launched successfully!');
+  setTimeout(() => render(), 400);
+}
+
+// ── TOAST ──
+let toastT;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── INIT ──
+render();
+// Auto-launch: when navigated from "Launch Ad Now" in partnership code flow
+if (localStorage.getItem('fastrr_auto_launch') === '1') {
+  localStorage.removeItem('fastrr_auto_launch');
+  // Select all items in queue and open launch modal
+  setTimeout(() => {
+    const queue = loadQueue();
+    queue.forEach(a => checkedIds.add(a.id));
+    render();
+    openModal(1);
+  }, 200);
+}
+</script>
+</body>
+</html>

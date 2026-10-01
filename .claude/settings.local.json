@@ -30,7 +30,9 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/light-theme/creative_report.html\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/light-theme/brand_report.html\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3456/Studio%20Onboarding%20Archit/light-theme/creative_report.html\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3456/%2FUsers%2Farchitmittal%2FDocuments%2FStudio%20Onboarding%20Archit%2Flight-theme%2Fcreative_report.html\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3456/%2FUsers%2Farchitmittal%2FDocuments%2FStudio%20Onboarding%20Archit%2Flight-theme%2Fcreative_report.html\")",
+      "Bash(gh pr:*)",
+      "Read(//Users/architmittal/Downloads/**)"
     ]
   }
 }
