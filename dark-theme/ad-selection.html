@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ad Selection · Fastrr Ads</title>
+<style>
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-Medium.ttf') format('truetype');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Plus Jakarta Sans';src:url('fonts/PlusJakartaSans-ExtraBold.ttf') format('truetype');font-weight:800;font-style:normal;font-display:swap}
+</style>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0B0B14;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.28);
+  --purple:#AF46FD;--pink:#F4349D;--grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
+  --orange-grad:linear-gradient(135deg,#F97316,#F59E0B);
+}
+[data-theme="light"]{
+  --bg:#fbf5f0;--card:rgba(15,15,25,.04);--card2:rgba(15,15,25,.06);
+  --border:rgba(15,15,25,.1);--border2:rgba(15,15,25,.15);
+  --t1:#16151f;--t2:rgba(22,21,31,.55);--t3:rgba(22,21,31,.28);
+  --purple:#ec7c6f;--pink:#f2a98e;--grad:linear-gradient(135deg,#ec7c6f,#ef9182,#f2a98e);
+}
+[data-theme="light"] .sb{background:#f5eee9;border-right-color:rgba(15,15,25,.1)}
+[data-theme="light"] .sb-item{color:rgba(22,21,31,.38)}
+[data-theme="light"] .sb-item:hover{background:rgba(15,15,25,.06);color:rgba(22,21,31,.7)}
+[data-theme="light"] .sb-item.active{background:rgba(236,124,111,.12);color:var(--purple)}
+[data-theme="light"] .sb-div{background:rgba(15,15,25,.1)}
+[data-theme="light"] .sb-logo{background:rgba(15,15,25,.08)}
+[data-theme="light"] .theme-toggle-btn{color:rgba(22,21,31,.4)}
+[data-theme="light"] .theme-toggle-btn:hover{background:rgba(15,15,25,.06);color:rgba(22,21,31,.8)}
+[data-theme="light"] .queue-bar{background:#fff;border-color:rgba(236,124,111,.35);box-shadow:0 8px 32px rgba(15,15,25,.1)}
+[data-theme="light"] .btn-deselect{border-color:rgba(15,15,25,.15);color:rgba(22,21,31,.5)}
+[data-theme="light"] .btn-deselect:hover{border-color:rgba(15,15,25,.3);color:rgba(22,21,31,.8)}
+[data-theme="light"] .modal{background:#fff;border-color:rgba(15,15,25,.12);box-shadow:0 24px 64px rgba(15,15,25,.12)}
+[data-theme="light"] .modal-close{background:rgba(15,15,25,.06);color:rgba(22,21,31,.4)}
+[data-theme="light"] .modal-close:hover{background:rgba(15,15,25,.1);color:#16151f}
+[data-theme="light"] .toast{background:#fff;border-color:rgba(34,197,94,.4);color:#16151f;box-shadow:0 8px 32px rgba(15,15,25,.1)}
+[data-theme="light"] .existing-cta{background:#faf3ee;border-color:rgba(236,124,111,.2)}
+[data-theme="light"] .table-wrap{border-color:rgba(15,15,25,.1)}
+[data-theme="light"] .data-table th{background:#f5eee9;border-bottom-color:rgba(15,15,25,.1)}
+[data-theme="light"] .data-table td{border-bottom-color:rgba(15,15,25,.06)}
+[data-theme="light"] .data-table tbody tr:hover{background:rgba(15,15,25,.03)}
+[data-theme="light"] .data-table tbody tr.row-selected{background:rgba(236,124,111,.07)}
+[data-theme="light"] .post-drawer{background:#fff;border-color:rgba(15,15,25,.12)}
+[data-theme="light"] .pd-media{background:#f0e8e3}
+[data-theme="light"] .pd-header{border-bottom-color:rgba(15,15,25,.1)}
+[data-theme="light"] .pd-footer{border-top-color:rgba(15,15,25,.1)}
+[data-theme="light"] .pd-scroll::-webkit-scrollbar-thumb{background:rgba(15,15,25,.15)}
+[data-theme="light"] .pd-metric{background:rgba(15,15,25,.04);border-color:rgba(15,15,25,.1)}
+[data-theme="light"] .pd-caption{color:rgba(22,21,31,.7);background:rgba(15,15,25,.03);border-color:rgba(15,15,25,.1)}
+[data-theme="light"] .pd-close{background:rgba(15,15,25,.1);border-color:rgba(15,15,25,.15);color:rgba(22,21,31,.8)}
+[data-theme="light"] .pd-btn-select.deselect{background:rgba(15,15,25,.06);border:1px solid rgba(15,15,25,.12);color:rgba(22,21,31,.55)}
+[data-theme="light"] .content::-webkit-scrollbar-thumb{background:rgba(15,15,25,.15)}
+[data-theme="light"] .search-wrap input{background:rgba(15,15,25,.04);border-color:rgba(15,15,25,.15);color:var(--t1)}
+[data-theme="light"] .search-wrap input::placeholder{color:rgba(22,21,31,.35)}
+[data-theme="light"] .ad-card{background:rgba(15,15,25,.04);border-color:rgba(15,15,25,.1)}
+[data-theme="light"] .ad-card-name{background:rgba(15,15,25,.55)}
+[data-theme="light"] .upload-zone{border-color:rgba(15,15,25,.14)}
+[data-theme="light"] .tabs-bar{border-bottom-color:rgba(15,15,25,.1)}
+[data-theme="light"] .rtl-badge-btn{background:rgba(236,124,111,.1);border-color:rgba(236,124,111,.25)}
+[data-theme="light"] .rtl-badge-btn:hover{background:rgba(236,124,111,.18);border-color:rgba(236,124,111,.4)}
+[data-theme="light"] .upload-zone.drag-over{background:rgba(236,124,111,.05)}
+[data-theme="light"] .ad-card:hover{border-color:rgba(236,124,111,.4)}
+[data-theme="light"] .search-wrap input:focus{border-color:rgba(236,124,111,.4)}
+[data-theme="light"] .tl.p{background:rgba(236,124,111,.5)}
+[data-theme="light"] .td{background:rgba(236,124,111,.6)}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;overflow:hidden}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+a.sb-item{color:var(--t3);text-decoration:none}
+.app{display:flex;height:100vh;width:100%}
+
+/* SIDEBAR */
+.sb{width:64px;flex-shrink:0;background:#0d0d1a;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px;}
+.sb-logo{width:36px;height:36px;border-radius:10px;background:#000;display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
+.sb-item{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;color:var(--t3);}
+.sb-item:hover{background:var(--card2);color:var(--t2)}
+.sb-item.active{background:rgba(175,70,253,.12);color:var(--purple)}
+.sb-item svg{width:17px;height:17px}
+.sb-div{width:32px;height:1px;background:var(--border);margin:4px 0}
+.sb-spacer{flex:1}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer;}
+.theme-toggle-btn{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:none;color:var(--t3);transition:background .15s,color .15s;font-family:inherit}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* HEADER */
+.page-header{flex-shrink:0;padding:20px 28px 0;}
+.breadcrumb{font-size:12px;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.page-title-row{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.page-title{font-size:20px;font-weight:700;color:var(--purple)}
+.page-sub{font-size:13px;color:var(--t3);margin-top:3px}
+.meta-row{display:flex;align-items:center;gap:10px}
+.meta-label{font-size:12px;color:var(--t3)}
+.meta-dropdown{display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:12.5px;font-weight:600;color:var(--t1);cursor:pointer;min-width:200px;justify-content:space-between;}
+
+/* RTL BADGE on header */
+.rtl-badge-btn{
+  display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:9px;
+  background:rgba(175,70,253,.1);border:1px solid rgba(175,70,253,.25);
+  font-size:12.5px;font-weight:700;color:var(--purple);cursor:pointer;
+  transition:all .15s;text-decoration:none;white-space:nowrap;
+}
+.rtl-badge-btn:hover{background:rgba(175,70,253,.18);border-color:rgba(175,70,253,.4)}
+.rtl-badge-count{
+  background:var(--purple);color:#fff;border-radius:20px;
+  font-size:11px;font-weight:800;padding:1px 8px;min-width:20px;text-align:center;
+}
+
+/* TABS */
+.tabs-bar{display:flex;align-items:center;border-bottom:1px solid var(--border);padding:0 28px;flex-shrink:0;}
+.tab{display:flex;align-items:center;gap:7px;padding:11px 16px;font-size:13px;font-weight:600;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s;white-space:nowrap;}
+.tab:hover{color:var(--t2)}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.tab svg{width:15px;height:15px}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:28px;display:flex;flex-direction:column;position:relative;}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+.tab-panel{display:none;flex-direction:column;flex:1}
+.tab-panel.active{display:flex}
+
+/* UPLOAD ZONE */
+.upload-zone{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px dashed var(--border2);border-radius:16px;min-height:380px;gap:14px;transition:border-color .2s,background .2s;cursor:pointer;}
+.upload-zone.drag-over{border-color:var(--purple);background:rgba(175,70,253,.05)}
+.upload-icon-wrap{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:var(--card2);}
+.upload-zone h3{font-size:16px;font-weight:700}
+.upload-zone p{font-size:13px;color:var(--t3);text-align:center}
+.btn-choose{display:flex;align-items:center;gap:8px;padding:11px 24px;border-radius:10px;background:var(--grad);border:none;color:#fff;font-size:13.5px;font-weight:700;transition:opacity .15s;margin-top:4px;}
+.btn-choose:hover{opacity:.88}
+.upload-hint{font-size:11.5px;color:var(--t3);text-align:center}
+#file-input{display:none}
+
+/* UPLOADED STATE */
+.uploaded-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-shrink:0}
+.uploaded-title{font-size:15px;font-weight:700}
+.uploaded-sub{font-size:12.5px;color:var(--t3);margin-top:2px}
+.btn-upload-more{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .15s;}
+.btn-upload-more:hover{border-color:rgba(255,255,255,.25);color:#fff}
+.ad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;align-content:start;padding-bottom:100px}
+.ad-card{border-radius:12px;border:2px solid var(--border);overflow:hidden;cursor:pointer;transition:border-color .15s;position:relative;aspect-ratio:1/.8;background:var(--card);}
+.ad-card:hover{border-color:rgba(175,70,253,.4)}
+.ad-card.selected{border-color:var(--purple)}
+.ad-card-img{width:100%;height:100%;object-fit:cover;display:block}
+.ad-card-inner{width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.ad-card-check{position:absolute;top:8px;left:8px;width:20px;height:20px;border-radius:6px;border:2px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.ad-card.selected .ad-card-check{background:var(--purple);border-color:var(--purple)}
+.ad-card-name{position:absolute;bottom:0;left:0;right:0;padding:6px 8px;background:rgba(0,0,0,.7);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* STICKY ADD TO QUEUE BAR */
+.queue-bar{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);
+  display:flex;align-items:center;gap:14px;
+  background:#1a1535;border:1px solid rgba(175,70,253,.35);border-radius:14px;
+  padding:12px 20px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;opacity:0;
+  z-index:50;white-space:nowrap;
+}
+.queue-bar.visible{transform:translateX(-50%) translateY(0);opacity:1}
+.queue-bar-label{font-size:13px;font-weight:600;color:var(--t2)}
+.queue-bar-count{font-size:13px;font-weight:700;color:var(--purple)}
+.btn-add-queue{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:9px;background:var(--grad);border:none;color:#fff;font-size:13px;font-weight:700;transition:opacity .15s;}
+.btn-add-queue:hover{opacity:.88}
+.btn-deselect{background:none;border:1px solid var(--border2);color:var(--t3);padding:8px 14px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;}
+.btn-deselect:hover{border-color:rgba(255,255,255,.25);color:var(--t2)}
+
+/* EXISTING ADS */
+.existing-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-shrink:0;}
+.search-wrap{flex:1;position:relative;max-width:340px;}
+.search-wrap input{width:100%;padding:9px 12px 9px 36px;background:var(--card);border:1px solid var(--border2);border-radius:9px;color:var(--t1);font-size:13px;outline:none;}
+.search-wrap input::placeholder{color:var(--t3)}
+.search-wrap input:focus{border-color:rgba(175,70,253,.5)}
+.search-wrap .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3)}
+.date-picker{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:12.5px;font-weight:500;color:var(--t2);cursor:pointer;white-space:nowrap;}
+.days-label{font-size:11.5px;color:var(--t3);white-space:nowrap;margin-left:auto}
+
+.existing-cta{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#1a1535;border:1px solid rgba(175,70,253,.25);border-radius:10px;margin-bottom:14px;flex-shrink:0;opacity:0;pointer-events:none;transition:opacity .2s;}
+.existing-cta.visible{opacity:1;pointer-events:all}
+.existing-cta-left{font-size:13px;font-weight:600;color:var(--t2)}
+.existing-cta-left strong{color:var(--purple)}
+.existing-cta-right{display:flex;align-items:center;gap:8px}
+.btn-ghost-sm{padding:7px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--border2);color:var(--t2);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;}
+.btn-ghost-sm:hover{border-color:rgba(255,255,255,.25);color:#fff}
+.btn-add-existing{display:flex;align-items:center;gap:7px;padding:8px 18px;border-radius:8px;background:var(--grad);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.btn-add-existing:hover{opacity:.88}
+
+.table-wrap{border-radius:12px;border:1px solid var(--border);overflow:hidden;flex:1;overflow-y:auto}
+.data-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.data-table th{padding:11px 14px;text-align:left;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;position:sticky;top:0;z-index:1;}
+.data-table td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+.data-table tbody tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover{background:rgba(255,255,255,.025)}
+.data-table tbody tr.row-selected{background:rgba(175,70,253,.06)}
+.ad-name-main{font-size:12.5px;font-weight:600;color:var(--t1);line-height:1.4;margin-bottom:3px}
+.ad-id{font-size:11px;color:var(--t3)}
+.action-eye{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--border);color:var(--t3);cursor:pointer;}
+.action-eye:hover{color:var(--t2)}
+.cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border2);background:transparent;appearance:none;cursor:pointer;position:relative;}
+.cb:checked{background:transparent;border-color:var(--purple)}
+.cb:checked::after{content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;border:2px solid var(--purple);border-top:none;border-left:none;transform:rotate(45deg)}
+
+/* MODAL OVERLAY */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{width:100%;max-width:500px;background:#13112b;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.6);padding:28px;transform:translateY(16px);transition:transform .2s;}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}
+.modal-title-group{display:flex;align-items:center;gap:10px}
+.modal-title{font-size:16px;font-weight:700}
+.modal-close{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.07);border:none;color:rgba(255,255,255,.4);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
+.modal-close:hover{color:#fff;background:rgba(255,255,255,.1)}
+
+/* TOAST */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1535;border:1px solid rgba(34,197,94,.35);border-radius:12px;padding:13px 22px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:#fff;z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .2s;opacity:0;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast-icon{width:22px;height:22px;border-radius:6px;background:rgba(34,197,94,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* THUMB */
+.thumb-dark{width:100%;height:100%;background:linear-gradient(135deg,#1a1040,#2a1060,#1a0830);display:flex;align-items:center;justify-content:center;}
+.thumb-content{width:85%;height:80%;border-radius:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:4px;padding:6px;overflow:hidden;}
+.tl{height:4px;border-radius:2px;background:rgba(255,255,255,.15)}
+.tl.p{background:rgba(175,70,253,.5)}
+.tr-wrap{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.tr-row{display:flex;align-items:center;gap:3px}
+.td{width:5px;height:5px;border-radius:2px;background:rgba(175,70,253,.6);flex-shrink:0}
+.tdl{height:3px;border-radius:2px;background:rgba(255,255,255,.12);flex:1}
+
+/* PARTNERSHIP ADS HUB */
+
+/* POST PREVIEW MODAL */
+.post-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.post-drawer-overlay.open{opacity:1;pointer-events:all}
+.post-drawer{display:flex;gap:0;background:#13112b;border:1px solid rgba(255,255,255,.14);border-radius:20px;overflow:hidden;max-height:90vh;max-width:820px;width:92vw;position:relative;min-height:500px;transform:scale(.96);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.post-drawer-overlay.open .post-drawer{transform:scale(1)}
+.pd-media{width:300px;flex-shrink:0;background:#0b0b14;position:relative;align-self:stretch}
+.pd-media img,.pd-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.pd-body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.pd-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.pd-platform{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--t1)}
+.pd-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:17px;line-height:1;z-index:2}
+.pd-close:hover{background:rgba(0,0,0,.75);border-color:rgba(255,255,255,.35)}
+.pd-scroll{flex:1;overflow-y:auto;padding:20px}
+.pd-scroll::-webkit-scrollbar{width:4px}
+.pd-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+.pd-section-title{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.pd-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px}
+.pd-metric{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:11px 13px}
+.pd-metric-val{font-size:16px;font-weight:800;color:var(--t1);line-height:1;margin-bottom:3px}
+.pd-metric-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px}
+.pd-caption{font-size:12.5px;line-height:1.65;color:rgba(255,255,255,.75);white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:13px;margin-bottom:20px}
+.pd-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px}
+.pd-meta-item{display:flex;flex-direction:column;gap:3px}
+.pd-meta-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px}
+.pd-meta-val{font-size:12.5px;font-weight:600;color:var(--t1)}
+.pd-warn{display:flex;align-items:flex-start;gap:8px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:9px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:#FBBF24;line-height:1.5}
+.pd-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.08);flex-shrink:0;display:flex;gap:10px}
+.pd-btn-select{flex:1;padding:10px;border-radius:9px;border:none;background:var(--grad);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.pd-btn-select:hover{opacity:.88}
+.pd-btn-select.deselect{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.55)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sb">
+  <div class="sb-logo">
+    <svg viewBox="0 0 20 20" fill="none" width="20" height="20"><path d="M10 2L18 7V13L10 18L2 13V7L10 2Z" fill="url(#lg)"/><defs><linearGradient id="lg" x1="2" y1="2" x2="18" y2="18"><stop stop-color="#AF46FD"/><stop offset="1" stop-color="#F4349D"/></linearGradient></defs></svg>
+  </div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 3.5 3.5" stroke-linecap="round"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M4 18V9m4 9V5m4 13v-6m4 6v-3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-div"></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-div"></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-item active" title="Ad Selection"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M13 10V3L4 14h7v7l9-11h-7Z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <a href="partnership-ads.html" class="sb-item" title="Partnership Ads Hub"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  <div class="sb-item" title="Email"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="sb-spacer"></div>
+  <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode">
+    <svg id="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"/></svg>
+    <svg id="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <div class="sb-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg></div>
+  <div style="margin-top:8px"><div class="sb-avatar">F</div></div>
+</nav>
+
+<div class="main">
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="breadcrumb">
+      <span>Fastrr Ads</span>
+      <span style="color:var(--t3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+      <span style="color:var(--t1);font-weight:600">Ad Selection</span>
+    </div>
+    <div class="page-title-row">
+      <div>
+        <div class="page-title">Ad Selection</div>
+        <div class="page-sub">Select ads from multiple sources to add to your launch queue</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <a href="ready-to-launch.html" class="rtl-badge-btn" id="rtl-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Ready to Launch
+          <span class="rtl-badge-count" id="queue-badge">0</span>
+        </a>
+        <div class="meta-row">
+          <span class="meta-label">Meta account</span>
+          <div class="meta-dropdown">
+            <span>Banaraswala 1 &lt;&gt; Shiprocket_...</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs-bar">
+    <div class="tab active" id="tab-upload" onclick="switchTab('upload')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Upload Ads
+    </div>
+    <div class="tab" id="tab-collection" onclick="switchTab('collection')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      My collection
+    </div>
+    <div class="tab" id="tab-existing" onclick="switchTab('existing')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 10h16M4 14h16M4 18h16" stroke-linecap="round"/></svg>
+      Existing Ads
+    </div>
+    <div class="tab" id="tab-posts" onclick="switchTab('posts')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9" stroke-linecap="round"/></svg>
+      Existing Posts
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- UPLOAD TAB -->
+    <div class="tab-panel active" id="panel-upload">
+      <div id="upload-empty" class="upload-zone"
+        ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)"
+        onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon-wrap">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Upload Ad Creatives</h3>
+        <p>Drag and drop your files here, or choose a source below</p>
+        <button class="btn-choose" onclick="event.stopPropagation();document.getElementById('file-input').click()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Choose Files
+        </button>
+        <p class="upload-hint">Images: JPG, PNG · max 30MB &nbsp;·&nbsp; Videos: GIF, MP4, MOV · max 4GB</p>
+      </div>
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/gif,video/mp4,video/quicktime" multiple onchange="handleFileSelect(event)">
+
+      <div id="upload-filled" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div class="uploaded-header">
+          <div>
+            <div class="uploaded-title">Uploaded Ad Creatives</div>
+            <div id="upload-sub" class="uploaded-sub">0 of 0 selected</div>
+          </div>
+          <button class="btn-upload-more" onclick="document.getElementById('file-input').click()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+            Upload more
+          </button>
+        </div>
+        <div class="ad-grid" id="upload-grid" style="overflow-y:auto;flex:1"></div>
+      </div>
+    </div>
+
+    <!-- MY COLLECTION TAB -->
+    <div class="tab-panel" id="panel-collection">
+      <div style="display:flex;align-items:center;justify-content:center;flex:1;flex-direction:column;gap:16px;color:var(--t3)">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="font-size:14px;font-weight:600">No saved collection yet</div>
+        <div style="font-size:12.5px;text-align:center;max-width:300px;line-height:1.6">Ads you save to your collection will appear here for quick reuse</div>
+      </div>
+    </div>
+
+    <!-- EXISTING ADS TAB -->
+    <div class="tab-panel" id="panel-existing">
+      <div class="existing-toolbar">
+        <div class="search-wrap">
+          <svg class="si" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 3.5 3.5"/></svg>
+          <input type="text" placeholder="Search by ads name" oninput="filterRows(this.value)">
+        </div>
+        <div class="date-picker">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Aug 16, 2026 – Sep 14, 2026
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="days-label">Select up to 90 days</div>
+      </div>
+
+      <!-- selection handled by global bar -->
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:36px"><input type="checkbox" class="cb" id="sel-all" onchange="toggleAllExisting(this)"></th>
+              <th>Ad Name</th><th>Ad Set</th><th>Campaigns</th><th>Created On</th>
+              <th>Spend</th><th>ROAS</th><th>CPR</th><th>CPM</th><th>CTR</th>
+              <th>Purchases</th><th>Purchases Value</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="ex-tbody">
+            <tr data-id="ex1" data-name="prs_Shampoo and conditioner_pre_ces_14Sep_Week1_SV7">
+              <td><input type="checkbox" class="cb row-cb" onchange="onRowCheck()"></td>
+              <td><div class="ad-name-main">prs_Shampoo and conditioner_pre_ces_14September_Week1_SV7_ifs_haifaaaaaahhhh_ife__cee - Copy</div><div class="ad-id">120252271722460529</div></td>
+              <td>Shampoo and Conditioner - Existing Ads</td>
+              <td style="font-size:11px;color:var(--t3);max-width:140px">SR1377_Deyga_Product_2026_A+_Sales_AO_India_ROAS_Open_24_Aug</td>
+              <td style="color:var(--t3)">–</td><td>₹53.48</td><td>0.00x</td><td>₹0.00</td><td>₹56.83</td><td>0.53%</td><td>0</td><td>₹0.00</td>
+              <td><div class="action-eye"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></div></td>
+            </tr>
+            <tr data-id="ex2" data-name="prs_Shampoo and conditioner_pre_ces_14Sep_Week1_SV21">
+              <td><input type="checkbox" class="cb row-cb" onchange="onRowCheck()"></td>
+              <td><div class="ad-name-main">prs_Shampoo and conditioner_pre_ces_14September_Week1_SV21_ifs__uvasree_jaishankar_ife__cee - Copy</div><div class="ad-id">120252271552610529</div></td>
+              <td>Shampoo and Conditioner - Existing Ads</td>
+              <td style="font-size:11px;color:var(--t3);max-width:140px">SR1377_Deyga_Product_2026_A+_Sales_AO_India_ROAS_Open_24_Aug</td>
+              <td style="color:var(--t3)">–</td><td>₹122.25</td><td>0.00x</td><td>₹0.00</td><td>₹36.87</td><td>0.27%</td><td>0</td><td>₹0.00</td>
+              <td><div class="action-eye"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></div></td>
+            </tr>
+            <tr data-id="ex3" data-name="prs_Shampoo & conditioner_pre_ces_11Sep_Week1_SV1">
+              <td><input type="checkbox" class="cb row-cb" onchange="onRowCheck()"></td>
+              <td><div class="ad-name-main">prs_Shampoo &amp; conditioner_pre_ces_11September_Week1_SV1_cee</div><div class="ad-id">120252231825120529</div></td>
+              <td>Open</td>
+              <td style="font-size:11px;color:var(--t3);max-width:140px">SR1377_Deyga_TopperformingCreatives_2026_A+_Sales_AO_India_ROAS</td>
+              <td style="color:var(--t3)">–</td><td>₹58.25</td><td>0.00x</td><td>₹0.00</td><td>₹65.67</td><td>0.79%</td><td>0</td><td>₹0.00</td>
+              <td><div class="action-eye"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></div></td>
+            </tr>
+            <tr data-id="ex4" data-name="prs_Shampoo & conditioner_pre_ces_11Sep_Week1_SV2">
+              <td><input type="checkbox" class="cb row-cb" onchange="onRowCheck()"></td>
+              <td><div class="ad-name-main">prs_Shampoo &amp; conditioner_pre_ces_11September_Week1_SV2_cee</div><div class="ad-id">120252231988430529</div></td>
+              <td>Open</td>
+              <td style="font-size:11px;color:var(--t3);max-width:140px">SR1377_Deyga_E...</td>
+              <td style="color:var(--t3)">–</td><td>₹41.10</td><td>0.00x</td><td>₹0.00</td><td>₹72.14</td><td>0.61%</td><td>0</td><td>₹0.00</td>
+              <td><div class="action-eye"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- EXISTING POSTS TAB -->
+    <div class="tab-panel" id="panel-posts">
+
+      <!-- Platform switcher -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:0;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:4px;width:fit-content;flex-shrink:0">
+        <button id="plat-fb" onclick="switchPlatform('fb')"
+          style="display:flex;align-items:center;gap:7px;padding:7px 16px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--purple);color:#fff;font-family:inherit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          Facebook
+        </button>
+        <button id="plat-ig" onclick="switchPlatform('ig')"
+          style="display:flex;align-items:center;gap:7px;padding:7px 16px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:transparent;color:var(--t3);font-family:inherit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+          Instagram
+        </button>
+      </div>
+
+      <!-- Connected page pill -->
+      <div id="connected-page-pill" style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:8px;background:var(--card);border:1px solid var(--border2)">
+        <div id="page-pill-avatar" style="width:22px;height:22px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#1877F2">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        </div>
+        <div>
+          <div id="page-pill-name" style="font-size:12.5px;font-weight:600;color:var(--t1);white-space:nowrap">Banaraswala 1</div>
+          <div id="page-pill-type" style="font-size:11px;color:var(--t3);white-space:nowrap">Facebook Page</div>
+        </div>
+      </div>
+
+      </div><!-- /platform switcher row -->
+
+      <!-- Filter row -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer;white-space:nowrap">
+          All posts
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="search-wrap" style="max-width:360px">
+          <svg class="si" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 3.5 3.5"/></svg>
+          <input type="text" placeholder="Post, image or video IDs, or other keywords" oninput="filterPosts(this.value)">
+        </div>
+        <span id="posts-selected-label" style="margin-left:auto;font-size:12.5px;color:var(--t3)"></span>
+      </div>
+
+      <!-- Posts table -->
+      <div class="table-wrap" style="flex:1;overflow-y:auto">
+        <table class="data-table" id="posts-table">
+          <thead>
+            <tr>
+              <th style="width:36px"><input type="checkbox" class="cb" id="sel-all-posts" onchange="toggleAllPosts(this)"></th>
+              <th style="min-width:340px">Post</th>
+              <th>Post ID</th>
+              <th>Source</th>
+              <th>Media</th>
+              <th>Date created</th>
+            </tr>
+          </thead>
+          <tbody id="posts-tbody">
+            <!-- populated by renderPostsTable() -->
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- UNIFIED QUEUE BAR -->
+<div class="queue-bar" id="global-queue-bar">
+  <span class="queue-bar-label">Add</span>
+  <span class="queue-bar-count" id="global-queue-count">0 ads</span>
+  <span class="queue-bar-label">to launch queue</span>
+  <button class="btn-deselect" onclick="deselectAll()">Deselect all</button>
+  <button class="btn-add-queue" onclick="addAllToQueue()">
+    Add to Queue
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </button>
+</div>
+
+</div><!-- /app -->
+
+<!-- ═══ LANDING PAGE MODAL ═══ -->
+<div class="modal-overlay" id="lp-modal-overlay" onclick="if(event.target===this)closeLPModal()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px">
+    <div class="modal-header" style="margin-bottom:12px">
+      <div class="modal-title-group">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="color:var(--purple)"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0014.586 2H5z" stroke="currentColor" stroke-width="1.8"/><path d="M14 3v4a1 1 0 001 1h4M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="modal-title">Set Landing page Links</div>
+      </div>
+      <button class="modal-close" onclick="closeLPModal()">×</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--t3);line-height:1.6;margin-bottom:18px">Add a landing page URL so AI can understand your offering and generate relevant ad copies. Without it, AI-generated ad copies can't be created</p>
+
+    <!-- Tabs -->
+    <div style="display:flex;align-items:center;border-bottom:1px solid var(--border);margin-bottom:18px">
+      <div class="lp-tab active" id="lp-tab-one" onclick="switchLPTab('one')" style="display:flex;align-items:center;gap:6px;padding:9px 14px;font-size:13px;font-weight:600;color:var(--purple);border-bottom:2px solid var(--purple);margin-bottom:-1px;cursor:pointer;white-space:nowrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        One Link for All
+      </div>
+      <div class="lp-tab" id="lp-tab-ind" onclick="switchLPTab('ind')" style="display:flex;align-items:center;gap:6px;padding:9px 14px;font-size:13px;font-weight:600;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Individual Links
+      </div>
+      <span id="lp-ad-count" style="margin-left:auto;font-size:12px;color:var(--t3);white-space:nowrap">0 ad(s) to launch</span>
+    </div>
+
+    <!-- One Link for All -->
+    <div id="lp-panel-one">
+      <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+        Landing page Link <span style="color:#f87171">*</span>
+      </div>
+      <input id="lp-one-url" type="url" placeholder="https://yourbrand.com/product"
+        style="width:100%;padding:11px 14px;background:var(--card2);border:1px solid var(--border2);border-radius:9px;color:var(--t1);font-size:13px;outline:none;font-family:inherit"
+        onfocus="this.style.borderColor='rgba(175,70,253,.5)'" onblur="this.style.borderColor='var(--border2)'">
+    </div>
+
+    <!-- Individual Links -->
+    <div id="lp-panel-ind" style="display:none;flex-direction:column;gap:16px;max-height:340px;overflow-y:auto;padding-right:4px">
+      <!-- populated by JS -->
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:14px;margin-top:22px">
+      <button onclick="skipAndAdd()" style="background:none;border:none;font-size:13px;font-weight:600;color:var(--purple);cursor:pointer;font-family:inherit">Skip &amp; add selection</button>
+      <button onclick="saveAndAdd()" style="padding:10px 22px;border-radius:9px;background:var(--grad);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">Save &amp; add selection</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+  <span id="toast-msg">Done!</span>
+</div>
+
+<script>
+// ── THEME ──
+const THEME_KEY = 'fastrr_theme';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const sun = document.getElementById('theme-icon-sun');
+  const moon = document.getElementById('theme-icon-moon');
+  if(sun && moon){ sun.style.display = t==='light'?'block':'none'; moon.style.display = t==='light'?'none':'block'; }
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme')==='light' ? 'dark' : 'light';
+  localStorage.setItem(THEME_KEY, cur);
+  applyTheme(cur);
+}
+(function(){ applyTheme(localStorage.getItem(THEME_KEY)||'dark'); })();
+
+// ── QUEUE (localStorage) ──
+const QUEUE_KEY = 'fastrr_ad_queue';
+function loadQueue() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY)) || []; } catch { return []; } }
+function saveQueue(q) {
+  const slim = q.map(({id,name,type,thumbSmall,addedAt}) => ({id,name,type,thumbSmall:thumbSmall||null,addedAt}));
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(slim));
+}
+function persistToQueue(items) {
+  const q = loadQueue();
+  items.forEach(item => { if (!q.find(x => x.id === item.id)) q.push(item); });
+  saveQueue(q);
+  updateBadge();
+}
+function updateBadge() {
+  document.getElementById('queue-badge').textContent = loadQueue().length;
+}
+
+// ── UNIFIED SELECTION STATE ──
+// uploadedFiles array tracks upload tab selections
+// row checkboxes track existing tab selections
+// Both feed into one global bar
+
+let uploadedFiles = [];
+
+function countAllSelected() {
+  const uploadSel = uploadedFiles.filter(f => f.selected).length;
+  const existingSel = Array.from(document.querySelectorAll('.row-cb')).filter(c => c.checked).length;
+  const postsSel = Array.from(document.querySelectorAll('.post-cb')).filter(c => c.checked).length;
+  return uploadSel + existingSel + postsSel;
+}
+
+function updateGlobalBar() {
+  const total = countAllSelected();
+  const bar = document.getElementById('global-queue-bar');
+  document.getElementById('global-queue-count').textContent = total + (total === 1 ? ' ad' : ' ads');
+  total > 0 ? bar.classList.add('visible') : bar.classList.remove('visible');
+
+  // also update upload sub-label
+  const uploadSel = uploadedFiles.filter(f => f.selected).length;
+  const uploadEl = document.getElementById('upload-sub');
+  if (uploadEl) uploadEl.textContent = uploadSel + ' of ' + uploadedFiles.length + ' selected';
+
+  // sync existing select-all
+  const rowCbs = document.querySelectorAll('.row-cb');
+  const checkedRows = Array.from(rowCbs).filter(c => c.checked).length;
+  const sa = document.getElementById('sel-all');
+  if (sa) {
+    sa.indeterminate = checkedRows > 0 && checkedRows < rowCbs.length;
+    sa.checked = rowCbs.length > 0 && checkedRows === rowCbs.length;
+  }
+  // highlight rows
+  rowCbs.forEach(cb => cb.closest('tr').classList.toggle('row-selected', cb.checked));
+}
+
+function deselectAll() {
+  uploadedFiles.forEach(f => f.selected = false);
+  document.querySelectorAll('.row-cb').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.post-cb').forEach(cb => {
+    cb.checked = false;
+    const row = cb.closest('tr');
+    if (row) row.classList.remove('row-selected');
+  });
+  const sa = document.getElementById('sel-all-posts');
+  if (sa) { sa.checked = false; sa.indeterminate = false; }
+  renderUploadGrid();
+  updateGlobalBar();
+}
+
+// ── COLLECT PENDING ITEMS (without committing yet) ──
+function collectPendingItems() {
+  const items = [];
+  uploadedFiles.filter(f => f.selected).forEach(f =>
+    items.push({ id: f.id, name: f.name, type: 'upload', thumbSmall: f.isVideo ? null : f.src, addedAt: Date.now() })
+  );
+  document.querySelectorAll('#ex-tbody tr').forEach(row => {
+    const cb = row.querySelector('.row-cb');
+    if (cb && cb.checked)
+      items.push({ id: row.dataset.id, name: row.dataset.name, type: 'existing', thumbSmall: null, addedAt: Date.now() });
+  });
+  // Posts tab — match checked checkboxes to postsData
+  document.querySelectorAll('.post-cb:checked').forEach(cb => {
+    const pid = cb.dataset.postId;
+    const allPosts = [...(postsData.fb || []), ...(postsData.ig || [])];
+    const post = allPosts.find(p => p.id === pid);
+    if (post) items.push({
+      id: pid,
+      name: post.caption.slice(0, 60) + (post.caption.length > 60 ? '…' : ''),
+      type: 'post_' + currentPlatform,
+      thumbSmall: null,
+      addedAt: Date.now()
+    });
+  });
+  return items;
+}
+
+// ── SHOW LANDING PAGE MODAL ──
+function addAllToQueue() {
+  const items = collectPendingItems();
+  if (!items.length) return;
+
+  // Populate individual links panel
+  const panel = document.getElementById('lp-panel-ind');
+  panel.innerHTML = '';
+  items.forEach(item => {
+    const thumb = item.thumbSmall
+      ? `<img src="${item.thumbSmall}" style="width:36px;height:28px;object-fit:cover;border-radius:5px;flex-shrink:0">`
+      : `<div style="width:36px;height:28px;border-radius:5px;background:linear-gradient(135deg,#1a1040,#2a1060);flex-shrink:0;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>`;
+    panel.innerHTML += `
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          ${thumb}
+          <span style="font-size:12.5px;font-weight:600;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.name}</span>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Landing page Link <span style="color:#f87171">*</span></div>
+        <input type="url" data-id="${item.id}" placeholder="https://yourbrand.com/product"
+          style="width:100%;padding:10px 13px;background:var(--card2);border:1px solid var(--border2);border-radius:9px;color:var(--t1);font-size:13px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='rgba(175,70,253,.5)'" onblur="this.style.borderColor='var(--border2)'">
+      </div>`;
+  });
+
+  document.getElementById('lp-ad-count').textContent = items.length + ' ad(s) to launch';
+  switchLPTab('one');
+  document.getElementById('lp-modal-overlay').classList.add('open');
+}
+
+function switchLPTab(tab) {
+  const isOne = tab === 'one';
+  const tabOne = document.getElementById('lp-tab-one');
+  const tabInd = document.getElementById('lp-tab-ind');
+  tabOne.style.color = isOne ? 'var(--purple)' : 'var(--t3)';
+  tabOne.style.borderBottomColor = isOne ? 'var(--purple)' : 'transparent';
+  tabInd.style.color = !isOne ? 'var(--purple)' : 'var(--t3)';
+  tabInd.style.borderBottomColor = !isOne ? 'var(--purple)' : 'transparent';
+  document.getElementById('lp-panel-one').style.display = isOne ? '' : 'none';
+  document.getElementById('lp-panel-ind').style.display = !isOne ? 'flex' : 'none';
+}
+
+function closeLPModal() {
+  document.getElementById('lp-modal-overlay').classList.remove('open');
+}
+
+function skipAndAdd() {
+  closeLPModal();
+  commitToQueue(null);
+}
+
+function saveAndAdd() {
+  // Collect urls — one-for-all or individual
+  const oneUrl = document.getElementById('lp-one-url').value.trim();
+  const isOne = document.getElementById('lp-panel-one').style.display !== 'none';
+  const urlMap = {};
+  if (isOne) {
+    // apply same url to all
+    collectPendingItems().forEach(item => urlMap[item.id] = oneUrl);
+  } else {
+    document.querySelectorAll('#lp-panel-ind input[data-id]').forEach(inp => {
+      urlMap[inp.dataset.id] = inp.value.trim();
+    });
+  }
+  closeLPModal();
+  commitToQueue(urlMap);
+}
+
+function commitToQueue(urlMap) {
+  const items = collectPendingItems();
+  if (urlMap) items.forEach(item => { item.landingUrl = urlMap[item.id] || ''; });
+
+  // Remove from upload grid
+  uploadedFiles = uploadedFiles.filter(f => !f.selected);
+  if (uploadedFiles.length === 0) {
+    document.getElementById('upload-filled').style.display = 'none';
+    document.getElementById('upload-empty').style.display = '';
+  } else {
+    renderUploadGrid();
+  }
+
+  // Remove checked existing rows
+  document.querySelectorAll('#ex-tbody tr').forEach(row => {
+    const cb = row.querySelector('.row-cb');
+    if (cb && cb.checked) row.remove();
+  });
+
+  persistToQueue(items);
+  window.location.href = 'ready-to-launch.html';
+}
+
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'posts') renderPostsTable();
+  updateGlobalBar();
+}
+
+// ── FILE UPLOAD ──
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-empty').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('upload-empty').classList.remove('drag-over'); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('upload-empty').classList.remove('drag-over'); processFiles(e.dataTransfer.files); }
+function handleFileSelect(e) { processFiles(e.target.files); e.target.value = ''; }
+
+function processFiles(files) {
+  if (!files.length) return;
+  document.getElementById('upload-empty').style.display = 'none';
+  document.getElementById('upload-filled').style.display = 'flex';
+  const allowed = /\.(jpg|jpeg|png|gif|mp4|mov)$/i;
+  Array.from(files).forEach(file => {
+    if (!allowed.test(file.name)) return;
+    const id = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      uploadedFiles.push({ id, name: file.name, src: ev.target.result, selected: false, isVideo: file.type.startsWith('video') });
+      renderUploadGrid();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderUploadGrid() {
+  const grid = document.getElementById('upload-grid');
+  grid.innerHTML = '';
+  uploadedFiles.forEach(f => {
+    const card = document.createElement('div');
+    card.className = 'ad-card' + (f.selected ? ' selected' : '');
+    card.onclick = () => toggleUploadCard(f.id);
+    card.innerHTML = `
+      <div class="ad-card-inner">
+        ${f.isVideo
+          ? `<div class="thumb-dark" style="width:100%;height:100%;flex-direction:column;gap:6px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"><path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.258a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:10px;color:rgba(255,255,255,.3)">Video</span></div>`
+          : `<img class="ad-card-img" src="${f.src}" alt="${f.name}">`}
+      </div>
+      <div class="ad-card-check">${f.selected ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>' : ''}</div>
+      <div class="ad-card-name">${f.name}</div>
+    `;
+    grid.appendChild(card);
+  });
+  updateGlobalBar();
+}
+
+function toggleUploadCard(id) {
+  const f = uploadedFiles.find(x => x.id === id);
+  if (f) f.selected = !f.selected;
+  renderUploadGrid();
+}
+
+// ── EXISTING POSTS ──
+const postsData = {
+  fb: [
+    { id:'p1', postId:'1596566212483250', caption:'Grey is natural. Your hair colour doesn\'t have to come with the whole ...', source:'Feed', media:'Photo', date:'15 Sep 2026', likes:1, comments:0, shares:1, thumb:'photo', src:'Ads/creative_1.jpg' },
+    { id:'p2', postId:'1596545372485334', caption:'Tired of harsh hair colours? 🌿 Nilini gives your greys a rich, natural bl...', source:'Feed', media:'Video', date:'15 Sep 2026', likes:0, comments:0, shares:0, thumb:'video', warn:true, src:'Ads/Meta - Aqua Blue cotton silk kurta_1080x1920 (SRAP04).mp4' },
+    { id:'p3', postId:'1596533989153139', caption:'Give your skin some extra love while you sleep 🌿✨ Red Sandalwood,...', source:'Feed', media:'Video', date:'15 Sep 2026', likes:0, comments:0, shares:0, thumb:'video', warn:true, src:'Ads/Meta - Dulha Ghar Party theme_1080x1920 (SRAP08).mp4' },
+    { id:'p4', postId:'1596527469153791', caption:'Tired of harsh hair colours? 🌿 Nilini gives your greys a rich, natural bl...', source:'Feed', media:'Video', date:'15 Sep 2026', likes:0, comments:0, shares:0, thumb:'video', warn:true, src:'Ads/Meta - Dulha Ghar - Navy blue bandhgala_1080x1920 (SRAP10) (2).mp4' },
+    { id:'p5', postId:'1596501234567890', caption:'Discover the power of natural ingredients for your daily skincare routine...', source:'Feed', media:'Photo', date:'14 Sep 2026', likes:4, comments:2, shares:3, thumb:'photo', src:'Ads/creative_3.jpg' },
+    { id:'p6', postId:'1596498765432109', caption:'New arrivals! Check out our latest collection of organic hair care products...', source:'Reel', media:'Video', date:'14 Sep 2026', likes:12, comments:5, shares:8, thumb:'video', src:'Ads/Meta - Dulha Ghar - Ganesh pooja kurta_1080x1920 (SRAP09).mp4' },
+    { id:'p7', postId:'1596467891234560', caption:'Why choose chemical-filled products when nature has the best answers 🌱...', source:'Feed', media:'Photo', date:'13 Sep 2026', likes:7, comments:1, shares:2, thumb:'photo', src:'Ads/creative_5.jpg' },
+  ],
+  ig: [
+    { id:'ig1', postId:'17854360229135492', caption:'Grey is natural. Your hair colour doesn\'t have to come with the whole ...', source:'Feed', media:'Photo', date:'15 Sep 2026', likes:24, comments:3, shares:0, thumb:'photo', src:'Ads/creative_2.jpg' },
+    { id:'ig2', postId:'17854360229135493', caption:'Tired of harsh hair colours? 🌿 Nilini gives your greys a rich, natural bl...', source:'Reel', media:'Video', date:'15 Sep 2026', likes:87, comments:12, shares:5, thumb:'video', src:'Ads/Meta - Aqua Blue cotton silk kurta_1080x1920 (SRAP04).mp4' },
+    { id:'ig3', postId:'17854360229135494', caption:'Give your skin some extra love while you sleep 🌿✨ Red Sandalwood,...', source:'Story', media:'Video', date:'14 Sep 2026', likes:0, comments:0, shares:0, thumb:'video', src:'Ads/Meta - Dulha Ghar Party theme_1080x1920 (SRAP08).mp4' },
+    { id:'ig4', postId:'17854360229135495', caption:'Natural beauty starts with what you put on your skin. Choose wisely 🌿', source:'Feed', media:'Photo', date:'13 Sep 2026', likes:41, comments:6, shares:9, thumb:'photo', src:'Ads/creative_4.jpg' },
+    { id:'ig5', postId:'17854360229135496', caption:'Our bestselling Red Sandalwood night cream is back in stock! Limited qty...', source:'Reel', media:'Video', date:'12 Sep 2026', likes:103, comments:18, shares:14, thumb:'video', src:'Ads/Meta - Dulha Ghar - Ganesh pooja kurta_1080x1920 (SRAP09).mp4' },
+  ],
+};
+
+let currentPlatform = 'fb';
+let postsSearchQuery = '';
+
+const PAGE_INFO = {
+  fb: {
+    name: 'Banaraswala 1',
+    type: 'Facebook Page',
+    avatarBg: '#1877F2',
+    avatarSvg: `<svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`
+  },
+  ig: {
+    name: '@banaraswala',
+    type: 'Instagram Account',
+    avatarBg: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)',
+    avatarSvg: `<svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>`
+  }
+};
+
+function switchPlatform(plat) {
+  currentPlatform = plat;
+  const fbBtn = document.getElementById('plat-fb');
+  const igBtn = document.getElementById('plat-ig');
+  fbBtn.style.background = plat === 'fb' ? 'var(--purple)' : 'transparent';
+  fbBtn.style.color = plat === 'fb' ? '#fff' : 'var(--t3)';
+  igBtn.style.background = plat === 'ig' ? 'var(--purple)' : 'transparent';
+  igBtn.style.color = plat === 'ig' ? '#fff' : 'var(--t3)';
+  // Update page pill
+  const info = PAGE_INFO[plat];
+  document.getElementById('page-pill-avatar').style.background = info.avatarBg;
+  document.getElementById('page-pill-avatar').innerHTML = info.avatarSvg;
+  document.getElementById('page-pill-name').textContent = info.name;
+  document.getElementById('page-pill-type').textContent = info.type;
+  postsSearchQuery = '';
+  renderPostsTable();
+  updateGlobalBar();
+}
+
+function renderPostsTable() {
+  const tbody = document.getElementById('posts-tbody');
+  if (!tbody) return;
+  const posts = (postsData[currentPlatform] || []).filter(p =>
+    p.caption.toLowerCase().includes(postsSearchQuery.toLowerCase()) ||
+    p.postId.includes(postsSearchQuery)
+  );
+  tbody.innerHTML = posts.map(p => {
+    const checked = isPostSelected(p.id);
+    const thumbHTML = p.thumb === 'video'
+      ? `<div style="width:52px;height:52px;border-radius:8px;background:#0d0c1f;flex-shrink:0;overflow:hidden;position:relative;border:1px solid var(--border)">
+           <video src="${p.src}" muted style="width:100%;height:100%;object-fit:cover;display:block" onloadedmetadata="this.currentTime=1"></video>
+           <div style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.65);border-radius:3px;padding:1px 4px;display:flex;align-items:center;justify-content:center">
+             <svg width="8" height="8" viewBox="0 0 24 24" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg>
+           </div>
+         </div>`
+      : `<div style="width:52px;height:52px;border-radius:8px;background:#0d0c1f;flex-shrink:0;overflow:hidden;border:1px solid var(--border)">
+           <img src="${p.src}" style="width:100%;height:100%;object-fit:cover;display:block" alt="">
+         </div>`;
+    const warnHTML = p.warn ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" style="flex-shrink:0"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>` : '';
+    const platformIcon = currentPlatform === 'fb'
+      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`
+      : `<svg width="12" height="12" viewBox="0 0 24 24" fill="url(#igGrad)"><defs><linearGradient id="igGrad" x1="0" y1="24" x2="24" y2="0"><stop offset="0%" stop-color="#F58529"/><stop offset="50%" stop-color="#DD2A7B"/><stop offset="100%" stop-color="#8134AF"/></linearGradient></defs><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>`;
+    return `<tr data-post-id="${p.id}" class="${checked ? 'row-selected' : ''}" style="cursor:pointer" onclick="openPostPreview('${p.id}',event)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="cb post-cb" data-post-id="${p.id}" ${checked ? 'checked' : ''} onchange="onPostCheck(event)"></td>
+      <td>
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          ${thumbHTML}
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12.5px;font-weight:600;color:var(--t1);line-height:1.45;margin-bottom:7px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${p.caption}</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--t3)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>
+                ${p.likes}
+              </span>
+              <span style="display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--t3)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                ${p.comments}
+              </span>
+              <span style="display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--t3)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+                ${p.shares}
+              </span>
+              ${warnHTML}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:11.5px;color:var(--t3);white-space:nowrap">${p.postId}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;white-space:nowrap">
+          ${platformIcon} ${p.source}
+        </div>
+      </td>
+      <td style="font-size:12.5px;white-space:nowrap">${p.media}</td>
+      <td style="font-size:12.5px;color:var(--t3);white-space:nowrap">${p.date}</td>
+    </tr>`;
+  }).join('');
+  syncPostsSelectAll();
+  updatePostsLabel();
+}
+
+function isPostSelected(id) {
+  const cb = document.querySelector(`.post-cb[data-post-id="${id}"]`);
+  return cb ? cb.checked : false;
+}
+
+function togglePostRow(id) {
+  const cb = document.querySelector(`.post-cb[data-post-id="${id}"]`);
+  if (cb) { cb.checked = !cb.checked; onPostCheck({ target: cb }); }
+}
+
+function onPostCheck(e) {
+  const row = e.target.closest('tr');
+  if (row) row.classList.toggle('row-selected', e.target.checked);
+  syncPostsSelectAll();
+  updateGlobalBar();
+}
+
+function toggleAllPosts(master) {
+  document.querySelectorAll('.post-cb').forEach(cb => {
+    cb.checked = master.checked;
+    const row = cb.closest('tr');
+    if (row) row.classList.toggle('row-selected', master.checked);
+  });
+  updateGlobalBar();
+}
+
+function syncPostsSelectAll() {
+  const cbs = document.querySelectorAll('.post-cb');
+  const checked = Array.from(cbs).filter(c => c.checked).length;
+  const sa = document.getElementById('sel-all-posts');
+  if (!sa) return;
+  sa.indeterminate = checked > 0 && checked < cbs.length;
+  sa.checked = cbs.length > 0 && checked === cbs.length;
+}
+
+function updatePostsLabel() {
+  const cbs = document.querySelectorAll('.post-cb');
+  const checked = Array.from(cbs).filter(c => c.checked).length;
+  const el = document.getElementById('posts-selected-label');
+  if (el) el.textContent = checked > 0 ? checked + ' selected' : '';
+}
+
+function filterPosts(q) {
+  postsSearchQuery = q;
+  renderPostsTable();
+  updateGlobalBar();
+}
+
+// ── EXISTING ADS ──
+function onRowCheck() { updateGlobalBar(); }
+
+function toggleAllExisting(master) {
+  document.querySelectorAll('.row-cb').forEach(cb => cb.checked = master.checked);
+  updateGlobalBar();
+}
+
+function filterRows(q) {
+  document.querySelectorAll('#ex-tbody tr').forEach(row => {
+    row.style.display = (row.dataset.name || '').toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+// ── PARTNERSHIP ADS HUB ──
+
+// ── POST PREVIEW DRAWER ──
+let _pdCurrent = null;
+
+function openPostPreview(id, e) {
+  if (e) e.stopPropagation();
+  const plat = currentPlatform;
+  const p = (postsData[plat] || []).find(x => x.id === id);
+  if (!p) return;
+  _pdCurrent = { id, plat };
+
+  // Media
+  const mediaEl = document.getElementById('pd-media-wrap');
+  if (p.thumb === 'video') {
+    mediaEl.innerHTML = `<video src="${p.src}" controls muted autoplay style="width:100%;height:100%;object-fit:contain;display:block"></video>`;
+  } else {
+    mediaEl.innerHTML = `<img src="${p.src}" style="width:100%;height:100%;object-fit:contain;display:block" alt="">`;
+  }
+
+  // Platform badge
+  const platIcon = plat === 'fb'
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> Facebook`
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="url(#igGrad2)"><defs><linearGradient id="igGrad2" x1="0" y1="24" x2="24" y2="0"><stop offset="0%" stop-color="#F58529"/><stop offset="50%" stop-color="#DD2A7B"/><stop offset="100%" stop-color="#8134AF"/></linearGradient></defs><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg> Instagram`;
+  document.getElementById('pd-platform-label').innerHTML = platIcon;
+
+  // Metrics
+  document.getElementById('pd-likes').textContent = p.likes;
+  document.getElementById('pd-comments').textContent = p.comments;
+  document.getElementById('pd-shares').textContent = p.shares;
+
+  // Caption
+  document.getElementById('pd-caption').textContent = p.caption;
+
+  // Meta
+  document.getElementById('pd-post-id').textContent = p.postId;
+  document.getElementById('pd-source').textContent = p.source;
+  document.getElementById('pd-media-type').textContent = p.media;
+  document.getElementById('pd-date').textContent = p.date;
+
+  // Warning
+  const warn = document.getElementById('pd-warn');
+  warn.style.display = p.warn ? 'flex' : 'none';
+
+  // Select button
+  _updatePdSelectBtn();
+
+  document.getElementById('pd-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function _updatePdSelectBtn() {
+  if (!_pdCurrent) return;
+  const btn = document.getElementById('pd-select-btn');
+  const isSelected = isPostSelected(_pdCurrent.id);
+  btn.textContent = isSelected ? 'Deselect' : 'Add to Selection';
+  btn.className = 'pd-btn-select' + (isSelected ? ' deselect' : '');
+}
+
+function pdToggleSelect() {
+  if (!_pdCurrent) return;
+  const cb = document.querySelector(`.post-cb[data-post-id="${_pdCurrent.id}"]`);
+  if (cb) { cb.checked = !cb.checked; onPostCheck({ target: cb }); }
+  _updatePdSelectBtn();
+}
+
+function closePostPreview(event, force) {
+  if (event && event.target !== document.getElementById('pd-overlay') && !force) return;
+  document.getElementById('pd-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  const vid = document.getElementById('pd-media-wrap').querySelector('video');
+  if (vid) vid.pause();
+}
+
+// ── INIT ──
+updateBadge();
+updateGlobalBar();
+renderPostsTable();
+</script>
+<!-- POST PREVIEW MODAL -->
+<div class="post-drawer-overlay" id="pd-overlay" onclick="closePostPreview(event)">
+  <div class="post-drawer" onclick="event.stopPropagation()">
+    <button class="pd-close" onclick="closePostPreview(null,true)">×</button>
+    <div class="pd-media" id="pd-media-wrap"></div>
+    <div class="pd-body">
+      <div class="pd-header">
+        <div class="pd-platform" id="pd-platform-label"></div>
+      </div>
+      <div class="pd-scroll">
+        <div id="pd-warn" class="pd-warn" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <span>This ad may have a restricted audience or limited reach due to content policies.</span>
+        </div>
+
+        <div class="pd-section-title">Engagement</div>
+        <div class="pd-metrics">
+          <div class="pd-metric">
+            <div class="pd-metric-val" id="pd-likes">—</div>
+            <div class="pd-metric-lbl">Likes</div>
+          </div>
+          <div class="pd-metric">
+            <div class="pd-metric-val" id="pd-comments">—</div>
+            <div class="pd-metric-lbl">Comments</div>
+          </div>
+          <div class="pd-metric">
+            <div class="pd-metric-val" id="pd-shares">—</div>
+            <div class="pd-metric-lbl">Shares</div>
+          </div>
+        </div>
+
+        <div class="pd-section-title">Caption</div>
+        <div class="pd-caption" id="pd-caption"></div>
+
+        <div class="pd-section-title">Post Details</div>
+        <div class="pd-meta-grid">
+          <div class="pd-meta-item">
+            <div class="pd-meta-lbl">Post ID</div>
+            <div class="pd-meta-val" id="pd-post-id" style="font-size:11px;word-break:break-all"></div>
+          </div>
+          <div class="pd-meta-item">
+            <div class="pd-meta-lbl">Source</div>
+            <div class="pd-meta-val" id="pd-source"></div>
+          </div>
+          <div class="pd-meta-item">
+            <div class="pd-meta-lbl">Media Type</div>
+            <div class="pd-meta-val" id="pd-media-type"></div>
+          </div>
+          <div class="pd-meta-item">
+            <div class="pd-meta-lbl">Date Created</div>
+            <div class="pd-meta-val" id="pd-date"></div>
+          </div>
+        </div>
+      </div>
+      <div class="pd-footer">
+        <button class="pd-btn-select" id="pd-select-btn" onclick="pdToggleSelect()">Add to Selection</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

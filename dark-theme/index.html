@@ -15,6 +15,52 @@
   --grad:linear-gradient(135deg,#AF46FD,#DA3BC2,#F4349D);
   --accent:#6F57E9;--green:#22C55E;--amber:#FB923C;--red:#E54545;
 }
+[data-theme="light"]{
+  --bg:#fbf5f0;--card:rgba(15,15,25,.04);--card2:rgba(15,15,25,.06);
+  --border:rgba(15,15,25,.1);--border2:rgba(15,15,25,.15);
+  --t1:#16151f;--t2:rgba(22,21,31,.55);--t3:rgba(22,21,31,.28);
+  --purple:#ec7c6f;--pink:#f2a98e;--grad:linear-gradient(135deg,#ec7c6f,#ef9182,#f2a98e);
+}
+[data-theme="light"] .sb{background:#f5eee9;border-right-color:rgba(15,15,25,.1)}
+[data-theme="light"] .sb-item{color:rgba(22,21,31,.38)}
+[data-theme="light"] .sb-item:hover{background:rgba(15,15,25,.06);color:rgba(22,21,31,.7)}
+[data-theme="light"] .sb-item.active{background:rgba(236,124,111,.12);color:var(--purple)}
+[data-theme="light"] .sb-div{background:rgba(15,15,25,.1)}
+[data-theme="light"] .sb-logo{background:rgba(15,15,25,.08)}
+[data-theme="light"] .sb-hover-panel{background:#fff;border-color:rgba(15,15,25,.12);color:rgba(22,21,31,.8);box-shadow:0 6px 24px rgba(15,15,25,.1)}
+[data-theme="light"] .sb-hp-label{color:rgba(22,21,31,.3)}
+[data-theme="light"] .sb-hp-title{color:#16151f}
+[data-theme="light"] .sb-hp-sub{color:rgba(22,21,31,.35)}
+[data-theme="light"] .sb-hp-item:hover{background:rgba(15,15,25,.05)}
+[data-theme="light"] .sb-hp-divider{background:rgba(15,15,25,.06)}
+[data-theme="light"] .theme-toggle-btn{color:rgba(22,21,31,.4)}
+[data-theme="light"] .theme-toggle-btn:hover{background:rgba(15,15,25,.06);color:rgba(22,21,31,.8)}
+[data-theme="light"] .sb-ws-bubble{border-color:rgba(236,124,111,.4)}
+[data-theme="light"] .nr-input:focus{border-color:rgba(236,124,111,.4)}
+[data-theme="light"] .ct-card.has-items{border-color:rgba(236,124,111,.3);background:rgba(236,124,111,.04)}
+[data-theme="light"] .ct-icon.video{background:rgba(236,124,111,.12);color:#ec7c6f}
+[data-theme="light"] .price-preview{background:rgba(236,124,111,.06);border-color:rgba(236,124,111,.15)}
+[data-theme="light"] .ol-icon.video{background:rgba(236,124,111,.12);color:#ec7c6f}
+[data-theme="light"] .nr-spin{border-color:rgba(236,124,111,.2);border-top-color:var(--purple)}
+[data-theme="light"] .chip.active{background:rgba(236,124,111,.12);border-color:rgba(236,124,111,.35)}
+[data-theme="light"] .search-input:focus{border-color:rgba(236,124,111,.4)}
+[data-theme="light"] .eng-card:hover{border-color:rgba(236,124,111,.3);background:rgba(236,124,111,.03)}
+[data-theme="light"] .badge-review{background:rgba(236,124,111,.1);color:#ec7c6f;border-color:rgba(236,124,111,.22)}
+[data-theme="light"] .action-pill.purple{background:rgba(236,124,111,.1);color:#ec7c6f;border-color:rgba(236,124,111,.2)}
+[data-theme="light"] .step-active{background:rgba(236,124,111,.12);color:#ec7c6f}
+[data-theme="light"] .bn-item.active,[data-theme="light"] .bn-item.active svg{color:#ec7c6f;stroke:#ec7c6f}
+[data-theme="light"] .bn-space-avatar{background:linear-gradient(135deg,#ec7c6f,#ef9182,#f2a98e)}
+[data-theme="light"] .sd-avatar{background:linear-gradient(135deg,#ec7c6f,#ef9182,#f2a98e)}
+[data-theme="light"] .sd-ws-card{background:rgba(236,124,111,.08);border-color:rgba(236,124,111,.2)}
+[data-theme="light"] .sd-ws-card::before{background:linear-gradient(135deg,#ec7c6f,#ef9182,#f2a98e)}
+[data-theme="light"] .sd-ws-badge{color:#ec7c6f}
+[data-theme="light"] .sd-ws-badge::before{background:#ec7c6f}
+[data-theme="light"] .sd-item.active-item{background:rgba(236,124,111,.1);border-left-color:#ec7c6f}
+[data-theme="light"] .cr-mini:hover{border-color:rgba(236,124,111,.3);background:rgba(236,124,111,.04)}
+[data-theme="light"] .cr-mini-icon.video{background:rgba(236,124,111,.12);color:#ec7c6f}
+[data-theme="light"] .cr-chip-purple{background:rgba(236,124,111,.1);color:#ec7c6f;border-color:rgba(236,124,111,.2)}
+[data-theme="light"] .sb-hp-icon{background:rgba(236,124,111,.12) !important}
+[data-theme="light"] .space-drawer{background:#f5eee9;border-left-color:rgba(15,15,25,.1)}
 html,body{height:100%;width:100%;background:var(--bg);color:var(--t1);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
 a{color:inherit;text-decoration:none}
 
@@ -71,6 +117,8 @@ a{color:inherit;text-decoration:none}
   background:var(--grad);display:flex;align-items:center;justify-content:center;
   font-size:12px;font-weight:800;cursor:pointer;border:2px solid rgba(175,70,253,.4);flex-shrink:0;
 }
+.theme-toggle-btn{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:none;color:var(--t3);transition:background .15s,color .15s;font-family:inherit}
+.theme-toggle-btn:hover{background:var(--card2);color:var(--t2)}
 
 /* ── MAIN ── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -317,6 +365,27 @@ a{color:inherit;text-decoration:none}
 .sd-item.danger{color:rgba(255,90,90,.6)}
 .sd-item.danger:hover{background:rgba(255,80,80,.07);color:rgba(255,110,110,.9)}
 
+/* ── CREATIVES EXPAND ── */
+.cr-toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 0 0;margin-top:10px;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;-webkit-user-select:none;user-select:none;gap:8px}
+.cr-toggle-label{font-size:11px;font-weight:700;color:var(--t3);display:flex;align-items:center;gap:5px;flex-shrink:0}
+.cr-toggle-chevron{color:var(--t3);transition:transform .22s;display:flex;align-items:center;flex-shrink:0}
+.cr-toggle-chevron.open{transform:rotate(180deg)}
+.cr-drawer{overflow:hidden;max-height:0;transition:max-height .3s ease,margin-top .2s;display:flex;flex-direction:column;gap:5px}
+.cr-drawer.open{max-height:800px;margin-top:10px}
+.cr-mini{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);text-decoration:none;color:inherit;transition:border-color .15s,background .15s}
+.cr-mini:hover{border-color:rgba(175,70,253,.3);background:rgba(175,70,253,.04)}
+.cr-mini-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cr-mini-icon.video{background:rgba(175,70,253,.12);color:#C084FC}
+.cr-mini-icon.static{background:rgba(34,211,238,.08);color:#22D3EE}
+.cr-mini-info{flex:1;min-width:0}
+.cr-mini-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cr-mini-fmt{font-size:10px;color:var(--t3);margin-top:1px}
+.cr-mini-chip{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0}
+.cr-chip-amber{background:rgba(251,146,60,.1);color:var(--amber);border:1px solid rgba(251,146,60,.18)}
+.cr-chip-cyan{background:rgba(34,211,238,.06);color:#22D3EE;border:1px solid rgba(34,211,238,.15)}
+.cr-chip-purple{background:rgba(175,70,253,.1);color:#C084FC;border:1px solid rgba(175,70,253,.2)}
+.cr-chip-green{background:rgba(34,197,94,.08);color:#22C55E;border:1px solid rgba(34,197,94,.18)}
+
 /* ── RESPONSIVE (≤640px) ── */
 @media(max-width:640px){
   .bottom-nav{display:flex}
@@ -470,6 +539,10 @@ a{color:inherit;text-decoration:none}
       </div>
       <div class="sb-hover-panel" style="color:rgba(255,120,120,.8)">Logout</div>
     </div>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode">
+      <svg id="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"/></svg>
+      <svg id="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
     <div style="height:8px;flex-shrink:0"></div>
     <div class="sb-ws-bubble" id="sb-ws-bubble" onclick="toggleWsSwitcher()" title="Switch Workspace" style="background:#fff;overflow:hidden;margin-bottom:8px">
       <img src="../images/shesha-logo.svg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='S';this.parentNode.style.background=''"/>
@@ -716,6 +789,21 @@ a{color:inherit;text-decoration:none}
 </div>
 
 <script>
+// ── THEME ──
+const THEME_KEY = 'fastrr_theme';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const sun = document.getElementById('theme-icon-sun');
+  const moon = document.getElementById('theme-icon-moon');
+  if(sun && moon){ sun.style.display = t==='light'?'block':'none'; moon.style.display = t==='light'?'none':'block'; }
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme')==='light' ? 'dark' : 'light';
+  localStorage.setItem(THEME_KEY, cur);
+  applyTheme(cur);
+}
+(function(){ applyTheme(localStorage.getItem(THEME_KEY)||'dark'); })();
+
 function openSpaceDrawer() {
   document.getElementById('space-backdrop').classList.add('show');
   requestAnimationFrame(function(){ requestAnimationFrame(function(){
@@ -726,6 +814,9 @@ function closeSpaceDrawer() {
   document.getElementById('space-drawer').classList.remove('open');
   setTimeout(function(){ document.getElementById('space-backdrop').classList.remove('show'); }, 280);
 }
+// Stage constants (mirrors engagement.html)
+const ST = {ASSET:0,ASSET_DONE:1,SL_REVIEW:2,SL_REWORK:3,CR_PENDING:4,CR_REVIEW:5,CR_REWORK:6,APPROVED:7,DELIVERED:8,PAYMENT_PENDING:9};
+
 // ── DATA ── (single source of truth, shared via sessionStorage so engagement.html can read it)
 const ENGAGEMENTS = [
   {
@@ -738,6 +829,11 @@ const ENGAGEMENTS = [
     started:'Nov 12, 2024', poc:'Riya Sharma',
     category:'Ethnic Wear', formats:['Instagram Feed','Stories','Reels'],
     tone:'Festive, warm, celebratory', delivery:'Nov 20, 2024',
+    creatives:[
+      {id:'C1',name:'Video Ad 1',type:'video',format:'1080×1920 · Reels',stage:ST.ASSET},
+      {id:'C2',name:'Video Ad 2',type:'video',format:'1080×1920 · Stories',stage:ST.ASSET},
+      {id:'C3',name:'Static Ad 1',type:'static',format:'1080×1080 · Feed',stage:ST.ASSET_DONE},
+    ],
     messages:[
       {from:'Riya · Studio',text:'Hi! Your Diwali Campaign is set up. Please upload product images or share product links.',time:'Nov 12 · 10:31 AM',mine:false},
       {from:'Riya · Studio',text:'We need: product shots, brand logo (SVG/PNG), and any reference ads you like.',time:'Nov 12 · 10:33 AM',mine:false},
@@ -746,39 +842,40 @@ const ENGAGEMENTS = [
   },
   {
     id:'ENG-2024-002', title:'Winter Collection Launch',
-    desc:'Outerwear &amp; Accessories', deliverables:'1 Video · 5 Statics',
-    videos:1, statics:5,
+    desc:'Outerwear &amp; Accessories', deliverables:'3 Creatives',
+    videos:1, statics:2,
     stage:2,
     status:'action', actionLabel:'Review storyline', actionType:'purple',
     amount:24500,
     started:'Nov 8, 2024', poc:'Aditya Mehta',
     category:'Outerwear', formats:['Instagram Feed','Facebook'],
     tone:'Premium, sophisticated, minimal', delivery:'Nov 18, 2024',
-    storyline:`Scene 1 — Opening (0–3s)\nFrost particles drift across dark fabric. Camera reveals a structured overcoat.\nText fades in: "Wear the season."
-
-Scene 2 — Product Showcase (3–10s)\nSlow cuts through the collection — coats, scarves, boots arranged on a snowy backdrop. Model walking in statement outerwear.
-
-Scene 3 — CTA (10–12s)\nBold text: "Shop Winter Edit"\nNykaa Fashion logo lockup.`,
+    creatives:[
+      {id:'C1',name:'Video Ad 1',type:'video',format:'1080×1920 · Reels',stage:ST.SL_REVIEW},
+      {id:'C2',name:'Video Ad 2',type:'video',format:'1080×1920 · Stories',stage:ST.SL_REWORK},
+      {id:'C3',name:'Static Ad 1',type:'static',format:'1080×1080 · Feed',stage:ST.SL_REVIEW},
+    ],
     messages:[
       {from:'Aditya · Studio',text:'Winter Collection engagement is live. Assets received — thank you!',time:'Nov 8 · 2:10 PM',mine:false},
       {from:'Aditya · Studio',text:'Our content writer has drafted the storyline. Please review and approve or share feedback.',time:'Nov 10 · 9:00 AM',mine:false},
     ]
   },
   {
-    id:'ENG-2024-003', title:'Jewellery Brand Awareness',
-    desc:'Gold &amp; Diamond Collection', deliverables:'4 Statics',
-    videos:0, statics:4,
+    id:'ENG-2024-003', title:'Multi-Brand D2C Campaign',
+    desc:'D2C Products', deliverables:'5 Statics',
+    videos:0, statics:5,
     stage:3,
     status:'action', actionLabel:'Review creatives', actionType:'purple',
     amount:18000,
     started:'Nov 5, 2024', poc:'Sneha Gupta',
-    category:'Jewellery', formats:['Instagram Feed','Stories'],
-    tone:'Luxury, elegant, aspirational', delivery:'Nov 15, 2024',
+    category:'D2C Products', formats:['Instagram Feed','Stories','Facebook'],
+    tone:'Bold, product-first, conversion-focused', delivery:'Nov 15, 2024',
     creatives:[
-      {name:'Static Ad 1',type:'Image · 1080×1080',tag:'Feed'},
-      {name:'Static Ad 2',type:'Image · 1080×1920',tag:'Stories'},
-      {name:'Static Ad 3',type:'Image · 1200×628',tag:'Facebook'},
-      {name:'Static Ad 4',type:'Image · 1080×1080',tag:'Feed'},
+      {id:'C1',name:'Static Ad 1',type:'static',format:'1080×1080 · Feed',stage:ST.CR_REVIEW},
+      {id:'C2',name:'Static Ad 2',type:'static',format:'1080×1080 · Feed',stage:ST.CR_REWORK},
+      {id:'C3',name:'Static Ad 3',type:'static',format:'1080×1080 · Feed',stage:ST.APPROVED},
+      {id:'C4',name:'Static Ad 4',type:'static',format:'1080×1350 · Feed',stage:ST.CR_REVIEW},
+      {id:'C5',name:'Static Ad 5',type:'static',format:'1080×1080 · Feed',stage:ST.CR_REVIEW},
     ],
     messages:[
       {from:'Sneha · Studio',text:'Creatives are ready for your review! Please check the watermarked versions and share feedback.',time:'Nov 13 · 4:30 PM',mine:false},
@@ -786,28 +883,40 @@ Scene 3 — CTA (10–12s)\nBold text: "Shop Winter Edit"\nNykaa Fashion logo lo
   },
   {
     id:'ENG-2024-004', title:'Year End Sale Push',
-    desc:'Apparel &amp; Footwear', deliverables:'3 Videos · 6 Statics',
-    videos:3, statics:6,
+    desc:'Apparel &amp; Footwear', deliverables:'3 Creatives',
+    videos:1, statics:2,
     stage:3,
     status:'progress',
     amount:47000,
     started:'Oct 28, 2024', poc:'Riya Sharma',
     category:'Apparel & Footwear', formats:['Instagram Feed','Stories','Reels','YouTube'],
     tone:'Energetic, bold, sale-driven', delivery:'Nov 25, 2024',
+    creatives:[
+      {id:'C1',name:'Video Ad 1',type:'video',format:'1080×1920 · Reels',stage:ST.CR_PENDING},
+      {id:'C2',name:'Static Ad 1',type:'static',format:'1080×1080 · Feed',stage:ST.CR_PENDING},
+      {id:'C3',name:'Static Ad 2',type:'static',format:'1080×1920 · Stories',stage:ST.CR_PENDING},
+    ],
     messages:[
       {from:'Riya · Studio',text:'Designer has started on your creatives. Expected preview in 2 days.',time:'Nov 11 · 11:00 AM',mine:false},
     ]
   },
   {
     id:'ENG-2024-005', title:'Navratri Special — Ethnic',
-    desc:'Ethnic Collection', deliverables:'2 Videos · 2 Statics',
-    videos:2, statics:2,
+    desc:'Ethnic Collection', deliverables:'5 Creatives',
+    videos:2, statics:3,
     stage:4,
     status:'delivered',
     amount:21000,
     started:'Oct 1, 2024', poc:'Aditya Mehta',
     category:'Ethnic Wear', formats:['Instagram Feed','Stories'],
     tone:'Celebratory, vibrant, cultural', delivery:'Oct 12, 2024',
+    creatives:[
+      {id:'C1',name:'Static Ad 1',type:'static',format:'1080×1080 · Feed',stage:ST.DELIVERED},
+      {id:'C2',name:'Static Ad 2',type:'static',format:'1080×1080 · Feed',stage:ST.DELIVERED},
+      {id:'C3',name:'Static Ad 3',type:'static',format:'1080×1080 · Feed',stage:ST.DELIVERED},
+      {id:'C4',name:'Static Ad 4',type:'static',format:'1080×1350 · Feed',stage:ST.DELIVERED},
+      {id:'C5',name:'Static Ad 5',type:'static',format:'1080×1080 · Feed',stage:ST.DELIVERED},
+    ],
     messages:[
       {from:'Aditya · Studio',text:'All creatives have been delivered. Hope the campaign performs well!',time:'Oct 12 · 6:00 PM',mine:false},
     ]
@@ -822,6 +931,11 @@ Scene 3 — CTA (10–12s)\nBold text: "Shop Winter Edit"\nNykaa Fashion logo lo
     started:'Nov 14, 2024', poc:'Sneha Gupta',
     category:'Beauty & Skincare', formats:['Instagram Feed','Facebook'],
     tone:'Clean, fresh, dermatologist-trusted', delivery:'Nov 22, 2024',
+    creatives:[
+      {id:'C1',name:'Static Ad 1',type:'static',format:'1080×1080 · Feed',stage:ST.PAYMENT_PENDING},
+      {id:'C2',name:'Static Ad 2',type:'static',format:'1080×1080 · Feed',stage:ST.PAYMENT_PENDING},
+      {id:'C3',name:'Static Ad 3',type:'static',format:'1080×1080 · Feed',stage:ST.CR_REVIEW},
+    ],
     messages:[
       {from:'Sneha · Studio',text:'2 creatives approved! Complete payment to unlock full-resolution downloads.',time:'Nov 20 · 11:00 AM',mine:false},
     ]
@@ -848,6 +962,28 @@ function stepClass(i, activeStage) {
 }
 function checkSVG(){ return `<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>`; }
 function clockSVG(){ return `<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`; }
+
+function stageChip(stage) {
+  const m = {
+    0:{label:'Upload Pending',cls:'cr-chip-amber'},
+    1:{label:'Assets Received',cls:'cr-chip-cyan'},
+    2:{label:'Review Storyline',cls:'cr-chip-purple'},
+    3:{label:'Revising',cls:'cr-chip-cyan'},
+    4:{label:'In Production',cls:'cr-chip-cyan'},
+    5:{label:'Review Creative',cls:'cr-chip-purple'},
+    6:{label:'Revising',cls:'cr-chip-cyan'},
+    7:{label:'Approved',cls:'cr-chip-green'},
+    8:{label:'Delivered',cls:'cr-chip-green'},
+    9:{label:'Payment Pending',cls:'cr-chip-amber'},
+  };
+  return m[stage] || {label:'In Progress',cls:'cr-chip-cyan'};
+}
+
+function toggleCreatives(engId, e) {
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById('crdrw-'+engId).classList.toggle('open');
+  document.getElementById('crchev-'+engId).classList.toggle('open');
+}
 
 function renderCard(eng) {
   const stepsHtml = STAGE_LABELS.map((label, i) => {
@@ -876,8 +1012,35 @@ function renderCard(eng) {
   const staticTag = eng.statics > 0
     ? `<div class="ctype"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>${eng.statics} Static${eng.statics>1?'s':''}</div>` : '';
 
+  const videoMiniSvg = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
+  const imgMiniSvg = `<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+
+  const crSection = eng.creatives && eng.creatives.length > 0 ? `
+    <div class="cr-toggle" onclick="toggleCreatives('${eng.id}', event)">
+      <span class="cr-toggle-label">
+        ${imgMiniSvg}
+        ${eng.creatives.length} Creative${eng.creatives.length===1?'':'s'}
+      </span>
+      <span class="cr-toggle-chevron" id="crchev-${eng.id}">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </span>
+    </div>
+    <div class="cr-drawer" id="crdrw-${eng.id}">
+      ${eng.creatives.map(c => {
+        const chip = stageChip(c.stage);
+        return `<a class="cr-mini" href="creative.html?id=${eng.id}&cid=${c.id}" onclick="event.stopPropagation()">
+          <div class="cr-mini-icon ${c.type}">${c.type==='video'?videoMiniSvg:imgMiniSvg}</div>
+          <div class="cr-mini-info">
+            <div class="cr-mini-name">${c.name}</div>
+            <div class="cr-mini-fmt">${c.format}</div>
+          </div>
+          <span class="cr-mini-chip ${chip.cls}">${chip.label}</span>
+        </a>`;
+      }).join('')}
+    </div>` : '';
+
   return `
-    <a class="eng-card" href="engagement.html?id=${eng.id}" data-status="${eng.status}">
+    <div class="eng-card" onclick="window.location.href='engagement.html?id=${eng.id}'" data-status="${eng.status}" style="cursor:pointer">
       <div class="card-row1">
         <div>
           <div class="card-id">${eng.id}</div>
@@ -897,7 +1060,8 @@ function renderCard(eng) {
           <div class="card-date">Started ${eng.started}</div>
         </div>
       </div>
-    </a>`;
+      ${crSection}
+    </div>`;
 }
 
 let currentFilter = 'all';
