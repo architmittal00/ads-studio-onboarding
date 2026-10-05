@@ -11,6 +11,12 @@ function pickPurchaseValue(entries) {
   return match ? parseFloat(match.value) : 0;
 }
 
+function pickPurchaseCount(entries) {
+  if (!entries) return 0;
+  const match = entries.find((entry) => PURCHASE_ACTION_TYPES.includes(entry.action_type));
+  return match ? parseFloat(match.value) : 0;
+}
+
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
@@ -25,7 +31,7 @@ export default async function handler(req, res) {
 
   const url =
     `https://graph.facebook.com/${GRAPH_API_VERSION}/${accountId}/insights` +
-    `?fields=spend,action_values,purchase_roas,actions` +
+    `?fields=spend,impressions,clicks,ctr,action_values,purchase_roas,actions` +
     `&date_preset=last_30d` +
     `&access_token=${session.accessToken}`;
 
@@ -40,7 +46,14 @@ export default async function handler(req, res) {
     const row = json.data?.[0];
 
     if (!row) {
-      return res.status(200).json({ spend: 0, revenue: 0, roas: 0, hasData: false });
+      return res.status(200).json({
+        spend: 0,
+        revenue: 0,
+        roas: 0,
+        ctr: 0,
+        conversions: 0,
+        hasData: false,
+      });
     }
 
     const spend = parseFloat(row.spend || 0);
@@ -60,7 +73,11 @@ export default async function handler(req, res) {
       roas = revenue / spend;
     }
 
-    res.status(200).json({ spend, revenue, roas, hasData: true });
+    // Facebook's "ctr" field is already a percentage (e.g. "1.23" = 1.23%)
+    const ctr = parseFloat(row.ctr || 0);
+    const conversions = pickPurchaseCount(row.actions);
+
+    res.status(200).json({ spend, revenue, roas, ctr, conversions, hasData: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

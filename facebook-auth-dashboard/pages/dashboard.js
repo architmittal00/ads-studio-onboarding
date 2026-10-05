@@ -160,6 +160,8 @@ export default function Dashboard({ user }) {
                           data.adAccounts.find((a) => a.id === selectedAccountId)?.currency
                         )}
                       />
+                      <Stat label="CTR" value={`${insights.ctr.toFixed(2)}%`} />
+                      <Stat label="Conversions" value={insights.conversions.toFixed(0)} />
                       {!insights.hasData && (
                         <p style={{ opacity: 0.7 }}>No activity in the last 30 days.</p>
                       )}
