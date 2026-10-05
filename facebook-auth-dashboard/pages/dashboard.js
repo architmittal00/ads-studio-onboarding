@@ -9,15 +9,42 @@ export default function Dashboard({ user }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [insights, setInsights] = useState(null);
+  const [insightsError, setInsightsError] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+
   useEffect(() => {
     fetch("/api/fb/data")
       .then((res) => res.json())
       .then((json) => {
-        if (json.error) setError(json.error);
-        else setData(json);
+        if (json.error) {
+          setError(json.error);
+        } else {
+          setData(json);
+          if (json.adAccounts?.length) {
+            setSelectedAccountId(json.adAccounts[0].id);
+          }
+        }
       })
       .catch((err) => setError(err.message));
   }, []);
+
+  function checkPerformance() {
+    if (!selectedAccountId) return;
+    setInsightsLoading(true);
+    setInsightsError(null);
+    setInsights(null);
+
+    fetch(`/api/fb/insights?accountId=${encodeURIComponent(selectedAccountId)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.error) setInsightsError(json.error);
+        else setInsights(json);
+      })
+      .catch((err) => setInsightsError(err.message))
+      .finally(() => setInsightsLoading(false));
+  }
 
   return (
     <>
@@ -85,12 +112,85 @@ export default function Dashboard({ user }) {
                   </ul>
                 )}
               </div>
+
+              {data.adAccounts.length > 0 && (
+                <div>
+                  <h2>Ad Account Performance (Last 30 Days)</h2>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <select
+                      value={selectedAccountId}
+                      onChange={(e) => setSelectedAccountId(e.target.value)}
+                    >
+                      {data.adAccounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button onClick={checkPerformance} disabled={insightsLoading}>
+                      {insightsLoading ? "Checking…" : "Check ROAS"}
+                    </button>
+                  </div>
+
+                  {insightsError && (
+                    <p style={{ color: "crimson" }}>Error: {insightsError}</p>
+                  )}
+
+                  {insights && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        display: "flex",
+                        gap: 24,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <Stat label="ROAS" value={`${insights.roas.toFixed(2)}x`} />
+                      <Stat
+                        label="Spend"
+                        value={formatCurrency(
+                          insights.spend,
+                          data.adAccounts.find((a) => a.id === selectedAccountId)?.currency
+                        )}
+                      />
+                      <Stat
+                        label="Purchase Revenue"
+                        value={formatCurrency(
+                          insights.revenue,
+                          data.adAccounts.find((a) => a.id === selectedAccountId)?.currency
+                        )}
+                      />
+                      {!insights.hasData && (
+                        <p style={{ opacity: 0.7 }}>No activity in the last 30 days.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           )}
         </main>
       </div>
     </>
   );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div>
+      <p style={{ margin: 0, opacity: 0.7, fontSize: 13 }}>{label}</p>
+      <p style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{value}</p>
+    </div>
+  );
+}
+
+function formatCurrency(amount, currency) {
+  if (!currency) return amount.toFixed(2);
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
 }
 
 export async function getServerSideProps(context) {
