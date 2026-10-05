@@ -47,6 +47,56 @@ function CreativeCell({ ad, maxWidth = NAME_COL_WIDTH, onOpen }) {
   );
 }
 
+// Renders a "where does 80% of purchase revenue come from, by <dimension>"
+// table — shared by the age/gender, region, and creative-type breakdowns.
+// `showSummary=false` is for creative type, where there's no meaningful
+// 80%-of-N-groups framing since there are only ever 3 possible groups.
+// Module-level (not defined inside Report()) so it isn't recreated — and
+// remounted, losing its SortableTable's sort/search state — every render.
+function BreakdownSection({ id, title, data, labelHeader, showSummary = true, searchPlaceholder, emptyMessage, money }) {
+  return (
+    <section id={id} className={styles.card}>
+      <h2 className={styles.h2}>{title}</h2>
+      {data.totalGroupCount === 0 ? (
+        <p className={styles.sub}>{emptyMessage}</p>
+      ) : (
+        <>
+          {showSummary && (
+            <p className={styles.sub} style={{ marginBottom: 12 }}>
+              <strong style={{ color: "var(--t1)" }}>
+                {data.contributorCount} of {data.totalGroupCount} {labelHeader.toLowerCase()} groups
+              </strong>{" "}
+              ({data.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
+              <strong style={{ color: "var(--t1)" }}>{data.spendSharePct.toFixed(0)}% of spend</strong>.
+            </p>
+          )}
+          <SortableTable
+            defaultSortKey="revenue"
+            maxHeight={360}
+            searchable={data.contributors.length > 6}
+            searchKeys={["label"]}
+            searchPlaceholder={searchPlaceholder}
+            rows={data.contributors}
+            columns={[
+              { key: "label", label: labelHeader, maxWidth: 220 },
+              { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+              { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
+              {
+                key: "revenueSharePct",
+                label: "% Revenue",
+                align: "right",
+                render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
+              },
+              { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+              { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
+            ]}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
 // Filters the campaign -> ad set -> ad tree by a search term. If an
 // ancestor's own name matches, all of its descendants are kept as-is
 // (searching "Diwali" and matching a campaign name shows everything under
@@ -129,6 +179,9 @@ const SECTIONS = [
   { id: "trends", label: "Best Week / Month" },
   { id: "top-campaigns", label: "Top Campaigns" },
   { id: "pareto", label: "Revenue Concentration" },
+  { id: "age-gender", label: "Age & Gender" },
+  { id: "region", label: "By State" },
+  { id: "creative-type", label: "By Creative Type" },
   { id: "pixel-health", label: "Pixel Health" },
   { id: "structure", label: "Account Structure" },
   { id: "high-frequency", label: "High-Frequency Ads" },
@@ -673,6 +726,39 @@ export default function Report() {
                     </>
                   )}
                 </section>
+
+                {/* Where 80% of purchase revenue comes from, by age/gender */}
+                <BreakdownSection
+                  id="age-gender"
+                  title="Where 80% of Purchase Revenue Comes From — Age & Gender"
+                  data={report.purchasesByAgeGender}
+                  labelHeader="Age · Gender"
+                  searchPlaceholder="Search age/gender…"
+                  emptyMessage="No age/gender breakdown data in this window."
+                  money={money}
+                />
+
+                {/* Where 80% of purchase revenue comes from, by state/region */}
+                <BreakdownSection
+                  id="region"
+                  title="Where 80% of Purchase Revenue Comes From — State"
+                  data={report.purchasesByRegion}
+                  labelHeader="State"
+                  searchPlaceholder="Search states…"
+                  emptyMessage="No region breakdown data in this window (not available for every country)."
+                  money={money}
+                />
+
+                {/* Full purchase split by creative type — only 3 possible groups, so no 80% cutoff */}
+                <BreakdownSection
+                  id="creative-type"
+                  title="Purchases by Creative Type"
+                  data={report.purchasesByCreativeType}
+                  labelHeader="Creative Type"
+                  showSummary={false}
+                  emptyMessage="No creative-level purchase data in this window."
+                  money={money}
+                />
 
                 {/* Pixel health */}
                 <section id="pixel-health" className={styles.card}>
