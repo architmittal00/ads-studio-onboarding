@@ -151,6 +151,109 @@ export default function Report() {
     return <span className={styles.muted}>NO BUDGET</span>;
   }
 
+  function StatusDot({ status }) {
+    const color = status === "ACTIVE" ? "var(--green)" : status === "PAUSED" ? "var(--t3)" : "var(--red)";
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--t2)" }}>{status}</span>
+      </span>
+    );
+  }
+
+  function expandAllStructure() {
+    if (!report) return;
+    const allCampaigns = {};
+    const allAdsets = {};
+    for (const c of report.structure.campaigns) {
+      allCampaigns[c.id] = true;
+      for (const a of c.adsets) {
+        allAdsets[a.id] = true;
+      }
+    }
+    setExpandedCampaigns(allCampaigns);
+    setExpandedAdsets(allAdsets);
+  }
+
+  function collapseAllStructure() {
+    setExpandedCampaigns({});
+    setExpandedAdsets({});
+  }
+
+  // Flattens the campaign → ad set → ad tree into Ads-Manager-style rows:
+  // one indented table, consistent columns at every level, driven by the
+  // current expand/collapse state.
+  function buildStructureRows() {
+    if (!report) return [];
+    const rows = [];
+    for (const c of report.structure.campaigns) {
+      rows.push({
+        key: `c-${c.id}`,
+        anchorId: `campaign-${c.id}`,
+        level: 0,
+        hasChildren: c.adsets.length > 0,
+        expanded: !!expandedCampaigns[c.id],
+        onToggle: () => toggleCampaign(c.id),
+        name: c.name,
+        countLabel: `${c.adsets.length} ad sets`,
+        status: c.status,
+        budgetText: c.budgetType === "CBO" ? money(c.dailyBudget) : c.budgetType === "ABO" ? "Ad set level" : "—",
+        budgetBadge: c.budgetType,
+        spend: c.spend30d,
+        purchases: c.purchases30d,
+        roas: c.roas30d,
+        frequency: null,
+        creativesText: c.additionalNeeded > 0 ? `${c.creativeCount} (+${c.additionalNeeded})` : `${c.creativeCount}`,
+      });
+
+      if (expandedCampaigns[c.id]) {
+        for (const a of c.adsets) {
+          rows.push({
+            key: `a-${a.id}`,
+            level: 1,
+            hasChildren: a.ads.length > 0,
+            expanded: !!expandedAdsets[a.id],
+            onToggle: () => toggleAdset(a.id),
+            name: a.name,
+            countLabel: `${a.ads.length} ads`,
+            status: a.status,
+            budgetText: c.budgetType === "ABO" ? money(a.dailyBudget) : "—",
+            budgetBadge: null,
+            spend: a.spend30d,
+            purchases: a.purchases30d,
+            roas: a.roas30d,
+            frequency: null,
+            creativesText:
+              a.additionalNeeded > 0 ? `${a.creativeCount} (+${a.additionalNeeded})` : `${a.creativeCount}`,
+          });
+
+          if (expandedAdsets[a.id]) {
+            for (const ad of a.ads) {
+              rows.push({
+                key: `ad-${ad.id}`,
+                level: 2,
+                hasChildren: false,
+                expanded: false,
+                onToggle: null,
+                name: ad.name,
+                countLabel: null,
+                status: null,
+                budgetText: "—",
+                budgetBadge: null,
+                spend: ad.spend,
+                purchases: ad.purchases,
+                roas: ad.roas,
+                frequency: ad.frequency,
+                creativesText: "—",
+              });
+            }
+          }
+        }
+      }
+    }
+    return rows;
+  }
+
   return (
     <>
       <Head>
@@ -354,81 +457,85 @@ export default function Report() {
 
                 {/* Account structure: campaign → ad set → ad drill-down */}
                 <section id="structure" className={styles.card}>
-                  <h2 className={styles.h2}>
-                    Account Structure ({report.structure.campaignCount} campaigns, {report.structure.adsetCount} ad
-                    sets)
-                  </h2>
-                  <p className={styles.sub} style={{ marginBottom: 12 }}>
-                    Showing only campaigns and ad sets with spend in the last 30 days.
-                  </p>
+                  <div className={styles.sectionRow}>
+                    <div>
+                      <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+                        Account Structure ({report.structure.campaignCount} campaigns, {report.structure.adsetCount}{" "}
+                        ad sets)
+                      </h2>
+                      <p className={styles.sub}>Only campaigns/ad sets with spend in the last 30 days are shown.</p>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className={styles.btnSecondary} onClick={expandAllStructure}>
+                        Expand All
+                      </button>
+                      <button className={styles.btnSecondary} onClick={collapseAllStructure}>
+                        Collapse All
+                      </button>
+                    </div>
+                  </div>
                   {report.structure.campaigns.length === 0 ? (
                     <p className={styles.sub}>No campaigns with spend in this window.</p>
                   ) : (
                     <div className={styles.tableScroll} style={{ maxHeight: 520 }}>
-                      {report.structure.campaigns.map((c) => (
-                        <div key={c.id} id={`campaign-${c.id}`} className={styles.accordionItem}>
-                          <div className={styles.accordionHeader} onClick={() => toggleCampaign(c.id)}>
-                            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {c.name} <span className={styles.muted}>({c.adsets.length} ad sets)</span>
-                            </span>
-                            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <BudgetTypeBadge type={c.budgetType} />
-                              <span className={styles.muted}>{money(c.spend30d)}</span>
-                              <span className={styles.pill}>{c.status}</span>
-                            </span>
-                          </div>
-                          {expandedCampaigns[c.id] && (
-                            <div className={styles.accordionBody}>
-                              <p className={styles.sub}>
-                                Objective: {c.objective || "—"} · ROAS: {c.roas30d.toFixed(2)}x · Creatives:{" "}
-                                {c.creativeCount}
-                                {c.budgetType === "CBO" && c.dailyBudget
-                                  ? ` · Daily budget: ${money(c.dailyBudget)}`
-                                  : ""}
-                              </p>
-                              {c.adsets.length === 0 ? (
-                                <p className={styles.sub}>No ad sets.</p>
-                              ) : (
-                                c.adsets.map((a) => (
-                                  <div key={a.id} className={styles.accordionItem} style={{ marginBottom: 6 }}>
-                                    <div className={styles.accordionHeader} onClick={() => toggleAdset(a.id)}>
-                                      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        {a.name} <span className={styles.muted}>({a.ads.length} ads)</span>
-                                      </span>
-                                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                        <span className={styles.muted}>{money(a.spend30d)}</span>
-                                        <span className={styles.pill}>{a.status}</span>
-                                      </span>
-                                    </div>
-                                    {expandedAdsets[a.id] && (
-                                      <div className={styles.accordionBody}>
-                                        <p className={styles.sub}>
-                                          ROAS: {a.roas30d.toFixed(2)}x · Creatives: {a.creativeCount}
-                                          {c.budgetType === "ABO" && a.dailyBudget
-                                            ? ` · Daily budget: ${money(a.dailyBudget)}`
-                                            : ""}
-                                        </p>
-                                        {a.ads.length === 0 ? (
-                                          <p className={styles.sub}>No ads with delivery in the last 30 days.</p>
-                                        ) : (
-                                          a.ads.map((ad) => (
-                                            <div key={ad.id} className={styles.listItem}>
-                                              {ad.name}
-                                              <span className={styles.muted}>
-                                                {money(ad.spend)} · {ad.roas.toFixed(2)}x · freq {ad.frequency.toFixed(2)}
-                                              </span>
-                                            </div>
-                                          ))
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                      <table className={styles.table}>
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: "right" }}>Budget</th>
+                            <th style={{ textAlign: "right" }}>Spend (30d)</th>
+                            <th style={{ textAlign: "right" }}>Purchases</th>
+                            <th style={{ textAlign: "right" }}>ROAS</th>
+                            <th style={{ textAlign: "right" }}>Frequency</th>
+                            <th style={{ textAlign: "right" }}>Creatives</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {buildStructureRows().map((row) => (
+                            <tr
+                              key={row.key}
+                              id={row.anchorId}
+                              onClick={row.onToggle || undefined}
+                              style={row.onToggle ? { cursor: "pointer" } : undefined}
+                            >
+                              <td>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    paddingLeft: row.level * 20,
+                                  }}
+                                >
+                                  <span style={{ width: 14, display: "inline-block", color: "var(--t3)" }}>
+                                    {row.hasChildren ? (row.expanded ? "▾" : "▸") : ""}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontWeight: row.level === 0 ? 700 : row.level === 1 ? 600 : 400,
+                                      color: row.level === 2 ? "var(--t2)" : "var(--t1)",
+                                    }}
+                                  >
+                                    {row.name}
+                                  </span>
+                                  {row.countLabel && <span className={styles.muted}>({row.countLabel})</span>}
+                                  {row.budgetBadge && <BudgetTypeBadge type={row.budgetBadge} />}
+                                </div>
+                              </td>
+                              <td>{row.status ? <StatusDot status={row.status} /> : <span className={styles.muted}>—</span>}</td>
+                              <td style={{ textAlign: "right" }}>{row.budgetText}</td>
+                              <td style={{ textAlign: "right" }}>{money(row.spend)}</td>
+                              <td style={{ textAlign: "right" }}>{row.purchases.toFixed(0)}</td>
+                              <td style={{ textAlign: "right" }}>{row.roas.toFixed(2)}x</td>
+                              <td style={{ textAlign: "right" }}>
+                                {row.frequency != null ? row.frequency.toFixed(2) : "—"}
+                              </td>
+                              <td style={{ textAlign: "right" }}>{row.creativesText}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </section>
