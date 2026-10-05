@@ -274,32 +274,9 @@
   flex-wrap: wrap;
 }
 
-/* ── Accordion (account structure) ── */
-.accordionItem {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 8px;
-  overflow: hidden;
-}
-.accordionHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px;
-  cursor: pointer;
+/* ── Tree table rows (account structure) hover like Ads Manager's table ── */
+.table tbody tr:hover {
   background: rgba(255, 255, 255, 0.02);
-  font-size: 13px;
-  font-weight: 600;
-}
-.accordionHeader:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-.accordionBody {
-  padding: 10px 14px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 /* ── Badge variant: ABO (blue, vs. CBO's default purple pill) ── */

@@ -50,12 +50,13 @@ function toMajorUnits(value) {
 }
 
 function emptyAgg() {
-  return { spend: 0, revenue: 0, creativeIds: new Set() };
+  return { spend: 0, revenue: 0, purchases: 0, creativeIds: new Set() };
 }
 
 function addToAgg(agg, ad) {
   agg.spend += ad.spend;
   agg.revenue += ad.revenue;
+  agg.purchases += ad.purchases;
   if (ad.spend > 0) agg.creativeIds.add(ad.id);
 }
 
@@ -277,6 +278,7 @@ export default async function handler(req, res) {
         lifetimeBudget: adsetLifetimeBudget,
         spend30d: adsetAgg.spend,
         revenue30d: adsetAgg.revenue,
+        purchases30d: adsetAgg.purchases,
         roas30d: adsetAgg.spend > 0 ? adsetAgg.revenue / adsetAgg.spend : 0,
         avgDailySpend7d,
         utilizationPct,
@@ -299,6 +301,7 @@ export default async function handler(req, res) {
       lifetimeBudget: campaignLifetimeBudget,
       spend30d: campAgg.spend,
       revenue30d: campAgg.revenue,
+      purchases30d: campAgg.purchases,
       roas30d: campAgg.spend > 0 ? campAgg.revenue / campAgg.spend : 0,
       avgDailySpend7d: avgDailySpend7dCampaign,
       utilizationPct: campaignUtilizationPct,
