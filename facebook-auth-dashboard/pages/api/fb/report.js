@@ -2,11 +2,27 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet } from "@/lib/facebookGraph";
 import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
+import { getCachedReport, setCachedReport } from "@/lib/reportCache";
 
 const RTG_PATTERN = /rtg|retarget/i;
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
+}
+
+// Facebook's `date_preset` shortcuts can silently drift from what Ads
+// Manager's own date picker shows for "Last N days" (e.g. by one day, or by
+// timezone cutoff). Reach-based metrics like frequency are NOT additive
+// across days, so even a one-day difference in the window can visibly shift
+// them — unlike spend/clicks, which just sum. Using an explicit, fixed
+// window (last N full days, not including today) and surfacing the exact
+// dates in the UI makes that comparable and debuggable against Ads Manager.
+function lastNDaysRange(n, today) {
+  const until = new Date(today);
+  until.setDate(until.getDate() - 1);
+  const since = new Date(until);
+  since.setDate(since.getDate() - (n - 1));
+  return { since: toDateStr(since), until: toDateStr(until) };
 }
 
 function settled(result, fallback) {
@@ -55,8 +71,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "accountId is required" });
   }
 
+  const force = req.query.force === "true" || req.query.force === "1";
+  const cacheKey = `${session.user?.email || "unknown"}:${accountId}`;
+
+  if (!force) {
+    const cached = getCachedReport(cacheKey);
+    if (cached) {
+      return res.status(200).json({ ...cached.data, cachedAt: cached.fetchedAt, fromCache: true });
+    }
+  }
+
   const token = session.accessToken;
   const today = new Date();
+  const range30d = lastNDaysRange(30, today);
+  const range7d = lastNDaysRange(7, today);
   const since90 = new Date(today);
   since90.setDate(today.getDate() - 90);
   const since6mo = new Date(today);
@@ -76,7 +104,7 @@ export default async function handler(req, res) {
   ] = await Promise.allSettled([
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
-      date_preset: "last_30d",
+      time_range: range30d,
     }),
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,actions,action_values,purchase_roas",
@@ -92,7 +120,7 @@ export default async function handler(req, res) {
       level: "ad",
       fields:
         "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,spend,impressions,clicks,frequency,actions,action_values",
-      date_preset: "last_30d",
+      time_range: range30d,
       limit: 500,
     }),
     graphGet(`/${accountId}/campaigns`, token, {
@@ -106,13 +134,13 @@ export default async function handler(req, res) {
     graphGet(`/${accountId}/insights`, token, {
       level: "campaign",
       fields: "campaign_id,spend",
-      date_preset: "last_7d",
+      time_range: range7d,
       limit: 500,
     }),
     graphGet(`/${accountId}/insights`, token, {
       level: "adset",
       fields: "adset_id,spend",
-      date_preset: "last_7d",
+      time_range: range7d,
       limit: 500,
     }),
   ]);
@@ -205,11 +233,9 @@ export default async function handler(req, res) {
   }
 
   const campaignsRaw = structureJson?.data || [];
-  let adsetCount = 0;
 
   const campaigns = campaignsRaw.map((c) => {
     const adsetsRaw = c.adsets?.data || [];
-    adsetCount += adsetsRaw.length;
 
     const campaignDailyBudget = toMajorUnits(c.daily_budget);
     const campaignLifetimeBudget = toMajorUnits(c.lifetime_budget);
@@ -417,17 +443,35 @@ export default async function handler(req, res) {
     pixelConcerns.push({ name: "No pixel connected to this ad account", status: "missing" });
   }
 
-  res.status(200).json({
+  // Account Structure only shows campaigns/ad sets that actually spent in
+  // the last 30 days — the "what's live and running" view. Underutilized and
+  // creative-recommendation sections above deliberately use the unfiltered
+  // `campaigns` tree instead, since a zero-spend active campaign is exactly
+  // the kind of thing those sections should be able to flag.
+  const structureCampaigns = campaigns
+    .filter((c) => c.spend30d > 0)
+    .map((c) => ({ ...c, adsets: c.adsets.filter((a) => a.spend30d > 0) }));
+  const structureAdsetCount = structureCampaigns.reduce((sum, c) => sum + c.adsets.length, 0);
+
+  const payload = {
+    dateRange30d: range30d,
     overview,
     bestWeek,
     bestMonth,
     topCampaigns,
     pareto,
     highFrequencyAds,
-    structure: { campaignCount: campaignsRaw.length, adsetCount, campaigns },
+    structure: {
+      campaignCount: structureCampaigns.length,
+      adsetCount: structureAdsetCount,
+      campaigns: structureCampaigns,
+    },
     pixelHealth: { pixels, concerns: pixelConcerns },
     underutilized,
     creativeRecommendations,
     warnings,
-  });
+  };
+
+  setCachedReport(cacheKey, payload);
+  res.status(200).json({ ...payload, cachedAt: Date.now(), fromCache: false });
 }
