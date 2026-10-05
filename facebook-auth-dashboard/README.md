@@ -7,7 +7,9 @@ A minimal Next.js (Pages Router) dashboard that lets a user log in with Facebook
 - Auth is handled by [NextAuth.js](https://next-auth.js.org/) using the Facebook provider (`pages/api/auth/[...nextauth].js`).
 - Login requests `public_profile,email,pages_show_list,pages_read_engagement,ads_read` scopes.
 - The Facebook access token is kept server-side in the session JWT, never exposed to the browser.
-- After login, the user lands on `/report` — the **Account Handover Report**: last-30-day spend/purchases/ROAS/CTR/CVR, best week/month by ROAS, top spending campaigns, the ads driving 80% of purchase revenue (and what share of spend that is), pixel health, full campaign/ad set structure, high-frequency ads outside retargeting, and underspending campaigns.
+- After login, the user lands on `/report` — the **Account Handover Report**: a wide dashboard with a sticky section nav (scroll-spy), sortable scroll-capped tables, and a campaign → ad set → ad drill-down. Covers last-30-day spend/purchases/ROAS/CTR/CVR, best week/month by ROAS, top spending campaigns (click to jump into the structure drill-down), the ads driving 80% of purchase revenue, pixel health, full account structure, high-frequency ads outside retargeting, and two CBO/ABO-aware sections:
+  - **Budget utilization** — CBO campaigns judged at the campaign level; ABO campaigns judged ad set by ad set, since that's where the budget actually lives.
+  - **Creative count recommendations** — flags campaigns/ad sets spending more per creative than the account's own average spend-per-creative (last 30 days), and estimates how many more creatives they need to get back in line.
 - `/dashboard` ("Raw Data") shows the raw profile/Pages/Ad Accounts payload plus a manual per-account 30-day ROAS check.
 - `/logs` shows the most recent Graph API calls (method, path, status, duration, full request/response) for debugging — see "API logging" below.
 - `pages/api/fb/data.js` calls the Graph API (`/me`, `/me/accounts`, `/me/adaccounts`) for the account picker.
