@@ -33,6 +33,16 @@ function toMajorUnits(value) {
   return value ? parseFloat(value) / 100 : null;
 }
 
+function emptyAgg() {
+  return { spend: 0, revenue: 0, creativeIds: new Set() };
+}
+
+function addToAgg(agg, ad) {
+  agg.spend += ad.spend;
+  agg.revenue += ad.revenue;
+  if (ad.spend > 0) agg.creativeIds.add(ad.id);
+}
+
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
@@ -58,11 +68,11 @@ export default async function handler(req, res) {
     overviewResult,
     weeklyResult,
     monthlyResult,
-    campaignSpendResult,
     adLevelResult,
     structureResult,
     pixelsResult,
     last7CampaignResult,
+    last7AdsetResult,
   ] = await Promise.allSettled([
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
@@ -77,12 +87,6 @@ export default async function handler(req, res) {
       fields: "spend,actions,action_values,purchase_roas",
       time_range: { since: toDateStr(since6mo), until: toDateStr(today) },
       time_increment: "monthly",
-    }),
-    graphGet(`/${accountId}/insights`, token, {
-      level: "campaign",
-      fields: "campaign_id,campaign_name,spend,actions,action_values,purchase_roas",
-      date_preset: "last_30d",
-      limit: 500,
     }),
     graphGet(`/${accountId}/insights`, token, {
       level: "ad",
@@ -102,6 +106,12 @@ export default async function handler(req, res) {
     graphGet(`/${accountId}/insights`, token, {
       level: "campaign",
       fields: "campaign_id,spend",
+      date_preset: "last_7d",
+      limit: 500,
+    }),
+    graphGet(`/${accountId}/insights`, token, {
+      level: "adset",
+      fields: "adset_id,spend",
       date_preset: "last_7d",
       limit: 500,
     }),
@@ -131,20 +141,7 @@ export default async function handler(req, res) {
   const bestWeek = bestBucket(weeklyJson?.data);
   const bestMonth = bestBucket(monthlyJson?.data);
 
-  // ── Top spending campaigns ──
-  const campaignSpendJson = settled(campaignSpendResult, null);
-  if (campaignSpendResult.status === "rejected")
-    warnings.push(`Campaign spend ranking unavailable: ${campaignSpendResult.reason.message}`);
-
-  const topCampaigns = (campaignSpendJson?.data || [])
-    .map((row) => {
-      const { spend, revenue, roas } = roasFromRow(row);
-      return { id: row.campaign_id, name: row.campaign_name, spend, revenue, roas };
-    })
-    .sort((a, b) => b.spend - a.spend)
-    .slice(0, 10);
-
-  // ── Ad-level data: powers the 80% pareto analysis and high-frequency list ──
+  // ── Ad-level data: the single source of truth for campaign/adset aggregation ──
   const adLevelJson = settled(adLevelResult, null);
   if (adLevelResult.status === "rejected")
     warnings.push(`Creative-level performance unavailable: ${adLevelResult.reason.message}`);
@@ -154,7 +151,9 @@ export default async function handler(req, res) {
     return {
       id: row.ad_id,
       name: row.ad_name,
+      adsetId: row.adset_id,
       adsetName: row.adset_name,
+      campaignId: row.campaign_id,
       campaignName: row.campaign_name,
       spend,
       revenue,
@@ -164,6 +163,131 @@ export default async function handler(req, res) {
     };
   });
 
+  // Account-wide benchmark: average spend per active creative over the last
+  // 30 days. Used (instead of an arbitrary fixed number) as the reference
+  // point for "is this campaign/ad set spending too much per creative".
+  const totalAccountSpend = adRows.reduce((sum, r) => sum + r.spend, 0);
+  const totalActiveCreatives = new Set(adRows.filter((r) => r.spend > 0).map((r) => r.id)).size;
+  const accountAvgSpendPerCreative = totalActiveCreatives > 0 ? totalAccountSpend / totalActiveCreatives : 0;
+
+  function creativeRecommendation(agg) {
+    const creativeCount = agg.creativeIds.size;
+    if (accountAvgSpendPerCreative <= 0) {
+      return { creativeCount, recommendedCreatives: null, additionalNeeded: null };
+    }
+    const recommendedCreatives = Math.max(1, Math.ceil(agg.spend / accountAvgSpendPerCreative));
+    return {
+      creativeCount,
+      recommendedCreatives,
+      additionalNeeded: Math.max(0, recommendedCreatives - creativeCount),
+    };
+  }
+
+  // ── Account structure: campaigns → ad sets → ads, budget-type aware ──
+  const structureJson = settled(structureResult, null);
+  if (structureResult.status === "rejected")
+    warnings.push(`Account structure unavailable: ${structureResult.reason.message}`);
+
+  const last7CampaignJson = settled(last7CampaignResult, null);
+  if (last7CampaignResult.status === "rejected")
+    warnings.push(`Campaign budget utilization unavailable: ${last7CampaignResult.reason.message}`);
+  const last7AdsetJson = settled(last7AdsetResult, null);
+  if (last7AdsetResult.status === "rejected")
+    warnings.push(`Ad set budget utilization unavailable: ${last7AdsetResult.reason.message}`);
+
+  const last7SpendByCampaign = {};
+  for (const row of last7CampaignJson?.data || []) {
+    last7SpendByCampaign[row.campaign_id] = parseFloat(row.spend || 0);
+  }
+  const last7SpendByAdset = {};
+  for (const row of last7AdsetJson?.data || []) {
+    last7SpendByAdset[row.adset_id] = parseFloat(row.spend || 0);
+  }
+
+  const campaignsRaw = structureJson?.data || [];
+  let adsetCount = 0;
+
+  const campaigns = campaignsRaw.map((c) => {
+    const adsetsRaw = c.adsets?.data || [];
+    adsetCount += adsetsRaw.length;
+
+    const campaignDailyBudget = toMajorUnits(c.daily_budget);
+    const campaignLifetimeBudget = toMajorUnits(c.lifetime_budget);
+    const isCbo = campaignDailyBudget != null || campaignLifetimeBudget != null;
+    const hasAdsetBudgets = adsetsRaw.some((a) => a.daily_budget != null || a.lifetime_budget != null);
+    const budgetType = isCbo ? "CBO" : hasAdsetBudgets ? "ABO" : "NONE";
+
+    const campAgg = emptyAgg();
+    const adsets = adsetsRaw.map((a) => {
+      const adsetAgg = emptyAgg();
+      const ads = adRows
+        .filter((r) => r.adsetId === a.id)
+        .map((r) => {
+          addToAgg(adsetAgg, r);
+          addToAgg(campAgg, r);
+          return {
+            id: r.id,
+            name: r.name,
+            spend: r.spend,
+            revenue: r.revenue,
+            roas: r.roas,
+            purchases: r.purchases,
+            frequency: r.frequency,
+          };
+        })
+        .sort((x, y) => y.spend - x.spend);
+
+      const adsetDailyBudget = toMajorUnits(a.daily_budget);
+      const adsetLifetimeBudget = toMajorUnits(a.lifetime_budget);
+      const avgDailySpend7d = (last7SpendByAdset[a.id] || 0) / 7;
+      const utilizationPct =
+        budgetType === "ABO" && adsetDailyBudget ? (avgDailySpend7d / adsetDailyBudget) * 100 : null;
+
+      return {
+        id: a.id,
+        name: a.name,
+        status: a.effective_status,
+        dailyBudget: adsetDailyBudget,
+        lifetimeBudget: adsetLifetimeBudget,
+        spend30d: adsetAgg.spend,
+        revenue30d: adsetAgg.revenue,
+        roas30d: adsetAgg.spend > 0 ? adsetAgg.revenue / adsetAgg.spend : 0,
+        avgDailySpend7d,
+        utilizationPct,
+        ...creativeRecommendation(adsetAgg),
+        ads,
+      };
+    });
+
+    const avgDailySpend7dCampaign = (last7SpendByCampaign[c.id] || 0) / 7;
+    const campaignUtilizationPct =
+      budgetType === "CBO" && campaignDailyBudget ? (avgDailySpend7dCampaign / campaignDailyBudget) * 100 : null;
+
+    return {
+      id: c.id,
+      name: c.name,
+      status: c.effective_status,
+      objective: c.objective,
+      budgetType,
+      dailyBudget: campaignDailyBudget,
+      lifetimeBudget: campaignLifetimeBudget,
+      spend30d: campAgg.spend,
+      revenue30d: campAgg.revenue,
+      roas30d: campAgg.spend > 0 ? campAgg.revenue / campAgg.spend : 0,
+      avgDailySpend7d: avgDailySpend7dCampaign,
+      utilizationPct: campaignUtilizationPct,
+      ...creativeRecommendation(campAgg),
+      adsets,
+    };
+  });
+
+  // ── Top spending campaigns (derived from the structure tree) ──
+  const topCampaigns = [...campaigns]
+    .map((c) => ({ id: c.id, name: c.name, spend: c.spend30d, revenue: c.revenue30d, roas: c.roas30d }))
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 10);
+
+  // ── 80% purchase-revenue pareto, at the creative level ──
   const totalRevenue = adRows.reduce((sum, r) => sum + r.revenue, 0);
   const totalSpendAll = adRows.reduce((sum, r) => sum + r.spend, 0);
   const sortedByRevenue = [...adRows].sort((a, b) => b.revenue - a.revenue);
@@ -185,6 +309,7 @@ export default async function handler(req, res) {
     revenueSharePct: totalRevenue > 0 ? (cumRevenue / totalRevenue) * 100 : 0,
     spendSharePct: totalSpendAll > 0 ? (cumSpend / totalSpendAll) * 100 : 0,
     contributors: contributors.map((c) => ({
+      id: c.id,
       name: c.name,
       campaignName: c.campaignName,
       spend: c.spend,
@@ -194,61 +319,81 @@ export default async function handler(req, res) {
     })),
   };
 
-  // ── High-frequency ads, excluding retargeting campaigns/adsets ──
+  // ── High-frequency ads, excluding retargeting campaigns/ad sets ──
   const highFrequencyAds = adRows
     .filter(
       (r) =>
         r.frequency > 3 && !RTG_PATTERN.test(r.campaignName || "") && !RTG_PATTERN.test(r.adsetName || "")
     )
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      campaignName: r.campaignName,
+      adsetName: r.adsetName,
+      frequency: r.frequency,
+    }))
     .sort((a, b) => b.frequency - a.frequency);
 
-  // ── Account structure: campaigns + adsets ──
-  const structureJson = settled(structureResult, null);
-  if (structureResult.status === "rejected")
-    warnings.push(`Account structure unavailable: ${structureResult.reason.message}`);
+  // ── Underutilized budgets, split by who actually owns the budget ──
+  const underutilized = {
+    cboCampaigns: campaigns
+      .filter((c) => c.status === "ACTIVE" && c.budgetType === "CBO" && c.utilizationPct !== null && c.utilizationPct < 100)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        dailyBudget: c.dailyBudget,
+        avgDailySpend7d: c.avgDailySpend7d,
+        utilizationPct: c.utilizationPct,
+      }))
+      .sort((a, b) => a.utilizationPct - b.utilizationPct),
+    aboAdsets: campaigns
+      .filter((c) => c.budgetType === "ABO")
+      .flatMap((c) =>
+        c.adsets
+          .filter((a) => a.status === "ACTIVE" && a.utilizationPct !== null && a.utilizationPct < 100)
+          .map((a) => ({
+            id: a.id,
+            name: a.name,
+            campaignName: c.name,
+            dailyBudget: a.dailyBudget,
+            avgDailySpend7d: a.avgDailySpend7d,
+            utilizationPct: a.utilizationPct,
+          }))
+      )
+      .sort((a, b) => a.utilizationPct - b.utilizationPct),
+  };
 
-  const campaignsRaw = structureJson?.data || [];
-  let adsetCount = 0;
-  const campaignSummaries = campaignsRaw.map((c) => {
-    const adsets = c.adsets?.data || [];
-    adsetCount += adsets.length;
-    return {
-      id: c.id,
-      name: c.name,
-      status: c.effective_status,
-      objective: c.objective,
-      dailyBudget: toMajorUnits(c.daily_budget),
-      lifetimeBudget: toMajorUnits(c.lifetime_budget),
-      adsets: adsets.map((a) => ({
-        id: a.id,
-        name: a.name,
-        status: a.effective_status,
-        dailyBudget: toMajorUnits(a.daily_budget),
-        lifetimeBudget: toMajorUnits(a.lifetime_budget),
-      })),
-    };
-  });
-
-  // ── Underutilized campaigns: any active campaign spending below its daily budget ──
-  const last7CampaignJson = settled(last7CampaignResult, null);
-  if (last7CampaignResult.status === "rejected")
-    warnings.push(`Budget utilization unavailable: ${last7CampaignResult.reason.message}`);
-
-  const last7SpendByCampaign = {};
-  for (const row of last7CampaignJson?.data || []) {
-    last7SpendByCampaign[row.campaign_id] = parseFloat(row.spend || 0);
-  }
-
-  const underutilized = campaignSummaries
-    .filter((c) => c.status === "ACTIVE")
-    .map((c) => {
-      const effectiveBudget = c.dailyBudget ?? c.adsets.reduce((sum, a) => sum + (a.dailyBudget || 0), 0);
-      const avgDailySpend = (last7SpendByCampaign[c.id] || 0) / 7;
-      const utilizationPct = effectiveBudget > 0 ? (avgDailySpend / effectiveBudget) * 100 : null;
-      return { id: c.id, name: c.name, effectiveBudget, avgDailySpend, utilizationPct };
-    })
-    .filter((c) => c.utilizationPct !== null && c.utilizationPct < 100)
-    .sort((a, b) => a.utilizationPct - b.utilizationPct);
+  // ── Creative count recommendations, same CBO/ABO split ──
+  const creativeRecommendations = {
+    accountAvgSpendPerCreative,
+    cboCampaigns: campaigns
+      .filter((c) => c.budgetType === "CBO" && c.additionalNeeded > 0)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        spend30d: c.spend30d,
+        creativeCount: c.creativeCount,
+        recommendedCreatives: c.recommendedCreatives,
+        additionalNeeded: c.additionalNeeded,
+      }))
+      .sort((a, b) => b.additionalNeeded - a.additionalNeeded),
+    aboAdsets: campaigns
+      .filter((c) => c.budgetType === "ABO")
+      .flatMap((c) =>
+        c.adsets
+          .filter((a) => a.additionalNeeded > 0)
+          .map((a) => ({
+            id: a.id,
+            name: a.name,
+            campaignName: c.name,
+            spend30d: a.spend30d,
+            creativeCount: a.creativeCount,
+            recommendedCreatives: a.recommendedCreatives,
+            additionalNeeded: a.additionalNeeded,
+          }))
+      )
+      .sort((a, b) => b.additionalNeeded - a.additionalNeeded),
+  };
 
   // ── Pixel health (best-effort: existence + staleness only) ──
   const pixelsJson = settled(pixelsResult, null);
@@ -279,9 +424,10 @@ export default async function handler(req, res) {
     topCampaigns,
     pareto,
     highFrequencyAds,
-    structure: { campaignCount: campaignsRaw.length, adsetCount, campaigns: campaignSummaries },
+    structure: { campaignCount: campaignsRaw.length, adsetCount, campaigns },
     pixelHealth: { pixels, concerns: pixelConcerns },
     underutilized,
+    creativeRecommendations,
     warnings,
   });
 }

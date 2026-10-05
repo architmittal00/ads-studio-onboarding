@@ -3,8 +3,22 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Nav from "@/components/Nav";
+import SectionNav from "@/components/SectionNav";
+import SortableTable from "@/components/SortableTable";
 import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
+
+const SECTIONS = [
+  { id: "overview", label: "Overview" },
+  { id: "trends", label: "Best Week / Month" },
+  { id: "top-campaigns", label: "Top Campaigns" },
+  { id: "pareto", label: "Revenue Concentration" },
+  { id: "pixel-health", label: "Pixel Health" },
+  { id: "structure", label: "Account Structure" },
+  { id: "high-frequency", label: "High-Frequency Ads" },
+  { id: "budget-utilization", label: "Budget Utilization" },
+  { id: "creative-recommendations", label: "Creative Recommendations" },
+];
 
 export default function Report() {
   const [accounts, setAccounts] = useState([]);
@@ -16,6 +30,7 @@ export default function Report() {
   const [reportLoading, setReportLoading] = useState(false);
 
   const [expandedCampaigns, setExpandedCampaigns] = useState({});
+  const [expandedAdsets, setExpandedAdsets] = useState({});
 
   const currency = accounts.find((a) => a.id === selectedAccountId)?.currency;
 
@@ -47,6 +62,8 @@ export default function Report() {
     setReportLoading(true);
     setReportError(null);
     setReport(null);
+    setExpandedCampaigns({});
+    setExpandedAdsets({});
 
     fetch(`/api/fb/report?accountId=${encodeURIComponent(selectedAccountId)}`)
       .then((res) => res.json())
@@ -61,14 +78,34 @@ export default function Report() {
   function money(amount) {
     if (!currency) return amount.toFixed(2);
     try {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+      return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(
+        amount
+      );
     } catch {
-      return `${amount.toFixed(2)} ${currency}`;
+      return `${amount.toFixed(0)} ${currency}`;
     }
   }
 
   function toggleCampaign(id) {
     setExpandedCampaigns((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function toggleAdset(id) {
+    setExpandedAdsets((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function jumpToCampaignInStructure(campaignId) {
+    setExpandedCampaigns((prev) => ({ ...prev, [campaignId]: true }));
+    document.getElementById("structure")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.requestAnimationFrame(() => {
+      document.getElementById(`campaign-${campaignId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  function BudgetTypeBadge({ type }) {
+    if (type === "CBO") return <span className={styles.pill}>CBO</span>;
+    if (type === "ABO") return <span className={styles.badgeInfo}>ABO</span>;
+    return <span className={styles.muted}>NO BUDGET</span>;
   }
 
   return (
@@ -77,7 +114,7 @@ export default function Report() {
         <title>Account Handover Report · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 920, margin: "0 auto" }}>
+        <main className={styles.main} style={{ maxWidth: 1440, margin: "0 auto" }}>
           <Nav />
 
           <div className={styles.sectionRow}>
@@ -106,286 +143,372 @@ export default function Report() {
           {reportError && <div className={styles.error}>Error: {reportError}</div>}
 
           {report && (
-            <section style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {report.warnings?.length > 0 && (
-                <div className={styles.card} style={{ borderColor: "rgba(245,158,11,.25)" }}>
-                  <h2 className={styles.h2}>Some data could not be loaded</h2>
-                  <ul className={styles.list}>
-                    {report.warnings.map((w, i) => (
-                      <li key={i} className={styles.sub}>
-                        · {w}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+            <div className={styles.reportLayout}>
+              <SectionNav sections={SECTIONS} />
 
-              {/* Overview */}
-              <div>
-                <h2 className={styles.h2}>Last 30 Days</h2>
-                <div className={styles.statBar}>
-                  <Stat label="Spend" value={money(report.overview.spend)} />
-                  <Stat label="Purchases" value={report.overview.purchases.toFixed(0)} />
-                  <Stat label="ROAS" value={`${report.overview.roas.toFixed(2)}x`} />
-                  <Stat label="CTR" value={`${report.overview.ctr.toFixed(2)}%`} />
-                  <Stat label="CVR" value={`${report.overview.cvr.toFixed(2)}%`} />
-                </div>
-              </div>
-
-              {/* Best week / month */}
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
-                  <h2 className={styles.h2}>Best Week (ROAS, last 90 days)</h2>
-                  {report.bestWeek ? (
-                    <>
-                      <p className={styles.statValue}>{report.bestWeek.roas.toFixed(2)}x</p>
-                      <p className={styles.sub}>
-                        {report.bestWeek.since} → {report.bestWeek.until} · spend {money(report.bestWeek.spend)}
-                      </p>
-                    </>
-                  ) : (
-                    <p className={styles.sub}>No weeks with spend in this window.</p>
-                  )}
-                </div>
-                <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
-                  <h2 className={styles.h2}>Best Month (ROAS, last 6 months)</h2>
-                  {report.bestMonth ? (
-                    <>
-                      <p className={styles.statValue}>{report.bestMonth.roas.toFixed(2)}x</p>
-                      <p className={styles.sub}>
-                        {report.bestMonth.since} → {report.bestMonth.until} · spend {money(report.bestMonth.spend)}
-                      </p>
-                    </>
-                  ) : (
-                    <p className={styles.sub}>No months with spend in this window.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Top spending campaigns */}
-              <div className={styles.card}>
-                <h2 className={styles.h2}>Top Spending Campaigns (Last 30 Days)</h2>
-                {report.topCampaigns.length === 0 ? (
-                  <p className={styles.sub}>No campaign spend in this window.</p>
-                ) : (
-                  <div style={{ overflowX: "auto" }}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>Campaign</th>
-                          <th>Spend</th>
-                          <th>Revenue</th>
-                          <th>ROAS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.topCampaigns.map((c) => (
-                          <tr key={c.id}>
-                            <td>{c.name}</td>
-                            <td>{money(c.spend)}</td>
-                            <td>{money(c.revenue)}</td>
-                            <td>{c.roas.toFixed(2)}x</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {report.warnings?.length > 0 && (
+                  <div className={styles.card} style={{ borderColor: "rgba(245,158,11,.25)" }}>
+                    <h2 className={styles.h2}>Some data could not be loaded</h2>
+                    <ul className={styles.list}>
+                      {report.warnings.map((w, i) => (
+                        <li key={i} className={styles.sub}>
+                          · {w}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
-              </div>
 
-              {/* 80% pareto */}
-              <div className={styles.card}>
-                <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From</h2>
-                {report.pareto.totalAdCount === 0 ? (
-                  <p className={styles.sub}>No ad-level purchase data in this window.</p>
-                ) : (
-                  <>
-                    <p className={styles.sub} style={{ marginBottom: 12 }}>
-                      <strong style={{ color: "var(--t1)" }}>
-                        {report.pareto.contributorCount} of {report.pareto.totalAdCount} ads
-                      </strong>{" "}
-                      ({report.pareto.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
-                      <strong style={{ color: "var(--t1)" }}>{report.pareto.spendSharePct.toFixed(0)}% of spend</strong>.
-                    </p>
-                    <div style={{ overflowX: "auto" }}>
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>Creative</th>
-                            <th>Campaign</th>
-                            <th>Spend</th>
-                            <th>Revenue</th>
-                            <th>ROAS</th>
-                            <th>Purchases</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {report.pareto.contributors.map((c, i) => (
-                            <tr key={i}>
-                              <td>{c.name}</td>
-                              <td className={styles.muted}>{c.campaignName}</td>
-                              <td>{money(c.spend)}</td>
-                              <td>{money(c.revenue)}</td>
-                              <td>{c.roas.toFixed(2)}x</td>
-                              <td>{c.purchases.toFixed(0)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </div>
+                {/* Overview */}
+                <section id="overview">
+                  <h2 className={styles.h2}>Last 30 Days</h2>
+                  <div className={styles.statBar}>
+                    <Stat label="Spend" value={money(report.overview.spend)} />
+                    <Stat label="Purchases" value={report.overview.purchases.toFixed(0)} />
+                    <Stat label="ROAS" value={`${report.overview.roas.toFixed(2)}x`} />
+                    <Stat label="CTR" value={`${report.overview.ctr.toFixed(2)}%`} />
+                    <Stat label="CVR" value={`${report.overview.cvr.toFixed(2)}%`} />
+                  </div>
+                </section>
 
-              {/* Pixel health */}
-              <div className={styles.card}>
-                <h2 className={styles.h2}>Pixel Event Health</h2>
-                {report.pixelHealth.pixels.length === 0 && report.pixelHealth.concerns.length === 0 ? (
-                  <p className={styles.sub}>No pixel data available.</p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {report.pixelHealth.pixels.map((p) => (
-                      <div key={p.id} className={styles.listItem}>
-                        {p.name}
-                        <span
-                          className={
-                            p.status === "healthy"
-                              ? styles.badgeGood
+                {/* Best week / month */}
+                <section id="trends" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
+                    <h2 className={styles.h2}>Best Week (ROAS, last 90 days)</h2>
+                    {report.bestWeek ? (
+                      <>
+                        <p className={styles.statValue}>{report.bestWeek.roas.toFixed(2)}x</p>
+                        <p className={styles.sub}>
+                          {report.bestWeek.since} → {report.bestWeek.until} · spend {money(report.bestWeek.spend)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className={styles.sub}>No weeks with spend in this window.</p>
+                    )}
+                  </div>
+                  <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
+                    <h2 className={styles.h2}>Best Month (ROAS, last 6 months)</h2>
+                    {report.bestMonth ? (
+                      <>
+                        <p className={styles.statValue}>{report.bestMonth.roas.toFixed(2)}x</p>
+                        <p className={styles.sub}>
+                          {report.bestMonth.since} → {report.bestMonth.until} · spend{" "}
+                          {money(report.bestMonth.spend)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className={styles.sub}>No months with spend in this window.</p>
+                    )}
+                  </div>
+                </section>
+
+                {/* Top spending campaigns */}
+                <section id="top-campaigns" className={styles.card}>
+                  <h2 className={styles.h2}>Top Spending Campaigns (Last 30 Days)</h2>
+                  <p className={styles.sub} style={{ marginBottom: 12 }}>
+                    Click a row to jump to it in Account Structure.
+                  </p>
+                  <SortableTable
+                    defaultSortKey="spend"
+                    maxHeight={360}
+                    emptyMessage="No campaign spend in this window."
+                    rows={report.topCampaigns}
+                    onRowClick={(r) => jumpToCampaignInStructure(r.id)}
+                    columns={[
+                      { key: "name", label: "Campaign" },
+                      { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                      { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
+                      { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+                    ]}
+                  />
+                </section>
+
+                {/* 80% pareto */}
+                <section id="pareto" className={styles.card}>
+                  <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From</h2>
+                  {report.pareto.totalAdCount === 0 ? (
+                    <p className={styles.sub}>No ad-level purchase data in this window.</p>
+                  ) : (
+                    <>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        <strong style={{ color: "var(--t1)" }}>
+                          {report.pareto.contributorCount} of {report.pareto.totalAdCount} ads
+                        </strong>{" "}
+                        ({report.pareto.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
+                        <strong style={{ color: "var(--t1)" }}>
+                          {report.pareto.spendSharePct.toFixed(0)}% of spend
+                        </strong>
+                        .
+                      </p>
+                      <SortableTable
+                        defaultSortKey="revenue"
+                        maxHeight={360}
+                        rows={report.pareto.contributors}
+                        columns={[
+                          { key: "name", label: "Creative" },
+                          { key: "campaignName", label: "Campaign", render: (r) => <span className={styles.muted}>{r.campaignName}</span> },
+                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                          { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
+                          { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+                          { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
+                        ]}
+                      />
+                    </>
+                  )}
+                </section>
+
+                {/* Pixel health */}
+                <section id="pixel-health" className={styles.card}>
+                  <h2 className={styles.h2}>Pixel Event Health</h2>
+                  {report.pixelHealth.pixels.length === 0 && report.pixelHealth.concerns.length === 0 ? (
+                    <p className={styles.sub}>No pixel data available.</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {report.pixelHealth.pixels.map((p) => (
+                        <div key={p.id} className={styles.listItem}>
+                          {p.name}
+                          <span
+                            className={
+                              p.status === "healthy"
+                                ? styles.badgeGood
+                                : p.status === "stale"
+                                ? styles.badgeWarn
+                                : styles.badgeDanger
+                            }
+                          >
+                            {p.status === "healthy"
+                              ? "Firing normally"
                               : p.status === "stale"
-                              ? styles.badgeWarn
-                              : styles.badgeDanger
-                          }
-                        >
-                          {p.status === "healthy"
-                            ? "Firing normally"
-                            : p.status === "stale"
-                            ? `Stale (${p.daysSinceFired.toFixed(1)}d)`
-                            : "Never fired"}
-                        </span>
-                      </div>
-                    ))}
-                    {report.pixelHealth.concerns
-                      .filter((c) => c.status === "missing")
-                      .map((c, i) => (
-                        <div key={`missing-${i}`} className={styles.listItem}>
-                          {c.name}
-                          <span className={styles.badgeDanger}>Missing</span>
+                              ? `Stale (${p.daysSinceFired.toFixed(1)}d)`
+                              : "Never fired"}
+                          </span>
                         </div>
                       ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Account structure */}
-              <div className={styles.card}>
-                <h2 className={styles.h2}>
-                  Account Structure ({report.structure.campaignCount} campaigns, {report.structure.adsetCount} ad
-                  sets)
-                </h2>
-                {report.structure.campaigns.length === 0 ? (
-                  <p className={styles.sub}>No campaigns found.</p>
-                ) : (
-                  <div>
-                    {report.structure.campaigns.map((c) => (
-                      <div key={c.id} className={styles.accordionItem}>
-                        <div className={styles.accordionHeader} onClick={() => toggleCampaign(c.id)}>
-                          <span>
-                            {c.name} <span className={styles.muted}>({c.adsets.length} ad sets)</span>
-                          </span>
-                          <span className={styles.pill}>{c.status}</span>
-                        </div>
-                        {expandedCampaigns[c.id] && (
-                          <div className={styles.accordionBody}>
-                            <p className={styles.sub}>
-                              Objective: {c.objective || "—"} · Daily budget:{" "}
-                              {c.dailyBudget ? money(c.dailyBudget) : "—"}
-                            </p>
-                            {c.adsets.length === 0 ? (
-                              <p className={styles.sub}>No ad sets.</p>
-                            ) : (
-                              c.adsets.map((a) => (
-                                <div key={a.id} className={styles.listItem}>
-                                  {a.name}
-                                  <span className={styles.muted}>
-                                    {a.status} · {a.dailyBudget ? money(a.dailyBudget) : "no daily budget"}
-                                  </span>
-                                </div>
-                              ))
-                            )}
+                      {report.pixelHealth.concerns
+                        .filter((c) => c.status === "missing")
+                        .map((c, i) => (
+                          <div key={`missing-${i}`} className={styles.listItem}>
+                            {c.name}
+                            <span className={styles.badgeDanger}>Missing</span>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* High frequency ads */}
-              <div className={styles.card}>
-                <h2 className={styles.h2}>High-Frequency Ads (&gt;3, excluding retargeting)</h2>
-                {report.highFrequencyAds.length === 0 ? (
-                  <p className={styles.sub}>No ads over frequency 3 outside retargeting campaigns/ad sets.</p>
-                ) : (
-                  <div style={{ overflowX: "auto" }}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>Ad</th>
-                          <th>Campaign</th>
-                          <th>Ad Set</th>
-                          <th>Frequency</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.highFrequencyAds.map((a, i) => (
-                          <tr key={i}>
-                            <td>{a.name}</td>
-                            <td className={styles.muted}>{a.campaignName}</td>
-                            <td className={styles.muted}>{a.adsetName}</td>
-                            <td>
-                              <span className={styles.badgeWarn}>{a.frequency.toFixed(2)}</span>
-                            </td>
-                          </tr>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                    </div>
+                  )}
+                </section>
 
-              {/* Underutilized campaigns */}
-              <div className={styles.card}>
-                <h2 className={styles.h2}>Underutilized Campaigns (Spend Below Daily Budget)</h2>
-                {report.underutilized.length === 0 ? (
-                  <p className={styles.sub}>No active campaigns spending below their daily budget.</p>
-                ) : (
-                  <div style={{ overflowX: "auto" }}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>Campaign</th>
-                          <th>Daily Budget</th>
-                          <th>Avg Daily Spend (7d)</th>
-                          <th>Utilization</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.underutilized.map((c) => (
-                          <tr key={c.id}>
-                            <td>{c.name}</td>
-                            <td>{money(c.effectiveBudget)}</td>
-                            <td>{money(c.avgDailySpend)}</td>
-                            <td>
-                              <span className={styles.badgeWarn}>{c.utilizationPct.toFixed(0)}%</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                {/* Account structure: campaign → ad set → ad drill-down */}
+                <section id="structure" className={styles.card}>
+                  <h2 className={styles.h2}>
+                    Account Structure ({report.structure.campaignCount} campaigns, {report.structure.adsetCount} ad
+                    sets)
+                  </h2>
+                  {report.structure.campaigns.length === 0 ? (
+                    <p className={styles.sub}>No campaigns found.</p>
+                  ) : (
+                    <div>
+                      {report.structure.campaigns.map((c) => (
+                        <div key={c.id} id={`campaign-${c.id}`} className={styles.accordionItem}>
+                          <div className={styles.accordionHeader} onClick={() => toggleCampaign(c.id)}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {c.name} <span className={styles.muted}>({c.adsets.length} ad sets)</span>
+                            </span>
+                            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <BudgetTypeBadge type={c.budgetType} />
+                              <span className={styles.muted}>{money(c.spend30d)}</span>
+                              <span className={styles.pill}>{c.status}</span>
+                            </span>
+                          </div>
+                          {expandedCampaigns[c.id] && (
+                            <div className={styles.accordionBody}>
+                              <p className={styles.sub}>
+                                Objective: {c.objective || "—"} · ROAS: {c.roas30d.toFixed(2)}x · Creatives:{" "}
+                                {c.creativeCount}
+                                {c.budgetType === "CBO" && c.dailyBudget
+                                  ? ` · Daily budget: ${money(c.dailyBudget)}`
+                                  : ""}
+                              </p>
+                              {c.adsets.length === 0 ? (
+                                <p className={styles.sub}>No ad sets.</p>
+                              ) : (
+                                c.adsets.map((a) => (
+                                  <div key={a.id} className={styles.accordionItem} style={{ marginBottom: 6 }}>
+                                    <div className={styles.accordionHeader} onClick={() => toggleAdset(a.id)}>
+                                      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        {a.name} <span className={styles.muted}>({a.ads.length} ads)</span>
+                                      </span>
+                                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <span className={styles.muted}>{money(a.spend30d)}</span>
+                                        <span className={styles.pill}>{a.status}</span>
+                                      </span>
+                                    </div>
+                                    {expandedAdsets[a.id] && (
+                                      <div className={styles.accordionBody}>
+                                        <p className={styles.sub}>
+                                          ROAS: {a.roas30d.toFixed(2)}x · Creatives: {a.creativeCount}
+                                          {c.budgetType === "ABO" && a.dailyBudget
+                                            ? ` · Daily budget: ${money(a.dailyBudget)}`
+                                            : ""}
+                                        </p>
+                                        {a.ads.length === 0 ? (
+                                          <p className={styles.sub}>No ads with delivery in the last 30 days.</p>
+                                        ) : (
+                                          a.ads.map((ad) => (
+                                            <div key={ad.id} className={styles.listItem}>
+                                              {ad.name}
+                                              <span className={styles.muted}>
+                                                {money(ad.spend)} · {ad.roas.toFixed(2)}x · freq {ad.frequency.toFixed(2)}
+                                              </span>
+                                            </div>
+                                          ))
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {/* High frequency ads */}
+                <section id="high-frequency" className={styles.card}>
+                  <h2 className={styles.h2}>High-Frequency Ads (&gt;3, excluding retargeting)</h2>
+                  <SortableTable
+                    defaultSortKey="frequency"
+                    maxHeight={360}
+                    emptyMessage="No ads over frequency 3 outside retargeting campaigns/ad sets."
+                    rows={report.highFrequencyAds}
+                    columns={[
+                      { key: "name", label: "Ad" },
+                      { key: "campaignName", label: "Campaign", render: (r) => <span className={styles.muted}>{r.campaignName}</span> },
+                      { key: "adsetName", label: "Ad Set", render: (r) => <span className={styles.muted}>{r.adsetName}</span> },
+                      {
+                        key: "frequency",
+                        label: "Frequency",
+                        align: "right",
+                        render: (r) => <span className={styles.badgeWarn}>{r.frequency.toFixed(2)}</span>,
+                      },
+                    ]}
+                  />
+                </section>
+
+                {/* Budget utilization, split by CBO / ABO */}
+                <section id="budget-utilization" className={styles.card}>
+                  <h2 className={styles.h2}>Budget Utilization (Spend Below Daily Budget)</h2>
+                  <p className={styles.sub} style={{ marginBottom: 12 }}>
+                    CBO campaigns are judged at the campaign level; ABO campaigns are judged ad set by ad set, since
+                    that is where the budget actually lives.
+                  </p>
+
+                  <h3 className={styles.sub} style={{ fontWeight: 700, color: "var(--t1)", marginBottom: 8 }}>
+                    CBO Campaigns
+                  </h3>
+                  <SortableTable
+                    defaultSortKey="utilizationPct"
+                    defaultSortDir="asc"
+                    maxHeight={280}
+                    emptyMessage="No active CBO campaigns spending below their daily budget."
+                    rows={report.underutilized.cboCampaigns}
+                    columns={[
+                      { key: "name", label: "Campaign" },
+                      { key: "dailyBudget", label: "Daily Budget", align: "right", render: (r) => money(r.dailyBudget) },
+                      { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
+                      {
+                        key: "utilizationPct",
+                        label: "Utilization",
+                        align: "right",
+                        render: (r) => <span className={styles.badgeWarn}>{r.utilizationPct.toFixed(0)}%</span>,
+                      },
+                    ]}
+                  />
+
+                  <h3 className={styles.sub} style={{ fontWeight: 700, color: "var(--t1)", margin: "16px 0 8px" }}>
+                    ABO Ad Sets
+                  </h3>
+                  <SortableTable
+                    defaultSortKey="utilizationPct"
+                    defaultSortDir="asc"
+                    maxHeight={280}
+                    emptyMessage="No active ad sets spending below their daily budget."
+                    rows={report.underutilized.aboAdsets}
+                    columns={[
+                      { key: "name", label: "Ad Set" },
+                      { key: "campaignName", label: "Campaign", render: (r) => <span className={styles.muted}>{r.campaignName}</span> },
+                      { key: "dailyBudget", label: "Daily Budget", align: "right", render: (r) => money(r.dailyBudget) },
+                      { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
+                      {
+                        key: "utilizationPct",
+                        label: "Utilization",
+                        align: "right",
+                        render: (r) => <span className={styles.badgeWarn}>{r.utilizationPct.toFixed(0)}%</span>,
+                      },
+                    ]}
+                  />
+                </section>
+
+                {/* Creative recommendations, split by CBO / ABO */}
+                <section id="creative-recommendations" className={styles.card}>
+                  <h2 className={styles.h2}>Creative Count Recommendations</h2>
+                  <p className={styles.sub} style={{ marginBottom: 12 }}>
+                    Benchmark: this account&apos;s own average spend per active creative over the last 30 days —{" "}
+                    <strong style={{ color: "var(--t1)" }}>
+                      {money(report.creativeRecommendations.accountAvgSpendPerCreative)}
+                    </strong>
+                    . Campaigns/ad sets spending more than that per creative are flagged as needing more.
+                  </p>
+
+                  <h3 className={styles.sub} style={{ fontWeight: 700, color: "var(--t1)", marginBottom: 8 }}>
+                    CBO Campaigns
+                  </h3>
+                  <SortableTable
+                    defaultSortKey="additionalNeeded"
+                    maxHeight={280}
+                    emptyMessage="No CBO campaigns need more creatives right now."
+                    rows={report.creativeRecommendations.cboCampaigns}
+                    columns={[
+                      { key: "name", label: "Campaign" },
+                      { key: "spend30d", label: "Spend (30d)", align: "right", render: (r) => money(r.spend30d) },
+                      { key: "creativeCount", label: "Current", align: "right" },
+                      { key: "recommendedCreatives", label: "Recommended", align: "right" },
+                      {
+                        key: "additionalNeeded",
+                        label: "Additional Needed",
+                        align: "right",
+                        render: (r) => <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>,
+                      },
+                    ]}
+                  />
+
+                  <h3 className={styles.sub} style={{ fontWeight: 700, color: "var(--t1)", margin: "16px 0 8px" }}>
+                    ABO Ad Sets
+                  </h3>
+                  <SortableTable
+                    defaultSortKey="additionalNeeded"
+                    maxHeight={280}
+                    emptyMessage="No ad sets need more creatives right now."
+                    rows={report.creativeRecommendations.aboAdsets}
+                    columns={[
+                      { key: "name", label: "Ad Set" },
+                      { key: "campaignName", label: "Campaign", render: (r) => <span className={styles.muted}>{r.campaignName}</span> },
+                      { key: "spend30d", label: "Spend (30d)", align: "right", render: (r) => money(r.spend30d) },
+                      { key: "creativeCount", label: "Current", align: "right" },
+                      { key: "recommendedCreatives", label: "Recommended", align: "right" },
+                      {
+                        key: "additionalNeeded",
+                        label: "Additional Needed",
+                        align: "right",
+                        render: (r) => <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>,
+                      },
+                    ]}
+                  />
+                </section>
               </div>
-            </section>
+            </div>
           )}
         </main>
       </div>

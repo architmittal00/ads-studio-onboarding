@@ -37,7 +37,7 @@ export default function Logs() {
         <title>API Logs · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 920, margin: "0 auto" }}>
+        <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
           <Nav />
 
           <div className={styles.sectionRow}>

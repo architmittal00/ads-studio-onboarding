@@ -300,3 +300,77 @@
   flex-direction: column;
   gap: 6px;
 }
+
+/* ── Badge variant: ABO (blue, vs. CBO's default purple pill) ── */
+.badgeInfo {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(96, 165, 250, 0.07);
+  border: 1px solid rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+}
+
+/* ── Scrollable table container: caps long tables with a sticky header ── */
+.tableScroll {
+  overflow: auto;
+}
+.tableScroll .table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(11, 11, 20, 0.95);
+  z-index: 1;
+}
+
+/* ── Report layout: sticky section nav + wide content ── */
+.reportLayout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.sideNav {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sideNavLink {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--t2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.sideNavLink:hover {
+  background: var(--card2);
+  color: var(--t1);
+}
+.sideNavLinkActive {
+  background: rgba(175, 70, 253, 0.12);
+  color: var(--purple);
+}
+
+@media (max-width: 900px) {
+  .reportLayout {
+    grid-template-columns: 1fr;
+  }
+  .sideNav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .sideNavLink {
+    white-space: nowrap;
+  }
+}
