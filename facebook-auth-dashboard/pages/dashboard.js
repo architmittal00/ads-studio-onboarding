@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Nav from "@/components/Nav";
+import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 export default function Dashboard({ user }) {
@@ -23,12 +24,18 @@ export default function Dashboard({ user }) {
         } else {
           setData(json);
           if (json.adAccounts?.length) {
-            setSelectedAccountId(json.adAccounts[0].id);
+            const lastId = getLastAccountId();
+            const stillExists = json.adAccounts.some((a) => a.id === lastId);
+            setSelectedAccountId(stillExists ? lastId : json.adAccounts[0].id);
           }
         }
       })
       .catch((err) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    if (selectedAccountId) setLastAccountId(selectedAccountId);
+  }, [selectedAccountId]);
 
   function checkPerformance() {
     if (!selectedAccountId) return;

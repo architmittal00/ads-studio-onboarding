@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Nav from "@/components/Nav";
+import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 export default function Report() {
@@ -27,7 +28,9 @@ export default function Report() {
         } else {
           setAccounts(json.adAccounts || []);
           if (json.adAccounts?.length) {
-            setSelectedAccountId(json.adAccounts[0].id);
+            const lastId = getLastAccountId();
+            const stillExists = json.adAccounts.some((a) => a.id === lastId);
+            setSelectedAccountId(stillExists ? lastId : json.adAccounts[0].id);
           }
         }
       })
@@ -36,6 +39,7 @@ export default function Report() {
 
   useEffect(() => {
     if (!selectedAccountId) return;
+    setLastAccountId(selectedAccountId);
 
     // Standard fetch-on-param-change pattern (react.dev/learn/synchronizing-with-effects#fetching-data):
     // resetting loading/error/data state synchronously here is intentional, not a sync-derived-state bug.
