@@ -8,6 +8,21 @@ import SortableTable from "@/components/SortableTable";
 import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
+async function fetchReportData(accountId, force) {
+  const url = `/api/fb/report?accountId=${encodeURIComponent(accountId)}${force ? "&force=true" : ""}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+function formatAge(ms) {
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return "just now";
+  if (mins === 1) return "1 minute ago";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hours = Math.round(mins / 60);
+  return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+}
+
 const SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "trends", label: "Best Week / Month" },
@@ -31,6 +46,12 @@ export default function Report() {
 
   const [expandedCampaigns, setExpandedCampaigns] = useState({});
   const [expandedAdsets, setExpandedAdsets] = useState({});
+
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const currency = accounts.find((a) => a.id === selectedAccountId)?.currency;
 
@@ -65,15 +86,37 @@ export default function Report() {
     setExpandedCampaigns({});
     setExpandedAdsets({});
 
-    fetch(`/api/fb/report?accountId=${encodeURIComponent(selectedAccountId)}`)
-      .then((res) => res.json())
+    let ignore = false;
+    fetchReportData(selectedAccountId, false)
+      .then((json) => {
+        if (ignore) return;
+        if (json.error) setReportError(json.error);
+        else setReport(json);
+      })
+      .catch((err) => {
+        if (!ignore) setReportError(err.message);
+      })
+      .finally(() => {
+        if (!ignore) setReportLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedAccountId]);
+
+  function handleHardRefresh() {
+    if (!selectedAccountId) return;
+    setReportLoading(true);
+    setReportError(null);
+    fetchReportData(selectedAccountId, true)
       .then((json) => {
         if (json.error) setReportError(json.error);
         else setReport(json);
       })
       .catch((err) => setReportError(err.message))
       .finally(() => setReportLoading(false));
-  }, [selectedAccountId]);
+  }
 
   function money(amount) {
     if (!currency) return amount.toFixed(2);
@@ -139,14 +182,26 @@ export default function Report() {
             <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
           )}
 
-          {reportLoading && <p className={styles.sub}>Building the report…</p>}
+          {reportLoading && !report && <p className={styles.sub}>Building the report…</p>}
           {reportError && <div className={styles.error}>Error: {reportError}</div>}
 
           {report && (
-            <div className={styles.reportLayout}>
-              <SectionNav sections={SECTIONS} />
+            <>
+              <div className={styles.sectionRow} style={{ marginTop: -8 }}>
+                <p className={styles.sub}>
+                  Last 30 days: {report.dateRange30d.since} → {report.dateRange30d.until} ·{" "}
+                  {report.fromCache ? "cached" : "freshly fetched"}, updated {formatAge(now - report.cachedAt)}
+                  {reportLoading && " · refreshing…"}
+                </p>
+                <button className={styles.btnSecondary} onClick={handleHardRefresh} disabled={reportLoading}>
+                  {reportLoading ? "Refreshing…" : "Hard Refresh"}
+                </button>
+              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className={styles.reportLayout}>
+                <SectionNav sections={SECTIONS} />
+
+                <div className={styles.reportContent} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {report.warnings?.length > 0 && (
                   <div className={styles.card} style={{ borderColor: "rgba(245,158,11,.25)" }}>
                     <h2 className={styles.h2}>Some data could not be loaded</h2>
@@ -303,10 +358,13 @@ export default function Report() {
                     Account Structure ({report.structure.campaignCount} campaigns, {report.structure.adsetCount} ad
                     sets)
                   </h2>
+                  <p className={styles.sub} style={{ marginBottom: 12 }}>
+                    Showing only campaigns and ad sets with spend in the last 30 days.
+                  </p>
                   {report.structure.campaigns.length === 0 ? (
-                    <p className={styles.sub}>No campaigns found.</p>
+                    <p className={styles.sub}>No campaigns with spend in this window.</p>
                   ) : (
-                    <div>
+                    <div className={styles.tableScroll} style={{ maxHeight: 520 }}>
                       {report.structure.campaigns.map((c) => (
                         <div key={c.id} id={`campaign-${c.id}`} className={styles.accordionItem}>
                           <div className={styles.accordionHeader} onClick={() => toggleCampaign(c.id)}>
@@ -378,6 +436,12 @@ export default function Report() {
                 {/* High frequency ads */}
                 <section id="high-frequency" className={styles.card}>
                   <h2 className={styles.h2}>High-Frequency Ads (&gt;3, excluding retargeting)</h2>
+                  <p className={styles.sub} style={{ marginBottom: 12 }}>
+                    Frequency here is per-ad over the last 30 days ({report.dateRange30d.since} →{" "}
+                    {report.dateRange30d.until}) — it will not match a campaign- or ad-set-level frequency column in
+                    Ads Manager, since reach is deduplicated differently at each level. Compare against Ads
+                    Manager&apos;s own per-ad frequency for the same dates.
+                  </p>
                   <SortableTable
                     defaultSortKey="frequency"
                     maxHeight={360}
@@ -507,8 +571,9 @@ export default function Report() {
                     ]}
                   />
                 </section>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </main>
       </div>

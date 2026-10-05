@@ -22,6 +22,15 @@ Every Graph API call made by the server goes through `lib/facebookGraph.js`, whi
 
 This is **best-effort only**: Vercel serverless functions have no persistent disk, so the log resets on cold start or redeploy. For a permanent record, use the Vercel dashboard's Function Logs for this project.
 
+## Report caching
+
+`/api/fb/report` caches its response per (user, ad account) for 30 minutes (`lib/reportCache.js`, same in-memory/best-effort caveat as the API log — resets on cold start/redeploy). Switching accounts or reloading within that window reuses the cached data instantly; the "Hard Refresh" button on `/report` bypasses the cache and re-fetches from the Graph API.
+
+## Known Graph API caveats
+
+- **Frequency is per-ad, not comparable across levels.** The High-Frequency Ads section shows each ad's own frequency over the last 30 days. Facebook deduplicates reach differently at the ad, ad set, and campaign level, so this will not match a campaign- or ad-set-level frequency column in Ads Manager — compare it against Ads Manager's own **per-ad** frequency for the same date range instead.
+- **Explicit date ranges, not `date_preset`.** All "last 30 days" / "last 7 days" queries use an explicit `since`/`until` range (shown in the report's header) rather than Facebook's `date_preset` shortcuts, since those can drift by a day from what Ads Manager's date picker shows — and reach-based metrics like frequency aren't additive across days, so even a one-day difference can visibly shift them.
+
 ## Environment variables
 
 Copy `.env.example` to `.env.local` for local development, or set these directly in your Vercel project settings (Production/Preview/Development):

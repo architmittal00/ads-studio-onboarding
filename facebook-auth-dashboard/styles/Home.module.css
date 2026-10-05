@@ -43,6 +43,7 @@
   border-radius: 14px;
   padding: 20px;
   transition: border-color 0.2s, background 0.2s;
+  min-width: 0;
 }
 
 /* ── Buttons ── */
@@ -325,12 +326,23 @@
   z-index: 1;
 }
 
-/* ── Report layout: sticky section nav + wide content ── */
+/* ── Report layout: sticky section nav + wide content ──
+   minmax(0, 1fr) — NOT bare 1fr — is required here: a grid track's
+   automatic minimum size defaults to its content's min-content width, so
+   wide children (long campaign names, multi-column tables) can force the
+   whole grid wider than the viewport, breaking page alignment. minmax(0,…)
+   lets the track shrink and hand overflow to the inner scroll containers
+   instead. */
 .reportLayout {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: 28px;
   align-items: start;
+  min-width: 0;
+}
+
+.reportContent {
+  min-width: 0;
 }
 
 .sideNav {
