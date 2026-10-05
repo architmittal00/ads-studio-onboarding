@@ -102,6 +102,7 @@ export default async function handler(req, res) {
     pixelsResult,
     last7CampaignResult,
     last7AdsetResult,
+    creativesResult,
   ] = await Promise.allSettled([
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
@@ -144,6 +145,10 @@ export default async function handler(req, res) {
       time_range: range7d,
       limit: 500,
     }),
+    graphGet(`/${accountId}/ads`, token, {
+      fields: "id,creative{thumbnail_url}",
+      limit: 500,
+    }),
   ]);
 
   // ── Overview (last 30 days) ──
@@ -175,6 +180,15 @@ export default async function handler(req, res) {
   if (adLevelResult.status === "rejected")
     warnings.push(`Creative-level performance unavailable: ${adLevelResult.reason.message}`);
 
+  const creativesJson = settled(creativesResult, null);
+  if (creativesResult.status === "rejected")
+    warnings.push(`Creative thumbnails unavailable: ${creativesResult.reason.message}`);
+
+  const thumbnailByAdId = {};
+  for (const ad of creativesJson?.data || []) {
+    if (ad.creative?.thumbnail_url) thumbnailByAdId[ad.id] = ad.creative.thumbnail_url;
+  }
+
   const adRows = (adLevelJson?.data || []).map((row) => {
     const { spend, revenue, roas } = roasFromRow(row);
     return {
@@ -189,6 +203,7 @@ export default async function handler(req, res) {
       roas,
       purchases: pickPurchaseCount(row.actions),
       frequency: parseFloat(row.frequency || 0),
+      thumbnailUrl: thumbnailByAdId[row.ad_id] || null,
     };
   });
 
@@ -260,6 +275,7 @@ export default async function handler(req, res) {
             roas: r.roas,
             purchases: r.purchases,
             frequency: r.frequency,
+            thumbnailUrl: r.thumbnailUrl,
           };
         })
         .sort((x, y) => y.spend - x.spend);
@@ -311,8 +327,16 @@ export default async function handler(req, res) {
   });
 
   // ── Top spending campaigns (derived from the structure tree) ──
+  const totalCampaignRevenue = campaigns.reduce((sum, c) => sum + c.revenue30d, 0);
   const topCampaigns = [...campaigns]
-    .map((c) => ({ id: c.id, name: c.name, spend: c.spend30d, revenue: c.revenue30d, roas: c.roas30d }))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      spend: c.spend30d,
+      revenue: c.revenue30d,
+      roas: c.roas30d,
+      revenueSharePct: totalCampaignRevenue > 0 ? (c.revenue30d / totalCampaignRevenue) * 100 : 0,
+    }))
     .sort((a, b) => b.spend - a.spend)
     .slice(0, 10);
 
@@ -345,6 +369,8 @@ export default async function handler(req, res) {
       revenue: c.revenue,
       roas: c.roas,
       purchases: c.purchases,
+      thumbnailUrl: c.thumbnailUrl,
+      revenueSharePct: totalRevenue > 0 ? (c.revenue / totalRevenue) * 100 : 0,
     })),
   };
 
@@ -360,26 +386,35 @@ export default async function handler(req, res) {
       campaignName: r.campaignName,
       adsetName: r.adsetName,
       frequency: r.frequency,
+      thumbnailUrl: r.thumbnailUrl,
     }))
     .sort((a, b) => b.frequency - a.frequency);
 
-  // ── Underutilized budgets, split by who actually owns the budget ──
-  const underutilized = {
+  // ── Budget utilization + creative count, merged, split by who owns the budget ──
+  // One row per active CBO campaign / ABO ad set with both concerns side by
+  // side, so sorting by utilization% surfaces underspend and sorting by
+  // "additional needed" surfaces creative gaps — same underlying row set.
+  const budgetUtilization = {
+    accountAvgSpendPerCreative,
     cboCampaigns: campaigns
-      .filter((c) => c.status === "ACTIVE" && c.budgetType === "CBO" && c.utilizationPct !== null && c.utilizationPct < 100)
+      .filter((c) => c.status === "ACTIVE" && c.budgetType === "CBO")
       .map((c) => ({
         id: c.id,
         name: c.name,
         dailyBudget: c.dailyBudget,
         avgDailySpend7d: c.avgDailySpend7d,
         utilizationPct: c.utilizationPct,
+        spend30d: c.spend30d,
+        creativeCount: c.creativeCount,
+        recommendedCreatives: c.recommendedCreatives,
+        additionalNeeded: c.additionalNeeded,
       }))
-      .sort((a, b) => a.utilizationPct - b.utilizationPct),
+      .sort((a, b) => (a.utilizationPct ?? Infinity) - (b.utilizationPct ?? Infinity)),
     aboAdsets: campaigns
       .filter((c) => c.budgetType === "ABO")
       .flatMap((c) =>
         c.adsets
-          .filter((a) => a.status === "ACTIVE" && a.utilizationPct !== null && a.utilizationPct < 100)
+          .filter((a) => a.status === "ACTIVE")
           .map((a) => ({
             id: a.id,
             name: a.name,
@@ -387,41 +422,13 @@ export default async function handler(req, res) {
             dailyBudget: a.dailyBudget,
             avgDailySpend7d: a.avgDailySpend7d,
             utilizationPct: a.utilizationPct,
-          }))
-      )
-      .sort((a, b) => a.utilizationPct - b.utilizationPct),
-  };
-
-  // ── Creative count recommendations, same CBO/ABO split ──
-  const creativeRecommendations = {
-    accountAvgSpendPerCreative,
-    cboCampaigns: campaigns
-      .filter((c) => c.budgetType === "CBO" && c.additionalNeeded > 0)
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        spend30d: c.spend30d,
-        creativeCount: c.creativeCount,
-        recommendedCreatives: c.recommendedCreatives,
-        additionalNeeded: c.additionalNeeded,
-      }))
-      .sort((a, b) => b.additionalNeeded - a.additionalNeeded),
-    aboAdsets: campaigns
-      .filter((c) => c.budgetType === "ABO")
-      .flatMap((c) =>
-        c.adsets
-          .filter((a) => a.additionalNeeded > 0)
-          .map((a) => ({
-            id: a.id,
-            name: a.name,
-            campaignName: c.name,
             spend30d: a.spend30d,
             creativeCount: a.creativeCount,
             recommendedCreatives: a.recommendedCreatives,
             additionalNeeded: a.additionalNeeded,
           }))
       )
-      .sort((a, b) => b.additionalNeeded - a.additionalNeeded),
+      .sort((a, b) => (a.utilizationPct ?? Infinity) - (b.utilizationPct ?? Infinity)),
   };
 
   // ── Pixel health (best-effort: existence + staleness only) ──
@@ -470,8 +477,7 @@ export default async function handler(req, res) {
       campaigns: structureCampaigns,
     },
     pixelHealth: { pixels, concerns: pixelConcerns },
-    underutilized,
-    creativeRecommendations,
+    budgetUtilization,
     warnings,
   };
 
