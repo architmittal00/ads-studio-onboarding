@@ -80,7 +80,7 @@ async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,object_story_spec{video_data{video_id}}}",
+          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,object_story_spec{video_data{video_id}}}",
       })
     )
   );
@@ -90,10 +90,15 @@ async function fetchAdDetails(adIds, token) {
     for (const [id, obj] of Object.entries(result.value || {})) {
       const creative = obj.creative || {};
       const videoId = creative.video_id || creative.object_story_spec?.video_data?.video_id || null;
+      // A product_set_id means this ad pulls from a catalog (Dynamic Product
+      // Ads / Advantage+ catalog ads) rather than being a single fixed
+      // image or video creative.
+      const creativeType = creative.product_set_id ? "Catalog" : videoId ? "Video" : "Static";
       detailsByAdId[id] = {
         status: obj.effective_status || null,
         thumbnailUrl: creative.thumbnail_url || creative.image_url || null,
         videoId,
+        creativeType,
       };
     }
   }
@@ -123,6 +128,51 @@ async function fetchVideoSources(videoIds, token) {
   return sourceByVideoId;
 }
 
+// Groups `items` (each with spend/revenue/purchases) by `keyFn`, sums each
+// group, and — unless `applyCutoff` is false — keeps only the highest-revenue
+// groups needed to reach 80% of total revenue (same "where does 80% of
+// purchase revenue come from" pattern as the creative-level pareto, just at
+// whatever grouping dimension is passed in).
+function groupAndPareto(items, keyFn, { applyCutoff = true } = {}) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = keyFn(item);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, { label: key, spend: 0, revenue: 0, purchases: 0 });
+    const g = groups.get(key);
+    g.spend += item.spend;
+    g.revenue += item.revenue;
+    g.purchases += item.purchases;
+  }
+
+  const allGroups = [...groups.values()].map((g) => ({
+    ...g,
+    roas: g.spend > 0 ? g.revenue / g.spend : 0,
+  }));
+  const totalRevenue = allGroups.reduce((sum, g) => sum + g.revenue, 0);
+  const totalSpend = allGroups.reduce((sum, g) => sum + g.spend, 0);
+  const sorted = [...allGroups].sort((a, b) => b.revenue - a.revenue);
+
+  let cumRevenue = 0;
+  let cumSpend = 0;
+  const contributors = [];
+  for (const g of sorted) {
+    if (applyCutoff && g.revenue <= 0) break;
+    cumRevenue += g.revenue;
+    cumSpend += g.spend;
+    contributors.push({ ...g, revenueSharePct: totalRevenue > 0 ? (g.revenue / totalRevenue) * 100 : 0 });
+    if (applyCutoff && totalRevenue > 0 && cumRevenue / totalRevenue >= 0.8) break;
+  }
+
+  return {
+    totalGroupCount: allGroups.length,
+    contributorCount: contributors.length,
+    revenueSharePct: totalRevenue > 0 ? (cumRevenue / totalRevenue) * 100 : 0,
+    spendSharePct: totalSpend > 0 ? (cumSpend / totalSpend) * 100 : 0,
+    contributors,
+  };
+}
+
 function bestBucket(rows) {
   if (!rows || !rows.length) return null;
   let best = null;
@@ -141,6 +191,10 @@ function bestBucket(rows) {
 // (JPY, KRW, etc.) — acceptable simplification for now.
 function toMajorUnits(value) {
   return value ? parseFloat(value) / 100 : null;
+}
+
+function capitalize(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
 function emptyAgg() {
@@ -206,6 +260,8 @@ export default async function handler(req, res) {
     pixelsResult,
     last7CampaignResult,
     last7AdsetResult,
+    ageGenderResult,
+    regionResult,
   ] = await Promise.allSettled([
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
@@ -251,6 +307,18 @@ export default async function handler(req, res) {
       level: "adset",
       fields: "adset_id,spend",
       time_range: range7d,
+      limit: 500,
+    }),
+    graphGet(`/${accountId}/insights`, token, {
+      fields: "spend,actions,action_values,purchase_roas",
+      time_range: graphTimeRange,
+      breakdowns: "age,gender",
+      limit: 500,
+    }),
+    graphGet(`/${accountId}/insights`, token, {
+      fields: "spend,actions,action_values,purchase_roas",
+      time_range: graphTimeRange,
+      breakdowns: "region",
       limit: 500,
     }),
   ]);
@@ -344,6 +412,7 @@ export default async function handler(req, res) {
       thumbnailUrl: details?.thumbnailUrl || null,
       isVideo,
       videoUrl: isVideo ? videoSourceByVideoId[details.videoId] || null : null,
+      creativeType: details?.creativeType || "Static",
     };
   });
 
@@ -523,6 +592,33 @@ export default async function handler(req, res) {
     })),
   };
 
+  // ── Where 80% of purchase revenue comes from, by age/gender, by state, and
+  // the full (uncut) split by creative type ──
+  const ageGenderJson = settled(ageGenderResult, null);
+  if (ageGenderResult.status === "rejected")
+    warnings.push(`Age/gender breakdown unavailable: ${ageGenderResult.reason.message}`);
+  const ageGenderRows = (ageGenderJson?.data || []).map((row) => {
+    const { spend, revenue } = roasFromRow(row);
+    return { spend, revenue, purchases: pickPurchaseCount(row.actions), age: row.age, gender: row.gender };
+  });
+  const purchasesByAgeGender = groupAndPareto(
+    ageGenderRows,
+    (r) => (r.age && r.gender ? `${r.age} · ${capitalize(r.gender)}` : null)
+  );
+
+  const regionJson = settled(regionResult, null);
+  if (regionResult.status === "rejected")
+    warnings.push(`Region breakdown unavailable: ${regionResult.reason.message}`);
+  const regionRows = (regionJson?.data || []).map((row) => {
+    const { spend, revenue } = roasFromRow(row);
+    return { spend, revenue, purchases: pickPurchaseCount(row.actions), region: row.region };
+  });
+  const purchasesByRegion = groupAndPareto(regionRows, (r) => r.region || null);
+
+  // Only three possible buckets, so show the full split rather than an
+  // 80%-cutoff pareto — truncating a 3-way breakdown isn't useful.
+  const purchasesByCreativeType = groupAndPareto(adRows, (r) => r.creativeType, { applyCutoff: false });
+
   // ── High-frequency ads, excluding retargeting campaigns/ad sets ──
   const highFrequencyAds = adRows
     .filter(
@@ -623,6 +719,9 @@ export default async function handler(req, res) {
     bestMonth,
     topCampaigns,
     pareto,
+    purchasesByAgeGender,
+    purchasesByRegion,
+    purchasesByCreativeType,
     highFrequencyAds,
     structure: {
       campaignCount: structureCampaigns.length,
