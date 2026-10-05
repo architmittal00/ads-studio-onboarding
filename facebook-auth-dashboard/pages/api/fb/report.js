@@ -169,6 +169,9 @@ export default async function handler(req, res) {
   const token = session.accessToken;
   const today = new Date();
   const range = resolveRange(req.query, today);
+  // Facebook's `time_range` param rejects any keys beyond since/until — strip
+  // the label/preset we attach to `range` for our own response/cache-key use.
+  const graphTimeRange = { since: range.since, until: range.until };
   const range7d = lastNDaysRange(7, today);
 
   const force = req.query.force === "true" || req.query.force === "1";
@@ -206,11 +209,11 @@ export default async function handler(req, res) {
   ] = await Promise.allSettled([
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
-      time_range: range,
+      time_range: graphTimeRange,
     }),
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
-      time_range: range,
+      time_range: graphTimeRange,
       time_increment: trendIncrement,
     }),
     graphGet(`/${accountId}/insights`, token, {
@@ -227,7 +230,7 @@ export default async function handler(req, res) {
       level: "ad",
       fields:
         "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,spend,impressions,clicks,frequency,actions,action_values",
-      time_range: range,
+      time_range: graphTimeRange,
       limit: 500,
     }),
     graphGet(`/${accountId}/campaigns`, token, {
