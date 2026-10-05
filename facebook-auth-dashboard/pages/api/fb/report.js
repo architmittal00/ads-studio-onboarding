@@ -29,6 +29,44 @@ function settled(result, fallback) {
   return result.status === "fulfilled" ? result.value : fallback;
 }
 
+function chunk(array, size) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
+// Fetches creative thumbnails for an exact list of ad IDs, via the Graph
+// API's `?ids=a,b,c` batch-by-ID endpoint (chunked — large ID lists can hit
+// URL/response-size limits). This matters because `/act_x/ads` with no
+// filter returns Facebook's default-ordered first N ads (oldest-created
+// first) — for any account with real history that's a completely different
+// set of ads than the ones with spend in our report window, so fetching
+// thumbnails that way silently returns the wrong (or no) creative for most
+// rows. Fetching by the exact IDs we're displaying avoids that entirely.
+async function fetchThumbnails(adIds, token) {
+  const thumbnailByAdId = {};
+  if (adIds.length === 0) return thumbnailByAdId;
+
+  const batches = chunk(adIds, 50);
+  const results = await Promise.allSettled(
+    batches.map((batch) =>
+      graphGet("", token, { ids: batch.join(","), fields: "creative{thumbnail_url,image_url}" })
+    )
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(result.value || {})) {
+      const url = obj.creative?.thumbnail_url || obj.creative?.image_url;
+      if (url) thumbnailByAdId[id] = url;
+    }
+  }
+
+  return thumbnailByAdId;
+}
+
 function bestBucket(rows) {
   if (!rows || !rows.length) return null;
   let best = null;
@@ -102,7 +140,6 @@ export default async function handler(req, res) {
     pixelsResult,
     last7CampaignResult,
     last7AdsetResult,
-    creativesResult,
   ] = await Promise.allSettled([
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
@@ -145,10 +182,6 @@ export default async function handler(req, res) {
       time_range: range7d,
       limit: 500,
     }),
-    graphGet(`/${accountId}/ads`, token, {
-      fields: "id,creative{thumbnail_url}",
-      limit: 500,
-    }),
   ]);
 
   // ── Overview (last 30 days) ──
@@ -180,16 +213,7 @@ export default async function handler(req, res) {
   if (adLevelResult.status === "rejected")
     warnings.push(`Creative-level performance unavailable: ${adLevelResult.reason.message}`);
 
-  const creativesJson = settled(creativesResult, null);
-  if (creativesResult.status === "rejected")
-    warnings.push(`Creative thumbnails unavailable: ${creativesResult.reason.message}`);
-
-  const thumbnailByAdId = {};
-  for (const ad of creativesJson?.data || []) {
-    if (ad.creative?.thumbnail_url) thumbnailByAdId[ad.id] = ad.creative.thumbnail_url;
-  }
-
-  const adRows = (adLevelJson?.data || []).map((row) => {
+  const adRowsBase = (adLevelJson?.data || []).map((row) => {
     const { spend, revenue, roas } = roasFromRow(row);
     return {
       id: row.ad_id,
@@ -203,9 +227,20 @@ export default async function handler(req, res) {
       roas,
       purchases: pickPurchaseCount(row.actions),
       frequency: parseFloat(row.frequency || 0),
-      thumbnailUrl: thumbnailByAdId[row.ad_id] || null,
     };
   });
+
+  let thumbnailByAdId = {};
+  try {
+    thumbnailByAdId = await fetchThumbnails(
+      adRowsBase.map((r) => r.id),
+      token
+    );
+  } catch (err) {
+    warnings.push(`Creative thumbnails unavailable: ${err.message}`);
+  }
+
+  const adRows = adRowsBase.map((r) => ({ ...r, thumbnailUrl: thumbnailByAdId[r.id] || null }));
 
   // Account-wide benchmark: average spend per active creative over the last
   // 30 days. Used (instead of an arbitrary fixed number) as the reference

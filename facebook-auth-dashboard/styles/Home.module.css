@@ -264,6 +264,17 @@
   border-bottom: none;
 }
 
+/* ── Multi-line clamp: wrap up to 3 lines, only ellipsis beyond that ── */
+.clamp3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+
 /* ── Section header row ── */
 .sectionRow {
   display: flex;
@@ -362,4 +373,29 @@
   .sideNavLink {
     white-space: nowrap;
   }
+}
+
+/* ── Tabs (e.g. CBO / ABO switch) ── */
+.tabGroup {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  width: fit-content;
+}
+.tab {
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--t2);
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.tabActive {
+  background: rgba(175, 70, 253, 0.15);
+  border: 1px solid rgba(175, 70, 253, 0.3);
+  color: var(--purple);
 }

@@ -27,18 +27,15 @@ const STRUCTURE_SORT_FIELD = {
   roas: { campaign: "roas30d", adset: "roas30d", ad: "roas" },
 };
 
-// Thumbnail + name, truncating the name with an ellipsis instead of
-// stretching the column. The name span needs minWidth:0 + flex:1 — a flex
-// child's default min-width is its own content size, which silently
-// defeats text-overflow:ellipsis unless overridden.
+// Thumbnail + name, wrapping the name up to 3 lines and only then
+// ellipsizing, instead of stretching the column. The name span needs
+// minWidth:0 + flex:1 — a flex child's default min-width is its own content
+// size, which silently defeats the clamp/ellipsis unless overridden.
 function CreativeCell({ src, name, maxWidth = NAME_COL_WIDTH }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, maxWidth, overflow: "hidden" }}>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, maxWidth, overflow: "hidden" }}>
       <Thumb src={src} />
-      <span
-        title={name}
-        style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-      >
+      <span title={name} className={styles.clamp3} style={{ minWidth: 0, flex: "1 1 auto" }}>
         {name}
       </span>
     </div>
@@ -97,6 +94,7 @@ export default function Report() {
   const [expandedAdsets, setExpandedAdsets] = useState({});
   const [structureSortKey, setStructureSortKey] = useState("spend");
   const [structureSortDir, setStructureSortDir] = useState("desc");
+  const [budgetTab, setBudgetTab] = useState("CBO");
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -603,7 +601,7 @@ export default function Report() {
                                 <div
                                   style={{
                                     display: "flex",
-                                    alignItems: "center",
+                                    alignItems: "flex-start",
                                     gap: 6,
                                     paddingLeft: row.level * 20,
                                     maxWidth: NAME_COL_WIDTH + row.level * 20,
@@ -616,14 +614,12 @@ export default function Report() {
                                   {row.level === 2 && <Thumb src={row.thumbnailUrl} size={24} />}
                                   <span
                                     title={row.name}
+                                    className={styles.clamp3}
                                     style={{
                                       fontWeight: row.level === 0 ? 700 : row.level === 1 ? 600 : 400,
                                       color: row.level === 2 ? "var(--t2)" : "var(--t1)",
                                       minWidth: 0,
                                       flex: "1 1 auto",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      whiteSpace: "nowrap",
                                     }}
                                   >
                                     {row.name}
@@ -704,105 +700,116 @@ export default function Report() {
                     . Sort by Utilization to find underspend, or by Additional Needed to find creative gaps.
                   </p>
 
-                  <h3 className={styles.sub} style={{ fontWeight: 700, color: "var(--t1)", marginBottom: 8 }}>
-                    CBO Campaigns
-                  </h3>
-                  <SortableTable
-                    defaultSortKey="utilizationPct"
-                    defaultSortDir="asc"
-                    maxHeight={320}
-                    emptyMessage="No active CBO campaigns."
-                    rows={report.budgetUtilization.cboCampaigns}
-                    columns={[
-                      { key: "name", label: "Campaign", maxWidth: NAME_COL_WIDTH },
-                      {
-                        key: "dailyBudget",
-                        label: "Daily Budget",
-                        align: "right",
-                        render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
-                      },
-                      { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
-                      {
-                        key: "utilizationPct",
-                        label: "Utilization",
-                        align: "right",
-                        render: (r) =>
-                          r.utilizationPct == null ? (
-                            "—"
-                          ) : (
-                            <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
-                              {r.utilizationPct.toFixed(0)}%
-                            </span>
-                          ),
-                      },
-                      { key: "creativeCount", label: "Creatives", align: "right" },
-                      { key: "recommendedCreatives", label: "Recommended", align: "right" },
-                      {
-                        key: "additionalNeeded",
-                        label: "Additional Needed",
-                        align: "right",
-                        render: (r) =>
-                          r.additionalNeeded > 0 ? (
-                            <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
-                          ) : (
-                            "—"
-                          ),
-                      },
-                    ]}
-                  />
+                  <div className={styles.tabGroup} style={{ marginBottom: 14 }}>
+                    <button
+                      className={budgetTab === "CBO" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => setBudgetTab("CBO")}
+                    >
+                      CBO Campaigns ({report.budgetUtilization.cboCampaigns.length})
+                    </button>
+                    <button
+                      className={budgetTab === "ABO" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => setBudgetTab("ABO")}
+                    >
+                      ABO Ad Sets ({report.budgetUtilization.aboAdsets.length})
+                    </button>
+                  </div>
 
-                  <h3 className={styles.sub} style={{ fontWeight: 700, color: "var(--t1)", margin: "16px 0 8px" }}>
-                    ABO Ad Sets
-                  </h3>
-                  <SortableTable
-                    defaultSortKey="utilizationPct"
-                    defaultSortDir="asc"
-                    maxHeight={320}
-                    emptyMessage="No active ad sets in ABO campaigns."
-                    rows={report.budgetUtilization.aboAdsets}
-                    columns={[
-                      { key: "name", label: "Ad Set", maxWidth: NAME_COL_WIDTH },
-                      {
-                        key: "campaignName",
-                        label: "Campaign",
-                        maxWidth: 180,
-                        render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
-                      },
-                      {
-                        key: "dailyBudget",
-                        label: "Daily Budget",
-                        align: "right",
-                        render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
-                      },
-                      { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
-                      {
-                        key: "utilizationPct",
-                        label: "Utilization",
-                        align: "right",
-                        render: (r) =>
-                          r.utilizationPct == null ? (
-                            "—"
-                          ) : (
-                            <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
-                              {r.utilizationPct.toFixed(0)}%
-                            </span>
-                          ),
-                      },
-                      { key: "creativeCount", label: "Creatives", align: "right" },
-                      { key: "recommendedCreatives", label: "Recommended", align: "right" },
-                      {
-                        key: "additionalNeeded",
-                        label: "Additional Needed",
-                        align: "right",
-                        render: (r) =>
-                          r.additionalNeeded > 0 ? (
-                            <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
-                          ) : (
-                            "—"
-                          ),
-                      },
-                    ]}
-                  />
+                  {budgetTab === "CBO" ? (
+                    <SortableTable
+                      defaultSortKey="utilizationPct"
+                      defaultSortDir="asc"
+                      maxHeight={360}
+                      emptyMessage="No active CBO campaigns."
+                      rows={report.budgetUtilization.cboCampaigns}
+                      columns={[
+                        { key: "name", label: "Campaign", maxWidth: NAME_COL_WIDTH },
+                        {
+                          key: "dailyBudget",
+                          label: "Daily Budget",
+                          align: "right",
+                          render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
+                        },
+                        { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
+                        {
+                          key: "utilizationPct",
+                          label: "Utilization",
+                          align: "right",
+                          render: (r) =>
+                            r.utilizationPct == null ? (
+                              "—"
+                            ) : (
+                              <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
+                                {r.utilizationPct.toFixed(0)}%
+                              </span>
+                            ),
+                        },
+                        { key: "creativeCount", label: "Creatives", align: "right" },
+                        { key: "recommendedCreatives", label: "Recommended", align: "right" },
+                        {
+                          key: "additionalNeeded",
+                          label: "Additional Needed",
+                          align: "right",
+                          render: (r) =>
+                            r.additionalNeeded > 0 ? (
+                              <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
+                            ) : (
+                              "—"
+                            ),
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <SortableTable
+                      defaultSortKey="utilizationPct"
+                      defaultSortDir="asc"
+                      maxHeight={360}
+                      emptyMessage="No active ad sets in ABO campaigns."
+                      rows={report.budgetUtilization.aboAdsets}
+                      columns={[
+                        { key: "name", label: "Ad Set", maxWidth: NAME_COL_WIDTH },
+                        {
+                          key: "campaignName",
+                          label: "Campaign",
+                          maxWidth: 180,
+                          render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
+                        },
+                        {
+                          key: "dailyBudget",
+                          label: "Daily Budget",
+                          align: "right",
+                          render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
+                        },
+                        { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
+                        {
+                          key: "utilizationPct",
+                          label: "Utilization",
+                          align: "right",
+                          render: (r) =>
+                            r.utilizationPct == null ? (
+                              "—"
+                            ) : (
+                              <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
+                                {r.utilizationPct.toFixed(0)}%
+                              </span>
+                            ),
+                        },
+                        { key: "creativeCount", label: "Creatives", align: "right" },
+                        { key: "recommendedCreatives", label: "Recommended", align: "right" },
+                        {
+                          key: "additionalNeeded",
+                          label: "Additional Needed",
+                          align: "right",
+                          render: (r) =>
+                            r.additionalNeeded > 0 ? (
+                              <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
+                            ) : (
+                              "—"
+                            ),
+                        },
+                      ]}
+                    />
+                  )}
                 </section>
                 </div>
               </div>

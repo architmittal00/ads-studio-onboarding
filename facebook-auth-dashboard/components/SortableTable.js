@@ -4,8 +4,9 @@ import styles from "@/styles/Home.module.css";
 // Generic sortable, scroll-capped table used across the report. `columns` is
 // [{ key, label, align, render(row), sortValue(row), maxWidth, title(row) }]
 // — sortValue defaults to row[key]; render defaults to the same. `maxWidth`
-// (px) caps the column with ellipsis truncation; `title` supplies the
-// hover tooltip text (falls back to row[key] if it's a string).
+// (px) caps the column width; content wraps up to 3 lines and only then
+// ellipsizes (see .clamp3), rather than truncating a single line. `title`
+// supplies the hover tooltip text (falls back to row[key] if it's a string).
 export default function SortableTable({
   columns,
   rows,
@@ -85,15 +86,7 @@ export default function SortableTable({
                 const title = col.title ? col.title(row) : typeof row[col.key] === "string" ? row[col.key] : undefined;
                 return (
                   <td key={col.key} style={{ textAlign: col.align || "left" }}>
-                    <div
-                      title={title}
-                      style={{
-                        maxWidth: col.maxWidth,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                    <div title={title} className={styles.clamp3} style={{ maxWidth: col.maxWidth }}>
                       {content}
                     </div>
                   </td>
