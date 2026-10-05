@@ -1,149 +1,201 @@
 .page {
-  --background: #fafafa;
-  --foreground: #fff;
-
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
+  position: relative;
   display: flex;
   min-height: 100vh;
-  align-items: center;
+  width: 100%;
   justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
 }
 
 .main {
   display: flex;
-  min-height: 100vh;
+  flex-direction: column;
   width: 100%;
   max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
+  padding: 48px 32px;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
 }
 
-.intro {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
+/* ── Typography ── */
+.h1 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--t1);
 }
 
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
+.h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t1);
+  margin-bottom: 10px;
 }
 
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
+.sub {
+  font-size: 13px;
+  color: var(--t2);
 }
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
+/* ── Card ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  transition: border-color 0.2s, background 0.2s;
 }
 
-.ctas {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
-}
-
-.ctas a {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
+/* ── Buttons ── */
+.btnPrimary {
+  background: var(--grad);
+  color: #fff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
+  box-shadow: 0 4px 24px rgba(175, 70, 253, 0.3);
+  transition: opacity 0.15s;
+}
+.btnPrimary:hover {
+  opacity: 0.88;
+}
+.btnPrimary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
+.btnSecondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--t2);
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btnSecondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--t1);
+}
+
+/* ── Inputs / select ── */
+.select {
+  padding: 9px 13px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--t1);
+  font-size: 13px;
+  outline: none;
+}
+.select:focus {
+  border-color: rgba(175, 70, 253, 0.4);
+  background: rgba(175, 70, 253, 0.05);
+}
+
+/* ── Badges / pills ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(175, 70, 253, 0.12);
+  border: 1px solid rgba(175, 70, 253, 0.2);
+  color: var(--purple);
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+.listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
-  }
-
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
-  }
+.muted {
+  color: var(--t3);
+  font-size: 11px;
+  font-weight: 600;
 }
 
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
-  }
-
-  .intro {
-    gap: 16px;
-  }
-
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
+/* ── Stat bar ── */
+.statBar {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
-  }
-
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
-  }
+.stat {
+  flex: 1;
+  min-width: 120px;
+  padding: 13px 20px;
+  border-right: 1px solid var(--border);
+}
+.stat:last-child {
+  border-right: none;
 }
 
-.code {
-  font-family: var(--font-geist-mono);
-  font-size: 0.9em;
-  background: color-mix(in srgb, currentColor 8%, transparent);
-  padding: 0.1em 0.4em;
-  border-radius: 6px;
+.statLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--t1);
+}
+
+.error {
+  color: #ff7070;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.avatar {
+  border-radius: 50%;
+  border: 2px solid rgba(175, 70, 253, 0.4);
+}
+
+.logoMark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  flex-shrink: 0;
 }
