@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import styles from "@/styles/Home.module.css";
 
 // Generic sortable, scroll-capped table used across the report. `columns` is
-// [{ key, label, align, render(row), sortValue(row) }] — sortValue defaults
-// to row[key]; render defaults to the same.
+// [{ key, label, align, render(row), sortValue(row), maxWidth, title(row) }]
+// — sortValue defaults to row[key]; render defaults to the same. `maxWidth`
+// (px) caps the column with ellipsis truncation; `title` supplies the
+// hover tooltip text (falls back to row[key] if it's a string).
 export default function SortableTable({
   columns,
   rows,
@@ -71,11 +73,32 @@ export default function SortableTable({
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               style={onRowClick ? { cursor: "pointer" } : undefined}
             >
-              {columns.map((col) => (
-                <td key={col.key} style={{ textAlign: col.align || "left" }}>
-                  {col.render ? col.render(row) : row[col.key]}
-                </td>
-              ))}
+              {columns.map((col) => {
+                const content = col.render ? col.render(row) : row[col.key];
+                if (!col.maxWidth) {
+                  return (
+                    <td key={col.key} style={{ textAlign: col.align || "left" }}>
+                      {content}
+                    </td>
+                  );
+                }
+                const title = col.title ? col.title(row) : typeof row[col.key] === "string" ? row[col.key] : undefined;
+                return (
+                  <td key={col.key} style={{ textAlign: col.align || "left" }}>
+                    <div
+                      title={title}
+                      style={{
+                        maxWidth: col.maxWidth,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {content}
+                    </div>
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
