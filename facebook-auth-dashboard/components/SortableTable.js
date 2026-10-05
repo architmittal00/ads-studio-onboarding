@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { SearchIcon } from "./icons";
 import styles from "@/styles/Home.module.css";
 
 // Generic sortable, scroll-capped, optionally searchable table used across
@@ -65,14 +66,28 @@ export default function SortableTable({
   return (
     <div>
       {searchable && (
-        <input
-          type="text"
-          className={styles.select}
-          placeholder={searchPlaceholder}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ marginBottom: 10, width: "100%", maxWidth: 280 }}
-        />
+        <div style={{ position: "relative", marginBottom: 10, width: "100%", maxWidth: 280 }}>
+          <span
+            style={{
+              position: "absolute",
+              left: 11,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--t3)",
+              pointerEvents: "none",
+            }}
+          >
+            <SearchIcon size={13} />
+          </span>
+          <input
+            type="text"
+            className={styles.select}
+            placeholder={searchPlaceholder}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", paddingLeft: 30 }}
+          />
+        </div>
       )}
 
       {sorted.length === 0 ? (

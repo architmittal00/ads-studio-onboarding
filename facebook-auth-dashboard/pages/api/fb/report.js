@@ -5,6 +5,7 @@ import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 import { getCachedReport, setCachedReport } from "@/lib/reportCache";
 
 const RTG_PATTERN = /rtg|retarget/i;
+const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -23,6 +24,30 @@ function lastNDaysRange(n, today) {
   const since = new Date(until);
   since.setDate(since.getDate() - (n - 1));
   return { since: toDateStr(since), until: toDateStr(until) };
+}
+
+// Resolves the report's main date window from query params: a preset
+// (today/last_7d/last_30d) or an explicit custom since/until. Falls back to
+// last_30d for anything missing/invalid — the previous fixed default.
+function resolveRange(query, today) {
+  const preset = query.rangePreset || "last_30d";
+
+  if (preset === "today") {
+    const d = toDateStr(today);
+    return { since: d, until: d, label: "Today", preset };
+  }
+  if (preset === "last_7d") {
+    return { ...lastNDaysRange(7, today), label: "Last 7 Days", preset };
+  }
+  if (preset === "custom" && VALID_DATE.test(query.since) && VALID_DATE.test(query.until) && query.since <= query.until) {
+    return { since: query.since, until: query.until, label: `${query.since} → ${query.until}`, preset };
+  }
+  return { ...lastNDaysRange(30, today), label: "Last 30 Days", preset: "last_30d" };
+}
+
+function daysBetween(since, until) {
+  const ms = new Date(`${until}T00:00:00Z`) - new Date(`${since}T00:00:00Z`);
+  return Math.round(ms / 86400000) + 1;
 }
 
 function settled(result, fallback) {
@@ -141,8 +166,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "accountId is required" });
   }
 
+  const token = session.accessToken;
+  const today = new Date();
+  const range = resolveRange(req.query, today);
+  const range7d = lastNDaysRange(7, today);
+
   const force = req.query.force === "true" || req.query.force === "1";
-  const cacheKey = `${session.user?.email || "unknown"}:${accountId}`;
+  const cacheKey = `${session.user?.email || "unknown"}:${accountId}:${range.since}:${range.until}`;
 
   if (!force) {
     const cached = getCachedReport(cacheKey);
@@ -151,10 +181,11 @@ export default async function handler(req, res) {
     }
   }
 
-  const token = session.accessToken;
-  const today = new Date();
-  const range30d = lastNDaysRange(30, today);
-  const range7d = lastNDaysRange(7, today);
+  // Trend chart granularity: daily for a month or less, weekly beyond that —
+  // mirrors how Ads Manager switches granularity on its own trend charts.
+  const rangeDays = daysBetween(range.since, range.until);
+  const trendIncrement = rangeDays <= 31 ? 1 : 7;
+
   const since90 = new Date(today);
   since90.setDate(today.getDate() - 90);
   const since6mo = new Date(today);
@@ -164,6 +195,7 @@ export default async function handler(req, res) {
 
   const [
     overviewResult,
+    trendResult,
     weeklyResult,
     monthlyResult,
     adLevelResult,
@@ -174,7 +206,12 @@ export default async function handler(req, res) {
   ] = await Promise.allSettled([
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
-      time_range: range30d,
+      time_range: range,
+    }),
+    graphGet(`/${accountId}/insights`, token, {
+      fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
+      time_range: range,
+      time_increment: trendIncrement,
     }),
     graphGet(`/${accountId}/insights`, token, {
       fields: "spend,actions,action_values,purchase_roas",
@@ -190,7 +227,7 @@ export default async function handler(req, res) {
       level: "ad",
       fields:
         "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,spend,impressions,clicks,frequency,actions,action_values",
-      time_range: range30d,
+      time_range: range,
       limit: 500,
     }),
     graphGet(`/${accountId}/campaigns`, token, {
@@ -215,7 +252,7 @@ export default async function handler(req, res) {
     }),
   ]);
 
-  // ── Overview (last 30 days) ──
+  // ── Overview (selected range) ──
   const overviewJson = settled(overviewResult, null);
   if (overviewResult.status === "rejected") warnings.push(`Overview metrics unavailable: ${overviewResult.reason.message}`);
   const overviewRow = overviewJson?.data?.[0];
@@ -230,7 +267,23 @@ export default async function handler(req, res) {
       })()
     : { spend: 0, revenue: 0, roas: 0, ctr: 0, purchases: 0, cvr: 0 };
 
-  // ── Best week / best month by ROAS ──
+  // ── Trend: per-metric daily/weekly series for the selected range, powers
+  // the click-to-drill-down chart on each overview stat ──
+  const trendJson = settled(trendResult, null);
+  if (trendResult.status === "rejected") warnings.push(`Trend chart data unavailable: ${trendResult.reason.message}`);
+
+  const trendPoints = (trendJson?.data || []).map((row) => {
+    const { spend, roas } = roasFromRow(row);
+    const clicks = parseFloat(row.clicks || 0);
+    const ctr = parseFloat(row.ctr || 0);
+    const purchases = pickPurchaseCount(row.actions);
+    const cvr = clicks > 0 ? (purchases / clicks) * 100 : 0;
+    return { since: row.date_start, until: row.date_stop, spend, purchases, roas, ctr, cvr };
+  });
+  const trend = { granularity: trendIncrement === 1 ? "daily" : "weekly", points: trendPoints };
+
+  // ── Best week / best month by ROAS (fixed lookback, independent of the
+  // selected range — these exist to surface historical context) ──
   const weeklyJson = settled(weeklyResult, null);
   if (weeklyResult.status === "rejected") warnings.push(`Weekly trend unavailable: ${weeklyResult.reason.message}`);
   const monthlyJson = settled(monthlyResult, null);
@@ -291,9 +344,12 @@ export default async function handler(req, res) {
     };
   });
 
-  // Account-wide benchmark: average spend per active creative over the last
-  // 30 days. Used (instead of an arbitrary fixed number) as the reference
-  // point for "is this campaign/ad set spending too much per creative".
+  // Account-wide benchmark: average spend per active creative over the
+  // selected range. Used (instead of an arbitrary fixed number) as the
+  // reference point for "is this campaign/ad set spending too much per
+  // creative". Scales with whatever range is selected — a single "Today" or
+  // "Last 7 Days" is a noisier sample than "Last 30 Days", so treat
+  // recommendations from very short ranges with proportionate caution.
   const totalAccountSpend = adRows.reduce((sum, r) => sum + r.spend, 0);
   const totalActiveCreatives = new Set(adRows.filter((r) => r.spend > 0).map((r) => r.id)).size;
   const accountAvgSpendPerCreative = totalActiveCreatives > 0 ? totalAccountSpend / totalActiveCreatives : 0;
@@ -379,10 +435,10 @@ export default async function handler(req, res) {
         status: a.effective_status,
         dailyBudget: adsetDailyBudget,
         lifetimeBudget: adsetLifetimeBudget,
-        spend30d: adsetAgg.spend,
-        revenue30d: adsetAgg.revenue,
-        purchases30d: adsetAgg.purchases,
-        roas30d: adsetAgg.spend > 0 ? adsetAgg.revenue / adsetAgg.spend : 0,
+        spendInRange: adsetAgg.spend,
+        revenueInRange: adsetAgg.revenue,
+        purchasesInRange: adsetAgg.purchases,
+        roasInRange: adsetAgg.spend > 0 ? adsetAgg.revenue / adsetAgg.spend : 0,
         avgDailySpend7d,
         utilizationPct,
         ...creativeRecommendation(adsetAgg),
@@ -402,10 +458,10 @@ export default async function handler(req, res) {
       budgetType,
       dailyBudget: campaignDailyBudget,
       lifetimeBudget: campaignLifetimeBudget,
-      spend30d: campAgg.spend,
-      revenue30d: campAgg.revenue,
-      purchases30d: campAgg.purchases,
-      roas30d: campAgg.spend > 0 ? campAgg.revenue / campAgg.spend : 0,
+      spendInRange: campAgg.spend,
+      revenueInRange: campAgg.revenue,
+      purchasesInRange: campAgg.purchases,
+      roasInRange: campAgg.spend > 0 ? campAgg.revenue / campAgg.spend : 0,
       avgDailySpend7d: avgDailySpend7dCampaign,
       utilizationPct: campaignUtilizationPct,
       ...creativeRecommendation(campAgg),
@@ -414,15 +470,15 @@ export default async function handler(req, res) {
   });
 
   // ── Top spending campaigns (derived from the structure tree) ──
-  const totalCampaignRevenue = campaigns.reduce((sum, c) => sum + c.revenue30d, 0);
+  const totalCampaignRevenue = campaigns.reduce((sum, c) => sum + c.revenueInRange, 0);
   const topCampaigns = [...campaigns]
     .map((c) => ({
       id: c.id,
       name: c.name,
-      spend: c.spend30d,
-      revenue: c.revenue30d,
-      roas: c.roas30d,
-      revenueSharePct: totalCampaignRevenue > 0 ? (c.revenue30d / totalCampaignRevenue) * 100 : 0,
+      spend: c.spendInRange,
+      revenue: c.revenueInRange,
+      roas: c.roasInRange,
+      revenueSharePct: totalCampaignRevenue > 0 ? (c.revenueInRange / totalCampaignRevenue) * 100 : 0,
     }))
     .sort((a, b) => b.spend - a.spend)
     .slice(0, 10);
@@ -497,7 +553,7 @@ export default async function handler(req, res) {
         dailyBudget: c.dailyBudget,
         avgDailySpend7d: c.avgDailySpend7d,
         utilizationPct: c.utilizationPct,
-        spend30d: c.spend30d,
+        spendInRange: c.spendInRange,
         creativeCount: c.creativeCount,
         recommendedCreatives: c.recommendedCreatives,
         additionalNeeded: c.additionalNeeded,
@@ -515,7 +571,7 @@ export default async function handler(req, res) {
             dailyBudget: a.dailyBudget,
             avgDailySpend7d: a.avgDailySpend7d,
             utilizationPct: a.utilizationPct,
-            spend30d: a.spend30d,
+            spendInRange: a.spendInRange,
             creativeCount: a.creativeCount,
             recommendedCreatives: a.recommendedCreatives,
             additionalNeeded: a.additionalNeeded,
@@ -547,17 +603,18 @@ export default async function handler(req, res) {
   }
 
   // Account Structure only shows campaigns/ad sets that actually spent in
-  // the last 30 days — the "what's live and running" view. Underutilized and
-  // creative-recommendation sections above deliberately use the unfiltered
-  // `campaigns` tree instead, since a zero-spend active campaign is exactly
-  // the kind of thing those sections should be able to flag.
+  // the selected range — the "what's live and running" view. Budget
+  // Utilization above deliberately uses the unfiltered `campaigns` tree
+  // instead, since a zero-spend active campaign is exactly the kind of
+  // thing that section should be able to flag.
   const structureCampaigns = campaigns
-    .filter((c) => c.spend30d > 0)
-    .map((c) => ({ ...c, adsets: c.adsets.filter((a) => a.spend30d > 0) }));
+    .filter((c) => c.spendInRange > 0)
+    .map((c) => ({ ...c, adsets: c.adsets.filter((a) => a.spendInRange > 0) }));
   const structureAdsetCount = structureCampaigns.reduce((sum, c) => sum + c.adsets.length, 0);
 
   const payload = {
-    dateRange30d: range30d,
+    dateRange: range,
+    trend,
     overview,
     bestWeek,
     bestMonth,

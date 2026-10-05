@@ -153,9 +153,24 @@
   min-width: 120px;
   padding: 13px 20px;
   border-right: 1px solid var(--border);
+  /* Reset so this renders identically as a <button> (clickable stat) or a
+     plain <div> (static stat) — buttons default to centered text, a system
+     font, and their own background/border. */
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border);
+  font: inherit;
+  color: inherit;
+  transition: background 0.15s;
 }
 .stat:last-child {
   border-right: none;
+}
+button.stat:hover {
+  background: var(--card2);
 }
 
 .statLabel {
