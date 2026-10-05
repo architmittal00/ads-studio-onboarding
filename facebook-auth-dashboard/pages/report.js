@@ -7,6 +7,8 @@ import SectionNav from "@/components/SectionNav";
 import SortableTable from "@/components/SortableTable";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
+import MetricTrendModal from "@/components/MetricTrendModal";
+import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon } from "@/components/icons";
 import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -19,13 +21,13 @@ const STRUCTURE_SORT_OPTIONS = [
   { key: "roas", label: "ROAS" },
 ];
 
-// campaigns/ad sets use *30d-suffixed field names, ads use bare ones —
+// campaigns/ad sets use *InRange-suffixed field names, ads use bare ones —
 // this maps a chosen metric to the right field at each tree level.
 const STRUCTURE_SORT_FIELD = {
   name: { campaign: "name", adset: "name", ad: "name" },
-  spend: { campaign: "spend30d", adset: "spend30d", ad: "spend" },
-  purchases: { campaign: "purchases30d", adset: "purchases30d", ad: "purchases" },
-  roas: { campaign: "roas30d", adset: "roas30d", ad: "roas" },
+  spend: { campaign: "spendInRange", adset: "spendInRange", ad: "spend" },
+  purchases: { campaign: "purchasesInRange", adset: "purchasesInRange", ad: "purchases" },
+  roas: { campaign: "roasInRange", adset: "roasInRange", ad: "roas" },
 };
 
 // Thumbnail + name, wrapping the name up to 3 lines and only then
@@ -95,11 +97,23 @@ function sortByField(list, field, dir) {
   return copy;
 }
 
-async function fetchReportData(accountId, force) {
-  const url = `/api/fb/report?accountId=${encodeURIComponent(accountId)}${force ? "&force=true" : ""}`;
-  const res = await fetch(url);
+async function fetchReportData(accountId, { force, rangePreset, since, until } = {}) {
+  const params = new URLSearchParams({ accountId, rangePreset: rangePreset || "last_30d" });
+  if (force) params.set("force", "true");
+  if (rangePreset === "custom" && since && until) {
+    params.set("since", since);
+    params.set("until", until);
+  }
+  const res = await fetch(`/api/fb/report?${params.toString()}`);
   return res.json();
 }
+
+const RANGE_PRESETS = [
+  { key: "today", label: "Today" },
+  { key: "last_7d", label: "Last 7 Days" },
+  { key: "last_30d", label: "Last 30 Days" },
+  { key: "custom", label: "Custom" },
+];
 
 function formatAge(ms) {
   const mins = Math.round(ms / 60000);
@@ -137,6 +151,12 @@ export default function Report() {
   const [budgetTab, setBudgetTab] = useState("CBO");
   const [structureSearch, setStructureSearch] = useState("");
   const [lightboxItem, setLightboxItem] = useState(null);
+  const [trendMetric, setTrendMetric] = useState(null);
+
+  const [rangePreset, setRangePreset] = useState("last_30d");
+  const [customSince, setCustomSince] = useState("");
+  const [customUntil, setCustomUntil] = useState("");
+  const [appliedCustomRange, setAppliedCustomRange] = useState(null);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -166,6 +186,10 @@ export default function Report() {
 
   useEffect(() => {
     if (!selectedAccountId) return;
+    // Custom range waits for the user to hit Apply with both dates filled,
+    // rather than firing a request on every keystroke in the date inputs.
+    if (rangePreset === "custom" && !appliedCustomRange) return;
+
     setLastAccountId(selectedAccountId);
 
     // Standard fetch-on-param-change pattern (react.dev/learn/synchronizing-with-effects#fetching-data):
@@ -178,7 +202,12 @@ export default function Report() {
     setExpandedAdsets({});
 
     let ignore = false;
-    fetchReportData(selectedAccountId, false)
+    fetchReportData(selectedAccountId, {
+      force: false,
+      rangePreset,
+      since: appliedCustomRange?.since,
+      until: appliedCustomRange?.until,
+    })
       .then((json) => {
         if (ignore) return;
         if (json.error) setReportError(json.error);
@@ -194,13 +223,23 @@ export default function Report() {
     return () => {
       ignore = true;
     };
-  }, [selectedAccountId]);
+  }, [selectedAccountId, rangePreset, appliedCustomRange]);
+
+  function handleApplyCustomRange() {
+    if (!customSince || !customUntil) return;
+    setAppliedCustomRange({ since: customSince, until: customUntil });
+  }
 
   function handleHardRefresh() {
     if (!selectedAccountId) return;
     setReportLoading(true);
     setReportError(null);
-    fetchReportData(selectedAccountId, true)
+    fetchReportData(selectedAccountId, {
+      force: true,
+      rangePreset,
+      since: appliedCustomRange?.since,
+      until: appliedCustomRange?.until,
+    })
       .then((json) => {
         if (json.error) setReportError(json.error);
         else setReport(json);
@@ -218,6 +257,18 @@ export default function Report() {
     } catch {
       return `${amount.toFixed(0)} ${currency}`;
     }
+  }
+
+  const METRIC_DEFS = {
+    spend: { label: "Spend", format: money },
+    purchases: { label: "Purchases", format: (v) => v.toFixed(0) },
+    roas: { label: "ROAS", format: (v) => `${v.toFixed(2)}x` },
+    ctr: { label: "CTR", format: (v) => `${v.toFixed(2)}%` },
+    cvr: { label: "CVR", format: (v) => `${v.toFixed(2)}%` },
+  };
+
+  function openTrend(key) {
+    setTrendMetric({ key, ...METRIC_DEFS[key] });
   }
 
   function toggleCampaign(id) {
@@ -307,9 +358,9 @@ export default function Report() {
         status: c.status,
         budgetText: c.budgetType === "CBO" ? money(c.dailyBudget) : c.budgetType === "ABO" ? "Ad set level" : "—",
         budgetBadge: c.budgetType,
-        spend: c.spend30d,
-        purchases: c.purchases30d,
-        roas: c.roas30d,
+        spend: c.spendInRange,
+        purchases: c.purchasesInRange,
+        roas: c.roasInRange,
         frequency: null,
         creativesText: c.additionalNeeded > 0 ? `${c.creativeCount} (+${c.additionalNeeded})` : `${c.creativeCount}`,
       });
@@ -331,9 +382,9 @@ export default function Report() {
             status: a.status,
             budgetText: c.budgetType === "ABO" ? money(a.dailyBudget) : "—",
             budgetBadge: null,
-            spend: a.spend30d,
-            purchases: a.purchases30d,
-            roas: a.roas30d,
+            spend: a.spendInRange,
+            purchases: a.purchasesInRange,
+            roas: a.roasInRange,
             frequency: null,
             creativesText:
               a.additionalNeeded > 0 ? `${a.creativeCount} (+${a.additionalNeeded})` : `${a.creativeCount}`,
@@ -396,6 +447,51 @@ export default function Report() {
             )}
           </div>
 
+          {accounts.length > 0 && (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: -4 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--t3)" }}>
+                <CalendarIcon size={14} />
+              </span>
+              <div className={styles.tabGroup}>
+                {RANGE_PRESETS.map((p) => (
+                  <button
+                    key={p.key}
+                    className={rangePreset === p.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                    onClick={() => setRangePreset(p.key)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              {rangePreset === "custom" && (
+                <>
+                  <input
+                    type="date"
+                    className={styles.select}
+                    value={customSince}
+                    max={customUntil || undefined}
+                    onChange={(e) => setCustomSince(e.target.value)}
+                  />
+                  <span className={styles.muted}>to</span>
+                  <input
+                    type="date"
+                    className={styles.select}
+                    value={customUntil}
+                    min={customSince || undefined}
+                    onChange={(e) => setCustomUntil(e.target.value)}
+                  />
+                  <button
+                    className={styles.btnPrimary}
+                    onClick={handleApplyCustomRange}
+                    disabled={!customSince || !customUntil}
+                  >
+                    Apply
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
           {!accountsError && accounts.length === 0 && !reportLoading && (
             <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
@@ -408,12 +504,15 @@ export default function Report() {
             <>
               <div className={styles.sectionRow} style={{ marginTop: -8 }}>
                 <p className={styles.sub}>
-                  Last 30 days: {report.dateRange30d.since} → {report.dateRange30d.until} ·{" "}
+                  {report.dateRange.label}: {report.dateRange.since} → {report.dateRange.until} ·{" "}
                   {report.fromCache ? "cached" : "freshly fetched"}, updated {formatAge(now - report.cachedAt)}
                   {reportLoading && " · refreshing…"}
                 </p>
                 <button className={styles.btnSecondary} onClick={handleHardRefresh} disabled={reportLoading}>
-                  {reportLoading ? "Refreshing…" : "Hard Refresh"}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <RefreshIcon size={13} />
+                    {reportLoading ? "Refreshing…" : "Hard Refresh"}
+                  </span>
                 </button>
               </div>
 
@@ -436,18 +535,30 @@ export default function Report() {
 
                 {/* Overview */}
                 <section id="overview">
-                  <h2 className={styles.h2}>Last 30 Days</h2>
+                  <h2 className={styles.h2}>{report.dateRange.label}</h2>
+                  <p className={styles.sub} style={{ marginBottom: 10 }}>
+                    Click any metric to see its {report.trend.granularity} trend.
+                  </p>
                   <div className={styles.statBar}>
-                    <Stat label="Spend" value={money(report.overview.spend)} />
-                    <Stat label="Purchases" value={report.overview.purchases.toFixed(0)} />
-                    <Stat label="ROAS" value={`${report.overview.roas.toFixed(2)}x`} />
-                    <Stat label="CTR" value={`${report.overview.ctr.toFixed(2)}%`} />
-                    <Stat label="CVR" value={`${report.overview.cvr.toFixed(2)}%`} />
+                    <Stat label="Spend" value={money(report.overview.spend)} onClick={() => openTrend("spend")} />
+                    <Stat
+                      label="Purchases"
+                      value={report.overview.purchases.toFixed(0)}
+                      onClick={() => openTrend("purchases")}
+                    />
+                    <Stat label="ROAS" value={`${report.overview.roas.toFixed(2)}x`} onClick={() => openTrend("roas")} />
+                    <Stat label="CTR" value={`${report.overview.ctr.toFixed(2)}%`} onClick={() => openTrend("ctr")} />
+                    <Stat label="CVR" value={`${report.overview.cvr.toFixed(2)}%`} onClick={() => openTrend("cvr")} />
                   </div>
                 </section>
 
                 {/* Best week / month */}
-                <section id="trends" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <section id="trends">
+                  <p className={styles.sub} style={{ marginBottom: 10 }}>
+                    Fixed 90-day/6-month lookback for historical context — independent of the date range selected
+                    above.
+                  </p>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                   <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
                     <h2 className={styles.h2}>Best Week (ROAS, last 90 days)</h2>
                     {report.bestWeek ? (
@@ -475,11 +586,12 @@ export default function Report() {
                       <p className={styles.sub}>No months with spend in this window.</p>
                     )}
                   </div>
+                  </div>
                 </section>
 
                 {/* Top spending campaigns */}
                 <section id="top-campaigns" className={styles.card}>
-                  <h2 className={styles.h2}>Top Spending Campaigns (Last 30 Days)</h2>
+                  <h2 className={styles.h2}>Top Spending Campaigns ({report.dateRange.label})</h2>
                   <p className={styles.sub} style={{ marginBottom: 12 }}>
                     Click a row to jump to it in Account Structure.
                   </p>
@@ -609,17 +721,33 @@ export default function Report() {
                         Account Structure ({report.structure.campaignCount} campaigns, {report.structure.adsetCount}{" "}
                         ad sets)
                       </h2>
-                      <p className={styles.sub}>Only campaigns/ad sets with spend in the last 30 days are shown.</p>
+                      <p className={styles.sub}>
+                        Only campaigns/ad sets with spend in the selected range ({report.dateRange.label}) are shown.
+                      </p>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <input
-                        type="text"
-                        className={styles.select}
-                        placeholder="Search campaigns, ad sets, ads…"
-                        value={structureSearch}
-                        onChange={(e) => setStructureSearch(e.target.value)}
-                        style={{ width: 220 }}
-                      />
+                      <div style={{ position: "relative" }}>
+                        <span
+                          style={{
+                            position: "absolute",
+                            left: 11,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "var(--t3)",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          <SearchIcon size={13} />
+                        </span>
+                        <input
+                          type="text"
+                          className={styles.select}
+                          placeholder="Search campaigns, ad sets, ads…"
+                          value={structureSearch}
+                          onChange={(e) => setStructureSearch(e.target.value)}
+                          style={{ width: 220, paddingLeft: 30 }}
+                        />
+                      </div>
                       <span className={styles.muted}>Sort by</span>
                       <select
                         className={styles.select}
@@ -658,7 +786,7 @@ export default function Report() {
                             <th>Name</th>
                             <th>Status</th>
                             <th style={{ textAlign: "right" }}>Budget</th>
-                            <th style={{ textAlign: "right" }}>Spend (30d)</th>
+                            <th style={{ textAlign: "right" }}>Spend</th>
                             <th style={{ textAlign: "right" }}>Purchases</th>
                             <th style={{ textAlign: "right" }}>ROAS</th>
                             <th style={{ textAlign: "right" }}>Frequency</th>
@@ -739,8 +867,8 @@ export default function Report() {
                 <section id="high-frequency" className={styles.card}>
                   <h2 className={styles.h2}>High-Frequency Ads (&gt;3, excluding retargeting)</h2>
                   <p className={styles.sub} style={{ marginBottom: 12 }}>
-                    Frequency here is per-ad over the last 30 days ({report.dateRange30d.since} →{" "}
-                    {report.dateRange30d.until}) — it will not match a campaign- or ad-set-level frequency column in
+                    Frequency here is per-ad over {report.dateRange.label.toLowerCase()} ({report.dateRange.since} →{" "}
+                    {report.dateRange.until}) — it will not match a campaign- or ad-set-level frequency column in
                     Ads Manager, since reach is deduplicated differently at each level. Compare against Ads
                     Manager&apos;s own per-ad frequency for the same dates.
                   </p>
@@ -786,7 +914,8 @@ export default function Report() {
                   <p className={styles.sub} style={{ marginBottom: 12 }}>
                     CBO campaigns are judged at the campaign level; ABO campaigns are judged ad set by ad set, since
                     that is where the budget actually lives. Creative recommendations benchmark against this
-                    account&apos;s own average spend per active creative over the last 30 days —{" "}
+                    account&apos;s own average spend per active creative over {report.dateRange.label.toLowerCase()} —
+                    {" "}
                     <strong style={{ color: "var(--t1)" }}>
                       {money(report.budgetUtilization.accountAvgSpendPerCreative)}
                     </strong>
@@ -915,16 +1044,34 @@ export default function Report() {
         </main>
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      <MetricTrendModal
+        metric={trendMetric}
+        trend={report?.trend}
+        rangeLabel={report?.dateRange?.label}
+        onClose={() => setTrendMetric(null)}
+      />
     </>
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, onClick }) {
+  if (!onClick) {
+    return (
+      <div className={styles.stat}>
+        <p className={styles.statLabel}>{label}</p>
+        <p className={styles.statValue}>{value}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className={styles.stat}>
-      <p className={styles.statLabel}>{label}</p>
+    <button type="button" onClick={onClick} className={styles.stat} style={{ cursor: "pointer" }}>
+      <p className={styles.statLabel} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        {label}
+        <ChartIcon size={11} />
+      </p>
       <p className={styles.statValue}>{value}</p>
-    </div>
+    </button>
   );
 }
 
