@@ -37,34 +37,65 @@ function chunk(array, size) {
   return chunks;
 }
 
-// Fetches creative thumbnails for an exact list of ad IDs, via the Graph
-// API's `?ids=a,b,c` batch-by-ID endpoint (chunked — large ID lists can hit
-// URL/response-size limits). This matters because `/act_x/ads` with no
-// filter returns Facebook's default-ordered first N ads (oldest-created
-// first) — for any account with real history that's a completely different
-// set of ads than the ones with spend in our report window, so fetching
-// thumbnails that way silently returns the wrong (or no) creative for most
-// rows. Fetching by the exact IDs we're displaying avoids that entirely.
-async function fetchThumbnails(adIds, token) {
-  const thumbnailByAdId = {};
-  if (adIds.length === 0) return thumbnailByAdId;
+// Fetches per-ad details (status, thumbnail, video id) for an exact list of
+// ad IDs, via the Graph API's `?ids=a,b,c` batch-by-ID endpoint (chunked —
+// large ID lists can hit URL/response-size limits). This matters because
+// `/act_x/ads` with no filter returns Facebook's default-ordered first N
+// ads (oldest-created first) — for any account with real history that's a
+// completely different set of ads than the ones with spend in our report
+// window, so fetching this way silently returns the wrong (or no) creative
+// for most rows. Fetching by the exact IDs we're displaying avoids that.
+async function fetchAdDetails(adIds, token) {
+  const detailsByAdId = {};
+  if (adIds.length === 0) return detailsByAdId;
 
   const batches = chunk(adIds, 50);
   const results = await Promise.allSettled(
     batches.map((batch) =>
-      graphGet("", token, { ids: batch.join(","), fields: "creative{thumbnail_url,image_url}" })
+      graphGet("", token, {
+        ids: batch.join(","),
+        fields:
+          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,object_story_spec{video_data{video_id}}}",
+      })
     )
   );
 
   for (const result of results) {
     if (result.status !== "fulfilled") continue;
     for (const [id, obj] of Object.entries(result.value || {})) {
-      const url = obj.creative?.thumbnail_url || obj.creative?.image_url;
-      if (url) thumbnailByAdId[id] = url;
+      const creative = obj.creative || {};
+      const videoId = creative.video_id || creative.object_story_spec?.video_data?.video_id || null;
+      detailsByAdId[id] = {
+        status: obj.effective_status || null,
+        thumbnailUrl: creative.thumbnail_url || creative.image_url || null,
+        videoId,
+      };
     }
   }
 
-  return thumbnailByAdId;
+  return detailsByAdId;
+}
+
+// Resolves a direct, playable video URL for each video ID (Facebook's Video
+// object `source` field), so the creative lightbox can actually play video
+// ads instead of just showing their static thumbnail.
+async function fetchVideoSources(videoIds, token) {
+  const sourceByVideoId = {};
+  if (videoIds.length === 0) return sourceByVideoId;
+
+  const batches = chunk(videoIds, 50);
+  const results = await Promise.allSettled(
+    batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: "source" }))
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(result.value || {})) {
+      if (obj.source) sourceByVideoId[id] = obj.source;
+    }
+  }
+
+  return sourceByVideoId;
 }
 
 function bestBucket(rows) {
@@ -230,17 +261,35 @@ export default async function handler(req, res) {
     };
   });
 
-  let thumbnailByAdId = {};
+  let adDetailsById = {};
   try {
-    thumbnailByAdId = await fetchThumbnails(
+    adDetailsById = await fetchAdDetails(
       adRowsBase.map((r) => r.id),
       token
     );
   } catch (err) {
-    warnings.push(`Creative thumbnails unavailable: ${err.message}`);
+    warnings.push(`Ad details (status/thumbnail/video) unavailable: ${err.message}`);
   }
 
-  const adRows = adRowsBase.map((r) => ({ ...r, thumbnailUrl: thumbnailByAdId[r.id] || null }));
+  const videoIds = [...new Set(Object.values(adDetailsById).map((d) => d.videoId).filter(Boolean))];
+  let videoSourceByVideoId = {};
+  try {
+    videoSourceByVideoId = await fetchVideoSources(videoIds, token);
+  } catch (err) {
+    warnings.push(`Video playback URLs unavailable: ${err.message}`);
+  }
+
+  const adRows = adRowsBase.map((r) => {
+    const details = adDetailsById[r.id];
+    const isVideo = !!details?.videoId;
+    return {
+      ...r,
+      status: details?.status || null,
+      thumbnailUrl: details?.thumbnailUrl || null,
+      isVideo,
+      videoUrl: isVideo ? videoSourceByVideoId[details.videoId] || null : null,
+    };
+  });
 
   // Account-wide benchmark: average spend per active creative over the last
   // 30 days. Used (instead of an arbitrary fixed number) as the reference
@@ -305,12 +354,15 @@ export default async function handler(req, res) {
           return {
             id: r.id,
             name: r.name,
+            status: r.status,
             spend: r.spend,
             revenue: r.revenue,
             roas: r.roas,
             purchases: r.purchases,
             frequency: r.frequency,
             thumbnailUrl: r.thumbnailUrl,
+            isVideo: r.isVideo,
+            videoUrl: r.videoUrl,
           };
         })
         .sort((x, y) => y.spend - x.spend);
@@ -399,12 +451,15 @@ export default async function handler(req, res) {
     contributors: contributors.map((c) => ({
       id: c.id,
       name: c.name,
+      status: c.status,
       campaignName: c.campaignName,
       spend: c.spend,
       revenue: c.revenue,
       roas: c.roas,
       purchases: c.purchases,
       thumbnailUrl: c.thumbnailUrl,
+      isVideo: c.isVideo,
+      videoUrl: c.videoUrl,
       revenueSharePct: totalRevenue > 0 ? (c.revenue / totalRevenue) * 100 : 0,
     })),
   };
@@ -418,10 +473,13 @@ export default async function handler(req, res) {
     .map((r) => ({
       id: r.id,
       name: r.name,
+      status: r.status,
       campaignName: r.campaignName,
       adsetName: r.adsetName,
       frequency: r.frequency,
       thumbnailUrl: r.thumbnailUrl,
+      isVideo: r.isVideo,
+      videoUrl: r.videoUrl,
     }))
     .sort((a, b) => b.frequency - a.frequency);
 

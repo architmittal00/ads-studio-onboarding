@@ -6,6 +6,7 @@ import Nav from "@/components/Nav";
 import SectionNav from "@/components/SectionNav";
 import SortableTable from "@/components/SortableTable";
 import Thumb from "@/components/Thumb";
+import CreativeLightbox from "@/components/CreativeLightbox";
 import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -31,15 +32,54 @@ const STRUCTURE_SORT_FIELD = {
 // ellipsizing, instead of stretching the column. The name span needs
 // minWidth:0 + flex:1 — a flex child's default min-width is its own content
 // size, which silently defeats the clamp/ellipsis unless overridden.
-function CreativeCell({ src, name, maxWidth = NAME_COL_WIDTH }) {
+// `onOpen`, when given, makes the thumbnail clickable to open the fullscreen
+// creative lightbox (and shows a play icon when it's a video).
+function CreativeCell({ ad, maxWidth = NAME_COL_WIDTH, onOpen }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 8, maxWidth, overflow: "hidden" }}>
-      <Thumb src={src} />
-      <span title={name} className={styles.clamp3} style={{ minWidth: 0, flex: "1 1 auto" }}>
-        {name}
+      <Thumb src={ad.thumbnailUrl} isVideo={ad.isVideo} onClick={onOpen ? () => onOpen(ad) : undefined} />
+      <span title={ad.name} className={styles.clamp3} style={{ minWidth: 0, flex: "1 1 auto" }}>
+        {ad.name}
       </span>
     </div>
   );
+}
+
+// Filters the campaign -> ad set -> ad tree by a search term. If an
+// ancestor's own name matches, all of its descendants are kept as-is
+// (searching "Diwali" and matching a campaign name shows everything under
+// it); otherwise only descendants that themselves match (by name) survive.
+// Returns the filtered tree plus whether matches were found by searching
+// *into* a branch rather than at its own level — that's used to force those
+// branches open so the match is actually visible without a manual click.
+function filterStructureTree(campaigns, term) {
+  if (!term.trim()) return { campaigns, forceExpandIds: null };
+
+  const lower = term.trim().toLowerCase();
+  const matches = (name) => name.toLowerCase().includes(lower);
+  const forceExpandIds = new Set();
+
+  const filtered = [];
+  for (const c of campaigns) {
+    const campaignMatches = matches(c.name);
+    let adsetsToShow = c.adsets;
+    if (!campaignMatches) {
+      adsetsToShow = [];
+      for (const a of c.adsets) {
+        const adsetMatches = matches(a.name);
+        const adsToShow = adsetMatches ? a.ads : a.ads.filter((ad) => matches(ad.name));
+        if (adsetMatches || adsToShow.length > 0) {
+          adsetsToShow.push({ ...a, ads: adsToShow });
+          if (!adsetMatches) forceExpandIds.add(a.id);
+        }
+      }
+      if (adsetsToShow.length > 0) forceExpandIds.add(c.id);
+    }
+    if (campaignMatches || adsetsToShow.length > 0) {
+      filtered.push({ ...c, adsets: adsetsToShow });
+    }
+  }
+  return { campaigns: filtered, forceExpandIds };
 }
 
 function sortByField(list, field, dir) {
@@ -95,6 +135,8 @@ export default function Report() {
   const [structureSortKey, setStructureSortKey] = useState("spend");
   const [structureSortDir, setStructureSortDir] = useState("desc");
   const [budgetTab, setBudgetTab] = useState("CBO");
+  const [structureSearch, setStructureSearch] = useState("");
+  const [lightboxItem, setLightboxItem] = useState(null);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -233,23 +275,34 @@ export default function Report() {
   // one indented table, consistent columns at every level, driven by the
   // current expand/collapse state. Siblings at each level are sorted by the
   // chosen metric (mapped to that level's field name) — the hierarchy stays
-  // intact, only the order within each level changes.
+  // intact, only the order within each level changes. When a search term is
+  // active, non-matching branches are dropped and matching ones are forced
+  // open so the result is visible without a manual click.
   function buildStructureRows() {
     if (!report) return [];
     const field = STRUCTURE_SORT_FIELD[structureSortKey];
+    const { campaigns: visibleCampaigns, forceExpandIds } = filterStructureTree(
+      report.structure.campaigns,
+      structureSearch
+    );
+    const isExpanded = (id) => (forceExpandIds ? forceExpandIds.has(id) : false) || !!expandedCampaigns[id];
+    const isAdsetExpanded = (id) => (forceExpandIds ? forceExpandIds.has(id) : false) || !!expandedAdsets[id];
+
     const rows = [];
-    const sortedCampaigns = sortByField(report.structure.campaigns, field.campaign, structureSortDir);
+    const sortedCampaigns = sortByField(visibleCampaigns, field.campaign, structureSortDir);
 
     for (const c of sortedCampaigns) {
+      const campaignExpanded = isExpanded(c.id);
       rows.push({
         key: `c-${c.id}`,
         anchorId: `campaign-${c.id}`,
         level: 0,
         hasChildren: c.adsets.length > 0,
-        expanded: !!expandedCampaigns[c.id],
+        expanded: campaignExpanded,
         onToggle: () => toggleCampaign(c.id),
         name: c.name,
         thumbnailUrl: null,
+        isVideo: false,
         countLabel: `${c.adsets.length} ad sets`,
         status: c.status,
         budgetText: c.budgetType === "CBO" ? money(c.dailyBudget) : c.budgetType === "ABO" ? "Ad set level" : "—",
@@ -261,17 +314,19 @@ export default function Report() {
         creativesText: c.additionalNeeded > 0 ? `${c.creativeCount} (+${c.additionalNeeded})` : `${c.creativeCount}`,
       });
 
-      if (expandedCampaigns[c.id]) {
+      if (campaignExpanded) {
         const sortedAdsets = sortByField(c.adsets, field.adset, structureSortDir);
         for (const a of sortedAdsets) {
+          const adsetExpanded = isAdsetExpanded(a.id);
           rows.push({
             key: `a-${a.id}`,
             level: 1,
             hasChildren: a.ads.length > 0,
-            expanded: !!expandedAdsets[a.id],
+            expanded: adsetExpanded,
             onToggle: () => toggleAdset(a.id),
             name: a.name,
             thumbnailUrl: null,
+            isVideo: false,
             countLabel: `${a.ads.length} ads`,
             status: a.status,
             budgetText: c.budgetType === "ABO" ? money(a.dailyBudget) : "—",
@@ -284,7 +339,7 @@ export default function Report() {
               a.additionalNeeded > 0 ? `${a.creativeCount} (+${a.additionalNeeded})` : `${a.creativeCount}`,
           });
 
-          if (expandedAdsets[a.id]) {
+          if (adsetExpanded) {
             const sortedAds = sortByField(a.ads, field.ad, structureSortDir);
             for (const ad of sortedAds) {
               rows.push({
@@ -295,8 +350,10 @@ export default function Report() {
                 onToggle: null,
                 name: ad.name,
                 thumbnailUrl: ad.thumbnailUrl,
+                isVideo: ad.isVideo,
+                videoUrl: ad.videoUrl,
                 countLabel: null,
-                status: null,
+                status: ad.status,
                 budgetText: "—",
                 budgetBadge: null,
                 spend: ad.spend,
@@ -429,6 +486,8 @@ export default function Report() {
                   <SortableTable
                     defaultSortKey="spend"
                     maxHeight={360}
+                    searchable
+                    searchPlaceholder="Search campaigns…"
                     emptyMessage="No campaign spend in this window."
                     rows={report.topCampaigns}
                     onRowClick={(r) => jumpToCampaignInStructure(r.id)}
@@ -467,12 +526,19 @@ export default function Report() {
                       <SortableTable
                         defaultSortKey="revenue"
                         maxHeight={360}
+                        searchable
+                        searchPlaceholder="Search creatives…"
                         rows={report.pareto.contributors}
                         columns={[
                           {
                             key: "name",
                             label: "Creative",
-                            render: (r) => <CreativeCell src={r.thumbnailUrl} name={r.name} />,
+                            render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} />,
+                          },
+                          {
+                            key: "status",
+                            label: "Status",
+                            render: (r) => (r.status ? <StatusDot status={r.status} /> : <span className={styles.muted}>—</span>),
                           },
                           {
                             key: "campaignName",
@@ -545,7 +611,15 @@ export default function Report() {
                       </h2>
                       <p className={styles.sub}>Only campaigns/ad sets with spend in the last 30 days are shown.</p>
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <input
+                        type="text"
+                        className={styles.select}
+                        placeholder="Search campaigns, ad sets, ads…"
+                        value={structureSearch}
+                        onChange={(e) => setStructureSearch(e.target.value)}
+                        style={{ width: 220 }}
+                      />
                       <span className={styles.muted}>Sort by</span>
                       <select
                         className={styles.select}
@@ -574,6 +648,8 @@ export default function Report() {
                   </div>
                   {report.structure.campaigns.length === 0 ? (
                     <p className={styles.sub}>No campaigns with spend in this window.</p>
+                  ) : buildStructureRows().length === 0 ? (
+                    <p className={styles.sub}>No matches for &quot;{structureSearch}&quot;.</p>
                   ) : (
                     <div className={styles.tableScroll} style={{ maxHeight: 520 }}>
                       <table className={styles.table}>
@@ -611,7 +687,17 @@ export default function Report() {
                                   <span style={{ width: 14, display: "inline-block", color: "var(--t3)", flexShrink: 0 }}>
                                     {row.hasChildren ? (row.expanded ? "▾" : "▸") : ""}
                                   </span>
-                                  {row.level === 2 && <Thumb src={row.thumbnailUrl} size={24} />}
+                                  {row.level === 2 && (
+                                    <Thumb
+                                      src={row.thumbnailUrl}
+                                      size={24}
+                                      isVideo={row.isVideo}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setLightboxItem(row);
+                                      }}
+                                    />
+                                  )}
                                   <span
                                     title={row.name}
                                     className={styles.clamp3}
@@ -661,10 +747,17 @@ export default function Report() {
                   <SortableTable
                     defaultSortKey="frequency"
                     maxHeight={360}
+                    searchable
+                    searchPlaceholder="Search ads…"
                     emptyMessage="No ads over frequency 3 outside retargeting campaigns/ad sets."
                     rows={report.highFrequencyAds}
                     columns={[
-                      { key: "name", label: "Ad", render: (r) => <CreativeCell src={r.thumbnailUrl} name={r.name} /> },
+                      { key: "name", label: "Ad", render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} /> },
+                      {
+                        key: "status",
+                        label: "Status",
+                        render: (r) => (r.status ? <StatusDot status={r.status} /> : <span className={styles.muted}>—</span>),
+                      },
                       {
                         key: "campaignName",
                         label: "Campaign",
@@ -720,6 +813,8 @@ export default function Report() {
                       defaultSortKey="utilizationPct"
                       defaultSortDir="asc"
                       maxHeight={360}
+                      searchable
+                      searchPlaceholder="Search campaigns…"
                       emptyMessage="No active CBO campaigns."
                       rows={report.budgetUtilization.cboCampaigns}
                       columns={[
@@ -764,6 +859,8 @@ export default function Report() {
                       defaultSortKey="utilizationPct"
                       defaultSortDir="asc"
                       maxHeight={360}
+                      searchable
+                      searchPlaceholder="Search ad sets…"
                       emptyMessage="No active ad sets in ABO campaigns."
                       rows={report.budgetUtilization.aboAdsets}
                       columns={[
@@ -817,6 +914,7 @@ export default function Report() {
           )}
         </main>
       </div>
+      <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
     </>
   );
 }
