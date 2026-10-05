@@ -10,7 +10,7 @@ export default function Home() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace("/dashboard");
+      router.replace("/report");
     }
   }, [status, router]);
 
@@ -30,7 +30,7 @@ export default function Home() {
           <p className={styles.sub} style={{ maxWidth: 360 }}>
             Sign in with Facebook to view your profile, Pages, and Ad Account performance.
           </p>
-          <button className={styles.btnPrimary} onClick={() => signIn("facebook", { callbackUrl: "/dashboard" })}>
+          <button className={styles.btnPrimary} onClick={() => signIn("facebook", { callbackUrl: "/report" })}>
             Continue with Facebook
           </button>
         </main>
@@ -42,7 +42,7 @@ export default function Home() {
 export async function getServerSideProps(context) {
   const session = await getSession(context);
   if (session) {
-    return { redirect: { destination: "/dashboard", permanent: false } };
+    return { redirect: { destination: "/report", permanent: false } };
   }
   return { props: {} };
 }

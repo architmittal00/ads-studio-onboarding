@@ -1,21 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-
-const GRAPH_API_VERSION = "v21.0";
-
-const PURCHASE_ACTION_TYPES = ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"];
-
-function pickPurchaseValue(entries) {
-  if (!entries) return 0;
-  const match = entries.find((entry) => PURCHASE_ACTION_TYPES.includes(entry.action_type));
-  return match ? parseFloat(match.value) : 0;
-}
-
-function pickPurchaseCount(entries) {
-  if (!entries) return 0;
-  const match = entries.find((entry) => PURCHASE_ACTION_TYPES.includes(entry.action_type));
-  return match ? parseFloat(match.value) : 0;
-}
+import { graphGet } from "@/lib/facebookGraph";
+import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
@@ -29,19 +15,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "accountId is required" });
   }
 
-  const url =
-    `https://graph.facebook.com/${GRAPH_API_VERSION}/${accountId}/insights` +
-    `?fields=spend,impressions,clicks,ctr,action_values,purchase_roas,actions` +
-    `&date_preset=last_30d` +
-    `&access_token=${session.accessToken}`;
-
   try {
-    const fbRes = await fetch(url);
-    const json = await fbRes.json();
-
-    if (json.error) {
-      return res.status(400).json({ error: json.error.message });
-    }
+    const json = await graphGet(`/${accountId}/insights`, session.accessToken, {
+      fields: "spend,impressions,clicks,ctr,action_values,purchase_roas,actions",
+      date_preset: "last_30d",
+    });
 
     const row = json.data?.[0];
 
@@ -56,22 +34,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const spend = parseFloat(row.spend || 0);
-
-    // Prefer Facebook's own purchase_roas field; fall back to deriving it
-    // from action_values / spend if that field isn't populated.
-    let roas = 0;
-    let revenue = pickPurchaseValue(row.action_values);
-
-    const fbRoasEntry = row.purchase_roas?.find((entry) =>
-      PURCHASE_ACTION_TYPES.includes(entry.action_type)
-    );
-
-    if (fbRoasEntry) {
-      roas = parseFloat(fbRoasEntry.value);
-    } else if (spend > 0) {
-      roas = revenue / spend;
-    }
+    const { spend, revenue, roas } = roasFromRow(row);
 
     // Facebook's "ctr" field is already a percentage (e.g. "1.23" = 1.23%)
     const ctr = parseFloat(row.ctr || 0);
@@ -79,6 +42,6 @@ export default async function handler(req, res) {
 
     res.status(200).json({ spend, revenue, roas, ctr, conversions, hasData: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
   }
 }

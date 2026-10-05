@@ -1,8 +1,8 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
+import Nav from "@/components/Nav";
 import styles from "@/styles/Home.module.css";
 
 export default function Dashboard({ user }) {
@@ -53,12 +53,8 @@ export default function Dashboard({ user }) {
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 720, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h1 className={styles.h1}>Dashboard</h1>
-            <button className={styles.btnSecondary} onClick={() => signOut({ callbackUrl: "/" })}>
-              Sign out
-            </button>
-          </div>
+          <Nav />
+          <h1 className={styles.h1}>Raw Data</h1>
 
           {error && <div className={styles.error}>Error: {error}</div>}
           {!data && !error && <p className={styles.sub}>Loading your Facebook data…</p>}
