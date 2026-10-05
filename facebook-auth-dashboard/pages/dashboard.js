@@ -52,61 +52,69 @@ export default function Dashboard({ user }) {
         <title>Dashboard · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
-        <main className={styles.main} style={{ width: "100%", maxWidth: 720 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-            <h1>Dashboard</h1>
-            <button onClick={() => signOut({ callbackUrl: "/" })}>Sign out</button>
+        <main className={styles.main} style={{ maxWidth: 720, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h1 className={styles.h1}>Dashboard</h1>
+            <button className={styles.btnSecondary} onClick={() => signOut({ callbackUrl: "/" })}>
+              Sign out
+            </button>
           </div>
 
-          {error && <p style={{ color: "crimson" }}>Error: {error}</p>}
-          {!data && !error && <p>Loading your Facebook data…</p>}
+          {error && <div className={styles.error}>Error: {error}</div>}
+          {!data && !error && <p className={styles.sub}>Loading your Facebook data…</p>}
 
           {data && (
-            <section style={{ width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
-              <div>
-                <h2>Profile</h2>
+            <section style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className={styles.card}>
+                <h2 className={styles.h2}>Profile</h2>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   {data.profile.picture?.data?.url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
+                      className={styles.avatar}
                       src={data.profile.picture.data.url}
                       alt={data.profile.name}
                       width={56}
                       height={56}
-                      style={{ borderRadius: "50%" }}
                     />
                   )}
                   <div>
-                    <p style={{ margin: 0, fontWeight: 600 }}>{data.profile.name}</p>
-                    <p style={{ margin: 0, opacity: 0.7 }}>{data.profile.email || user?.email || "No email permission granted"}</p>
+                    <p style={{ fontWeight: 700, fontSize: 14 }}>{data.profile.name}</p>
+                    <p className={styles.sub}>
+                      {data.profile.email || user?.email || "No email permission granted"}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h2>Pages ({data.pages.length})</h2>
+              <div className={styles.card}>
+                <h2 className={styles.h2}>Pages ({data.pages.length})</h2>
                 {data.pages.length === 0 ? (
-                  <p style={{ opacity: 0.7 }}>No Pages found, or permission not granted.</p>
+                  <p className={styles.sub}>No Pages found, or permission not granted.</p>
                 ) : (
-                  <ul>
+                  <ul className={styles.list}>
                     {data.pages.map((page) => (
-                      <li key={page.id}>
-                        {page.name} <span style={{ opacity: 0.6 }}>({page.category})</span>
+                      <li key={page.id} className={styles.listItem}>
+                        {page.name}
+                        <span className={styles.pill}>{page.category}</span>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
 
-              <div>
-                <h2>Ad Accounts ({data.adAccounts.length})</h2>
+              <div className={styles.card}>
+                <h2 className={styles.h2}>Ad Accounts ({data.adAccounts.length})</h2>
                 {data.adAccounts.length === 0 ? (
-                  <p style={{ opacity: 0.7 }}>No Ad Accounts found, or permission not granted.</p>
+                  <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
                 ) : (
-                  <ul>
+                  <ul className={styles.list}>
                     {data.adAccounts.map((acc) => (
-                      <li key={acc.id}>
-                        {acc.name} <span style={{ opacity: 0.6 }}>({acc.currency}, status {acc.account_status})</span>
+                      <li key={acc.id} className={styles.listItem}>
+                        {acc.name}
+                        <span className={styles.muted}>
+                          {acc.currency} · status {acc.account_status}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -114,10 +122,11 @@ export default function Dashboard({ user }) {
               </div>
 
               {data.adAccounts.length > 0 && (
-                <div>
-                  <h2>Ad Account Performance (Last 30 Days)</h2>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div className={styles.card}>
+                  <h2 className={styles.h2}>Ad Account Performance (Last 30 Days)</h2>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
                     <select
+                      className={styles.select}
                       value={selectedAccountId}
                       onChange={(e) => setSelectedAccountId(e.target.value)}
                     >
@@ -127,45 +136,40 @@ export default function Dashboard({ user }) {
                         </option>
                       ))}
                     </select>
-                    <button onClick={checkPerformance} disabled={insightsLoading}>
+                    <button className={styles.btnPrimary} onClick={checkPerformance} disabled={insightsLoading}>
                       {insightsLoading ? "Checking…" : "Check ROAS"}
                     </button>
                   </div>
 
-                  {insightsError && (
-                    <p style={{ color: "crimson" }}>Error: {insightsError}</p>
-                  )}
+                  {insightsError && <div className={styles.error}>Error: {insightsError}</div>}
 
                   {insights && (
-                    <div
-                      style={{
-                        marginTop: 12,
-                        display: "flex",
-                        gap: 24,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <Stat label="ROAS" value={`${insights.roas.toFixed(2)}x`} />
-                      <Stat
-                        label="Spend"
-                        value={formatCurrency(
-                          insights.spend,
-                          data.adAccounts.find((a) => a.id === selectedAccountId)?.currency
-                        )}
-                      />
-                      <Stat
-                        label="Purchase Revenue"
-                        value={formatCurrency(
-                          insights.revenue,
-                          data.adAccounts.find((a) => a.id === selectedAccountId)?.currency
-                        )}
-                      />
-                      <Stat label="CTR" value={`${insights.ctr.toFixed(2)}%`} />
-                      <Stat label="Conversions" value={insights.conversions.toFixed(0)} />
+                    <>
+                      <div className={styles.statBar}>
+                        <Stat label="ROAS" value={`${insights.roas.toFixed(2)}x`} />
+                        <Stat
+                          label="Spend"
+                          value={formatCurrency(
+                            insights.spend,
+                            data.adAccounts.find((a) => a.id === selectedAccountId)?.currency
+                          )}
+                        />
+                        <Stat
+                          label="Revenue"
+                          value={formatCurrency(
+                            insights.revenue,
+                            data.adAccounts.find((a) => a.id === selectedAccountId)?.currency
+                          )}
+                        />
+                        <Stat label="CTR" value={`${insights.ctr.toFixed(2)}%`} />
+                        <Stat label="Conversions" value={insights.conversions.toFixed(0)} />
+                      </div>
                       {!insights.hasData && (
-                        <p style={{ opacity: 0.7 }}>No activity in the last 30 days.</p>
+                        <p className={styles.sub} style={{ marginTop: 10 }}>
+                          No activity in the last 30 days.
+                        </p>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               )}
@@ -179,9 +183,9 @@ export default function Dashboard({ user }) {
 
 function Stat({ label, value }) {
   return (
-    <div>
-      <p style={{ margin: 0, opacity: 0.7, fontSize: 13 }}>{label}</p>
-      <p style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{value}</p>
+    <div className={styles.stat}>
+      <p className={styles.statLabel}>{label}</p>
+      <p className={styles.statValue}>{value}</p>
     </div>
   );
 }

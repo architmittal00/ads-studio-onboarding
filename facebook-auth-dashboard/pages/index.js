@@ -20,25 +20,17 @@ export default function Home() {
         <title>Facebook Auth Dashboard</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <div className={styles.page}>
+      <div className={styles.page} style={{ minHeight: "100vh", alignItems: "center" }}>
         <main
           className={styles.main}
-          style={{ alignItems: "center", textAlign: "center" }}
+          style={{ alignItems: "center", textAlign: "center", justifyContent: "center", margin: "auto" }}
         >
-          <h1>Facebook Auth Dashboard</h1>
-          <p>Sign in with Facebook to view your profile, Pages, and Ad Accounts.</p>
-          <button
-            onClick={() => signIn("facebook", { callbackUrl: "/dashboard" })}
-            style={{
-              background: "#1877F2",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              padding: "12px 24px",
-              fontSize: 16,
-              cursor: "pointer",
-            }}
-          >
+          <div className={styles.logoMark}>f</div>
+          <h1 className={styles.h1}>Facebook Auth Dashboard</h1>
+          <p className={styles.sub} style={{ maxWidth: 360 }}>
+            Sign in with Facebook to view your profile, Pages, and Ad Account performance.
+          </p>
+          <button className={styles.btnPrimary} onClick={() => signIn("facebook", { callbackUrl: "/dashboard" })}>
             Continue with Facebook
           </button>
         </main>
