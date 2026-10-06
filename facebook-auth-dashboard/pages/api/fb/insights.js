@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet } from "@/lib/facebookGraph";
+import { graphGetInsights } from "@/lib/facebookGraph";
 import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 
 export default async function handler(req, res) {
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const json = await graphGet(`/${accountId}/insights`, session.accessToken, {
+    const json = await graphGetInsights(`/${accountId}/insights`, session.accessToken, {
       fields: "spend,impressions,clicks,ctr,action_values,purchase_roas,actions",
       date_preset: "last_30d",
     });

@@ -16,6 +16,14 @@ export function pickPurchaseCount(entries) {
   return match ? parseFloat(match.value) : 0;
 }
 
+// Generic single-action-type lookup (pickPurchaseCount is this specialized
+// to the purchase action types above).
+export function pickActionCount(entries, actionType) {
+  if (!entries) return 0;
+  const match = entries.find((entry) => entry.action_type === actionType);
+  return match ? parseFloat(match.value) : 0;
+}
+
 // Derives spend/revenue/ROAS from a single Graph API insights row.
 // Prefers Facebook's own purchase_roas field; falls back to revenue / spend.
 export function roasFromRow(row) {

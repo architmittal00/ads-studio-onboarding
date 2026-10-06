@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
+import Loader from "@/components/Loader";
 import { STRATEGIES, recommendStrategies, explainMismatch, roundBudgetAmount } from "@/lib/strategyEngine";
 import styles from "@/styles/Home.module.css";
 
@@ -27,6 +28,10 @@ export default function Strategy() {
   const [accountChoice, setAccountChoice] = useState("");
   const [showAllStrategies, setShowAllStrategies] = useState(false);
 
+  const [historySignal, setHistorySignal] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+
   useEffect(() => {
     fetch("/api/fb/data")
       .then((res) => res.json())
@@ -45,11 +50,66 @@ export default function Strategy() {
     }
   }
 
-  const hasHistory = accountChoice && accountChoice !== FRESH_ACCOUNT;
   const budgetNumber = parseFloat(dailyBudget);
   const hasBudget = !isNaN(budgetNumber) && budgetNumber > 0;
+  const isRealAccount = accountChoice && accountChoice !== FRESH_ACCOUNT;
 
-  const ready = experimentOpen !== null && accountChoice !== "";
+  // Whether a connected account has "enough history" to justify a
+  // retargeting-led strategy isn't something the user declares — it's
+  // calculated from the account's own last-30-day numbers (see
+  // /api/fb/strategy-signal). A fresh/new account has nothing to calculate
+  // from, so it's false immediately with no fetch needed.
+  useEffect(() => {
+    if (!isRealAccount || !hasBudget) {
+      // Standard fetch-on-param-change pattern, same as the report page's
+      // date-range effect — resetting state synchronously when the guard
+      // condition isn't met is intentional, not a sync-derived-state bug.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHistorySignal(null);
+      setHistoryError(null);
+      return;
+    }
+
+    let ignore = false;
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    // Light debounce — typing a budget fires this on every keystroke
+    // otherwise, each one a real Graph API call.
+    const timer = setTimeout(() => {
+      fetch(
+        `/api/fb/strategy-signal?accountId=${encodeURIComponent(accountChoice)}&dailyBudget=${budgetNumber}`
+      )
+        .then((res) => res.json())
+        .then((json) => {
+          if (ignore) return;
+          if (json.error) setHistoryError(json.error);
+          else setHistorySignal(json);
+        })
+        .catch((err) => {
+          if (!ignore) setHistoryError(err.message);
+        })
+        .finally(() => {
+          if (!ignore) setHistoryLoading(false);
+        });
+    }, 500);
+
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+      setHistoryLoading(false);
+    };
+  }, [isRealAccount, accountChoice, hasBudget, budgetNumber]);
+
+  const hasHistory = isRealAccount ? historySignal?.hasEnoughHistory ?? false : false;
+
+  const ready =
+    experimentOpen !== null &&
+    accountChoice !== "" &&
+    hasBudget &&
+    !historyLoading &&
+    (accountChoice === FRESH_ACCOUNT || historySignal !== null || historyError !== null);
+
   const inputs = { experimentOpen, hasHistory };
   const recommendations = ready ? recommendStrategies(inputs) : [];
   const recommendedIds = new Set(recommendations.map((s) => s.id));
@@ -75,8 +135,9 @@ export default function Strategy() {
             <div>
               <h2 className={styles.h2}>Daily budget</h2>
               <p className={styles.sub} style={{ marginBottom: 10 }}>
-                Used to show each campaign/ad set&apos;s share in real currency — doesn&apos;t change which
-                strategy gets recommended.
+                Shows each campaign/ad set&apos;s share in real currency, and — for a connected account — is used to
+                check whether it has enough of a retargeting pool to build a strategy around (see below).
+                Recommendations wait until this is filled in.
               </p>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
@@ -122,10 +183,11 @@ export default function Strategy() {
             </div>
 
             <div>
-              <h2 className={styles.h2}>Account history</h2>
+              <h2 className={styles.h2}>Account</h2>
               <p className={styles.sub} style={{ marginBottom: 10 }}>
-                Pick one of the connected ad accounts (used for its retargeting pool of past visitors/purchasers),
-                or mark this as a fresh account with no prior data.
+                Pick a connected ad account — we&apos;ll check its last 30 days of activity to see if it has a
+                retargeting pool worth building a strategy around. Or mark this as a fresh/new account with no
+                prior data.
               </p>
               <select
                 className={styles.select}
@@ -138,13 +200,37 @@ export default function Strategy() {
                 </option>
                 {accounts.map((acc) => (
                   <option key={acc.id} value={acc.id}>
-                    {acc.name} (has history)
+                    {acc.name}
                   </option>
                 ))}
                 <option value={FRESH_ACCOUNT}>Fresh / new account (no prior data)</option>
               </select>
+
+              {isRealAccount && hasBudget && (
+                <div style={{ marginTop: 12 }}>
+                  {historyLoading && <Loader inline label="Checking the account's last 30 days…" />}
+                  {historyError && (
+                    <p className={styles.sub} style={{ color: "#ff7070" }}>
+                      Couldn&apos;t check this account&apos;s history ({historyError}) — treating it as a fresh
+                      account for now.
+                    </p>
+                  )}
+                  {!historyLoading && historySignal && (
+                    <p className={styles.sub}>
+                      <strong style={{ color: "var(--t1)" }}>
+                        {historySignal.hasEnoughHistory ? "Has enough history." : "Not enough history yet."}
+                      </strong>{" "}
+                      {historySignal.reason}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </section>
+
+          {!ready && experimentOpen !== null && accountChoice !== "" && !hasBudget && (
+            <p className={styles.sub}>Enter a daily budget above to see recommended strategies.</p>
+          )}
 
           {ready && (
             <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
