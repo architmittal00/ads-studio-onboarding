@@ -80,7 +80,7 @@ async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,object_story_spec{video_data{video_id}}}",
+          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,object_story_spec{link_data{link},video_data{video_id,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
       })
     )
   );
@@ -94,11 +94,22 @@ async function fetchAdDetails(adIds, token) {
       // Ads / Advantage+ catalog ads) rather than being a single fixed
       // image or video creative.
       const creativeType = creative.product_set_id ? "Catalog" : videoId ? "Video" : "Static";
+      // The ad's destination URL, checked across the few shapes it can show
+      // up in (static link ad, video ad with a link-out CTA, flexible/
+      // Advantage+ creative with multiple possible link URLs). Catalog ads
+      // have no single fixed URL here — their real destination is generated
+      // per-product by Facebook at serve time — so this stays null for them.
+      const landingUrl =
+        creative.object_story_spec?.link_data?.link ||
+        creative.object_story_spec?.video_data?.call_to_action?.value?.link ||
+        creative.asset_feed_spec?.link_urls?.[0]?.website_url ||
+        null;
       detailsByAdId[id] = {
         status: obj.effective_status || null,
         thumbnailUrl: creative.thumbnail_url || creative.image_url || null,
         videoId,
         creativeType,
+        landingUrl,
       };
     }
   }
@@ -197,6 +208,56 @@ function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
+function titleCaseSnake(s) {
+  return s
+    ? s
+        .split("_")
+        .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+        .join(" ")
+    : s;
+}
+
+// Facebook's `platform_position` values are often already prefixed with the
+// platform name (e.g. "instagram_reels", "facebook_reels") — strip that
+// redundant prefix before combining with the platform label, so placements
+// read "Instagram · Reels" / "Facebook · Reels" rather than
+// "Instagram · Instagram Reels".
+function placementLabel(platform, position) {
+  if (!platform || !position) return null;
+  const prefix = `${platform}_`;
+  const trimmed = position.startsWith(prefix) ? position.slice(prefix.length) : position;
+  return `${titleCaseSnake(platform)} · ${titleCaseSnake(trimmed)}`;
+}
+
+// Best-effort "what product is this ad pointing at" derived from its landing
+// page URL — Facebook's insights API has no native per-product revenue
+// breakdown outside of catalog/DPA reporting, so this reverse-engineers it
+// from the destination URL instead. Recognizes the common Shopify-style
+// `/products/<handle>` path and turns the handle into a readable label;
+// anything else falls back to the raw path, which is still a valid (if less
+// pretty) grouping key. Catalog/dynamic-creative ads have no single fixed
+// URL (the destination is generated per-product by Facebook at serve time)
+// and are called out as their own bucket by the caller rather than through
+// this function.
+function extractLandingPageLabel(url) {
+  if (!url) return null;
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const path = parsed.pathname.replace(/\/+$/, "");
+  if (!path) return "Homepage";
+  const match = path.match(/\/products\/([^/]+)/i);
+  if (match) {
+    return decodeURIComponent(match[1])
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return path;
+}
+
 function emptyAgg() {
   return { spend: 0, revenue: 0, purchases: 0, creativeIds: new Set() };
 }
@@ -262,6 +323,7 @@ export default async function handler(req, res) {
     last7AdsetResult,
     ageGenderResult,
     regionResult,
+    platformResult,
   ] = await Promise.allSettled([
     graphGetInsights(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
@@ -319,6 +381,12 @@ export default async function handler(req, res) {
       fields: "spend,actions,action_values,purchase_roas",
       time_range: graphTimeRange,
       breakdowns: "region",
+      limit: 500,
+    }),
+    graphGetInsights(`/${accountId}/insights`, token, {
+      fields: "spend,actions,action_values,purchase_roas",
+      time_range: graphTimeRange,
+      breakdowns: "publisher_platform,platform_position",
       limit: 500,
     }),
   ]);
@@ -413,6 +481,7 @@ export default async function handler(req, res) {
       isVideo,
       videoUrl: isVideo ? videoSourceByVideoId[details.videoId] || null : null,
       creativeType: details?.creativeType || "Static",
+      landingUrl: details?.landingUrl || null,
     };
   });
 
@@ -619,6 +688,46 @@ export default async function handler(req, res) {
   // 80%-cutoff pareto — truncating a 3-way breakdown isn't useful.
   const purchasesByCreativeType = groupAndPareto(adRows, (r) => r.creativeType, { applyCutoff: false });
 
+  // ── Platform (Facebook/Instagram/Audience Network/Messenger) and
+  // platform+placement (e.g. "Instagram · Reels") — both derived from the
+  // same single breakdown call, just grouped two different ways. Platform
+  // only has a handful of possible values, so — like creative type — show
+  // the full split rather than an 80% cutoff; placement has enough
+  // cardinality (feed/reels/stories/etc. per platform) for the 80% framing
+  // to be meaningful. ──
+  const platformJson = settled(platformResult, null);
+  if (platformResult.status === "rejected")
+    warnings.push(`Platform/placement breakdown unavailable: ${platformResult.reason.message}`);
+  const platformRows = (platformJson?.data || []).map((row) => {
+    const { spend, revenue } = roasFromRow(row);
+    return {
+      spend,
+      revenue,
+      purchases: pickPurchaseCount(row.actions),
+      platform: row.publisher_platform,
+      position: row.platform_position,
+    };
+  });
+  const purchasesByPlatform = groupAndPareto(
+    platformRows,
+    (r) => (r.platform ? titleCaseSnake(r.platform) : null),
+    { applyCutoff: false }
+  );
+  const purchasesByPlacement = groupAndPareto(platformRows, (r) => placementLabel(r.platform, r.position));
+
+  // ── Where 80% of purchase revenue comes from, by product — reverse-
+  // engineered from each ad's landing page URL, since Facebook's insights
+  // API has no native per-product revenue breakdown outside of catalog/DPA
+  // reporting. Catalog/dynamic-creative ads (no single fixed landing URL —
+  // Facebook generates the real destination per-product at serve time) are
+  // called out as their own bucket rather than silently dropped, so the
+  // "how much of this is actually attributable" gap is visible. ──
+  const purchasesByProduct = groupAndPareto(adRows, (r) =>
+    r.creativeType === "Catalog"
+      ? "Catalog / Dynamic creative (no fixed landing URL)"
+      : extractLandingPageLabel(r.landingUrl) || "Unknown landing page"
+  );
+
   // ── High-frequency ads, excluding retargeting campaigns/ad sets ──
   const highFrequencyAds = adRows
     .filter(
@@ -722,6 +831,9 @@ export default async function handler(req, res) {
     purchasesByAgeGender,
     purchasesByRegion,
     purchasesByCreativeType,
+    purchasesByPlatform,
+    purchasesByPlacement,
+    purchasesByProduct,
     highFrequencyAds,
     structure: {
       campaignCount: structureCampaigns.length,
