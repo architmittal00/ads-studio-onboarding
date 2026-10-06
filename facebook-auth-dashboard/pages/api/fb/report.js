@@ -80,7 +80,7 @@ async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,object_story_spec{link_data{link},video_data{video_id,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
+          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,call_to_action,object_story_spec{link_data{link},video_data{video_id,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
       })
     )
   );
@@ -94,14 +94,18 @@ async function fetchAdDetails(adIds, token) {
       // Ads / Advantage+ catalog ads) rather than being a single fixed
       // image or video creative.
       const creativeType = creative.product_set_id ? "Catalog" : videoId ? "Video" : "Static";
-      // The ad's destination URL, checked across the few shapes it can show
-      // up in (static link ad, video ad with a link-out CTA, flexible/
-      // Advantage+ creative with multiple possible link URLs). Catalog ads
-      // have no single fixed URL here — their real destination is generated
-      // per-product by Facebook at serve time — so this stays null for them.
+      // The ad's destination URL, checked across the shapes it can show up
+      // in. `creative.call_to_action` (top-level, separate from the one
+      // nested under object_story_spec.video_data) turned out to be the big
+      // one — verified against a real account's "Unknown landing page" ads:
+      // 10 of 10 video ads with no object_story_spec/asset_feed_spec at all
+      // still carried their destination here. Catalog ads have no single
+      // fixed URL — their real destination is generated per-product by
+      // Facebook at serve time — so this stays null for them.
       const landingUrl =
         creative.object_story_spec?.link_data?.link ||
         creative.object_story_spec?.video_data?.call_to_action?.value?.link ||
+        creative.call_to_action?.value?.link ||
         creative.asset_feed_spec?.link_urls?.[0]?.website_url ||
         null;
       detailsByAdId[id] = {
@@ -111,10 +115,9 @@ async function fetchAdDetails(adIds, token) {
         creativeType,
         landingUrl,
         // Set only when none of the structured creative fields above had a
-        // link — an ad built from an existing Page post (very common for
-        // boosted/Reels-style video ads) carries no object_story_spec or
-        // asset_feed_spec at all; its destination lives on the post itself,
-        // resolved in a follow-up batch by fetchPostLandingUrls().
+        // link (rare now that call_to_action is checked) — resolved as a
+        // last resort from the ad's underlying Page post, in a follow-up
+        // batch by fetchPostLandingUrls().
         postId: !landingUrl ? creative.effective_object_story_id || null : null,
       };
     }
