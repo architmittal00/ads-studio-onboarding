@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Nav from "@/components/Nav";
 import SectionNav from "@/components/SectionNav";
@@ -8,9 +8,21 @@ import SortableTable from "@/components/SortableTable";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import MetricTrendModal from "@/components/MetricTrendModal";
+import Loader from "@/components/Loader";
 import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon } from "@/components/icons";
 import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
+
+// How long a report payload for a given (account, range) stays usable in the
+// browser tab without re-hitting the API at all — separate from, and in
+// addition to, the server's own 30-min cache (lib/reportCache.js). This is
+// what makes flipping Last 7 Days -> Last 30 Days -> back to Last 7 Days an
+// instant, no-network operation instead of a fresh request every time.
+const CLIENT_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function clientCacheKey(accountId, rangePreset, since, until) {
+  return `${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
+}
 
 const NAME_COL_WIDTH = 240;
 
@@ -211,6 +223,12 @@ export default function Report() {
   const [customUntil, setCustomUntil] = useState("");
   const [appliedCustomRange, setAppliedCustomRange] = useState(null);
 
+  // In-memory per-tab cache of report payloads, keyed by account+range, so
+  // switching back to a range already seen in this tab within the last 30
+  // minutes shows instantly with no API call. A ref (not state) since
+  // writing to it should never itself trigger a re-render.
+  const reportCacheRef = useRef(new Map());
+
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30000);
@@ -245,9 +263,24 @@ export default function Report() {
 
     setLastAccountId(selectedAccountId);
 
+    const since = appliedCustomRange?.since;
+    const until = appliedCustomRange?.until;
+    const cacheKey = clientCacheKey(selectedAccountId, rangePreset, since, until);
+    const cached = reportCacheRef.current.get(cacheKey);
+
+    if (cached && Date.now() - cached.fetchedAt < CLIENT_CACHE_TTL_MS) {
+      // Seen this exact account+range within the last 30 minutes in this tab
+      // — show it immediately, no request at all (Hard Refresh still bypasses this).
+      setReport(cached.data);
+      setReportError(null);
+      setReportLoading(false);
+      setExpandedCampaigns({});
+      setExpandedAdsets({});
+      return;
+    }
+
     // Standard fetch-on-param-change pattern (react.dev/learn/synchronizing-with-effects#fetching-data):
     // resetting loading/error/data state synchronously here is intentional, not a sync-derived-state bug.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReportLoading(true);
     setReportError(null);
     setReport(null);
@@ -255,16 +288,14 @@ export default function Report() {
     setExpandedAdsets({});
 
     let ignore = false;
-    fetchReportData(selectedAccountId, {
-      force: false,
-      rangePreset,
-      since: appliedCustomRange?.since,
-      until: appliedCustomRange?.until,
-    })
+    fetchReportData(selectedAccountId, { force: false, rangePreset, since, until })
       .then((json) => {
         if (ignore) return;
         if (json.error) setReportError(json.error);
-        else setReport(json);
+        else {
+          setReport(json);
+          reportCacheRef.current.set(cacheKey, { data: json, fetchedAt: Date.now() });
+        }
       })
       .catch((err) => {
         if (!ignore) setReportError(err.message);
@@ -285,17 +316,18 @@ export default function Report() {
 
   function handleHardRefresh() {
     if (!selectedAccountId) return;
+    const since = appliedCustomRange?.since;
+    const until = appliedCustomRange?.until;
+    const cacheKey = clientCacheKey(selectedAccountId, rangePreset, since, until);
     setReportLoading(true);
     setReportError(null);
-    fetchReportData(selectedAccountId, {
-      force: true,
-      rangePreset,
-      since: appliedCustomRange?.since,
-      until: appliedCustomRange?.until,
-    })
+    fetchReportData(selectedAccountId, { force: true, rangePreset, since, until })
       .then((json) => {
         if (json.error) setReportError(json.error);
-        else setReport(json);
+        else {
+          setReport(json);
+          reportCacheRef.current.set(cacheKey, { data: json, fetchedAt: Date.now() });
+        }
       })
       .catch((err) => setReportError(err.message))
       .finally(() => setReportLoading(false));
@@ -550,16 +582,18 @@ export default function Report() {
             <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
           )}
 
-          {reportLoading && !report && <p className={styles.sub}>Building the report…</p>}
+          {reportLoading && !report && <Loader label="Building the report…" />}
           {reportError && <div className={styles.error}>Error: {reportError}</div>}
 
           {report && (
             <>
               <div className={styles.sectionRow} style={{ marginTop: -8 }}>
-                <p className={styles.sub}>
-                  {report.dateRange.label}: {report.dateRange.since} → {report.dateRange.until} ·{" "}
-                  {report.fromCache ? "cached" : "freshly fetched"}, updated {formatAge(now - report.cachedAt)}
-                  {reportLoading && " · refreshing…"}
+                <p className={styles.sub} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span>
+                    {report.dateRange.label}: {report.dateRange.since} → {report.dateRange.until} ·{" "}
+                    {report.fromCache ? "cached" : "freshly fetched"}, updated {formatAge(now - report.cachedAt)}
+                  </span>
+                  {reportLoading && <Loader inline label="Refreshing…" />}
                 </p>
                 <button className={styles.btnSecondary} onClick={handleHardRefresh} disabled={reportLoading}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
