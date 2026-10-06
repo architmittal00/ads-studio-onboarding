@@ -100,6 +100,13 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
   const rememberedPixel = !loadingData && getPixelMapping(accountId);
   const canLaunch = pageId && pixelId && !launching;
 
+  function adsManagerUrl(kind, id) {
+    const numericId = accountId.replace(/^act_/, "");
+    const path = kind === "campaign" ? "campaigns" : "adsets";
+    const param = kind === "campaign" ? "selected_campaign_ids" : "selected_adset_ids";
+    return `https://www.facebook.com/adsmanager/manage/${path}?act=${numericId}&${param}=${id}`;
+  }
+
   return (
     <div
       onClick={onClose}
@@ -217,29 +224,103 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
           </div>
         )}
 
-        {result && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-            <p className={styles.sub}>
-              <strong style={{ color: result.success ? "#4ade80" : "#fbbf24" }}>
-                {result.success ? "Launched successfully." : "Launched with some errors — see below."}
-              </strong>
-            </p>
-            {result.steps?.map((s, i) => (
-              <div key={i} className={styles.listItem} style={{ flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                <span style={{ fontWeight: 700 }}>{s.label}</span>
-                {s.success ? (
-                  <span className={styles.badgeGood}>{s.id ? `Created — ${s.id}` : "Done"}</span>
-                ) : (
-                  <span className={styles.badgeDanger}>{s.error}</span>
-                )}
-              </div>
-            ))}
-            <button type="button" className={styles.btnSecondary} onClick={onClose} style={{ alignSelf: "flex-start" }}>
-              Close
-            </button>
-          </div>
-        )}
+        {result && <LaunchResult result={result} onClose={onClose} adsManagerUrl={adsManagerUrl} />}
       </div>
+    </div>
+  );
+}
+
+// Module-level (not nested inside LaunchPanel's render body) so it isn't
+// recreated — and remounted — on every re-render, the same reasoning as
+// pages/report.js's BreakdownSection. Shows each created campaign as its own
+// card with a direct Ads Manager link, its ad sets nested underneath with
+// their own links; audience and activation steps render as simple rows above
+// and below. Every row shows Facebook's own error text on failure rather
+// than just "failed".
+function LaunchResult({ result, onClose, adsManagerUrl }) {
+  const steps = result.steps || [];
+  const audienceSteps = steps.filter((s) => s.type === "audience");
+  const campaignSteps = steps.filter((s) => s.type === "campaign");
+  const activationStep = steps.find((s) => s.type === "activation");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+      <p className={styles.sub}>
+        <strong style={{ color: result.success ? "#4ade80" : "#fbbf24" }}>
+          {result.success ? "Launched successfully." : "Launched with some errors — see below."}
+        </strong>
+      </p>
+
+      {audienceSteps.map((s, i) => (
+        <StepRow key={`audience-${i}`} step={s} />
+      ))}
+
+      {campaignSteps.map((c, i) => {
+        const adsets = steps.filter((s) => s.type === "adset" && c.success && s.campaignId === c.id);
+        return (
+          <div key={c.id || `campaign-${i}`} className={styles.card} style={{ padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>{c.name}</span>
+              {c.success ? (
+                <a href={adsManagerUrl("campaign", c.id)} target="_blank" rel="noreferrer" className={styles.badgeGood}>
+                  View in Ads Manager
+                </a>
+              ) : (
+                <span className={styles.badgeDanger}>Failed</span>
+              )}
+            </div>
+            {!c.success && (
+              <p className={styles.sub} style={{ color: "#ff7070", marginTop: 6 }}>
+                {c.error}
+              </p>
+            )}
+            {adsets.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  marginTop: 10,
+                  paddingLeft: 12,
+                  borderLeft: "2px solid var(--border)",
+                }}
+              >
+                {adsets.map((a, j) => (
+                  <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12.5, color: "var(--t2)" }}>{a.name}</span>
+                    {a.success ? (
+                      <a href={adsManagerUrl("adset", a.id)} target="_blank" rel="noreferrer" className={styles.badgeGood}>
+                        View
+                      </a>
+                    ) : (
+                      <span className={styles.badgeDanger}>{a.error}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {activationStep && <StepRow step={activationStep} />}
+
+      <button type="button" className={styles.btnSecondary} onClick={onClose} style={{ alignSelf: "flex-start" }}>
+        Close
+      </button>
+    </div>
+  );
+}
+
+function StepRow({ step }) {
+  return (
+    <div className={styles.listItem} style={{ flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+      <span style={{ fontWeight: 700 }}>{step.label}</span>
+      {step.success ? (
+        <span className={styles.badgeGood}>{step.id ? `Created — ${step.id}` : "Done"}</span>
+      ) : (
+        <span className={styles.badgeDanger}>{step.error}</span>
+      )}
     </div>
   );
 }
