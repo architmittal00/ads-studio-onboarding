@@ -8,7 +8,7 @@ export const authOptions = {
       clientSecret: process.env.FACEBOOK_APP_SECRET,
       authorization: {
         params: {
-          scope: "public_profile,email,pages_show_list,pages_read_engagement,ads_read",
+          scope: "public_profile,email,pages_show_list,pages_read_engagement,ads_read,ads_management",
         },
       },
     }),

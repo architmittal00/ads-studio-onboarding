@@ -5,7 +5,7 @@ A minimal Next.js (Pages Router) dashboard that lets a user log in with Facebook
 ## How it works
 
 - Auth is handled by [NextAuth.js](https://next-auth.js.org/) using the Facebook provider (`pages/api/auth/[...nextauth].js`).
-- Login requests `public_profile,email,pages_show_list,pages_read_engagement,ads_read` scopes.
+- Login requests `public_profile,email,pages_show_list,pages_read_engagement,ads_read,ads_management` scopes. Note: **Page Public Content Access is not an OAuth scope** — it's a Facebook app *Feature*, granted via App Review in the Meta App Dashboard (Settings → App Review → Permissions and Features), not something that can be requested through the login `scope` string.
 - The Facebook access token is kept server-side in the session JWT, never exposed to the browser.
 - After login, the user lands on `/report` — the **Account Handover Report**: a wide dashboard with a sticky section nav (scroll-spy), sortable scroll-capped and searchable tables (every column header is clickable to sort; long names wrap up to 3 lines and only then ellipsize, with a hover tooltip for the full text), and creative thumbnails wherever an individual ad is shown — click one to open it fullscreen; video ads actually play (direct video `source` URL resolved server-side from the creative's `video_id`), not just a static thumbnail.
   - **Date range**: a selector (Today / Last 7 Days / Last 30 Days / Custom) at the top drives the entire report — overview, top campaigns, pareto, structure, budget/creative recommendations all recompute for whatever's selected. Custom uses two date inputs plus an Apply button (so it doesn't refetch on every keystroke). Best Week/Best Month stay on their own fixed 90-day/6-month lookback regardless, since they're about historical context rather than "the current view" — noted inline so that's not confusing.
@@ -28,7 +28,10 @@ This is **best-effort only**: Vercel serverless functions have no persistent dis
 
 ## Report caching
 
-`/api/fb/report` caches its response per (user, ad account) for 30 minutes (`lib/reportCache.js`, same in-memory/best-effort caveat as the API log — resets on cold start/redeploy). Switching accounts or reloading within that window reuses the cached data instantly; the "Hard Refresh" button on `/report` bypasses the cache and re-fetches from the Graph API.
+There are two layers of caching, both 30 minutes, both bypassed by the "Hard Refresh" button:
+
+- **Server-side** (`lib/reportCache.js`): `/api/fb/report` caches its response per (user, ad account, exact date range) in-memory on the server for 30 minutes (same best-effort caveat as the API log — resets on cold start/redeploy).
+- **Client-side** (in `pages/report.js`): the browser tab also keeps every report payload it has fetched, keyed by (account, date range), for 30 minutes. This means switching the date range selector — e.g. Last 7 Days → Last 30 Days → back to Last 7 Days — shows the already-fetched data instantly with **no network request at all**, not even a fast cache-hit one. A nice loading spinner shows only while an actual fetch is in flight (first load, a genuinely new range, or past the 30-minute TTL).
 
 ## Known Graph API caveats
 
