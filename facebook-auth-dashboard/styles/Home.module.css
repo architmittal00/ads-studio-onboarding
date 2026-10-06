@@ -423,6 +423,75 @@ button.stat:hover {
   font-weight: 600;
 }
 
+/* ── App shell: persistent sidebar + scrollable content ── */
+.appShell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.appSidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 16px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.appSidebarHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+}
+
+.appNavLink {
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t2);
+  transition: background 0.15s, color 0.15s;
+}
+.appNavLink:hover {
+  background: var(--card2);
+  color: var(--t1);
+}
+.appNavLinkActive {
+  background: rgba(175, 70, 253, 0.15);
+  border: 1px solid rgba(175, 70, 253, 0.3);
+  color: var(--purple);
+}
+
+.appContent {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .appShell {
+    flex-direction: column;
+  }
+  .appSidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    gap: 12px;
+  }
+  .appSidebarHeader {
+    flex-shrink: 0;
+  }
+}
+
 /* ── Tabs (e.g. CBO / ABO switch) ── */
 .tabGroup {
   display: inline-flex;
