@@ -80,7 +80,7 @@ async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,object_story_spec{link_data{link},video_data{video_id,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
+          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,object_story_spec{link_data{link},video_data{video_id,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
       })
     )
   );
@@ -110,11 +110,53 @@ async function fetchAdDetails(adIds, token) {
         videoId,
         creativeType,
         landingUrl,
+        // Set only when none of the structured creative fields above had a
+        // link — an ad built from an existing Page post (very common for
+        // boosted/Reels-style video ads) carries no object_story_spec or
+        // asset_feed_spec at all; its destination lives on the post itself,
+        // resolved in a follow-up batch by fetchPostLandingUrls().
+        postId: !landingUrl ? creative.effective_object_story_id || null : null,
       };
     }
   }
 
   return detailsByAdId;
+}
+
+// Fallback landing-URL resolution for ads with no link anywhere in their own
+// creative fields (object_story_spec / asset_feed_spec) — these are ads
+// built by boosting an existing Page post rather than creating a new link
+// ad, extremely common for video/Reels creative. The destination lives on
+// the post itself instead: its own `link` field for a link-share post, a
+// link-out call-to-action button, or an attachment's URL. Requires
+// pages_read_engagement for Pages the token's user doesn't manage directly —
+// failures are expected for some posts and handled per-ID (Facebook returns
+// an {error} object for just that ID rather than failing the whole batch),
+// so those ads simply stay unresolved rather than breaking the request.
+async function fetchPostLandingUrls(postIds, token) {
+  const urlByPostId = {};
+  if (postIds.length === 0) return urlByPostId;
+
+  const batches = chunk(postIds, 50);
+  const results = await Promise.allSettled(
+    batches.map((batch) =>
+      graphGet("", token, {
+        ids: batch.join(","),
+        fields: "link,call_to_action,attachments{url,unshimmed_url}",
+      })
+    )
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(result.value || {})) {
+      const attachment = obj.attachments?.data?.[0];
+      const url = obj.link || obj.call_to_action?.value?.link || attachment?.unshimmed_url || attachment?.url || null;
+      if (url) urlByPostId[id] = url;
+    }
+  }
+
+  return urlByPostId;
 }
 
 // Resolves a direct, playable video URL for each video ID (Facebook's Video
@@ -471,6 +513,26 @@ export default async function handler(req, res) {
     warnings.push(`Video playback URLs unavailable: ${err.message}`);
   }
 
+  const postIdsNeedingLink = [
+    ...new Set(Object.values(adDetailsById).map((d) => d.postId).filter(Boolean)),
+  ];
+  let postLandingUrlByPostId = {};
+  try {
+    postLandingUrlByPostId = await fetchPostLandingUrls(postIdsNeedingLink, token);
+  } catch (err) {
+    warnings.push(`Some ad landing pages (linked via an existing Page post) could not be resolved: ${err.message}`);
+  }
+  // fetchPostLandingUrls swallows per-batch failures rather than throwing (a
+  // permission error on one Page shouldn't block posts on others), so a
+  // wholesale permission problem shows up as "tried N posts, resolved none"
+  // rather than a caught exception — worth its own warning since it's
+  // usually fixable (re-login to (re)grant pages_read_engagement).
+  if (postIdsNeedingLink.length > 0 && Object.keys(postLandingUrlByPostId).length === 0) {
+    warnings.push(
+      `Could not resolve a landing page for ${postIdsNeedingLink.length} ad(s) linked via an existing Page post — likely missing pages_read_engagement access to those Pages. Try logging out and back in to re-grant Page permissions.`
+    );
+  }
+
   const adRows = adRowsBase.map((r) => {
     const details = adDetailsById[r.id];
     const isVideo = !!details?.videoId;
@@ -481,7 +543,7 @@ export default async function handler(req, res) {
       isVideo,
       videoUrl: isVideo ? videoSourceByVideoId[details.videoId] || null : null,
       creativeType: details?.creativeType || "Static",
-      landingUrl: details?.landingUrl || null,
+      landingUrl: details?.landingUrl || (details?.postId ? postLandingUrlByPostId[details.postId] : null) || null,
     };
   });
 
@@ -688,13 +750,9 @@ export default async function handler(req, res) {
   // 80%-cutoff pareto — truncating a 3-way breakdown isn't useful.
   const purchasesByCreativeType = groupAndPareto(adRows, (r) => r.creativeType, { applyCutoff: false });
 
-  // ── Platform (Facebook/Instagram/Audience Network/Messenger) and
-  // platform+placement (e.g. "Instagram · Reels") — both derived from the
-  // same single breakdown call, just grouped two different ways. Platform
-  // only has a handful of possible values, so — like creative type — show
-  // the full split rather than an 80% cutoff; placement has enough
-  // cardinality (feed/reels/stories/etc. per platform) for the 80% framing
-  // to be meaningful. ──
+  // ── Platform & placement (e.g. "Instagram · Reels", "Facebook · Feed") —
+  // one combined 80%-of-revenue breakdown rather than a separate full-split
+  // "by platform" table and a cut "by placement" table. ──
   const platformJson = settled(platformResult, null);
   if (platformResult.status === "rejected")
     warnings.push(`Platform/placement breakdown unavailable: ${platformResult.reason.message}`);
@@ -708,11 +766,6 @@ export default async function handler(req, res) {
       position: row.platform_position,
     };
   });
-  const purchasesByPlatform = groupAndPareto(
-    platformRows,
-    (r) => (r.platform ? titleCaseSnake(r.platform) : null),
-    { applyCutoff: false }
-  );
   const purchasesByPlacement = groupAndPareto(platformRows, (r) => placementLabel(r.platform, r.position));
 
   // ── Where 80% of purchase revenue comes from, by product — reverse-
@@ -831,7 +884,6 @@ export default async function handler(req, res) {
     purchasesByAgeGender,
     purchasesByRegion,
     purchasesByCreativeType,
-    purchasesByPlatform,
     purchasesByPlacement,
     purchasesByProduct,
     highFrequencyAds,
