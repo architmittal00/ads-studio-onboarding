@@ -1,7 +1,14 @@
 // The 8 funnel-structure strategies, transcribed from the agency's playbook.
 // Each campaign's `pct` is its share of the account's total daily budget;
 // `pages/strategy.js` turns that into real currency amounts once the user
-// enters a daily budget.
+// enters a daily budget. `funnel` and each ad set's `type` are the
+// machine-readable side of the same data the display already uses them for
+// (see components/StrategyCard in pages/strategy.js) — `lib/campaignLaunch.js`
+// reads these directly to build real campaign/ad set payloads:
+//   funnel: "TOF" | "MOF" | "BOF"              — drives objective/optimization goal
+//   adset.type: "advantage" | "retargeting" | "lookalike" | "interest"
+//   adset.pct: only set for ABO ad sets (budget split within one campaign);
+//              omitted for CBO ad sets, which inherit the campaign budget.
 export const STRATEGIES = [
   {
     id: 1,
@@ -10,16 +17,29 @@ export const STRATEGIES = [
     rationale:
       "Builds a full funnel while putting the bulk of spend where your existing audience already converts — retargeting, buyer lookalikes, and Advantage+ compete for 80% of budget, so Meta's algorithm finds your best performer fast without starving prospecting entirely.",
     campaigns: [
-      { name: "Campaign 1 — Top of Funnel", pct: 5, structure: "ASC (CBO) · 1 ad set", note: "Optimized for site visits" },
-      { name: "Campaign 2 — Middle of Funnel", pct: 15, structure: "ASC (CBO) · 1 ad set", note: "Optimized for Add to Cart" },
+      {
+        name: "Campaign 1 — Top of Funnel",
+        pct: 5,
+        funnel: "TOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for site visits", type: "advantage" }],
+      },
+      {
+        name: "Campaign 2 — Middle of Funnel",
+        pct: 15,
+        funnel: "MOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+      },
       {
         name: "Campaign 3 — Bottom of Funnel",
         pct: 80,
+        funnel: "BOF",
         structure: "ASC (CBO) · 3 ad sets in one campaign",
         adsets: [
-          "Retargeting: your website visitors & engagers",
-          "Lookalike of your website buyers",
-          "Advantage+ ad set",
+          { label: "Retargeting: your website visitors & engagers", type: "retargeting" },
+          { label: "Lookalike of your website buyers", type: "lookalike" },
+          { label: "Advantage+ ad set", type: "advantage" },
         ],
       },
     ],
@@ -31,9 +51,27 @@ export const STRATEGIES = [
     rationale:
       "Still tests the full funnel, but keeps Bottom-of-Funnel simple — one Advantage+ ad set, since there's no retargeting pool yet to split further into retargeting/lookalike/Advantage+.",
     campaigns: [
-      { name: "Campaign 1 — Top of Funnel", pct: 5, structure: "ASC (CBO) · 1 ad set", note: "Optimized for site visits" },
-      { name: "Campaign 2 — Middle of Funnel", pct: 15, structure: "ASC (CBO) · 1 ad set", note: "Optimized for Add to Cart" },
-      { name: "Campaign 3 — Bottom of Funnel", pct: 80, structure: "ASC (CBO) · 1 ad set", note: "Advantage+ ad set" },
+      {
+        name: "Campaign 1 — Top of Funnel",
+        pct: 5,
+        funnel: "TOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for site visits", type: "advantage" }],
+      },
+      {
+        name: "Campaign 2 — Middle of Funnel",
+        pct: 15,
+        funnel: "MOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+      },
+      {
+        name: "Campaign 3 — Bottom of Funnel",
+        pct: 80,
+        funnel: "BOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Advantage+ ad set", type: "advantage" }],
+      },
     ],
   },
   {
@@ -46,11 +84,12 @@ export const STRATEGIES = [
       {
         name: "Campaign 1 — Bottom of Funnel",
         pct: 100,
+        funnel: "BOF",
         structure: "ASC (CBO) · 3 ad sets in one campaign",
         adsets: [
-          "Retargeting: your website visitors & engagers",
-          "Lookalike of your website buyers",
-          "Advantage+ ad set",
+          { label: "Retargeting: your website visitors & engagers", type: "retargeting" },
+          { label: "Lookalike of your website buyers", type: "lookalike" },
+          { label: "Advantage+ ad set", type: "advantage" },
         ],
       },
     ],
@@ -61,7 +100,15 @@ export const STRATEGIES = [
     history: "fresh",
     rationale:
       "The simplest possible structure: one Advantage+ ad set gets the full budget. Right for a fresh account that isn't ready to experiment and has no retargeting pool to lean on yet — nothing to fragment budget across.",
-    campaigns: [{ name: "Campaign 1 — Bottom of Funnel", pct: 100, structure: "CBO · 1 ad set", note: "Advantage+ ad set" }],
+    campaigns: [
+      {
+        name: "Campaign 1 — Bottom of Funnel",
+        pct: 100,
+        funnel: "BOF",
+        structure: "CBO · 1 ad set",
+        adsets: [{ label: "Advantage+ ad set", type: "advantage" }],
+      },
+    ],
   },
   {
     id: 5,
@@ -70,16 +117,29 @@ export const STRATEGIES = [
     rationale:
       "Same full-funnel idea as Strategy 1, but shifts more budget to prospecting (10% Top, 25% Middle) to grow the audience faster — a better fit if the goal is building pipeline, not just harvesting the demand you already have.",
     campaigns: [
-      { name: "Campaign 1 — Top of Funnel", pct: 10, structure: "ASC (CBO) · 1 ad set", note: "Optimized for site visits" },
-      { name: "Campaign 2 — Middle of Funnel", pct: 25, structure: "ASC (CBO) · 1 ad set", note: "Optimized for Add to Cart" },
+      {
+        name: "Campaign 1 — Top of Funnel",
+        pct: 10,
+        funnel: "TOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for site visits", type: "advantage" }],
+      },
+      {
+        name: "Campaign 2 — Middle of Funnel",
+        pct: 25,
+        funnel: "MOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+      },
       {
         name: "Campaign 3 — Bottom of Funnel",
         pct: 65,
+        funnel: "BOF",
         structure: "ASC (CBO) · 3 ad sets in one campaign",
         adsets: [
-          "Retargeting: your website visitors & engagers",
-          "Lookalike of your website buyers",
-          "Advantage+ ad set",
+          { label: "Retargeting: your website visitors & engagers", type: "retargeting" },
+          { label: "Lookalike of your website buyers", type: "lookalike" },
+          { label: "Advantage+ ad set", type: "advantage" },
         ],
       },
     ],
@@ -91,9 +151,27 @@ export const STRATEGIES = [
     rationale:
       "Same idea as Strategy 2 with more prospecting weight (10% Top, 25% Middle) — useful if you want the funnel to build awareness and cart activity faster, even without history to retarget yet.",
     campaigns: [
-      { name: "Campaign 1 — Top of Funnel", pct: 10, structure: "ASC (CBO) · 1 ad set", note: "Optimized for site visits" },
-      { name: "Campaign 2 — Middle of Funnel", pct: 25, structure: "ASC (CBO) · 1 ad set", note: "Optimized for Add to Cart" },
-      { name: "Campaign 3 — Bottom of Funnel", pct: 65, structure: "ASC (CBO) · 1 ad set", note: "Advantage+ ad set" },
+      {
+        name: "Campaign 1 — Top of Funnel",
+        pct: 10,
+        funnel: "TOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for site visits", type: "advantage" }],
+      },
+      {
+        name: "Campaign 2 — Middle of Funnel",
+        pct: 25,
+        funnel: "MOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+      },
+      {
+        name: "Campaign 3 — Bottom of Funnel",
+        pct: 65,
+        funnel: "BOF",
+        structure: "ASC (CBO) · 1 ad set",
+        adsets: [{ label: "Advantage+ ad set", type: "advantage" }],
+      },
     ],
   },
   {
@@ -106,8 +184,15 @@ export const STRATEGIES = [
       {
         name: "Campaign 1 — All Bottom of Funnel",
         pct: 100,
+        funnel: "BOF",
         structure: "ASC (ABO) · 2 ad sets",
-        adsets: ["60% of budget — Hero Products ad set (Advantage+)", "40% of budget — Grooming Products ad set (Advantage+)"],
+        // No catalog/product-set targeting yet (deliberately deferred) — both
+        // are plain Advantage+-audience ad sets, differentiated only by name
+        // and ABO budget split, standing in for a real product-set split later.
+        adsets: [
+          { label: "Hero Products ad set (Advantage+)", type: "advantage", pct: 60, nameTag: "Hero" },
+          { label: "Grooming Products ad set (Advantage+)", type: "advantage", pct: 40, nameTag: "Grooming" },
+        ],
       },
     ],
   },
@@ -121,8 +206,16 @@ export const STRATEGIES = [
       {
         name: "Campaign 1 — All Bottom of Funnel",
         pct: 100,
+        funnel: "BOF",
         structure: "Interest-based (CBO) · 3 ad sets",
-        adsets: ["Interest 1", "Interest 2", "Interest 3"],
+        // All three stand in on "Beauty" for now (resolved live via
+        // targetingsearch at launch time, not a stored ID) until a real
+        // interest-picker UI replaces "Interest 1/2/3" with distinct choices.
+        adsets: [
+          { label: "Interest: Beauty", type: "interest", interestQuery: "Beauty" },
+          { label: "Interest: Beauty", type: "interest", interestQuery: "Beauty" },
+          { label: "Interest: Beauty", type: "interest", interestQuery: "Beauty" },
+        ],
       },
     ],
   },

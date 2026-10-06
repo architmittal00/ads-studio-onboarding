@@ -38,3 +38,31 @@ export function setDefaultRangePreset(preset) {
     // Private browsing / blocked storage — silently ignore, nothing to persist to.
   }
 }
+
+const PIXEL_MAP_KEY = "fb-dashboard:pixel-mapping";
+
+// Which pixel to optimize for when launching a strategy on a given ad
+// account — asked once per account, remembered here, changeable anytime.
+// Per-browser like everything else in this file: not shared across machines
+// or teammates using the same Facebook login.
+function readPixelMap() {
+  try {
+    return JSON.parse(localStorage.getItem(PIXEL_MAP_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function getPixelMapping(accountId) {
+  return readPixelMap()[accountId] || null;
+}
+
+export function setPixelMapping(accountId, pixelId) {
+  try {
+    const map = readPixelMap();
+    map[accountId] = pixelId;
+    localStorage.setItem(PIXEL_MAP_KEY, JSON.stringify(map));
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
