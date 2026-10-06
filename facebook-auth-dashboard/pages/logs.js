@@ -65,6 +65,7 @@ export default function Logs() {
                 <thead>
                   <tr>
                     <th>Time</th>
+                    <th>Method</th>
                     <th>Path</th>
                     <th>Status</th>
                     <th>Duration</th>
@@ -79,6 +80,11 @@ export default function Logs() {
                         onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
                       >
                         <td>{new Date(log.timestamp).toLocaleTimeString()}</td>
+                        <td>
+                          <span className={log.method === "POST" ? styles.badgeWarn : styles.badgeInfo}>
+                            {log.method || "GET"}
+                          </span>
+                        </td>
                         <td style={{ fontFamily: "monospace", fontSize: 11 }}>{log.path}</td>
                         <td>
                           <span className={log.error ? styles.badgeDanger : styles.badgeGood}>
@@ -90,7 +96,7 @@ export default function Logs() {
                       </tr>
                       {expandedId === log.id && (
                         <tr>
-                          <td colSpan={5}>
+                          <td colSpan={6}>
                             <p className={styles.muted} style={{ marginBottom: 6 }}>
                               URL
                             </p>

@@ -14,6 +14,14 @@ import { getOrCreateVisitorsAudience, getOrCreateBuyerLookalike } from "@/lib/au
 // Nothing created is ever auto-deleted on failure — the response reports
 // exactly what succeeded/failed so the user can finish manually in Ads
 // Manager if needed.
+//
+// Streams newline-delimited JSON instead of one final response: a
+// `{type:"progress", message}` line before each slow step so the launch
+// panel can show "Creating campaign 2 of 3…" in real time, then a single
+// `{type:"done", success, accountId, steps}` line at the end. Once the
+// first byte is written the HTTP status is locked at 200 — business-logic
+// failure is communicated via `success:false` in the final line, same as
+// the previous non-streamed version did.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -38,13 +46,18 @@ export default async function handler(req, res) {
   }
   const finalStatus = status === "ACTIVE" ? "ACTIVE" : "PAUSED";
 
+  res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" });
+  function progress(message) {
+    res.write(`${JSON.stringify({ type: "progress", message })}\n`);
+  }
+  function finish(body) {
+    res.write(`${JSON.stringify({ type: "done", ...body })}\n`);
+    res.end();
+  }
+
   const token = session.accessToken;
   const steps = [];
-  let overallSuccess = true;
 
-  // Audiences resolved once up front, reused by any campaign in this
-  // strategy that needs them. Skipped entirely for strategies with no
-  // retargeting/lookalike ad sets (2, 4, 6, 7, 8).
   const needsVisitors = strategy.campaigns.some((c) => c.adsets.some((a) => a.type === "retargeting"));
   const needsLookalike = strategy.campaigns.some((c) => c.adsets.some((a) => a.type === "lookalike"));
   let visitorsAudienceId = null;
@@ -52,27 +65,31 @@ export default async function handler(req, res) {
 
   try {
     if (needsVisitors) {
+      progress("Checking for an existing retargeting audience…");
       const result = await getOrCreateVisitorsAudience(accountId, token, pixelId);
       visitorsAudienceId = result.id;
       steps.push({
         type: "audience",
-        label: `Retargeting audience (${result.created ? "created" : "reused existing"})`,
+        label: "Retargeting audience",
+        created: result.created,
         success: true,
         id: result.id,
       });
     }
     if (needsLookalike) {
+      progress("Checking for an existing lookalike audience…");
       const result = await getOrCreateBuyerLookalike(accountId, token, pixelId);
       lookalikeAudienceId = result.id;
       steps.push({
         type: "audience",
-        label: `Lookalike audience (${result.created ? "created" : "reused existing"})`,
+        label: "Lookalike audience",
+        created: result.created,
         success: true,
         id: result.id,
       });
     }
   } catch (err) {
-    return res.status(200).json({
+    return finish({
       success: false,
       accountId,
       steps: [...steps, { type: "audience", label: "Audience setup", success: false, error: err.message }],
@@ -81,8 +98,12 @@ export default async function handler(req, res) {
 
   const createdCampaignIds = [];
   const createdAdsetIds = [];
+  let overallSuccess = true;
+  let campaignNumber = 0;
+  const campaignCount = strategy.campaigns.length;
 
   for (const campaign of strategy.campaigns) {
+    campaignNumber += 1;
     const isAbo = campaign.adsets.some((a) => a.pct != null);
     const campaignBudget = roundBudgetAmount((budget * campaign.pct) / 100, budget);
 
@@ -94,6 +115,7 @@ export default async function handler(req, res) {
       isAbo,
     });
 
+    progress(`Creating campaign ${campaignNumber} of ${campaignCount}: ${campaign.name}…`);
     try {
       const json = await graphPost(`/${accountId}/campaigns`, token, campaignPayload);
       campaignId = json.id;
@@ -108,6 +130,7 @@ export default async function handler(req, res) {
     for (let i = 0; i < campaign.adsets.length; i++) {
       const adset = campaign.adsets[i];
       const adsetName = buildAdsetName(campaign.funnel, adset, i);
+      progress(`Creating ad set ${i + 1} of ${campaign.adsets.length} for ${campaign.name}: ${adsetName}…`);
       try {
         const interestId = adset.type === "interest" ? await resolveInterestId(token, adset.interestQuery) : null;
         const adsetBudget = isAbo ? roundBudgetAmount((campaignBudget * adset.pct) / 100, budget) : null;
@@ -134,6 +157,7 @@ export default async function handler(req, res) {
   }
 
   if (finalStatus === "ACTIVE" && overallSuccess && createdCampaignIds.length > 0) {
+    progress("Activating…");
     try {
       await Promise.all(createdCampaignIds.map((id) => graphPost(`/${id}`, token, { status: "ACTIVE" })));
       await Promise.all(createdAdsetIds.map((id) => graphPost(`/${id}`, token, { status: "ACTIVE" })));
@@ -149,5 +173,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(200).json({ success: overallSuccess, accountId, steps });
+  finish({ success: overallSuccess, accountId, steps });
 }
