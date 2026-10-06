@@ -54,15 +54,29 @@ export default async function handler(req, res) {
     if (needsVisitors) {
       const result = await getOrCreateVisitorsAudience(accountId, token, pixelId);
       visitorsAudienceId = result.id;
-      steps.push({ label: `Retargeting audience (${result.created ? "created" : "reused existing"})`, success: true, id: result.id });
+      steps.push({
+        type: "audience",
+        label: `Retargeting audience (${result.created ? "created" : "reused existing"})`,
+        success: true,
+        id: result.id,
+      });
     }
     if (needsLookalike) {
       const result = await getOrCreateBuyerLookalike(accountId, token, pixelId);
       lookalikeAudienceId = result.id;
-      steps.push({ label: `Lookalike audience (${result.created ? "created" : "reused existing"})`, success: true, id: result.id });
+      steps.push({
+        type: "audience",
+        label: `Lookalike audience (${result.created ? "created" : "reused existing"})`,
+        success: true,
+        id: result.id,
+      });
     }
   } catch (err) {
-    return res.status(200).json({ success: false, steps: [...steps, { label: "Audience setup", success: false, error: err.message }] });
+    return res.status(200).json({
+      success: false,
+      accountId,
+      steps: [...steps, { type: "audience", label: "Audience setup", success: false, error: err.message }],
+    });
   }
 
   const createdCampaignIds = [];
@@ -84,16 +98,16 @@ export default async function handler(req, res) {
       const json = await graphPost(`/${accountId}/campaigns`, token, campaignPayload);
       campaignId = json.id;
       createdCampaignIds.push(campaignId);
-      steps.push({ label: `Campaign: ${campaignPayload.name}`, success: true, id: campaignId });
+      steps.push({ type: "campaign", label: "Campaign", name: campaignPayload.name, success: true, id: campaignId });
     } catch (err) {
       overallSuccess = false;
-      steps.push({ label: `Campaign: ${campaignPayload.name}`, success: false, error: err.message });
+      steps.push({ type: "campaign", label: "Campaign", name: campaignPayload.name, success: false, error: err.message });
       continue; // can't create this campaign's ad sets without it
     }
 
     for (let i = 0; i < campaign.adsets.length; i++) {
       const adset = campaign.adsets[i];
-      const adsetLabel = `Ad set: ${buildAdsetName(campaign.funnel, adset, i)}`;
+      const adsetName = buildAdsetName(campaign.funnel, adset, i);
       try {
         const interestId = adset.type === "interest" ? await resolveInterestId(token, adset.interestQuery) : null;
         const adsetBudget = isAbo ? roundBudgetAmount((campaignBudget * adset.pct) / 100, budget) : null;
@@ -111,10 +125,10 @@ export default async function handler(req, res) {
         });
         const json = await graphPost(`/${accountId}/adsets`, token, payload);
         createdAdsetIds.push(json.id);
-        steps.push({ label: adsetLabel, success: true, id: json.id });
+        steps.push({ type: "adset", label: "Ad set", name: adsetName, campaignId, success: true, id: json.id });
       } catch (err) {
         overallSuccess = false;
-        steps.push({ label: adsetLabel, success: false, error: err.message });
+        steps.push({ type: "adset", label: "Ad set", name: adsetName, campaignId, success: false, error: err.message });
       }
     }
   }
@@ -123,10 +137,11 @@ export default async function handler(req, res) {
     try {
       await Promise.all(createdCampaignIds.map((id) => graphPost(`/${id}`, token, { status: "ACTIVE" })));
       await Promise.all(createdAdsetIds.map((id) => graphPost(`/${id}`, token, { status: "ACTIVE" })));
-      steps.push({ label: "Activated", success: true });
+      steps.push({ type: "activation", label: "Activated", success: true });
     } catch (err) {
       overallSuccess = false;
       steps.push({
+        type: "activation",
         label: "Activation",
         success: false,
         error: `Created successfully but failed to activate: ${err.message}. Everything is sitting paused in Ads Manager — activate it manually when ready.`,
@@ -134,5 +149,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(200).json({ success: overallSuccess, steps });
+  res.status(200).json({ success: overallSuccess, accountId, steps });
 }

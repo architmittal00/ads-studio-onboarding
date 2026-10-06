@@ -20,11 +20,7 @@ async function findAudienceByName(accountId, token, name) {
 
 // A website-pixel rule covering ALL visits ("visited_site" is Meta's
 // implicit any-pageview event — no specific event name needed) or a named
-// standard event (e.g. "Purchase") for the lookalike seed. NOTE: this is the
-// part of this feature we could not live-verify (no working test token at
-// implementation time) — if Facebook rejects this shape, its own validation
-// error will surface directly in the launch UI and /logs rather than silently
-// creating a broken audience, so a failure here is visible, not silent.
+// standard event (e.g. "Purchase") for the lookalike seed.
 function websiteRule(pixelId, eventName, retentionDays) {
   return {
     inclusions: {
@@ -44,9 +40,17 @@ function websiteRule(pixelId, eventName, retentionDays) {
 }
 
 async function createWebsiteAudience(accountId, token, { name, pixelId, eventName, retentionDays }) {
+  // No `subtype` here on purpose — confirmed live against a real account
+  // that the current API version rejects it outright ("the parameter
+  // 'subtype' is not supported in the current API version", error 2654 /
+  // 1870053), not "invalid value", meaning it's no longer a settable input
+  // at all. This matches the same "infer from configuration" shift Meta
+  // already made to Advantage+ campaign creation (see lib/campaignLaunch.js)
+  // — the audience type is inferred here from the shape of `rule` (a pixel
+  // event_source) rather than a declared flag. Same reasoning applied below
+  // to the LOOKALIKE creation call.
   const json = await graphPost(`/${accountId}/customaudiences`, token, {
     name,
-    subtype: "WEBSITE",
     rule: websiteRule(pixelId, eventName, retentionDays),
     prefill: true,
   });
@@ -92,9 +96,11 @@ export async function getOrCreateBuyerLookalike(accountId, token, pixelId) {
     return { id: existingLookalike.id, seedId: seed.id, created: false, seedCreated };
   }
 
+  // Same reasoning as createWebsiteAudience() above: no `subtype` — the
+  // presence of `origin_audience_id` + `lookalike_spec` already
+  // unambiguously signals a lookalike audience.
   const json = await graphPost(`/${accountId}/customaudiences`, token, {
     name: LOOKALIKE_NAME,
-    subtype: "LOOKALIKE",
     origin_audience_id: seed.id,
     lookalike_spec: { type: "similarity", ratio: LOOKALIKE_RATIO, country: LOOKALIKE_COUNTRY },
   });
