@@ -41,14 +41,13 @@ function websiteRule(pixelId, eventName, retentionDays) {
 
 async function createWebsiteAudience(accountId, token, { name, pixelId, eventName, retentionDays }) {
   // No `subtype` here on purpose — confirmed live against a real account
-  // that the current API version rejects it outright ("the parameter
-  // 'subtype' is not supported in the current API version", error 2654 /
-  // 1870053), not "invalid value", meaning it's no longer a settable input
-  // at all. This matches the same "infer from configuration" shift Meta
-  // already made to Advantage+ campaign creation (see lib/campaignLaunch.js)
-  // — the audience type is inferred here from the shape of `rule` (a pixel
-  // event_source) rather than a declared flag. Same reasoning applied below
-  // to the LOOKALIKE creation call.
+  // that the current API version rejects it outright for a rule-based
+  // request ("the parameter 'subtype' is not supported in the current API
+  // version", error 2654/1870053). Turns out this ISN'T a blanket "subtype
+  // is dead everywhere" change, though — see getOrCreateBuyerLookalike()
+  // below, which hit the opposite error requiring it. For a `rule`-based
+  // request specifically, Facebook infers WEBSITE from the rule's pixel
+  // event_source and rejects an explicit subtype as redundant.
   const json = await graphPost(`/${accountId}/customaudiences`, token, {
     name,
     rule: websiteRule(pixelId, eventName, retentionDays),
@@ -96,11 +95,15 @@ export async function getOrCreateBuyerLookalike(accountId, token, pixelId) {
     return { id: existingLookalike.id, seedId: seed.id, created: false, seedCreated };
   }
 
-  // Same reasoning as createWebsiteAudience() above: no `subtype` — the
-  // presence of `origin_audience_id` + `lookalike_spec` already
-  // unambiguously signals a lookalike audience.
+  // Unlike the rule-based WEBSITE call above, a LOOKALIKE request DOES still
+  // need `subtype` explicitly — confirmed live: omitting it here errors with
+  // "(#100) Missing parameter(s): subtype", the opposite of the WEBSITE
+  // case. So the real rule isn't "subtype is deprecated everywhere", just
+  // that a `rule`-based request already implies WEBSITE on its own while an
+  // origin_audience_id/lookalike_spec request still needs it spelled out.
   const json = await graphPost(`/${accountId}/customaudiences`, token, {
     name: LOOKALIKE_NAME,
+    subtype: "LOOKALIKE",
     origin_audience_id: seed.id,
     lookalike_spec: { type: "similarity", ratio: LOOKALIKE_RATIO, country: LOOKALIKE_COUNTRY },
   });
