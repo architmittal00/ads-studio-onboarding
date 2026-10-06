@@ -66,12 +66,27 @@ function CreativeCell({ ad, maxWidth = NAME_COL_WIDTH, onOpen }) {
 // 80%-of-N-groups framing since there are only ever 3 possible groups.
 // Module-level (not defined inside Report()) so it isn't recreated — and
 // remounted, losing its SortableTable's sort/search state — every render.
-function BreakdownSection({ id, title, data, labelHeader, showSummary = true, searchPlaceholder, emptyMessage, money }) {
+function BreakdownSection({
+  id,
+  title,
+  data,
+  labelHeader,
+  showSummary = true,
+  searchPlaceholder,
+  emptyMessage,
+  noRevenueMessage,
+  money,
+}) {
   return (
     <section id={id} className={styles.card}>
       <h2 className={styles.h2}>{title}</h2>
       {data.totalGroupCount === 0 ? (
         <p className={styles.sub}>{emptyMessage}</p>
+      ) : data.contributorCount === 0 ? (
+        <p className={styles.sub}>
+          {noRevenueMessage ||
+            `Facebook has spend data across ${data.totalGroupCount} ${labelHeader.toLowerCase()} groups here, but none of them show attributed purchase revenue in this window.`}
+        </p>
       ) : (
         <>
           {showSummary && (
@@ -195,8 +210,7 @@ const SECTIONS = [
   { id: "age-gender", label: "Age & Gender" },
   { id: "region", label: "By State" },
   { id: "creative-type", label: "By Creative Type" },
-  { id: "platform", label: "By Platform" },
-  { id: "placement", label: "By Placement" },
+  { id: "placement", label: "By Platform & Placement" },
   { id: "product", label: "By Product" },
   { id: "pixel-health", label: "Pixel Health" },
   { id: "structure", label: "Account Structure" },
@@ -824,6 +838,7 @@ export default function Report() {
                   labelHeader="State"
                   searchPlaceholder="Search states…"
                   emptyMessage="No region breakdown data in this window (not available for every country)."
+                  noRevenueMessage="Facebook returns spend by state for this account, but doesn't return purchase revenue broken down by state — the per-state rows carry engagement data (clicks, video views, etc.) but never a purchase action, even though the account has plenty of purchases overall (see Age & Gender or Pareto above, which do carry it). This is a known Meta platform limitation: geographic breakdowns are commonly excluded from the data Aggregated Event Measurement reports for web conversion events (a post-iOS14 restriction), not something fixable from this app's side."
                   money={money}
                 />
 
@@ -835,17 +850,6 @@ export default function Report() {
                   labelHeader="Creative Type"
                   showSummary={false}
                   emptyMessage="No creative-level purchase data in this window."
-                  money={money}
-                />
-
-                {/* Full purchase split by platform — only a handful of possible groups, so no 80% cutoff */}
-                <BreakdownSection
-                  id="platform"
-                  title="Purchases by Platform"
-                  data={report.purchasesByPlatform}
-                  labelHeader="Platform"
-                  showSummary={false}
-                  emptyMessage="No platform breakdown data in this window."
                   money={money}
                 />
 
@@ -866,9 +870,14 @@ export default function Report() {
                   <p className={styles.sub} style={{ marginBottom: 12 }}>
                     Facebook has no native per-product revenue breakdown outside catalog reporting, so this is
                     derived from each ad&apos;s landing page URL (e.g. a Shopify-style <code>/products/handle</code>{" "}
-                    path becomes the product name). Catalog/Dynamic ads have no single fixed URL — Facebook
-                    generates the real destination per product at serve time — so their revenue shows as its own
-                    &quot;Catalog / Dynamic creative&quot; row instead of being dropped.
+                    path becomes the product name) — resolved from the ad&apos;s own creative, or from the
+                    underlying Page post for ads built by boosting an existing post (common for video/Reels ads).
+                    Catalog/Dynamic ads have no single fixed URL — Facebook generates the real destination per
+                    product at serve time — so their revenue shows as its own &quot;Catalog / Dynamic creative&quot;
+                    row instead of being dropped. A &quot;Unknown landing page&quot; row means neither lookup found a
+                    URL (e.g. the underlying post is on a Page this login doesn&apos;t have read access to, or was
+                    deleted) — if that row is large, it&apos;s worth checking which ads fall into it in Ads Manager
+                    directly.
                   </p>
                   {report.purchasesByProduct.totalGroupCount === 0 ? (
                     <p className={styles.sub}>No ad-level purchase data in this window.</p>
