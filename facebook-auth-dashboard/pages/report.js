@@ -9,8 +9,9 @@ import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import MetricTrendModal from "@/components/MetricTrendModal";
 import Loader from "@/components/Loader";
-import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon } from "@/components/icons";
-import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
+import DefaultRangeModal from "@/components/DefaultRangeModal";
+import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon, SettingsIcon } from "@/components/icons";
+import { getLastAccountId, setLastAccountId, getDefaultRangePreset, setDefaultRangePreset } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 // How long a report payload for a given (account, range) stays usable in the
@@ -221,10 +222,35 @@ export default function Report() {
   const [lightboxItem, setLightboxItem] = useState(null);
   const [trendMetric, setTrendMetric] = useState(null);
 
-  const [rangePreset, setRangePreset] = useState("last_30d");
+  // Starts null (rather than reading localStorage in the initializer) so the
+  // server-rendered and first client render match exactly — avoiding a
+  // hydration mismatch — then resolves to the user's saved default (or
+  // last_30d) in an effect right after mount, same pattern as the last-used
+  // account below. The report-fetching effect waits for this to be non-null.
+  const [rangePreset, setRangePreset] = useState(null);
+  const [defaultRangePreset, setDefaultRangePresetState] = useState("last_30d");
+  const [showDefaultRangeModal, setShowDefaultRangeModal] = useState(false);
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
   const [appliedCustomRange, setAppliedCustomRange] = useState(null);
+
+  useEffect(() => {
+    // One-time client-only read of a value (localStorage) that doesn't exist
+    // during SSR — rangePreset starts null specifically so this can't cause
+    // a hydration mismatch, and this is the only place it gets its real
+    // initial value. Not an external-system subscription, just a lazy init
+    // that has to happen post-mount; a justified exception to the rule.
+    const saved = getDefaultRangePreset() || "last_30d";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRangePreset(saved);
+    setDefaultRangePresetState(saved);
+  }, []);
+
+  function handleSelectDefaultRange(preset) {
+    setDefaultRangePreset(preset);
+    setDefaultRangePresetState(preset);
+    setShowDefaultRangeModal(false);
+  }
 
   // In-memory per-tab cache of report payloads, keyed by account+range, so
   // switching back to a range already seen in this tab within the last 30
@@ -260,6 +286,10 @@ export default function Report() {
 
   useEffect(() => {
     if (!selectedAccountId) return;
+    // Waits for the default-range effect above to resolve the saved
+    // preference (or last_30d) before fetching anything, so there's no
+    // wasted initial fetch for a range the user doesn't actually land on.
+    if (!rangePreset) return;
     // Custom range waits for the user to hit Apply with both dates filled,
     // rather than firing a request on every keystroke in the date inputs.
     if (rangePreset === "custom" && !appliedCustomRange) return;
@@ -577,6 +607,17 @@ export default function Report() {
                   </button>
                 </>
               )}
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setShowDefaultRangeModal(true)}
+                title="Set the date range the report opens to by default"
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <SettingsIcon size={13} />
+                  Default: {RANGE_PRESETS.find((p) => p.key === defaultRangePreset)?.label || "Last 30 Days"}
+                </span>
+              </button>
             </div>
           )}
 
@@ -1249,6 +1290,12 @@ export default function Report() {
         trend={report?.trend}
         rangeLabel={report?.dateRange?.label}
         onClose={() => setTrendMetric(null)}
+      />
+      <DefaultRangeModal
+        open={showDefaultRangeModal}
+        current={defaultRangePreset}
+        onSelect={handleSelectDefaultRange}
+        onClose={() => setShowDefaultRangeModal(false)}
       />
     </>
   );
