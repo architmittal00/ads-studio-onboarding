@@ -2,6 +2,9 @@
   "functions": {
     "pages/api/fb/report.js": {
       "maxDuration": 30
+    },
+    "pages/api/fb/launch-strategy.js": {
+      "maxDuration": 60
     }
   }
 }

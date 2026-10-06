@@ -21,6 +21,7 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
   const [status, setStatus] = useState("PAUSED");
 
   const [launching, setLaunching] = useState(false);
+  const [currentStep, setCurrentStep] = useState(null);
   const [launchError, setLaunchError] = useState(null);
   const [result, setResult] = useState(null);
 
@@ -78,23 +79,50 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
     setPixelMapping(accountId, id);
   }
 
-  function handleLaunch() {
+  // Streams newline-delimited JSON from /api/fb/launch-strategy instead of
+  // waiting for one final response — a `{type:"progress"}` line before each
+  // slow step updates currentStep in real time ("Creating campaign 2 of
+  // 3…"), then a `{type:"done"}` line carries the final per-object results.
+  async function handleLaunch() {
     setLaunching(true);
     setLaunchError(null);
     setResult(null);
+    setCurrentStep("Starting…");
 
-    fetch("/api/fb/launch-strategy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accountId, strategyId: strategy.id, dailyBudget, pageId, pixelId, status }),
-    })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.error) setLaunchError(json.error);
-        else setResult(json);
-      })
-      .catch((err) => setLaunchError(err.message))
-      .finally(() => setLaunching(false));
+    try {
+      const res = await fetch("/api/fb/launch-strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId, strategyId: strategy.id, dailyBudget, pageId, pixelId, status }),
+      });
+
+      if (!res.ok || !res.body) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Request failed (${res.status})`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          if (event.type === "progress") setCurrentStep(event.message);
+          else if (event.type === "done") setResult(event);
+        }
+      }
+    } catch (err) {
+      setLaunchError(err.message);
+    } finally {
+      setLaunching(false);
+      setCurrentStep(null);
+    }
   }
 
   const rememberedPixel = !loadingData && getPixelMapping(accountId);
@@ -218,9 +246,13 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
 
             {launchError && <div className={styles.error}>Error: {launchError}</div>}
 
-            <button type="button" className={styles.btnPrimary} disabled={!canLaunch} onClick={handleLaunch}>
-              {launching ? "Launching…" : `Launch Strategy ${strategy.id}`}
-            </button>
+            {launching ? (
+              <Loader label={currentStep || "Launching…"} />
+            ) : (
+              <button type="button" className={styles.btnPrimary} disabled={!canLaunch} onClick={handleLaunch}>
+                Launch Strategy {strategy.id}
+              </button>
+            )}
           </div>
         )}
 
@@ -260,7 +292,13 @@ function LaunchResult({ result, onClose, adsManagerUrl }) {
         return (
           <div key={c.id || `campaign-${i}`} className={styles.card} style={{ padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{c.name}</span>
+              {c.success ? (
+                <CopyableName text={`${c.name} (${c.id})`}>
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>{c.name}</span>
+                </CopyableName>
+              ) : (
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{c.name}</span>
+              )}
               {c.success ? (
                 <a href={adsManagerUrl("campaign", c.id)} target="_blank" rel="noreferrer" className={styles.badgeGood}>
                   View in Ads Manager
@@ -287,7 +325,13 @@ function LaunchResult({ result, onClose, adsManagerUrl }) {
               >
                 {adsets.map((a, j) => (
                   <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12.5, color: "var(--t2)" }}>{a.name}</span>
+                    {a.success ? (
+                      <CopyableName text={`${a.name} (${a.id})`}>
+                        <span style={{ fontSize: 12.5, color: "var(--t2)" }}>{a.name}</span>
+                      </CopyableName>
+                    ) : (
+                      <span style={{ fontSize: 12.5, color: "var(--t2)" }}>{a.name}</span>
+                    )}
                     {a.success ? (
                       <a href={adsManagerUrl("adset", a.id)} target="_blank" rel="noreferrer" className={styles.badgeGood}>
                         View
@@ -313,14 +357,54 @@ function LaunchResult({ result, onClose, adsManagerUrl }) {
 }
 
 function StepRow({ step }) {
+  // Audience steps can be a genuine create OR a reuse of one this tool made
+  // earlier ("auto-create if missing" — see lib/audienceManager.js); the
+  // badge used to say "Created" either way, which misreported reuse as a
+  // fresh create. `step.created` (set explicitly by the API for audience
+  // steps) is what actually distinguishes them.
+  const badgeText =
+    step.type === "audience"
+      ? step.created
+        ? `Created — ${step.id}`
+        : `Found existing — ${step.id}`
+      : step.id
+      ? `Created — ${step.id}`
+      : "Done";
+
   return (
     <div className={styles.listItem} style={{ flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
       <span style={{ fontWeight: 700 }}>{step.label}</span>
       {step.success ? (
-        <span className={styles.badgeGood}>{step.id ? `Created — ${step.id}` : "Done"}</span>
+        <CopyableName text={`${step.label} — ${step.id}`} className={styles.badgeGood}>
+          {badgeText}
+        </CopyableName>
       ) : (
         <span className={styles.badgeDanger}>{step.error}</span>
       )}
     </div>
+  );
+}
+
+// Click-to-copy wrapper used for every created object's name/badge in the
+// launch results — copies `text` (name + id) to the clipboard and flashes
+// "Copied!" in place of the children for a moment as confirmation.
+function CopyableName({ text, className, children }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy(e) {
+    e.stopPropagation();
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
+  }
+
+  return (
+    <span onClick={handleCopy} title="Click to copy" className={className} style={{ cursor: "pointer" }}>
+      {copied ? "Copied!" : children}
+    </span>
   );
 }
