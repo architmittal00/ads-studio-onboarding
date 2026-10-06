@@ -194,6 +194,9 @@ const SECTIONS = [
   { id: "age-gender", label: "Age & Gender" },
   { id: "region", label: "By State" },
   { id: "creative-type", label: "By Creative Type" },
+  { id: "platform", label: "By Platform" },
+  { id: "placement", label: "By Placement" },
+  { id: "product", label: "By Product" },
   { id: "pixel-health", label: "Pixel Health" },
   { id: "structure", label: "Account Structure" },
   { id: "high-frequency", label: "High-Frequency Ads" },
@@ -793,6 +796,83 @@ export default function Report() {
                   emptyMessage="No creative-level purchase data in this window."
                   money={money}
                 />
+
+                {/* Full purchase split by platform — only a handful of possible groups, so no 80% cutoff */}
+                <BreakdownSection
+                  id="platform"
+                  title="Purchases by Platform"
+                  data={report.purchasesByPlatform}
+                  labelHeader="Platform"
+                  showSummary={false}
+                  emptyMessage="No platform breakdown data in this window."
+                  money={money}
+                />
+
+                {/* Where 80% of purchase revenue comes from, by platform + placement */}
+                <BreakdownSection
+                  id="placement"
+                  title="Where 80% of Purchase Revenue Comes From — Platform & Placement"
+                  data={report.purchasesByPlacement}
+                  labelHeader="Placement"
+                  searchPlaceholder="Search placements…"
+                  emptyMessage="No placement breakdown data in this window."
+                  money={money}
+                />
+
+                {/* Where 80% of purchase revenue comes from, by product — reverse-engineered from each ad's landing URL */}
+                <section id="product" className={styles.card}>
+                  <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From — Product</h2>
+                  <p className={styles.sub} style={{ marginBottom: 12 }}>
+                    Facebook has no native per-product revenue breakdown outside catalog reporting, so this is
+                    derived from each ad&apos;s landing page URL (e.g. a Shopify-style <code>/products/handle</code>{" "}
+                    path becomes the product name). Catalog/Dynamic ads have no single fixed URL — Facebook
+                    generates the real destination per product at serve time — so their revenue shows as its own
+                    &quot;Catalog / Dynamic creative&quot; row instead of being dropped.
+                  </p>
+                  {report.purchasesByProduct.totalGroupCount === 0 ? (
+                    <p className={styles.sub}>No ad-level purchase data in this window.</p>
+                  ) : (
+                    <>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        <strong style={{ color: "var(--t1)" }}>
+                          {report.purchasesByProduct.contributorCount} of{" "}
+                          {report.purchasesByProduct.totalGroupCount} products/pages
+                        </strong>{" "}
+                        ({report.purchasesByProduct.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
+                        <strong style={{ color: "var(--t1)" }}>
+                          {report.purchasesByProduct.spendSharePct.toFixed(0)}% of spend
+                        </strong>
+                        .
+                      </p>
+                      <SortableTable
+                        defaultSortKey="revenue"
+                        maxHeight={360}
+                        searchable={report.purchasesByProduct.contributors.length > 6}
+                        searchKeys={["label"]}
+                        searchPlaceholder="Search products…"
+                        rows={report.purchasesByProduct.contributors}
+                        columns={[
+                          { key: "label", label: "Product / Landing Page", maxWidth: 240 },
+                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                          { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
+                          {
+                            key: "revenueSharePct",
+                            label: "% Revenue",
+                            align: "right",
+                            render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
+                          },
+                          { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+                          {
+                            key: "purchases",
+                            label: "Purchases",
+                            align: "right",
+                            render: (r) => r.purchases.toFixed(0),
+                          },
+                        ]}
+                      />
+                    </>
+                  )}
+                </section>
 
                 {/* Pixel health */}
                 <section id="pixel-health" className={styles.card}>
