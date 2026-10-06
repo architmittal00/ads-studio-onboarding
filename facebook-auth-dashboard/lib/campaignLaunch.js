@@ -1,11 +1,19 @@
 import { graphGet } from "./facebookGraph";
 
 // ── Naming convention ──
-// Campaign: {Funnel}-{Objective}-S{StrategyId}-{YYYYMMDD}
-// Ad set:   {Funnel}-{AudienceTag}
+// Campaign: TEST-{Funnel}-{Objective}-S{StrategyId}-{YYYYMMDD}
+// Ad set:   TEST-{Funnel}-{AudienceTag}
 // Centralized here so it's consistent and so pages/api/fb/report.js's
 // RTG_PATTERN regex (matches "rtg"/"retarget", case-insensitive) keeps
 // recognizing retargeting ad sets created this way.
+//
+// TEST_PREFIX: this launch flow is still being verified against real
+// accounts (see README) — every created object is clearly marked as a test
+// in Ads Manager until it's trusted, rather than blending in with real
+// production campaigns. Drop this (set to "") once the flow is confirmed
+// solid and this stops being needed.
+const TEST_PREFIX = "TEST-";
+
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
@@ -17,15 +25,15 @@ function dateTag(date) {
 const FUNNEL_OBJECTIVE_TAG = { TOF: "Traffic", MOF: "ATC", BOF: "Purchase" };
 
 export function buildCampaignName(funnel, strategyId, date = new Date()) {
-  return `${funnel}-${FUNNEL_OBJECTIVE_TAG[funnel]}-S${strategyId}-${dateTag(date)}`;
+  return `${TEST_PREFIX}${funnel}-${FUNNEL_OBJECTIVE_TAG[funnel]}-S${strategyId}-${dateTag(date)}`;
 }
 
 const ADSET_TYPE_TAG = { retargeting: "RTG-VisitorsEngagers", lookalike: "LAL-Buyers", advantage: "Advantage" };
 
 export function buildAdsetName(funnel, adset, index) {
-  if (adset.nameTag) return `${funnel}-${adset.nameTag}`;
-  if (adset.type === "interest") return `${funnel}-Beauty-${index + 1}`;
-  return `${funnel}-${ADSET_TYPE_TAG[adset.type] || "Adset"}`;
+  if (adset.nameTag) return `${TEST_PREFIX}${funnel}-${adset.nameTag}`;
+  if (adset.type === "interest") return `${TEST_PREFIX}${funnel}-Beauty-${index + 1}`;
+  return `${TEST_PREFIX}${funnel}-${ADSET_TYPE_TAG[adset.type] || "Adset"}`;
 }
 
 // ── Objective / optimization goal per funnel stage ──
