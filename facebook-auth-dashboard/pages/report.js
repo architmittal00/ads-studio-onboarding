@@ -2,7 +2,7 @@ import Head from "next/head";
 import { getServerSession } from "next-auth/next";
 import { useEffect, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
-import Nav from "@/components/Nav";
+import Layout from "@/components/Layout";
 import SectionNav from "@/components/SectionNav";
 import SortableTable from "@/components/SortableTable";
 import Thumb from "@/components/Thumb";
@@ -554,14 +554,12 @@ export default function Report() {
   }
 
   return (
-    <>
+    <Layout>
       <Head>
         <title>Account Handover Report · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1440, margin: "0 auto" }}>
-          <Nav />
-
           <div className={styles.sectionRow}>
             <h1 className={styles.h1}>Account Handover Report</h1>
             {accounts.length > 0 && (
@@ -1387,7 +1385,7 @@ export default function Report() {
         onSelect={handleSelectDefaultRange}
         onClose={() => setShowDefaultRangeModal(false)}
       />
-    </>
+    </Layout>
   );
 }
 

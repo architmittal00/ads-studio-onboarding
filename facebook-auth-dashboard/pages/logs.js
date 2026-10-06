@@ -2,7 +2,7 @@ import Head from "next/head";
 import { getServerSession } from "next-auth/next";
 import { Fragment, useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
-import Nav from "@/components/Nav";
+import Layout from "@/components/Layout";
 import styles from "@/styles/Home.module.css";
 
 export default function Logs() {
@@ -32,14 +32,12 @@ export default function Logs() {
   }
 
   return (
-    <>
+    <Layout>
       <Head>
         <title>API Logs · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <Nav />
-
           <div className={styles.sectionRow}>
             <h1 className={styles.h1}>API Logs</h1>
             <div style={{ display: "flex", gap: 8 }}>
@@ -131,7 +129,7 @@ export default function Logs() {
           )}
         </main>
       </div>
-    </>
+    </Layout>
   );
 }
 

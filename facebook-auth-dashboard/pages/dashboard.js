@@ -2,7 +2,7 @@ import Head from "next/head";
 import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
-import Nav from "@/components/Nav";
+import Layout from "@/components/Layout";
 import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -54,13 +54,12 @@ export default function Dashboard({ user }) {
   }
 
   return (
-    <>
+    <Layout>
       <Head>
         <title>Dashboard · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <Nav />
           <h1 className={styles.h1}>Raw Data</h1>
 
           {error && <div className={styles.error}>Error: {error}</div>}
@@ -180,7 +179,7 @@ export default function Dashboard({ user }) {
           )}
         </main>
       </div>
-    </>
+    </Layout>
   );
 }
 
