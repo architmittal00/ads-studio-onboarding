@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet } from "@/lib/facebookGraph";
+import { graphGet, graphGetInsights } from "@/lib/facebookGraph";
 import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 import { getCachedReport, setCachedReport } from "@/lib/reportCache";
 
@@ -263,26 +263,26 @@ export default async function handler(req, res) {
     ageGenderResult,
     regionResult,
   ] = await Promise.allSettled([
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
       time_range: graphTimeRange,
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
       time_range: graphTimeRange,
       time_increment: trendIncrement,
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       fields: "spend,actions,action_values,purchase_roas",
       time_range: { since: toDateStr(since90), until: toDateStr(today) },
       time_increment: 7,
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       fields: "spend,actions,action_values,purchase_roas",
       time_range: { since: toDateStr(since6mo), until: toDateStr(today) },
       time_increment: "monthly",
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       level: "ad",
       fields:
         "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,spend,impressions,clicks,frequency,actions,action_values",
@@ -297,25 +297,25 @@ export default async function handler(req, res) {
     graphGet(`/${accountId}/adspixels`, token, {
       fields: "id,name,last_fired_time,creation_time",
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       level: "campaign",
       fields: "campaign_id,spend",
       time_range: range7d,
       limit: 500,
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       level: "adset",
       fields: "adset_id,spend",
       time_range: range7d,
       limit: 500,
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       fields: "spend,actions,action_values,purchase_roas",
       time_range: graphTimeRange,
       breakdowns: "age,gender",
       limit: 500,
     }),
-    graphGet(`/${accountId}/insights`, token, {
+    graphGetInsights(`/${accountId}/insights`, token, {
       fields: "spend,actions,action_values,purchase_roas",
       time_range: graphTimeRange,
       breakdowns: "region",

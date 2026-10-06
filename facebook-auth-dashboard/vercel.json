@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "pages/api/fb/report.js": {
+      "maxDuration": 30
+    }
+  }
+}
