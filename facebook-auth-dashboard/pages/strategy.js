@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
-import { recommendStrategies } from "@/lib/strategyEngine";
+import { STRATEGIES, recommendStrategies, explainMismatch, roundBudgetAmount } from "@/lib/strategyEngine";
 import styles from "@/styles/Home.module.css";
 
 const FRESH_ACCOUNT = "__fresh__";
@@ -25,6 +25,7 @@ export default function Strategy() {
   const [currency, setCurrency] = useState("");
   const [experimentOpen, setExperimentOpen] = useState(null);
   const [accountChoice, setAccountChoice] = useState("");
+  const [showAllStrategies, setShowAllStrategies] = useState(false);
 
   useEffect(() => {
     fetch("/api/fb/data")
@@ -49,7 +50,10 @@ export default function Strategy() {
   const hasBudget = !isNaN(budgetNumber) && budgetNumber > 0;
 
   const ready = experimentOpen !== null && accountChoice !== "";
-  const recommendations = ready ? recommendStrategies({ experimentOpen, hasHistory }) : [];
+  const inputs = { experimentOpen, hasHistory };
+  const recommendations = ready ? recommendStrategies(inputs) : [];
+  const recommendedIds = new Set(recommendations.map((s) => s.id));
+  const otherStrategies = ready ? STRATEGIES.filter((s) => !recommendedIds.has(s.id)) : [];
 
   return (
     <Layout>
@@ -160,6 +164,29 @@ export default function Strategy() {
                   />
                 ))
               )}
+
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                style={{ alignSelf: "flex-start" }}
+                onClick={() => setShowAllStrategies((v) => !v)}
+              >
+                {showAllStrategies ? "Hide" : "See"} the other {otherStrategies.length} strategies
+              </button>
+
+              {showAllStrategies && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {otherStrategies.map((strategy) => (
+                    <StrategyCard
+                      key={strategy.id}
+                      strategy={strategy}
+                      budget={hasBudget ? budgetNumber : null}
+                      currency={currency}
+                      mismatchReason={explainMismatch(strategy, inputs)}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           )}
         </main>
@@ -168,17 +195,27 @@ export default function Strategy() {
   );
 }
 
-function StrategyCard({ strategy, rank, budget, currency }) {
+function StrategyCard({ strategy, rank, budget, currency, mismatchReason }) {
+  const notRecommended = mismatchReason !== undefined;
+
   return (
-    <div className={styles.card}>
+    <div className={styles.card} style={notRecommended ? { opacity: 0.8 } : undefined}>
       <div className={styles.sectionRow} style={{ marginBottom: 12 }}>
         <h3 className={styles.h2} style={{ marginBottom: 0 }}>
           Strategy {strategy.id}
         </h3>
-        <span className={rank === 0 ? styles.badgeGood : styles.badgeInfo}>
-          {rank === 0 ? "Recommended" : "Also consider"}
-        </span>
+        {notRecommended ? (
+          <span className={styles.muted}>Not recommended here</span>
+        ) : (
+          <span className={rank === 0 ? styles.badgeGood : styles.badgeInfo}>
+            {rank === 0 ? "Recommended" : "Also consider"}
+          </span>
+        )}
       </div>
+
+      <p className={styles.sub} style={{ marginBottom: 14 }}>
+        {notRecommended ? mismatchReason || "Doesn't match the current inputs." : strategy.rationale}
+      </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {strategy.campaigns.map((c, i) => (
@@ -186,7 +223,8 @@ function StrategyCard({ strategy, rank, budget, currency }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
               <p style={{ fontWeight: 700, fontSize: 13, color: "var(--t1)" }}>{c.name}</p>
               <p style={{ fontWeight: 800, fontSize: 13, color: "var(--purple)" }}>
-                {c.pct}%{budget ? ` · ${formatMoney((budget * c.pct) / 100, currency)}/day` : ""}
+                {c.pct}%
+                {budget ? ` · ${formatMoney(roundBudgetAmount((budget * c.pct) / 100, budget), currency)}/day` : ""}
               </p>
             </div>
             <p className={styles.sub}>{c.structure}</p>
