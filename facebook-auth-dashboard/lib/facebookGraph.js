@@ -1,6 +1,12 @@
 import { logApiCall } from "./apiLogger";
 
-const GRAPH_API_VERSION = "v21.0";
+// v23.0: the minimum version carrying the unified Advantage+ automation-lever
+// fields (targeting_automation.advantage_audience, etc.) used by the
+// campaign-launch write calls — Meta retired the old smart_promotion_type
+// flag these replace (campaign creation on it blocked from v24.0, fully
+// removed in v25.0). Bumping this affects every existing read call too, not
+// just the new write ones — see the Strategy "launch" feature's rollout notes.
+const GRAPH_API_VERSION = "v23.0";
 const BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 function redactToken(url) {
@@ -37,6 +43,61 @@ export async function graphGet(path, accessToken, params = {}) {
 
   logApiCall({
     method: "GET",
+    path,
+    url: redactedUrl,
+    status,
+    durationMs: Date.now() - start,
+    error: errorMessage,
+    responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
+  });
+
+  if (errorMessage) {
+    const err = new Error(errorMessage);
+    err.graphResponse = json;
+    throw err;
+  }
+
+  return json;
+}
+
+// Write counterpart to graphGet — used by the campaign-launch flow to create
+// campaigns, ad sets, and audiences. Same logging/error shape so launch
+// failures show up in /logs exactly like a failed read would. Params go in
+// the POST body (form-encoded), not the query string.
+export async function graphPost(path, accessToken, params = {}) {
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      body.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
+    }
+  }
+  body.set("access_token", accessToken);
+
+  const url = `${BASE_URL}${path}`;
+  const redactedUrl = redactToken(`${url}?${body.toString()}`);
+  const start = Date.now();
+
+  let status = null;
+  let json = null;
+  let errorMessage = null;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    status = res.status;
+    json = await res.json();
+    if (json?.error) {
+      errorMessage = json.error.message;
+    }
+  } catch (err) {
+    errorMessage = err.message;
+  }
+
+  logApiCall({
+    method: "POST",
     path,
     url: redactedUrl,
     status,

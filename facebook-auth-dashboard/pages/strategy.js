@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
+import LaunchPanel from "@/components/LaunchPanel";
 import { STRATEGIES, recommendStrategies, explainMismatch, roundBudgetAmount } from "@/lib/strategyEngine";
 import styles from "@/styles/Home.module.css";
 
@@ -27,6 +28,7 @@ export default function Strategy() {
   const [experimentOpen, setExperimentOpen] = useState(null);
   const [accountChoice, setAccountChoice] = useState("");
   const [showAllStrategies, setShowAllStrategies] = useState(false);
+  const [launchingStrategy, setLaunchingStrategy] = useState(null);
 
   const [historySignal, setHistorySignal] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -125,8 +127,7 @@ export default function Strategy() {
           <h1 className={styles.h1}>Figure Out Strategy</h1>
           <p className={styles.sub} style={{ marginTop: -8 }}>
             Answer a few questions about the account and we&apos;ll recommend a campaign structure from the
-            agency&apos;s playbook. For now this just recommends — launching the campaigns/ad sets directly from
-            here is coming later.
+            agency&apos;s playbook — and you can launch it straight to the ad account from here.
           </p>
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
@@ -247,6 +248,8 @@ export default function Strategy() {
                     rank={i}
                     budget={hasBudget ? budgetNumber : null}
                     currency={currency}
+                    canLaunch={isRealAccount}
+                    onLaunch={() => setLaunchingStrategy(strategy)}
                   />
                 ))
               )}
@@ -277,11 +280,19 @@ export default function Strategy() {
           )}
         </main>
       </div>
+      {launchingStrategy && (
+        <LaunchPanel
+          strategy={launchingStrategy}
+          accountId={accountChoice}
+          dailyBudget={budgetNumber}
+          onClose={() => setLaunchingStrategy(null)}
+        />
+      )}
     </Layout>
   );
 }
 
-function StrategyCard({ strategy, rank, budget, currency, mismatchReason }) {
+function StrategyCard({ strategy, rank, budget, currency, mismatchReason, canLaunch, onLaunch }) {
   const notRecommended = mismatchReason !== undefined;
 
   return (
@@ -314,12 +325,13 @@ function StrategyCard({ strategy, rank, budget, currency, mismatchReason }) {
               </p>
             </div>
             <p className={styles.sub}>{c.structure}</p>
-            {c.note && <p className={styles.sub}>{c.note}</p>}
-            {c.adsets && (
+            {c.adsets.length === 1 ? (
+              <p className={styles.sub}>{c.adsets[0].label}</p>
+            ) : (
               <ul className={styles.list} style={{ marginTop: 8 }}>
                 {c.adsets.map((a, j) => (
                   <li key={j} className={styles.listItem} style={{ fontWeight: 500 }}>
-                    {a}
+                    {a.label}
                   </li>
                 ))}
               </ul>
@@ -327,6 +339,19 @@ function StrategyCard({ strategy, rank, budget, currency, mismatchReason }) {
           </div>
         ))}
       </div>
+
+      {!notRecommended && (
+        <button
+          type="button"
+          className={styles.btnPrimary}
+          style={{ marginTop: 16 }}
+          onClick={onLaunch}
+          disabled={!canLaunch}
+          title={canLaunch ? undefined : "Pick a connected ad account above to launch (not available for a fresh/new account)"}
+        >
+          Launch Strategy {strategy.id}
+        </button>
+      )}
     </div>
   );
 }
