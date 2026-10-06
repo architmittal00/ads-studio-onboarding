@@ -830,17 +830,51 @@ export default function Report() {
                   money={money}
                 />
 
-                {/* Where 80% of purchase revenue comes from, by state/region */}
-                <BreakdownSection
-                  id="region"
-                  title="Where 80% of Purchase Revenue Comes From — State"
-                  data={report.purchasesByRegion}
-                  labelHeader="State"
-                  searchPlaceholder="Search states…"
-                  emptyMessage="No region breakdown data in this window (not available for every country)."
-                  noRevenueMessage="Facebook returns spend by state for this account, but doesn't return purchase revenue broken down by state — the per-state rows carry engagement data (clicks, video views, etc.) but never a purchase action, even though the account has plenty of purchases overall (see Age & Gender or Pareto above, which do carry it). This is a known Meta platform limitation: geographic breakdowns are commonly excluded from the data Aggregated Event Measurement reports for web conversion events (a post-iOS14 restriction), not something fixable from this app's side."
-                  money={money}
-                />
+                {/* Where 80% of spend goes, by state — Facebook doesn't return purchase revenue broken down by
+                    region for this account (a Meta Aggregated Event Measurement restriction on geographic
+                    breakdowns for web conversions, confirmed directly — not something fixable here), so this is a
+                    spend pareto rather than the revenue one every other breakdown uses. */}
+                <section id="region" className={styles.card}>
+                  <h2 className={styles.h2}>Where 80% of Ad Spend Goes — State</h2>
+                  <p className={styles.sub} style={{ marginBottom: 12 }}>
+                    Facebook returns spend by state for this account, but never returns purchase revenue broken
+                    down by state — the per-state rows carry engagement data (clicks, video views, etc.) but no
+                    purchase action, even though the account has plenty of purchases overall (see Age & Gender or
+                    Pareto above, which do carry it). That&apos;s a known Meta platform limitation — Aggregated Event
+                    Measurement commonly excludes geographic breakdowns from web conversion event reporting — not
+                    something this app can fetch around, so here&apos;s spend concentration instead.
+                  </p>
+                  {report.spendByRegion.totalGroupCount === 0 ? (
+                    <p className={styles.sub}>No region breakdown data in this window (not available for every country).</p>
+                  ) : (
+                    <>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        <strong style={{ color: "var(--t1)" }}>
+                          {report.spendByRegion.contributorCount} of {report.spendByRegion.totalGroupCount} states
+                        </strong>{" "}
+                        account for <strong style={{ color: "var(--t1)" }}>{report.spendByRegion.spendSharePct.toFixed(0)}% of spend</strong>.
+                      </p>
+                      <SortableTable
+                        defaultSortKey="spend"
+                        maxHeight={360}
+                        searchable={report.spendByRegion.contributors.length > 6}
+                        searchKeys={["label"]}
+                        searchPlaceholder="Search states…"
+                        rows={report.spendByRegion.contributors}
+                        columns={[
+                          { key: "label", label: "State", maxWidth: 220 },
+                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                          {
+                            key: "spendSharePct",
+                            label: "% Spend",
+                            align: "right",
+                            render: (r) => `${r.spendSharePct.toFixed(1)}%`,
+                          },
+                        ]}
+                      />
+                    </>
+                  )}
+                </section>
 
                 {/* Full purchase split by creative type — only 3 possible groups, so no 80% cutoff */}
                 <BreakdownSection
@@ -921,6 +955,53 @@ export default function Report() {
                         ]}
                       />
                     </>
+                  )}
+                  {report.unresolvedLandingPageAds?.length > 0 && (
+                    <div style={{ marginTop: 20 }}>
+                      <h2 className={styles.h2} style={{ fontSize: 13 }}>
+                        Ads behind &quot;Unknown landing page&quot; (highest spend first)
+                      </h2>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        Showing up to 50. Click through to Ads Manager to check each ad&apos;s destination directly.
+                      </p>
+                      <SortableTable
+                        defaultSortKey="spend"
+                        maxHeight={300}
+                        searchable={report.unresolvedLandingPageAds.length > 6}
+                        searchKeys={["name"]}
+                        searchPlaceholder="Search ads…"
+                        rows={report.unresolvedLandingPageAds}
+                        columns={[
+                          {
+                            key: "name",
+                            label: "Ad",
+                            maxWidth: 220,
+                            render: (r) => (
+                              <a
+                                href={`https://www.facebook.com/adsmanager/manage/ads?act=${selectedAccountId.replace(
+                                  /^act_/,
+                                  ""
+                                )}&selected_ad_ids=${r.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ color: "var(--purple)" }}
+                              >
+                                {r.name}
+                              </a>
+                            ),
+                          },
+                          { key: "id", label: "Ad ID" },
+                          {
+                            key: "campaignName",
+                            label: "Campaign",
+                            maxWidth: 180,
+                            render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
+                          },
+                          { key: "creativeType", label: "Type" },
+                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                        ]}
+                      />
+                    </div>
                   )}
                 </section>
 

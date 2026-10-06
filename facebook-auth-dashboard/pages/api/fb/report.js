@@ -182,11 +182,13 @@ async function fetchVideoSources(videoIds, token) {
 }
 
 // Groups `items` (each with spend/revenue/purchases) by `keyFn`, sums each
-// group, and — unless `applyCutoff` is false — keeps only the highest-revenue
-// groups needed to reach 80% of total revenue (same "where does 80% of
-// purchase revenue come from" pattern as the creative-level pareto, just at
-// whatever grouping dimension is passed in).
-function groupAndPareto(items, keyFn, { applyCutoff = true } = {}) {
+// group, and — unless `applyCutoff` is false — keeps only the highest-ranked
+// groups needed to reach 80% of the total for whichever `metric` is passed
+// ("revenue", the default, for the usual "where does 80% of purchase
+// revenue come from" framing; "spend" for dimensions — like region, where
+// Facebook doesn't return purchase data at all — where spend concentration
+// is the only thing there's data for).
+function groupAndPareto(items, keyFn, { applyCutoff = true, metric = "revenue" } = {}) {
   const groups = new Map();
   for (const item of items) {
     const key = keyFn(item);
@@ -204,17 +206,23 @@ function groupAndPareto(items, keyFn, { applyCutoff = true } = {}) {
   }));
   const totalRevenue = allGroups.reduce((sum, g) => sum + g.revenue, 0);
   const totalSpend = allGroups.reduce((sum, g) => sum + g.spend, 0);
-  const sorted = [...allGroups].sort((a, b) => b.revenue - a.revenue);
+  const total = metric === "spend" ? totalSpend : totalRevenue;
+  const sorted = [...allGroups].sort((a, b) => b[metric] - a[metric]);
 
   let cumRevenue = 0;
   let cumSpend = 0;
   const contributors = [];
   for (const g of sorted) {
-    if (applyCutoff && g.revenue <= 0) break;
+    if (applyCutoff && g[metric] <= 0) break;
     cumRevenue += g.revenue;
     cumSpend += g.spend;
-    contributors.push({ ...g, revenueSharePct: totalRevenue > 0 ? (g.revenue / totalRevenue) * 100 : 0 });
-    if (applyCutoff && totalRevenue > 0 && cumRevenue / totalRevenue >= 0.8) break;
+    const cum = metric === "spend" ? cumSpend : cumRevenue;
+    contributors.push({
+      ...g,
+      revenueSharePct: totalRevenue > 0 ? (g.revenue / totalRevenue) * 100 : 0,
+      spendSharePct: totalSpend > 0 ? (g.spend / totalSpend) * 100 : 0,
+    });
+    if (applyCutoff && total > 0 && cum / total >= 0.8) break;
   }
 
   return {
@@ -737,6 +745,12 @@ export default async function handler(req, res) {
     (r) => (r.age && r.gender ? `${r.age} · ${capitalize(r.gender)}` : null)
   );
 
+  // Facebook doesn't return purchase/action_values data broken down by
+  // region for this account (confirmed: real spend/clicks per state, but
+  // zero purchase actions in any row — a Meta Aggregated Event Measurement
+  // restriction on geographic breakdowns for web conversions, not a fetch
+  // issue here). So this is a spend pareto, not a revenue one like the other
+  // breakdowns — top 80% of spend by state, rather than purchase revenue.
   const regionJson = settled(regionResult, null);
   if (regionResult.status === "rejected")
     warnings.push(`Region breakdown unavailable: ${regionResult.reason.message}`);
@@ -744,7 +758,7 @@ export default async function handler(req, res) {
     const { spend, revenue } = roasFromRow(row);
     return { spend, revenue, purchases: pickPurchaseCount(row.actions), region: row.region };
   });
-  const purchasesByRegion = groupAndPareto(regionRows, (r) => r.region || null);
+  const spendByRegion = groupAndPareto(regionRows, (r) => r.region || null, { metric: "spend" });
 
   // Only three possible buckets, so show the full split rather than an
   // 80%-cutoff pareto — truncating a 3-way breakdown isn't useful.
@@ -780,6 +794,23 @@ export default async function handler(req, res) {
       ? "Catalog / Dynamic creative (no fixed landing URL)"
       : extractLandingPageLabel(r.landingUrl) || "Unknown landing page"
   );
+
+  // The specific ads behind the "Unknown landing page" bucket above, so this
+  // is debuggable (in Ads Manager, or by checking the ad's own creative)
+  // rather than just a number. Capped to the highest-spend 50 — plenty to
+  // investigate without bloating the payload for accounts with many of them.
+  const unresolvedLandingPageAds = adRows
+    .filter((r) => r.creativeType !== "Catalog" && !r.landingUrl && r.spend > 0)
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 50)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      campaignName: r.campaignName,
+      adsetName: r.adsetName,
+      spend: r.spend,
+      creativeType: r.creativeType,
+    }));
 
   // ── High-frequency ads, excluding retargeting campaigns/ad sets ──
   const highFrequencyAds = adRows
@@ -882,10 +913,11 @@ export default async function handler(req, res) {
     topCampaigns,
     pareto,
     purchasesByAgeGender,
-    purchasesByRegion,
+    spendByRegion,
     purchasesByCreativeType,
     purchasesByPlacement,
     purchasesByProduct,
+    unresolvedLandingPageAds,
     highFrequencyAds,
     structure: {
       campaignCount: structureCampaigns.length,
