@@ -908,8 +908,8 @@ export default function Report() {
                     product at serve time — so their revenue shows as its own &quot;Catalog / Dynamic creative&quot;
                     row instead of being dropped. A &quot;Unknown landing page&quot; row means neither lookup found a
                     URL (e.g. the underlying post is on a Page this login doesn&apos;t have read access to, or was
-                    deleted) — if that row is large, it&apos;s worth checking which ads fall into it in Ads Manager
-                    directly.
+                    deleted) — shown only once it accounts for more than 10% of spend, since below that it&apos;s
+                    rarely worth the clutter; past it, worth checking which ads fall into it in Ads Manager directly.
                   </p>
                   {report.purchasesByProduct.totalGroupCount === 0 ? (
                     <p className={styles.sub}>No ad-level purchase data in this window.</p>
@@ -954,7 +954,8 @@ export default function Report() {
                       />
                     </>
                   )}
-                  {report.unresolvedLandingPageAds?.length > 0 && (
+                  {report.unresolvedLandingPageAds?.length > 0 &&
+                    report.purchasesByProduct.contributors.some((c) => c.label === "Unknown landing page") && (
                     <div style={{ marginTop: 20 }}>
                       <h2 className={styles.h2} style={{ fontSize: 13 }}>
                         Ads behind &quot;Unknown landing page&quot; (highest spend first)
