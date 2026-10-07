@@ -3,7 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
 import { STRATEGIES, roundBudgetAmount } from "@/lib/strategyEngine";
 import { buildCampaignPayload, buildAdsetPayload, buildAdsetName, resolveInterestId, toMinorUnits } from "@/lib/campaignLaunch";
-import { getOrCreateVisitorsAudience, getOrCreateBuyerLookalike } from "@/lib/audienceManager";
+import { getOrCreateVisitorsAudience, getOrCreateEngagersAudience, getOrCreateBuyerLookalike } from "@/lib/audienceManager";
 
 // Creates the real campaign + ad set(s) for one strategy on a live ad
 // account. Sequential, not parallel — a campaign must exist before its ad
@@ -58,22 +58,38 @@ export default async function handler(req, res) {
   const token = session.accessToken;
   const steps = [];
 
-  const needsVisitors = strategy.campaigns.some((c) => c.adsets.some((a) => a.type === "retargeting"));
+  // "retargeting" ad sets always target BOTH website visitors and Page/ad
+  // engagers (two separate Meta audience objects, unioned on the ad set —
+  // see lib/campaignLaunch.js), so both are resolved together whenever any
+  // ad set needs retargeting.
+  const needsRetargeting = strategy.campaigns.some((c) => c.adsets.some((a) => a.type === "retargeting"));
   const needsLookalike = strategy.campaigns.some((c) => c.adsets.some((a) => a.type === "lookalike"));
   let visitorsAudienceId = null;
+  let engagersAudienceId = null;
   let lookalikeAudienceId = null;
 
   try {
-    if (needsVisitors) {
-      progress("Checking for an existing retargeting audience…");
-      const result = await getOrCreateVisitorsAudience(accountId, token, pixelId);
-      visitorsAudienceId = result.id;
+    if (needsRetargeting) {
+      progress("Checking for an existing website-visitors audience…");
+      const visitors = await getOrCreateVisitorsAudience(accountId, token, pixelId);
+      visitorsAudienceId = visitors.id;
       steps.push({
         type: "audience",
-        label: "Retargeting audience",
-        created: result.created,
+        label: "Website visitors audience",
+        created: visitors.created,
         success: true,
-        id: result.id,
+        id: visitors.id,
+      });
+
+      progress("Checking for an existing ad-engagers audience…");
+      const engagers = await getOrCreateEngagersAudience(accountId, token, pageId);
+      engagersAudienceId = engagers.id;
+      steps.push({
+        type: "audience",
+        label: "Ad engagers audience",
+        created: engagers.created,
+        success: true,
+        id: engagers.id,
       });
     }
     if (needsLookalike) {
@@ -142,7 +158,7 @@ export default async function handler(req, res) {
           pixelId,
           adset,
           index: i,
-          audienceIds: { visitors: visitorsAudienceId, lookalike: lookalikeAudienceId },
+          audienceIds: { visitors: visitorsAudienceId, engagers: engagersAudienceId, lookalike: lookalikeAudienceId },
           interestId,
           dailyBudgetMinorUnits: adsetBudget != null ? toMinorUnits(adsetBudget) : undefined,
         });

@@ -4,6 +4,7 @@ import { graphGet, graphPost } from "./facebookGraph";
 // instead of creating duplicates every time ("auto-create if missing" implies
 // check-then-create, not blind creation on every launch).
 const VISITORS_AUDIENCE_NAME = "AUTO-Visitors180d";
+const ENGAGERS_AUDIENCE_NAME = "AUTO-Engagers365d";
 const PURCHASERS_SEED_NAME = "AUTO-Purchasers730d-Seed";
 const LOOKALIKE_NAME = "AUTO-Purchasers-LAL1pct-IN";
 
@@ -18,20 +19,24 @@ async function findAudienceByName(accountId, token, name) {
   return (json.data || []).find((a) => a.name === name) || null;
 }
 
-// A website-pixel rule covering ALL visits ("visited_site" is Meta's
-// implicit any-pageview event — no specific event name needed) or a named
-// standard event (e.g. "Purchase") for the lookalike seed.
-function websiteRule(pixelId, eventName, retentionDays) {
+// A rule-based audience definition shared by website-pixel audiences (e.g.
+// "visited_site" for any visit, or a named standard event like "Purchase")
+// and Page-engagement audiences ("page_engaged" — Meta's broadest engagement
+// event, covering anyone who visited the Page or engaged with any of its
+// content/ads, which is what "ad engagers" means in practice since ad
+// engagement rolls up to Page engagement). Same `{event_sources, filter}`
+// shape either way, just a different source type/id.
+function audienceRule({ sourceType, sourceId, eventValue, retentionDays }) {
   return {
     inclusions: {
       operator: "or",
       rules: [
         {
-          event_sources: [{ type: "pixel", id: pixelId }],
+          event_sources: [{ type: sourceType, id: sourceId }],
           retention_seconds: retentionDays * 86400,
           filter: {
             operator: "and",
-            filters: [{ field: "event", operator: "=", value: eventName || "visited_site" }],
+            filters: [{ field: "event", operator: "=", value: eventValue }],
           },
         },
       ],
@@ -39,36 +44,47 @@ function websiteRule(pixelId, eventName, retentionDays) {
   };
 }
 
-async function createWebsiteAudience(accountId, token, { name, pixelId, eventName, retentionDays }) {
+async function createRuleAudience(accountId, token, { name, rule }) {
   // No `subtype` here on purpose — confirmed live against a real account
   // that the current API version rejects it outright for a rule-based
   // request ("the parameter 'subtype' is not supported in the current API
   // version", error 2654/1870053). Turns out this ISN'T a blanket "subtype
   // is dead everywhere" change, though — see getOrCreateBuyerLookalike()
   // below, which hit the opposite error requiring it. For a `rule`-based
-  // request specifically, Facebook infers WEBSITE from the rule's pixel
-  // event_source and rejects an explicit subtype as redundant.
-  const json = await graphPost(`/${accountId}/customaudiences`, token, {
-    name,
-    rule: websiteRule(pixelId, eventName, retentionDays),
-    prefill: true,
-  });
+  // request specifically (website pixel OR Page engagement — same shape),
+  // Facebook infers the audience type from the rule's event_sources and
+  // rejects an explicit subtype as redundant.
+  const json = await graphPost(`/${accountId}/customaudiences`, token, { name, rule, prefill: true });
   return json.id;
 }
 
 // Finds (or creates) the "website visitors, last 180 days" Custom Audience
-// used by retargeting ad sets. Pure website-visitor coverage — Page/IG
-// "engagers" is a different Meta audience concept (subtype ENGAGEMENT, no
-// pixel involved) and is attached as a second, separate custom_audiences
-// entry on the ad set rather than merged into this one.
+// used by retargeting ad sets.
 export async function getOrCreateVisitorsAudience(accountId, token, pixelId) {
   const existing = await findAudienceByName(accountId, token, VISITORS_AUDIENCE_NAME);
   if (existing) return { id: existing.id, created: false };
-  const id = await createWebsiteAudience(accountId, token, {
+  const id = await createRuleAudience(accountId, token, {
     name: VISITORS_AUDIENCE_NAME,
-    pixelId,
-    eventName: null, // any visit
-    retentionDays: 180,
+    rule: audienceRule({ sourceType: "pixel", sourceId: pixelId, eventValue: "visited_site", retentionDays: 180 }),
+  });
+  return { id, created: true };
+}
+
+// Finds (or creates) the "Page/ad engagers, last 365 days" Custom Audience —
+// "page_engaged" is Meta's broadest engagement event (visited the Page or
+// engaged with any of its content/ads), which is what "ad engagers" means in
+// practice: ad-level engagement rolls up to the Page. 365 days is the max
+// retention Meta allows for engagement audiences (vs. 180 for standard
+// website events). Used alongside the visitors audience above — unioned as
+// a second custom_audiences entry on the ad set, not merged into one
+// audience, since they're different Meta audience objects (WEBSITE vs
+// Page-engagement) under the hood.
+export async function getOrCreateEngagersAudience(accountId, token, pageId) {
+  const existing = await findAudienceByName(accountId, token, ENGAGERS_AUDIENCE_NAME);
+  if (existing) return { id: existing.id, created: false };
+  const id = await createRuleAudience(accountId, token, {
+    name: ENGAGERS_AUDIENCE_NAME,
+    rule: audienceRule({ sourceType: "page", sourceId: pageId, eventValue: "page_engaged", retentionDays: 365 }),
   });
   return { id, created: true };
 }
@@ -80,11 +96,9 @@ export async function getOrCreateBuyerLookalike(accountId, token, pixelId) {
   let seed = await findAudienceByName(accountId, token, PURCHASERS_SEED_NAME);
   let seedCreated = false;
   if (!seed) {
-    const seedId = await createWebsiteAudience(accountId, token, {
+    const seedId = await createRuleAudience(accountId, token, {
       name: PURCHASERS_SEED_NAME,
-      pixelId,
-      eventName: "Purchase",
-      retentionDays: 730, // Meta's max retention for purchase events
+      rule: audienceRule({ sourceType: "pixel", sourceId: pixelId, eventValue: "Purchase", retentionDays: 730 }), // Meta's max retention for purchase events
     });
     seed = { id: seedId };
     seedCreated = true;

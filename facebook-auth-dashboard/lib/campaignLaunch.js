@@ -86,7 +86,11 @@ export function buildAdsetPayload({
   if (adset.type === "advantage") {
     targeting.targeting_automation = { advantage_audience: 1 };
   } else if (adset.type === "retargeting") {
-    targeting.custom_audiences = [{ id: audienceIds.visitors }];
+    // "Your website visitors & ad engagers" — two separate Meta audience
+    // objects (WEBSITE pixel vs Page engagement) unioned via two entries
+    // here, not one combined audience; both resolved by
+    // lib/audienceManager.js before this is called.
+    targeting.custom_audiences = [{ id: audienceIds.visitors }, { id: audienceIds.engagers }];
   } else if (adset.type === "lookalike") {
     targeting.custom_audiences = [{ id: audienceIds.lookalike }];
   } else if (adset.type === "interest") {
