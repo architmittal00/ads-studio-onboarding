@@ -115,6 +115,84 @@ export async function graphPost(path, accessToken, params = {}) {
   return json;
 }
 
+// Fetches one additional page from a `paging.next` URL — already a complete,
+// signed URL (includes access_token and every query param from the original
+// request), so this talks to `fetch` directly rather than going through
+// graphGet's path/params builder. Logged the same way as any other call so a
+// paginated fetch shows up in /logs like every other request.
+async function fetchPageByUrl(nextUrl, path) {
+  const redactedUrl = redactToken(nextUrl);
+  const start = Date.now();
+
+  let status = null;
+  let json = null;
+  let errorMessage = null;
+
+  try {
+    const res = await fetch(nextUrl);
+    status = res.status;
+    json = await res.json();
+    if (json?.error) {
+      errorMessage = json.error.message;
+    }
+  } catch (err) {
+    errorMessage = err.message;
+  }
+
+  logApiCall({
+    method: "GET",
+    path: `${path} (next page)`,
+    url: redactedUrl,
+    status,
+    durationMs: Date.now() - start,
+    error: errorMessage,
+    responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
+  });
+
+  if (errorMessage) {
+    const err = new Error(errorMessage);
+    err.graphResponse = json;
+    throw err;
+  }
+
+  return json;
+}
+
+// Safety cap on how many pages a single list/insights query will follow
+// before giving up and returning what it has. At a 500-row page size that's
+// 25,000 rows — comfortably past any real ad account's ad/campaign count —
+// so this only ever kicks in to stop a runaway loop (e.g. a malformed cursor
+// Facebook keeps re-issuing), not as a real limit on legitimate accounts.
+const MAX_PAGES = 50;
+
+// Follows `paging.next` until the list is exhausted (or MAX_PAGES is hit),
+// concatenating `data` across every page. Facebook's list/insights endpoints
+// default to a few hundred rows per page and say nothing on their own about
+// how many more exist — a caller that reads just `.data` from the first
+// response silently gets a truncated result for any account with more rows
+// than one page holds. This is the fix for that, applied once here instead
+// of at every call site.
+async function collectAllPages(firstPageJson, path) {
+  let page = firstPageJson;
+  const allData = [...(page?.data || [])];
+  let pages = 1;
+  while (page?.paging?.next && pages < MAX_PAGES) {
+    page = await fetchPageByUrl(page.paging.next, path);
+    allData.push(...(page?.data || []));
+    pages += 1;
+  }
+  return { ...page, data: allData };
+}
+
+// Like graphGet, but follows pagination to completion — use for any
+// list-shaped connection (campaigns, ad sets, custom audiences, ad accounts,
+// Pages, …) where returning only the first page would silently under-report
+// for any account bigger than one page.
+export async function graphGetAllPages(path, accessToken, params = {}) {
+  const firstPage = await graphGet(path, accessToken, params);
+  return collectAllPages(firstPage, path);
+}
+
 const ASYNC_POLL_INTERVAL_MS = 1000;
 const ASYNC_POLL_TIMEOUT_MS = 15000;
 
@@ -130,9 +208,15 @@ const ASYNC_POLL_TIMEOUT_MS = 15000;
 // report showed "no breakdown data" despite the account having plenty.
 // This polls the job until it completes (or fails/times out) and fetches
 // its results instead.
+//
+// Either path (sync or async) only ever hands back one page on its own —
+// an insights query with many rows (e.g. level:"ad" on an account with
+// hundreds of active ads) spans multiple pages just like any other list
+// endpoint, so both branches run through collectAllPages() before
+// returning, same as graphGetAllPages() does for plain list connections.
 export async function graphGetInsights(path, accessToken, params = {}) {
   const json = await graphGet(path, accessToken, params);
-  if (!json?.report_run_id) return json;
+  if (!json?.report_run_id) return collectAllPages(json, path);
 
   const jobId = json.report_run_id;
   const deadline = Date.now() + ASYNC_POLL_TIMEOUT_MS;
@@ -140,7 +224,8 @@ export async function graphGetInsights(path, accessToken, params = {}) {
     await new Promise((resolve) => setTimeout(resolve, ASYNC_POLL_INTERVAL_MS));
     const status = await graphGet(`/${jobId}`, accessToken, {});
     if (status.async_status === "Job Completed") {
-      return graphGet(`/${jobId}/insights`, accessToken, { limit: params.limit || 500 });
+      const firstPage = await graphGet(`/${jobId}/insights`, accessToken, { limit: params.limit || 500 });
+      return collectAllPages(firstPage, `/${jobId}/insights`);
     }
     if (status.async_status === "Job Failed" || status.async_status === "Job Skipped") {
       throw new Error(`Facebook insights job ${status.async_status.toLowerCase()}`);
