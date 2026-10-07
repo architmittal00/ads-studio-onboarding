@@ -7,6 +7,14 @@
 // reads these directly to build real campaign/ad set payloads:
 //   funnel: "TOF" | "MOF" | "BOF"              — drives objective/optimization goal
 //   adset.type: "advantage" | "retargeting" | "lookalike" | "interest"
+//               — "retargeting" always means BOTH website visitors and Page/
+//               ad engagers (unioned as two custom_audiences entries by
+//               lib/campaignLaunch.js), not visitors alone — MOF uses this
+//               for its single ad set in every strategy that has an MOF
+//               campaign, since MOF retargets the pool TOF itself builds up
+//               over the campaign's life rather than requiring pre-existing
+//               history (which is why it's used even in the "fresh account"
+//               strategies 2/6, not gated behind the history check).
 //   adset.pct: only set for ABO ad sets (budget split within one campaign);
 //              omitted for CBO ad sets, which inherit the campaign budget.
 export const STRATEGIES = [
@@ -29,7 +37,7 @@ export const STRATEGIES = [
         pct: 15,
         funnel: "MOF",
         structure: "ASC (CBO) · 1 ad set",
-        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+        adsets: [{ label: "Retargeting: your website visitors & ad engagers", type: "retargeting" }],
       },
       {
         name: "Campaign 3 — Bottom of Funnel",
@@ -63,7 +71,7 @@ export const STRATEGIES = [
         pct: 15,
         funnel: "MOF",
         structure: "ASC (CBO) · 1 ad set",
-        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+        adsets: [{ label: "Retargeting: your website visitors & ad engagers", type: "retargeting" }],
       },
       {
         name: "Campaign 3 — Bottom of Funnel",
@@ -129,7 +137,7 @@ export const STRATEGIES = [
         pct: 25,
         funnel: "MOF",
         structure: "ASC (CBO) · 1 ad set",
-        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+        adsets: [{ label: "Retargeting: your website visitors & ad engagers", type: "retargeting" }],
       },
       {
         name: "Campaign 3 — Bottom of Funnel",
@@ -163,7 +171,7 @@ export const STRATEGIES = [
         pct: 25,
         funnel: "MOF",
         structure: "ASC (CBO) · 1 ad set",
-        adsets: [{ label: "Optimized for Add to Cart", type: "advantage" }],
+        adsets: [{ label: "Retargeting: your website visitors & ad engagers", type: "retargeting" }],
       },
       {
         name: "Campaign 3 — Bottom of Funnel",
