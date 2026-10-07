@@ -440,29 +440,72 @@ button.stat:hover {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px 16px;
+  gap: 14px;
+  padding: 20px 14px;
   background: var(--card);
   border-right: 1px solid var(--border);
   position: sticky;
   top: 0;
   height: 100vh;
+  transition: width 0.18s ease;
+  overflow: hidden;
+}
+
+/* Icon-only rail — the default, matching the slim collapsible sidebar used
+   across the team's other internal tools. Expanding (via the panel toggle)
+   grows it back out to show labels next to each icon. */
+.appSidebarCollapsed {
+  width: 68px;
 }
 
 .appSidebarHeader {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 8px;
+  padding: 0 6px;
+}
+.appSidebarCollapsed .appSidebarHeader {
+  justify-content: center;
+  padding: 0;
+}
+
+.appSidebarIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: transparent;
+  border: none;
+  color: var(--t2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.appSidebarIconBtn:hover {
+  background: var(--card2);
+  color: var(--t1);
+}
+
+.appNavList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
 }
 
 .appNavLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 9px;
   font-size: 13px;
   font-weight: 700;
   color: var(--t2);
   transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
 }
 .appNavLink:hover {
   background: var(--card2);
@@ -472,6 +515,52 @@ button.stat:hover {
   background: rgba(175, 70, 253, 0.15);
   border: 1px solid rgba(175, 70, 253, 0.3);
   color: var(--purple);
+}
+.appSidebarCollapsed .appNavLink {
+  justify-content: center;
+  padding: 10px;
+}
+
+.appSidebarFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.appSidebarCollapsed .appSidebarFooter {
+  flex-direction: column;
+}
+
+.appAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.appAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.appSidebarUserName {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .appContent {
@@ -493,6 +582,15 @@ button.stat:hover {
     gap: 12px;
   }
   .appSidebarHeader {
+    flex-shrink: 0;
+  }
+  .appNavList {
+    flex-direction: row;
+  }
+  .appSidebarFooter {
+    flex-direction: row;
+    border-top: none;
+    padding-top: 0;
     flex-shrink: 0;
   }
 }

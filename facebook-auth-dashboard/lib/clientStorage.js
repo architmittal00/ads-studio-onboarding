@@ -66,3 +66,27 @@ export function setPixelMapping(accountId, pixelId) {
     // Private browsing / blocked storage — silently ignore, nothing to persist to.
   }
 }
+
+const SIDEBAR_COLLAPSED_KEY = "fb-dashboard:sidebar-collapsed";
+
+// Icon-only (collapsed) vs icon+label (expanded) app sidebar — a per-device
+// UI preference, same pattern as everything else here. `null` means "never
+// set on this device", letting the component fall back to its own default
+// (collapsed, matching the icon-rail sidebar used across the team's other
+// internal tools) rather than assuming a stored "false".
+export function getSidebarCollapsed() {
+  try {
+    const value = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    return value == null ? null : value === "1";
+  } catch {
+    return null;
+  }
+}
+
+export function setSidebarCollapsed(collapsed) {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
