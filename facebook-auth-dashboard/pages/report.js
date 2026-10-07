@@ -1242,13 +1242,12 @@ export default function Report() {
                   <h2 className={styles.h2}>Budget Utilization &amp; Creative Count</h2>
                   <p className={styles.sub} style={{ marginBottom: 12 }}>
                     CBO campaigns are judged at the campaign level; ABO campaigns are judged ad set by ad set, since
-                    that is where the budget actually lives. Creative recommendations benchmark against this
-                    account&apos;s own average spend per active creative over {report.dateRange.label.toLowerCase()} —
-                    {" "}
-                    <strong style={{ color: "var(--t1)" }}>
-                      {money(report.budgetUtilization.accountAvgSpendPerCreative)}
-                    </strong>
-                    . Sort by Utilization to find underspend, or by Additional Needed to find creative gaps.
+                    that is where the budget actually lives. Rows under 100% utilization are flagged — for those, we
+                    take the avg daily spend split across its existing creatives (Avg Spend/Creative) and work out how
+                    many creatives, at that same rate, it would take to spend the full daily budget (Additional
+                    Needed). Fully-utilized rows show no recommendation — there&apos;s no unspent budget left for
+                    extra creatives to unlock. Sort by Utilization to find underspend, or by Additional Needed to find
+                    creative gaps.
                   </p>
 
                   <div className={styles.tabGroup} style={{ marginBottom: 14 }}>
@@ -1275,6 +1274,7 @@ export default function Report() {
                       searchPlaceholder="Search campaigns…"
                       emptyMessage="No active CBO campaigns."
                       rows={report.budgetUtilization.cboCampaigns}
+                      rowClassName={(r) => (r.utilizationPct != null && r.utilizationPct < 100 ? styles.rowUnderutilized : undefined)}
                       columns={[
                         { key: "name", label: "Campaign", maxWidth: NAME_COL_WIDTH },
                         {
@@ -1298,7 +1298,18 @@ export default function Report() {
                             ),
                         },
                         { key: "creativeCount", label: "Creatives", align: "right" },
-                        { key: "recommendedCreatives", label: "Recommended", align: "right" },
+                        {
+                          key: "avgSpendPerCreative",
+                          label: "Avg Spend/Creative",
+                          align: "right",
+                          render: (r) => (r.avgSpendPerCreative != null ? money(r.avgSpendPerCreative) : "—"),
+                        },
+                        {
+                          key: "recommendedCreatives",
+                          label: "Recommended",
+                          align: "right",
+                          render: (r) => (r.recommendedCreatives != null ? r.recommendedCreatives : "—"),
+                        },
                         {
                           key: "additionalNeeded",
                           label: "Additional Needed",
@@ -1321,6 +1332,7 @@ export default function Report() {
                       searchPlaceholder="Search ad sets…"
                       emptyMessage="No active ad sets in ABO campaigns."
                       rows={report.budgetUtilization.aboAdsets}
+                      rowClassName={(r) => (r.utilizationPct != null && r.utilizationPct < 100 ? styles.rowUnderutilized : undefined)}
                       columns={[
                         { key: "name", label: "Ad Set", maxWidth: NAME_COL_WIDTH },
                         {
@@ -1350,7 +1362,18 @@ export default function Report() {
                             ),
                         },
                         { key: "creativeCount", label: "Creatives", align: "right" },
-                        { key: "recommendedCreatives", label: "Recommended", align: "right" },
+                        {
+                          key: "avgSpendPerCreative",
+                          label: "Avg Spend/Creative",
+                          align: "right",
+                          render: (r) => (r.avgSpendPerCreative != null ? money(r.avgSpendPerCreative) : "—"),
+                        },
+                        {
+                          key: "recommendedCreatives",
+                          label: "Recommended",
+                          align: "right",
+                          render: (r) => (r.recommendedCreatives != null ? r.recommendedCreatives : "—"),
+                        },
                         {
                           key: "additionalNeeded",
                           label: "Additional Needed",
