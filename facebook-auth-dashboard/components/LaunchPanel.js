@@ -1,16 +1,29 @@
 import { useEffect, useState } from "react";
 import { CloseIcon } from "./icons";
 import Loader from "./Loader";
+import InterestTargetingSection from "./InterestTargetingSection";
 import { getPixelMapping, setPixelMapping } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
+
+// How many of this strategy's ad sets need a user-chosen Meta interest
+// (currently only Strategy 8, but derived from the data rather than a
+// hardcoded strategy id so any future interest-based strategy picks this up
+// automatically).
+function countInterestAdsets(strategy) {
+  return strategy.campaigns.reduce((sum, c) => sum + c.adsets.filter((a) => a.type === "interest").length, 0);
+}
 
 // Review & Launch panel for one strategy: picks the Page (and, the first
 // time for this account, the pixel — remembered after that via
 // lib/clientStorage's pixel mapping), a Paused/Active choice, then posts to
 // /api/fb/launch-strategy and shows exactly what was created or failed.
 // Country (India) and lookalike ratio (1%) aren't asked here — hardcoded
-// per the current scope, see lib/campaignLaunch.js.
-export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose }) {
+// per the current scope, see lib/campaignLaunch.js. `hasHistory` (from the
+// Strategy page's own signal check) is used only to decide, for an
+// interest-based strategy, whether to default straight to the brand-URL
+// input instead of attempting to analyze landing pages that likely don't
+// exist yet.
+export default function LaunchPanel({ strategy, accountId, dailyBudget, hasHistory, onClose }) {
   const [loadingData, setLoadingData] = useState(true);
   const [dataError, setDataError] = useState(null);
   const [pages, setPages] = useState([]);
@@ -19,6 +32,13 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
   const [pageId, setPageId] = useState("");
   const [pixelId, setPixelId] = useState("");
   const [status, setStatus] = useState("PAUSED");
+
+  const interestAdsetCount = countInterestAdsets(strategy);
+  const [interestChoices, setInterestChoices] = useState(() => Array(interestAdsetCount).fill(null));
+
+  function setInterestChoice(index, choice) {
+    setInterestChoices((prev) => prev.map((c, i) => (i === index ? choice : c)));
+  }
 
   const [launching, setLaunching] = useState(false);
   const [currentStep, setCurrentStep] = useState(null);
@@ -93,7 +113,15 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
       const res = await fetch("/api/fb/launch-strategy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, strategyId: strategy.id, dailyBudget, pageId, pixelId, status }),
+        body: JSON.stringify({
+          accountId,
+          strategyId: strategy.id,
+          dailyBudget,
+          pageId,
+          pixelId,
+          status,
+          ...(interestAdsetCount > 0 ? { interestChoices } : {}),
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -126,7 +154,11 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
   }
 
   const rememberedPixel = !loadingData && getPixelMapping(accountId);
-  const canLaunch = pageId && pixelId && !launching;
+  const allInterestsChosen = interestChoices.every((c) => c?.id);
+  const canLaunch = pageId && pixelId && !launching && allInterestsChosen;
+  const duplicateInterestIds = interestChoices
+    .map((c) => c?.id)
+    .filter((id, i, arr) => id && arr.indexOf(id) !== i);
 
   function adsManagerUrl(kind, id) {
     const numericId = accountId.replace(/^act_/, "");
@@ -172,6 +204,16 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, onClose 
 
         {!loadingData && !dataError && !result && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
+            {interestAdsetCount > 0 && (
+              <InterestTargetingSection
+                accountId={accountId}
+                hasHistory={hasHistory}
+                interestChoices={interestChoices}
+                setInterestChoice={setInterestChoice}
+                duplicateInterestIds={duplicateInterestIds}
+              />
+            )}
+
             <div>
               <p className={styles.sub} style={{ marginBottom: 6 }}>
                 Facebook Page

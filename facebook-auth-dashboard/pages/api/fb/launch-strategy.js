@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
 import { STRATEGIES, roundBudgetAmount } from "@/lib/strategyEngine";
-import { buildCampaignPayload, buildAdsetPayload, buildAdsetName, resolveInterestId, toMinorUnits } from "@/lib/campaignLaunch";
+import { buildCampaignPayload, buildAdsetPayload, buildAdsetName, toMinorUnits } from "@/lib/campaignLaunch";
 import { getOrCreateVisitorsAudience, getOrCreateEngagersAudience, getOrCreateBuyerLookalike } from "@/lib/audienceManager";
 
 // Creates the real campaign + ad set(s) for one strategy on a live ad
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, strategyId, dailyBudget, pageId, pixelId, status } = req.body || {};
+  const { accountId, strategyId, dailyBudget, pageId, pixelId, status, interestChoices } = req.body || {};
   if (!accountId || !strategyId || !dailyBudget || !pageId || !pixelId) {
     return res.status(400).json({ error: "accountId, strategyId, dailyBudget, pageId, and pixelId are required" });
   }
@@ -44,6 +44,24 @@ export default async function handler(req, res) {
   if (!strategy) {
     return res.status(400).json({ error: `Unknown strategy id ${strategyId}` });
   }
+
+  // Strategy 8's 3 ad sets are each a real, distinct Meta interest chosen by
+  // the user (components/InterestPicker.js) — there is no stored/default
+  // interest to silently fall back to, so launching it without a complete
+  // choice is a hard error rather than resolving something unintended live.
+  const totalInterestAdsets = strategy.campaigns.reduce(
+    (sum, c) => sum + c.adsets.filter((a) => a.type === "interest").length,
+    0
+  );
+  if (totalInterestAdsets > 0) {
+    const valid = Array.isArray(interestChoices) && interestChoices.filter((c) => c?.id && c?.name).length;
+    if (valid !== totalInterestAdsets) {
+      return res.status(400).json({
+        error: `This strategy needs ${totalInterestAdsets} chosen interest(s) (interestChoices: [{id, name}, ...]) — got ${valid || 0}`,
+      });
+    }
+  }
+
   const finalStatus = status === "ACTIVE" ? "ACTIVE" : "PAUSED";
 
   res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" });
@@ -117,6 +135,12 @@ export default async function handler(req, res) {
   let overallSuccess = true;
   let campaignNumber = 0;
   const campaignCount = strategy.campaigns.length;
+  // Flat position across every interest ad set in the whole strategy (not
+  // per-campaign) — matches how interestChoices is index-aligned on the
+  // client, since Strategy 8's 3 interest ad sets all live in one campaign
+  // but this stays correct even if a future strategy spreads them across
+  // more than one.
+  let interestChoiceIndex = 0;
 
   for (const campaign of strategy.campaigns) {
     campaignNumber += 1;
@@ -145,10 +169,13 @@ export default async function handler(req, res) {
 
     for (let i = 0; i < campaign.adsets.length; i++) {
       const adset = campaign.adsets[i];
-      const adsetName = buildAdsetName(campaign.funnel, adset, i);
+      // For "interest" ad sets, the id/name are already known (client-
+      // chosen) before the name is built — fixes the previous ordering bug
+      // where the name was built before the interest it names was resolved.
+      const interestChoice = adset.type === "interest" ? interestChoices[interestChoiceIndex++] : null;
+      const adsetName = buildAdsetName(campaign.funnel, adset, i, { interestName: interestChoice?.name });
       progress(`Creating ad set ${i + 1} of ${campaign.adsets.length} for ${campaign.name}: ${adsetName}…`);
       try {
-        const interestId = adset.type === "interest" ? await resolveInterestId(token, adset.interestQuery) : null;
         const adsetBudget = isAbo ? roundBudgetAmount((campaignBudget * adset.pct) / 100, budget) : null;
 
         const payload = buildAdsetPayload({
@@ -159,7 +186,8 @@ export default async function handler(req, res) {
           adset,
           index: i,
           audienceIds: { visitors: visitorsAudienceId, engagers: engagersAudienceId, lookalike: lookalikeAudienceId },
-          interestId,
+          interestId: interestChoice?.id ?? null,
+          interestName: interestChoice?.name,
           dailyBudgetMinorUnits: adsetBudget != null ? toMinorUnits(adsetBudget) : undefined,
         });
         const json = await graphPost(`/${accountId}/adsets`, token, payload);

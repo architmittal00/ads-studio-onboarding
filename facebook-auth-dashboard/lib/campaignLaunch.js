@@ -1,4 +1,4 @@
-import { graphGet } from "./facebookGraph";
+import { searchAdInterests, pickBestMatch } from "./metaInterestSearch";
 
 // ── Naming convention ──
 // Campaign: TEST-{Funnel}-{Objective}-S{StrategyId}-{YYYYMMDD}
@@ -30,9 +30,29 @@ export function buildCampaignName(funnel, strategyId, date = new Date()) {
 
 const ADSET_TYPE_TAG = { retargeting: "RTG-VisitorsEngagers", lookalike: "LAL-Buyers", advantage: "Advantage" };
 
-export function buildAdsetName(funnel, adset, index) {
+// Facebook ad set names tolerate most characters, but keep this predictable
+// and readable in Ads Manager: strip anything that isn't alphanumeric/space/
+// hyphen, collapse whitespace, and cap length so a long interest name (e.g.
+// "Organic skin care products and natural cosmetics") doesn't blow out the
+// whole "TEST-BOF-<name>-2" naming convention.
+function sanitizeForName(str, maxLen = 30) {
+  return str
+    .replace(/[^a-zA-Z0-9 -]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+
+// `interestName` is the real, resolved Meta interest name (from a client-
+// chosen interest or a live search match) — previously this branch always
+// said "Beauty" regardless of `adset.interestQuery`, a leftover from when
+// every interest ad set in Strategy 8 was the same hardcoded placeholder.
+export function buildAdsetName(funnel, adset, index, { interestName } = {}) {
   if (adset.nameTag) return `${TEST_PREFIX}${funnel}-${adset.nameTag}`;
-  if (adset.type === "interest") return `${TEST_PREFIX}${funnel}-Beauty-${index + 1}`;
+  if (adset.type === "interest") {
+    const label = interestName ? sanitizeForName(interestName) : `Interest-${index + 1}`;
+    return `${TEST_PREFIX}${funnel}-${label}`;
+  }
   return `${TEST_PREFIX}${funnel}-${ADSET_TYPE_TAG[adset.type] || "Adset"}`;
 }
 
@@ -68,8 +88,10 @@ export function buildCampaignPayload({ funnel, strategyId, dailyBudgetMinorUnits
 
 // Builds one ad set's payload. `audienceIds` carries resolved Custom
 // Audience IDs for retargeting/lookalike types (looked up by
-// lib/audienceManager.js before this is called); `interestId` carries a
-// live-resolved interest ID for the "interest" type.
+// lib/audienceManager.js before this is called); `interestId`/`interestName`
+// carry a resolved Meta interest for the "interest" type — for Strategy 8
+// these come from the user's own choice (components/InterestPicker.js),
+// not a live query resolved from a static string.
 export function buildAdsetPayload({
   funnel,
   campaignId,
@@ -79,6 +101,7 @@ export function buildAdsetPayload({
   index,
   audienceIds,
   interestId,
+  interestName,
   dailyBudgetMinorUnits, // only set for ABO ad sets (Strategy 7)
 }) {
   const targeting = { geo_locations: { countries: [HARDCODED_COUNTRY] } };
@@ -98,7 +121,7 @@ export function buildAdsetPayload({
   }
 
   const payload = {
-    name: buildAdsetName(funnel, adset, index),
+    name: buildAdsetName(funnel, adset, index, { interestName }),
     campaign_id: campaignId,
     status: "PAUSED",
     billing_event: "IMPRESSIONS",
@@ -117,16 +140,16 @@ export function buildAdsetPayload({
   return payload;
 }
 
-// Live interest lookup for Strategy 8's "Beauty" stand-in — resolved at
-// launch time rather than a hardcoded ID, since those drift across Meta's
-// targeting taxonomy. Picks the first exact (case-insensitive) name match,
-// falling back to the first result if no exact match is found.
+// Legacy single-query interest resolution — superseded by the user-driven
+// picker (components/InterestPicker.js, backed by lib/metaInterestSearch.js)
+// for Strategy 8, which now requires a client-chosen {id, name} pair instead
+// of resolving one live from a static query string. Kept as a thin wrapper
+// over the shared search helper for any future one-off lookup need.
 export async function resolveInterestId(token, query) {
-  const json = await graphGet("/search", token, { type: "adinterest", q: query });
-  const results = json.data || [];
-  if (results.length === 0) throw new Error(`No targeting interest found for "${query}"`);
-  const exact = results.find((r) => r.name?.toLowerCase() === query.toLowerCase());
-  return (exact || results[0]).id;
+  const results = await searchAdInterests(token, query);
+  const match = pickBestMatch(results, query);
+  if (!match) throw new Error(`No targeting interest found for "${query}"`);
+  return match.id;
 }
 
 // Facebook budgets are in the account currency's minor unit (cents/paise) —
