@@ -8,9 +8,10 @@ import { searchAdInterests, pickBestMatch, mapWithConcurrency } from "@/lib/meta
 // ~50-80 AI suggestions get resolved at once (see lib/metaInterestSearch.js).
 const SEARCH_CONCURRENCY = 6;
 // Real matched Meta interests shown to the user, not the raw AI string list —
-// capped so the 3 ad-set pickers (and any future UI) aren't choosing from an
-// unreasonably long list.
-const MAX_DISPLAYED_INTERESTS = 15;
+// capped only as a sanity ceiling (well above what ~50-80 AI suggestions
+// typically dedupe down to), not to artificially hide real suggestions the
+// user asked to browse.
+const MAX_DISPLAYED_INTERESTS = 50;
 
 function buildPromptFromLandingPages(landingPages) {
   const lines = landingPages

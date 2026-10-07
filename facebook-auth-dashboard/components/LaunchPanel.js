@@ -33,11 +33,15 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, hasHisto
   const [pixelId, setPixelId] = useState("");
   const [status, setStatus] = useState("PAUSED");
 
+  // Each ad set can target more than one interest (Meta ORs them together
+  // within one ad set — see lib/campaignLaunch.js), so this is an array of
+  // arrays: interestChoices[i] is the list of {id, name} interests chosen
+  // for ad set i, not a single value.
   const interestAdsetCount = countInterestAdsets(strategy);
-  const [interestChoices, setInterestChoices] = useState(() => Array(interestAdsetCount).fill(null));
+  const [interestChoices, setInterestChoices] = useState(() => Array.from({ length: interestAdsetCount }, () => []));
 
-  function setInterestChoice(index, choice) {
-    setInterestChoices((prev) => prev.map((c, i) => (i === index ? choice : c)));
+  function setInterestChoice(index, values) {
+    setInterestChoices((prev) => prev.map((c, i) => (i === index ? values : c)));
   }
 
   const [launching, setLaunching] = useState(false);
@@ -120,7 +124,11 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, hasHisto
           pageId,
           pixelId,
           status,
-          ...(interestAdsetCount > 0 ? { interestChoices } : {}),
+          // Trim to just {id, name} per interest — audience-size/path fields
+          // are UI-only and not something the launch endpoint needs.
+          ...(interestAdsetCount > 0
+            ? { interestChoices: interestChoices.map((group) => group.map((c) => ({ id: c.id, name: c.name }))) }
+            : {}),
         }),
       });
 
@@ -154,11 +162,20 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, hasHisto
   }
 
   const rememberedPixel = !loadingData && getPixelMapping(accountId);
-  const allInterestsChosen = interestChoices.every((c) => c?.id);
+  const allInterestsChosen = interestChoices.every((group) => group.length > 0);
   const canLaunch = pageId && pixelId && !launching && allInterestsChosen;
-  const duplicateInterestIds = interestChoices
-    .map((c) => c?.id)
-    .filter((id, i, arr) => id && arr.indexOf(id) !== i);
+  // An id that shows up in more than one ad set's group, counted once per
+  // group it appears in (not once per duplicate within the same group, which
+  // can't happen — InterestPicker already de-dupes within one ad set).
+  const duplicateInterestIds = (() => {
+    const adsetCountById = new Map();
+    for (const group of interestChoices) {
+      for (const id of new Set(group.map((c) => c.id))) {
+        adsetCountById.set(id, (adsetCountById.get(id) || 0) + 1);
+      }
+    }
+    return [...adsetCountById.entries()].filter(([, count]) => count > 1).map(([id]) => id);
+  })();
 
   function adsManagerUrl(kind, id) {
     const numericId = accountId.replace(/^act_/, "");

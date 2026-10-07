@@ -45,19 +45,26 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Unknown strategy id ${strategyId}` });
   }
 
-  // Strategy 8's 3 ad sets are each a real, distinct Meta interest chosen by
-  // the user (components/InterestPicker.js) — there is no stored/default
-  // interest to silently fall back to, so launching it without a complete
-  // choice is a hard error rather than resolving something unintended live.
+  // Each interest ad set needs at least one real, chosen Meta interest from
+  // the user (components/InterestPicker.js, which allows choosing more than
+  // one per ad set — interestChoices[i] is an array, not a single value) —
+  // there is no stored/default interest to silently fall back to, so
+  // launching without a complete choice is a hard error rather than
+  // resolving something unintended live.
   const totalInterestAdsets = strategy.campaigns.reduce(
     (sum, c) => sum + c.adsets.filter((a) => a.type === "interest").length,
     0
   );
   if (totalInterestAdsets > 0) {
-    const valid = Array.isArray(interestChoices) && interestChoices.filter((c) => c?.id && c?.name).length;
-    if (valid !== totalInterestAdsets) {
+    const validGroups =
+      Array.isArray(interestChoices) &&
+      interestChoices.filter((group) => Array.isArray(group) && group.length > 0 && group.every((c) => c?.id && c?.name))
+        .length;
+    if (validGroups !== totalInterestAdsets) {
       return res.status(400).json({
-        error: `This strategy needs ${totalInterestAdsets} chosen interest(s) (interestChoices: [{id, name}, ...]) — got ${valid || 0}`,
+        error: `This strategy needs ${totalInterestAdsets} ad set(s) with at least one chosen interest each (interestChoices: [[{id, name}, ...], ...]) — got ${
+          validGroups || 0
+        }`,
       });
     }
   }
@@ -169,11 +176,14 @@ export default async function handler(req, res) {
 
     for (let i = 0; i < campaign.adsets.length; i++) {
       const adset = campaign.adsets[i];
-      // For "interest" ad sets, the id/name are already known (client-
+      // For "interest" ad sets, the id(s)/name(s) are already known (client-
       // chosen) before the name is built — fixes the previous ordering bug
       // where the name was built before the interest it names was resolved.
-      const interestChoice = adset.type === "interest" ? interestChoices[interestChoiceIndex++] : null;
-      const adsetName = buildAdsetName(campaign.funnel, adset, i, { interestName: interestChoice?.name });
+      // An ad set can target more than one interest (Meta ORs them
+      // together), so this is a group, not a single choice.
+      const interestGroup = adset.type === "interest" ? interestChoices[interestChoiceIndex++] : null;
+      const interestName = interestGroup ? interestGroup.map((c) => c.name).join(" + ") : null;
+      const adsetName = buildAdsetName(campaign.funnel, adset, i, { interestName });
       progress(`Creating ad set ${i + 1} of ${campaign.adsets.length} for ${campaign.name}: ${adsetName}…`);
       try {
         const adsetBudget = isAbo ? roundBudgetAmount((campaignBudget * adset.pct) / 100, budget) : null;
@@ -186,8 +196,8 @@ export default async function handler(req, res) {
           adset,
           index: i,
           audienceIds: { visitors: visitorsAudienceId, engagers: engagersAudienceId, lookalike: lookalikeAudienceId },
-          interestId: interestChoice?.id ?? null,
-          interestName: interestChoice?.name,
+          interestIds: interestGroup ? interestGroup.map((c) => c.id) : null,
+          interestName,
           dailyBudgetMinorUnits: adsetBudget != null ? toMinorUnits(adsetBudget) : undefined,
         });
         const json = await graphPost(`/${accountId}/adsets`, token, payload);

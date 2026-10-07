@@ -32,12 +32,12 @@ const ADSET_TYPE_TAG = { retargeting: "RTG-VisitorsEngagers", lookalike: "LAL-Bu
 
 // Facebook ad set names tolerate most characters, but keep this predictable
 // and readable in Ads Manager: strip anything that isn't alphanumeric/space/
-// hyphen, collapse whitespace, and cap length so a long interest name (e.g.
-// "Organic skin care products and natural cosmetics") doesn't blow out the
-// whole "TEST-BOF-<name>-2" naming convention.
+// hyphen/plus, collapse whitespace, and cap length so a long interest name
+// (or several, joined with "+" when an ad set targets more than one) doesn't
+// blow out the whole "TEST-BOF-<name>-2" naming convention.
 function sanitizeForName(str, maxLen = 30) {
   return str
-    .replace(/[^a-zA-Z0-9 -]/g, "")
+    .replace(/[^a-zA-Z0-9 +-]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLen);
@@ -88,10 +88,11 @@ export function buildCampaignPayload({ funnel, strategyId, dailyBudgetMinorUnits
 
 // Builds one ad set's payload. `audienceIds` carries resolved Custom
 // Audience IDs for retargeting/lookalike types (looked up by
-// lib/audienceManager.js before this is called); `interestId`/`interestName`
-// carry a resolved Meta interest for the "interest" type — for Strategy 8
-// these come from the user's own choice (components/InterestPicker.js),
-// not a live query resolved from a static string.
+// lib/audienceManager.js before this is called); `interestIds`/`interestName`
+// carry the resolved Meta interest(s) for the "interest" type — for
+// Strategy 8 these come from the user's own choice
+// (components/InterestPicker.js, which allows choosing more than one
+// interest per ad set), not a live query resolved from a static string.
 export function buildAdsetPayload({
   funnel,
   campaignId,
@@ -100,7 +101,7 @@ export function buildAdsetPayload({
   adset,
   index,
   audienceIds,
-  interestId,
+  interestIds,
   interestName,
   dailyBudgetMinorUnits, // only set for ABO ad sets (Strategy 7)
 }) {
@@ -117,7 +118,11 @@ export function buildAdsetPayload({
   } else if (adset.type === "lookalike") {
     targeting.custom_audiences = [{ id: audienceIds.lookalike }];
   } else if (adset.type === "interest") {
-    targeting.flexible_spec = [{ interests: [{ id: interestId }] }];
+    // Multiple interests inside ONE flexible_spec entry's `interests` array
+    // are ORed together by Meta (reach anyone matching ANY of them) — this
+    // is the correct shape for "target several interests in one ad set",
+    // as opposed to multiple flexible_spec entries, which would be ANDed.
+    targeting.flexible_spec = [{ interests: interestIds.map((id) => ({ id })) }];
   }
 
   const payload = {
