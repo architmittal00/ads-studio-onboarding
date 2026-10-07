@@ -42,7 +42,10 @@ export function buildAdsetName(funnel, adset, index) {
 // labels it "ASC". MOF/BOF are Sales-objective, optimizing for a different
 // pixel event (Add to Cart vs Purchase) — see the plan notes for why.
 export const FUNNEL_CAMPAIGN_OBJECTIVE = { TOF: "OUTCOME_TRAFFIC", MOF: "OUTCOME_SALES", BOF: "OUTCOME_SALES" };
-const FUNNEL_OPTIMIZATION_GOAL = { TOF: "LINK_CLICKS", MOF: "OFFSITE_CONVERSIONS", BOF: "OFFSITE_CONVERSIONS" };
+// TOF optimizes for Landing Page Views, not Link Clicks — LPV only counts a
+// click that actually results in the page loading (pixel-confirmed), so it
+// buys real site visits rather than just clicks that bounce before loading.
+const FUNNEL_OPTIMIZATION_GOAL = { TOF: "LANDING_PAGE_VIEWS", MOF: "OFFSITE_CONVERSIONS", BOF: "OFFSITE_CONVERSIONS" };
 const FUNNEL_CUSTOM_EVENT = { MOF: "ADD_TO_CART", BOF: "PURCHASE" };
 
 const HARDCODED_COUNTRY = "IN"; // per the user — always India for now
@@ -99,8 +102,12 @@ export function buildAdsetPayload({
     destination_type: "WEBSITE",
     targeting,
     bid_strategy: BID_STRATEGY,
+    // LANDING_PAGE_VIEWS needs promoted_object.pixel_id (it's measuring a
+    // pixel-confirmed page load, not a Page-level signal) — same as MOF/BOF,
+    // just without a custom_event_type since LPV is its own optimization
+    // goal rather than a specific pixel event to match.
     promoted_object:
-      funnel === "TOF" ? { page_id: pageId } : { pixel_id: pixelId, custom_event_type: FUNNEL_CUSTOM_EVENT[funnel] },
+      funnel === "TOF" ? { pixel_id: pixelId } : { pixel_id: pixelId, custom_event_type: FUNNEL_CUSTOM_EVENT[funnel] },
   };
   if (dailyBudgetMinorUnits) payload.daily_budget = dailyBudgetMinorUnits;
   return payload;
