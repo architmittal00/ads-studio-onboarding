@@ -11,7 +11,11 @@ const ADSET_PAGE_SIZE = 200;
 const ADSET_FIELDS = "id,name,effective_status,daily_budget,lifetime_budget";
 
 const UNKNOWN_LANDING_PAGE_LABEL = "Unknown landing page";
-const UNKNOWN_LANDING_PAGE_SPEND_CUTOFF_PCT = 10;
+// Shared by the "Unknown landing page" pareto bucket and the "couldn't
+// resolve a landing page for N ads" warning below — both are about the same
+// underlying gap (unattributed spend), just surfaced in different places, so
+// they use the same bar for "is this a big enough problem to show".
+const LANDING_PAGE_SPEND_CUTOFF_PCT = 10;
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -634,11 +638,24 @@ export default async function handler(req, res) {
   // fetchPostLandingUrls swallows per-batch failures rather than throwing (a
   // permission error on one Page shouldn't block posts on others), so a
   // wholesale permission problem shows up as "tried N posts, resolved none"
-  // rather than a caught exception — worth its own warning since it's
-  // usually fixable (re-login to (re)grant pages_read_engagement).
-  if (postIdsNeedingLink.length > 0 && Object.keys(postLandingUrlByPostId).length === 0) {
+  // rather than a caught exception. Same spend-based bar as the "Unknown
+  // landing page" bucket below: a couple of unresolved ads out of hundreds
+  // isn't worth a scary banner on every load, but it's worth surfacing once
+  // they represent a material share of spend.
+  const unresolvedPostAds = adRowsBase.filter((r) => {
+    const postId = adDetailsById[r.id]?.postId;
+    return postId && !postLandingUrlByPostId[postId];
+  });
+  const totalSpendForWarning = adRowsBase.reduce((sum, r) => sum + r.spend, 0);
+  const unresolvedPostSpendPct =
+    totalSpendForWarning > 0
+      ? (unresolvedPostAds.reduce((sum, r) => sum + r.spend, 0) / totalSpendForWarning) * 100
+      : 0;
+  if (unresolvedPostAds.length > 0 && unresolvedPostSpendPct > LANDING_PAGE_SPEND_CUTOFF_PCT) {
     warnings.push(
-      `Could not resolve a landing page for ${postIdsNeedingLink.length} ad(s) linked via an existing Page post — likely missing pages_read_engagement access to those Pages. Try logging out and back in to re-grant Page permissions.`
+      `Could not resolve a landing page for ${unresolvedPostAds.length} ad(s) linked via an existing Page post (${unresolvedPostSpendPct.toFixed(
+        0
+      )}% of spend) — likely missing pages_read_engagement access to those Pages. Try logging out and back in to re-grant Page permissions.`
     );
   }
 
@@ -925,7 +942,7 @@ export default async function handler(req, res) {
   const unknownLandingPageSpendPct = totalSpendAll > 0 ? (unknownLandingPageSpend / totalSpendAll) * 100 : 0;
   const unknownIdx = purchasesByProduct.contributors.findIndex((c) => c.label === UNKNOWN_LANDING_PAGE_LABEL);
 
-  if (unknownLandingPageSpendPct > UNKNOWN_LANDING_PAGE_SPEND_CUTOFF_PCT) {
+  if (unknownLandingPageSpendPct > LANDING_PAGE_SPEND_CUTOFF_PCT) {
     if (unknownIdx === -1 && unknownLandingPageAds.length > 0) {
       const revenue = unknownLandingPageAds.reduce((sum, r) => sum + r.revenue, 0);
       const purchases = unknownLandingPageAds.reduce((sum, r) => sum + r.purchases, 0);
