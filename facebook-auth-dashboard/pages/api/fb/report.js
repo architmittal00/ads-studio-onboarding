@@ -1,11 +1,14 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet, graphGetInsights } from "@/lib/facebookGraph";
+import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 import { getCachedReport, setCachedReport } from "@/lib/reportCache";
 
 const RTG_PATTERN = /rtg|retarget/i;
 const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const ADSET_PAGE_SIZE = 200;
+const ADSET_FIELDS = "id,name,effective_status,daily_budget,lifetime_budget";
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -311,6 +314,35 @@ function extractLandingPageLabel(url) {
   return path;
 }
 
+// The campaigns fetch above (`graphGetAllPages`) paginates the top-level
+// campaigns connection, but each campaign's *nested* `adsets` edge has its
+// own independent paging cursor — a campaign with more than
+// ADSET_PAGE_SIZE ad sets of its own still only comes back with the first
+// page, silently, exactly like the top-level truncation this whole change
+// is fixing. Rare (most campaigns have far fewer ad sets than that), but
+// cheap to check and fix: for any campaign flagged with a `paging.next` on
+// its ad sets, fetch the rest directly from `/<campaignId>/adsets` and
+// append them.
+async function fillTruncatedAdsets(campaignsRaw, token) {
+  const needsMore = campaignsRaw.filter((c) => c.adsets?.paging?.next);
+  if (needsMore.length === 0) return;
+
+  const results = await Promise.allSettled(
+    needsMore.map((c) =>
+      graphGetAllPages(`/${c.id}/adsets`, token, { fields: ADSET_FIELDS, limit: ADSET_PAGE_SIZE })
+    )
+  );
+
+  needsMore.forEach((c, i) => {
+    const result = results[i];
+    if (result.status !== "fulfilled") return;
+    // The first page is already included in c.adsets.data — replace
+    // wholesale with the complete, re-fetched list rather than
+    // appending, to avoid double-counting it.
+    c.adsets.data = result.value.data;
+  });
+}
+
 function emptyAgg() {
   return { spend: 0, revenue: 0, purchases: 0, creativeIds: new Set() };
 }
@@ -404,12 +436,11 @@ export default async function handler(req, res) {
       time_range: graphTimeRange,
       limit: 500,
     }),
-    graphGet(`/${accountId}/campaigns`, token, {
-      fields:
-        "id,name,effective_status,objective,daily_budget,lifetime_budget,adsets.limit(200){id,name,effective_status,daily_budget,lifetime_budget}",
+    graphGetAllPages(`/${accountId}/campaigns`, token, {
+      fields: `id,name,effective_status,objective,daily_budget,lifetime_budget,adsets.limit(${ADSET_PAGE_SIZE}){${ADSET_FIELDS}}`,
       limit: 200,
     }),
-    graphGet(`/${accountId}/adspixels`, token, {
+    graphGetAllPages(`/${accountId}/adspixels`, token, {
       fields: "id,name,last_fired_time,creation_time",
     }),
     graphGetInsights(`/${accountId}/insights`, token, {
@@ -606,6 +637,10 @@ export default async function handler(req, res) {
   }
 
   const campaignsRaw = structureJson?.data || [];
+  // Per-campaign fetch failures are swallowed inside (allSettled) rather
+  // than thrown — a campaign that can't be topped up just keeps its
+  // already-fetched first page of ad sets instead of failing the report.
+  await fillTruncatedAdsets(campaignsRaw, token);
 
   const campaigns = campaignsRaw.map((c) => {
     const adsetsRaw = c.adsets?.data || [];

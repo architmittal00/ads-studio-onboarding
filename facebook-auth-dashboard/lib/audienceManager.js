@@ -1,4 +1,4 @@
-import { graphGet, graphPost } from "./facebookGraph";
+import { graphGetAllPages, graphPost } from "./facebookGraph";
 
 // Names tagged with our own prefix so a second launch finds and reuses these
 // instead of creating duplicates every time ("auto-create if missing" implies
@@ -11,8 +11,11 @@ const LOOKALIKE_NAME = "AUTO-Purchasers-LAL1pct-IN";
 const LOOKALIKE_RATIO = 0.01; // 1%, per the user — not configurable yet
 const LOOKALIKE_COUNTRY = "IN"; // matches the hardcoded India geo-targeting
 
+// Paginates to completion — an account with more than one page of custom
+// audiences (200+) would otherwise risk this not finding an
+// already-created one on later pages and creating a duplicate.
 async function findAudienceByName(accountId, token, name) {
-  const json = await graphGet(`/${accountId}/customaudiences`, token, {
+  const json = await graphGetAllPages(`/${accountId}/customaudiences`, token, {
     fields: "id,name,subtype",
     limit: 200,
   });

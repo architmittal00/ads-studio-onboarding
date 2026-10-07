@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet } from "@/lib/facebookGraph";
+import { graphGetAllPages } from "@/lib/facebookGraph";
 
 // Pages + pixels for one ad account, used by the Strategy launch panel's
 // Page/pixel pickers. Separate from /api/fb/data (which fetches ALL
@@ -19,8 +19,8 @@ export default async function handler(req, res) {
 
   try {
     const [pagesJson, pixelsJson] = await Promise.all([
-      graphGet("/me/accounts", session.accessToken, { fields: "id,name" }),
-      graphGet(`/${accountId}/adspixels`, session.accessToken, { fields: "id,name" }),
+      graphGetAllPages("/me/accounts", session.accessToken, { fields: "id,name" }),
+      graphGetAllPages(`/${accountId}/adspixels`, session.accessToken, { fields: "id,name" }),
     ]);
     res.status(200).json({ pages: pagesJson.data || [], pixels: pixelsJson.data || [] });
   } catch (err) {

@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet } from "@/lib/facebookGraph";
+import { graphGet, graphGetAllPages } from "@/lib/facebookGraph";
 
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
@@ -10,12 +10,15 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Paginated to completion — an agency token managing more Pages/ad
+    // accounts than fit on one page would otherwise silently lose the rest
+    // from every picker in the app.
     const [profile, pages, adAccounts] = await Promise.all([
       graphGet("/me", session.accessToken, { fields: "id,name,email,picture" }),
-      graphGet("/me/accounts", session.accessToken, { fields: "id,name,category" }).catch(() => ({
+      graphGetAllPages("/me/accounts", session.accessToken, { fields: "id,name,category" }).catch(() => ({
         data: [],
       })),
-      graphGet("/me/adaccounts", session.accessToken, {
+      graphGetAllPages("/me/adaccounts", session.accessToken, {
         fields: "id,name,account_status,currency",
       }).catch(() => ({ data: [] })),
     ]);
