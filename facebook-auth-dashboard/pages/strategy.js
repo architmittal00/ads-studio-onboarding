@@ -5,7 +5,14 @@ import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import LaunchPanel from "@/components/LaunchPanel";
-import { STRATEGIES, recommendStrategies, explainMismatch, roundBudgetAmount } from "@/lib/strategyEngine";
+import InterestTargetingSection from "@/components/InterestTargetingSection";
+import {
+  STRATEGIES,
+  recommendStrategies,
+  explainMismatch,
+  roundBudgetAmount,
+  countInterestAdsets,
+} from "@/lib/strategyEngine";
 import styles from "@/styles/Home.module.css";
 
 const FRESH_ACCOUNT = "__fresh__";
@@ -35,6 +42,25 @@ export default function Strategy() {
   const [launchAccountChoice, setLaunchAccountChoice] = useState("");
   const [showAllStrategies, setShowAllStrategies] = useState(false);
   const [launchingStrategy, setLaunchingStrategy] = useState(null);
+
+  // Interest targeting choices (Strategy 8 today, or any future
+  // interest-based strategy) are made directly on the recommendation card —
+  // not inside the Launch pop-up — so they're owned here, keyed by strategy
+  // id, and simply read back (not re-collected) once Launch is clicked.
+  const [interestChoicesByStrategy, setInterestChoicesByStrategy] = useState({});
+
+  function getInterestChoices(strategy) {
+    const count = countInterestAdsets(strategy);
+    if (count === 0) return [];
+    return interestChoicesByStrategy[strategy.id] || Array.from({ length: count }, () => []);
+  }
+
+  function setInterestChoice(strategy, index, values) {
+    setInterestChoicesByStrategy((prev) => {
+      const current = prev[strategy.id] || Array.from({ length: countInterestAdsets(strategy) }, () => []);
+      return { ...prev, [strategy.id]: current.map((c, i) => (i === index ? values : c)) };
+    });
+  }
 
   const [historySignal, setHistorySignal] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -278,17 +304,25 @@ export default function Strategy() {
               {recommendations.length === 0 ? (
                 <p className={styles.sub}>No matching strategy — this shouldn&apos;t happen; check the inputs above.</p>
               ) : (
-                recommendations.map((strategy, i) => (
-                  <StrategyCard
-                    key={strategy.id}
-                    strategy={strategy}
-                    rank={i}
-                    budget={hasBudget ? budgetNumber : null}
-                    currency={currency}
-                    canLaunch={!!launchAccountId}
-                    onLaunch={() => setLaunchingStrategy(strategy)}
-                  />
-                ))
+                recommendations.map((strategy, i) => {
+                  const interestChoices = getInterestChoices(strategy);
+                  const allInterestsChosen = interestChoices.length === 0 || interestChoices.every((g) => g.length > 0);
+                  return (
+                    <StrategyCard
+                      key={strategy.id}
+                      strategy={strategy}
+                      rank={i}
+                      budget={hasBudget ? budgetNumber : null}
+                      currency={currency}
+                      canLaunch={!!launchAccountId && allInterestsChosen}
+                      onLaunch={() => setLaunchingStrategy(strategy)}
+                      accountId={launchAccountId}
+                      hasHistory={hasHistory}
+                      interestChoices={interestChoices}
+                      setInterestChoice={(index, values) => setInterestChoice(strategy, index, values)}
+                    />
+                  );
+                })
               )}
 
               <button
@@ -322,7 +356,7 @@ export default function Strategy() {
           strategy={launchingStrategy}
           accountId={launchAccountId}
           dailyBudget={budgetNumber}
-          hasHistory={hasHistory}
+          interestChoices={getInterestChoices(launchingStrategy)}
           onClose={() => setLaunchingStrategy(null)}
         />
       )}
@@ -330,8 +364,53 @@ export default function Strategy() {
   );
 }
 
-function StrategyCard({ strategy, rank, budget, currency, mismatchReason, canLaunch, onLaunch }) {
+function StrategyCard({
+  strategy,
+  rank,
+  budget,
+  currency,
+  mismatchReason,
+  canLaunch,
+  onLaunch,
+  accountId,
+  hasHistory,
+  interestChoices,
+  setInterestChoice,
+}) {
   const notRecommended = mismatchReason !== undefined;
+  // Interest targeting (Strategy 8 today) is searched/chosen right here on
+  // the recommendation card — not inside the Launch pop-up — so only a
+  // launchable (recommended) card wires it up at all; the collapsed "other
+  // strategies" list below has no Launch button and stays plain text.
+  const showInterestPicker = !notRecommended && interestChoices;
+
+  // An id that shows up in more than one ad set's group, counted once per
+  // group it appears in — computed across the whole strategy (not just one
+  // campaign's slice) since a future strategy could spread interest ad sets
+  // across more than one campaign.
+  const duplicateInterestIds = showInterestPicker
+    ? (() => {
+        const adsetCountById = new Map();
+        for (const group of interestChoices) {
+          for (const id of new Set(group.map((c) => c.id))) {
+            adsetCountById.set(id, (adsetCountById.get(id) || 0) + 1);
+          }
+        }
+        return [...adsetCountById.entries()].filter(([, count]) => count > 1).map(([id]) => id);
+      })()
+    : [];
+
+  // Flat per-campaign offset into interestChoices, computed up front (no
+  // mutation during render) — must match pages/api/fb/launch-strategy.js's
+  // own flat interestChoiceIndex ordering (all interest ad sets across the
+  // whole strategy, in campaign order), so a group picked here lands on the
+  // right ad set at launch time.
+  const interestStartByCampaign = strategy.campaigns.reduce((acc, c) => {
+    const prevTotal = acc.length > 0 ? acc[acc.length - 1].total : 0;
+    const count = c.adsets.filter((a) => a.type === "interest").length;
+    acc.push({ start: prevTotal, total: prevTotal + count });
+    return acc;
+  }, []);
 
   return (
     <div className={styles.card} style={notRecommended ? { opacity: 0.8 } : undefined}>
@@ -353,29 +432,63 @@ function StrategyCard({ strategy, rank, budget, currency, mismatchReason, canLau
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {strategy.campaigns.map((c, i) => (
-          <div key={i} style={{ borderLeft: "2px solid var(--border)", paddingLeft: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-              <p style={{ fontWeight: 700, fontSize: 13, color: "var(--t1)" }}>{c.name}</p>
-              <p style={{ fontWeight: 800, fontSize: 13, color: "var(--purple)" }}>
-                {c.pct}%
-                {budget ? ` · ${formatMoney(roundBudgetAmount((budget * c.pct) / 100, budget), currency)}/day` : ""}
-              </p>
-            </div>
-            <p className={styles.sub}>{c.structure}</p>
-            {c.adsets.length === 1 ? (
-              <p className={styles.sub}>{c.adsets[0].label}</p>
-            ) : (
-              <ul className={styles.list} style={{ marginTop: 8 }}>
-                {c.adsets.map((a, j) => (
-                  <li key={j} className={styles.listItem} style={{ fontWeight: 500 }}>
-                    {a.label}
-                  </li>
+        {strategy.campaigns.map((c, i) => {
+          const interestAdsets = c.adsets.filter((a) => a.type === "interest");
+          const otherAdsets = c.adsets.filter((a) => a.type !== "interest");
+          const startIndex = interestStartByCampaign[i].start;
+
+          return (
+            <div key={i} style={{ borderLeft: "2px solid var(--border)", paddingLeft: 14 }}>
+              <div
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}
+              >
+                <p style={{ fontWeight: 700, fontSize: 13, color: "var(--t1)" }}>{c.name}</p>
+                <p style={{ fontWeight: 800, fontSize: 13, color: "var(--purple)" }}>
+                  {c.pct}%
+                  {budget ? ` · ${formatMoney(roundBudgetAmount((budget * c.pct) / 100, budget), currency)}/day` : ""}
+                </p>
+              </div>
+              <p className={styles.sub}>{c.structure}</p>
+
+              {otherAdsets.length > 0 &&
+                (otherAdsets.length === 1 && interestAdsets.length === 0 ? (
+                  <p className={styles.sub}>{otherAdsets[0].label}</p>
+                ) : (
+                  <ul className={styles.list} style={{ marginTop: 8 }}>
+                    {otherAdsets.map((a, j) => (
+                      <li key={j} className={styles.listItem} style={{ fontWeight: 500 }}>
+                        {a.label}
+                      </li>
+                    ))}
+                  </ul>
                 ))}
-              </ul>
-            )}
-          </div>
-        ))}
+
+              {interestAdsets.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  {!showInterestPicker ? (
+                    <ul className={styles.list} style={{ marginTop: 8 }}>
+                      {interestAdsets.map((a, j) => (
+                        <li key={j} className={styles.listItem} style={{ fontWeight: 500 }}>
+                          {a.label}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : accountId ? (
+                    <InterestTargetingSection
+                      accountId={accountId}
+                      hasHistory={hasHistory}
+                      interestChoices={interestChoices.slice(startIndex, startIndex + interestAdsets.length)}
+                      setInterestChoice={(localIndex, values) => setInterestChoice(startIndex + localIndex, values)}
+                      duplicateInterestIds={duplicateInterestIds}
+                    />
+                  ) : (
+                    <p className={styles.sub}>Pick an account to launch to above to choose interest targeting.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {!notRecommended && (
@@ -385,7 +498,13 @@ function StrategyCard({ strategy, rank, budget, currency, mismatchReason, canLau
           style={{ marginTop: 16 }}
           onClick={onLaunch}
           disabled={!canLaunch}
-          title={canLaunch ? undefined : "Pick a connected ad account above to launch (not available for a fresh/new account)"}
+          title={
+            canLaunch
+              ? undefined
+              : accountId
+              ? "Choose an interest for every ad set above to launch"
+              : "Pick a connected ad account above to launch (not available for a fresh/new account)"
+          }
         >
           Launch Strategy {strategy.id}
         </button>
