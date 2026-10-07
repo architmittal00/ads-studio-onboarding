@@ -190,6 +190,55 @@ async function fetchVideoSources(videoIds, token) {
   return sourceByVideoId;
 }
 
+// Facebook's bulk `/act_x/insights?level=ad` call — the one the main
+// ad-level query above uses, fetching every ad's data in one shot — computes
+// `reach` (and therefore `frequency = impressions / reach`) correctly for a
+// small number of ads, but silently falls over once more than
+// FREQUENCY_CHUNK_SIZE ads are reach-deduplicated together in one request:
+// `impressions` (a plain sum) stays accurate, but `reach` collapses to a
+// much smaller, wrong number, wildly inflating frequency. Confirmed live
+// against a real account/ad: querying it alongside 9 others (10 total)
+// returned the correct reach (matching Ads Manager and a single-ad query
+// exactly); adding just one more ad to the same request (11 total) dropped
+// reach from ~205,000 to 721 and inflated frequency from 1 to ~285 — a hard
+// cliff at exactly that boundary, not a gradual degradation. This re-fetches
+// `frequency` in small, safe-sized chunks (filtered to exact ad IDs via
+// `filtering`, which returns synchronously — small enough to never trigger
+// Facebook's async-job path) and overwrites the unreliable bulk value.
+//
+// This is one Graph API call per `FREQUENCY_CHUNK_SIZE` ads, so for an
+// account with many hundreds of active ads this is a meaningful number of
+// extra requests — chosen deliberately anyway, since a wrong high-frequency
+// reading looks exactly like real creative fatigue and sends someone
+// investigating a problem that doesn't exist.
+const FREQUENCY_CHUNK_SIZE = 10;
+
+async function fetchAccurateFrequency(adIds, accountId, timeRange, token) {
+  const frequencyByAdId = {};
+  if (adIds.length === 0) return frequencyByAdId;
+
+  const batches = chunk(adIds, FREQUENCY_CHUNK_SIZE);
+  const results = await Promise.allSettled(
+    batches.map((batch) =>
+      graphGetInsights(`/${accountId}/insights`, token, {
+        level: "ad",
+        fields: "ad_id,frequency",
+        time_range: timeRange,
+        filtering: [{ field: "ad.id", operator: "IN", value: batch }],
+        limit: FREQUENCY_CHUNK_SIZE,
+      })
+    )
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const row of result.value?.data || []) {
+      frequencyByAdId[row.ad_id] = parseFloat(row.frequency || 0);
+    }
+  }
+  return frequencyByAdId;
+}
+
 // Groups `items` (each with spend/revenue/purchases) by `keyFn`, sums each
 // group, and — unless `applyCutoff` is false — keeps only the highest-ranked
 // groups needed to reach 80% of the total for whichever `metric` is passed
@@ -540,14 +589,29 @@ export default async function handler(req, res) {
     };
   });
 
+  const adIds = adRowsBase.map((r) => r.id);
+
+  // Independent of each other — run concurrently rather than one after the
+  // other.
+  const [adDetailsResult, accurateFrequencyResult] = await Promise.allSettled([
+    fetchAdDetails(adIds, token),
+    fetchAccurateFrequency(adIds, accountId, graphTimeRange, token),
+  ]);
+
   let adDetailsById = {};
-  try {
-    adDetailsById = await fetchAdDetails(
-      adRowsBase.map((r) => r.id),
-      token
+  if (adDetailsResult.status === "fulfilled") {
+    adDetailsById = adDetailsResult.value;
+  } else {
+    warnings.push(`Ad details (status/thumbnail/video) unavailable: ${adDetailsResult.reason.message}`);
+  }
+
+  let accurateFrequencyByAdId = {};
+  if (accurateFrequencyResult.status === "fulfilled") {
+    accurateFrequencyByAdId = accurateFrequencyResult.value;
+  } else {
+    warnings.push(
+      `Could not verify ad-level frequency — showing Facebook's bulk-query value, which can be inflated for large accounts: ${accurateFrequencyResult.reason.message}`
     );
-  } catch (err) {
-    warnings.push(`Ad details (status/thumbnail/video) unavailable: ${err.message}`);
   }
 
   const videoIds = [...new Set(Object.values(adDetailsById).map((d) => d.videoId).filter(Boolean))];
@@ -583,6 +647,10 @@ export default async function handler(req, res) {
     const isVideo = !!details?.videoId;
     return {
       ...r,
+      // Prefer the chunked, verified value; fall back to the original bulk
+      // query's (potentially inflated) figure only if that ad's chunk
+      // failed to re-fetch — see fetchAccurateFrequency() above.
+      frequency: r.id in accurateFrequencyByAdId ? accurateFrequencyByAdId[r.id] : r.frequency,
       status: details?.status || null,
       thumbnailUrl: details?.thumbnailUrl || null,
       isVideo,
