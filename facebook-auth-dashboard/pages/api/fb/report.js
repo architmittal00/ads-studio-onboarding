@@ -558,24 +558,27 @@ export default async function handler(req, res) {
     };
   });
 
-  // Account-wide benchmark: average spend per active creative over the
-  // selected range. Used (instead of an arbitrary fixed number) as the
-  // reference point for "is this campaign/ad set spending too much per
-  // creative". Scales with whatever range is selected — a single "Today" or
-  // "Last 7 Days" is a noisier sample than "Last 30 Days", so treat
-  // recommendations from very short ranges with proportionate caution.
-  const totalAccountSpend = adRows.reduce((sum, r) => sum + r.spend, 0);
-  const totalActiveCreatives = new Set(adRows.filter((r) => r.spend > 0).map((r) => r.id)).size;
-  const accountAvgSpendPerCreative = totalActiveCreatives > 0 ? totalAccountSpend / totalActiveCreatives : 0;
-
-  function creativeRecommendation(agg) {
+  // Creative recommendation is budget-driven, not benchmarked against the
+  // account average: a campaign/ad set only needs more creatives if it is
+  // actually leaving its OWN daily budget unspent. We take its current avg
+  // spend per creative (its own avgDailySpend7d / creativeCount — a fully
+  // utilized budget tells us nothing about the right ratio) and ask how many
+  // creatives, at that same rate, would be needed to spend the full daily
+  // budget. E.g. ₹10k budget, ₹6k avg daily spend, 2 creatives → ₹3k/creative
+  // → ceil(10000/3000) = 4 creatives needed → +2 more.
+  // Only meaningful when utilization is under 100% — a fully (or over-)
+  // spent budget has nothing left for extra creatives to unlock.
+  function creativeRecommendation(agg, { dailyBudget, avgDailySpend7d, utilizationPct }) {
     const creativeCount = agg.creativeIds.size;
-    if (accountAvgSpendPerCreative <= 0) {
-      return { creativeCount, recommendedCreatives: null, additionalNeeded: null };
+    const avgSpendPerCreative = creativeCount > 0 ? avgDailySpend7d / creativeCount : null;
+    const isUnderUtilized = utilizationPct != null && utilizationPct < 100;
+    if (!isUnderUtilized || !dailyBudget || !avgSpendPerCreative || avgSpendPerCreative <= 0) {
+      return { creativeCount, avgSpendPerCreative, recommendedCreatives: null, additionalNeeded: null };
     }
-    const recommendedCreatives = Math.max(1, Math.ceil(agg.spend / accountAvgSpendPerCreative));
+    const recommendedCreatives = Math.ceil(dailyBudget / avgSpendPerCreative);
     return {
       creativeCount,
+      avgSpendPerCreative,
       recommendedCreatives,
       additionalNeeded: Math.max(0, recommendedCreatives - creativeCount),
     };
@@ -655,7 +658,7 @@ export default async function handler(req, res) {
         roasInRange: adsetAgg.spend > 0 ? adsetAgg.revenue / adsetAgg.spend : 0,
         avgDailySpend7d,
         utilizationPct,
-        ...creativeRecommendation(adsetAgg),
+        ...creativeRecommendation(adsetAgg, { dailyBudget: adsetDailyBudget, avgDailySpend7d, utilizationPct }),
         ads,
       };
     });
@@ -678,7 +681,11 @@ export default async function handler(req, res) {
       roasInRange: campAgg.spend > 0 ? campAgg.revenue / campAgg.spend : 0,
       avgDailySpend7d: avgDailySpend7dCampaign,
       utilizationPct: campaignUtilizationPct,
-      ...creativeRecommendation(campAgg),
+      ...creativeRecommendation(campAgg, {
+        dailyBudget: campaignDailyBudget,
+        avgDailySpend7d: avgDailySpend7dCampaign,
+        utilizationPct: campaignUtilizationPct,
+      }),
       adsets,
     };
   });
@@ -839,7 +846,6 @@ export default async function handler(req, res) {
   // side, so sorting by utilization% surfaces underspend and sorting by
   // "additional needed" surfaces creative gaps — same underlying row set.
   const budgetUtilization = {
-    accountAvgSpendPerCreative,
     cboCampaigns: campaigns
       .filter((c) => c.status === "ACTIVE" && c.budgetType === "CBO")
       .map((c) => ({
@@ -850,6 +856,7 @@ export default async function handler(req, res) {
         utilizationPct: c.utilizationPct,
         spendInRange: c.spendInRange,
         creativeCount: c.creativeCount,
+        avgSpendPerCreative: c.avgSpendPerCreative,
         recommendedCreatives: c.recommendedCreatives,
         additionalNeeded: c.additionalNeeded,
       }))
@@ -868,6 +875,7 @@ export default async function handler(req, res) {
             utilizationPct: a.utilizationPct,
             spendInRange: a.spendInRange,
             creativeCount: a.creativeCount,
+            avgSpendPerCreative: a.avgSpendPerCreative,
             recommendedCreatives: a.recommendedCreatives,
             additionalNeeded: a.additionalNeeded,
           }))

@@ -10,6 +10,8 @@ import styles from "@/styles/Home.module.css";
 // single line. `title` supplies the hover tooltip text (falls back to
 // row[key] if it's a string). `searchable` adds a text filter above the
 // table, matching `searchKeys` (default ["name"]) case-insensitively.
+// `rowClassName(row)` optionally returns a class name applied to that row's
+// `<tr>` — e.g. to highlight rows that need attention.
 export default function SortableTable({
   columns,
   rows,
@@ -18,6 +20,7 @@ export default function SortableTable({
   maxHeight = 360,
   emptyMessage = "No data.",
   onRowClick,
+  rowClassName,
   searchable = false,
   searchKeys = ["name"],
   searchPlaceholder = "Search…",
@@ -114,6 +117,7 @@ export default function SortableTable({
                 <tr
                   key={row.id ?? i}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={rowClassName ? rowClassName(row) : undefined}
                   style={onRowClick ? { cursor: "pointer" } : undefined}
                 >
                   {columns.map((col) => {
