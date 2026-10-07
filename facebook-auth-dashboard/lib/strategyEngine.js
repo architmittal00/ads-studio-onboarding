@@ -216,13 +216,16 @@ export const STRATEGIES = [
         pct: 100,
         funnel: "BOF",
         structure: "Interest-based (CBO) · 3 ad sets",
-        // All three stand in on "Beauty" for now (resolved live via
-        // targetingsearch at launch time, not a stored ID) until a real
-        // interest-picker UI replaces "Interest 1/2/3" with distinct choices.
+        // Each ad set's real interest is chosen by the user at launch time
+        // (components/InterestPicker.js — a live Meta-search picker,
+        // optionally pre-filled with AI-generated suggestions) rather than
+        // stored here. `interestQuery` stays null; launch-strategy.js
+        // requires a client-supplied `interestChoices` entry per ad set
+        // for this strategy instead of resolving one from a static string.
         adsets: [
-          { label: "Interest: Beauty", type: "interest", interestQuery: "Beauty" },
-          { label: "Interest: Beauty", type: "interest", interestQuery: "Beauty" },
-          { label: "Interest: Beauty", type: "interest", interestQuery: "Beauty" },
+          { label: "Interest 1", type: "interest", interestQuery: null },
+          { label: "Interest 2", type: "interest", interestQuery: null },
+          { label: "Interest 3", type: "interest", interestQuery: null },
         ],
       },
     ],

@@ -5,6 +5,12 @@
     },
     "pages/api/fb/launch-strategy.js": {
       "maxDuration": 60
+    },
+    "pages/api/fb/interest-recommendations.js": {
+      "maxDuration": 60
+    },
+    "pages/api/fb/top-landing-pages.js": {
+      "maxDuration": 45
     }
   }
 }

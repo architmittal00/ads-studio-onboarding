@@ -27,6 +27,12 @@ export default function Strategy() {
   const [currency, setCurrency] = useState("");
   const [experimentOpen, setExperimentOpen] = useState(null);
   const [accountChoice, setAccountChoice] = useState("");
+  // Only used when accountChoice === FRESH_ACCOUNT — a fresh/new account has
+  // no history to compute a signal from, but launching still needs a real
+  // Facebook ad account to create campaigns on. Kept separate from
+  // accountChoice (not reused/overloaded) so "which account informs the
+  // recommendation" and "which account receives the launch" can differ.
+  const [launchAccountChoice, setLaunchAccountChoice] = useState("");
   const [showAllStrategies, setShowAllStrategies] = useState(false);
   const [launchingStrategy, setLaunchingStrategy] = useState(null);
 
@@ -55,6 +61,13 @@ export default function Strategy() {
   const budgetNumber = parseFloat(dailyBudget);
   const hasBudget = !isNaN(budgetNumber) && budgetNumber > 0;
   const isRealAccount = accountChoice && accountChoice !== FRESH_ACCOUNT;
+
+  // The account a strategy actually launches to — always a real ad account,
+  // never the FRESH_ACCOUNT sentinel. For a real accountChoice this is just
+  // that account; for a fresh/new one it's whatever the user separately
+  // picks below, since Facebook has no concept of launching a campaign to a
+  // non-existent account.
+  const launchAccountId = isRealAccount ? accountChoice : launchAccountChoice;
 
   // Whether a connected account has "enough history" to justify a
   // retargeting-led strategy isn't something the user declares — it's
@@ -226,6 +239,30 @@ export default function Strategy() {
                   )}
                 </div>
               )}
+
+              {accountChoice === FRESH_ACCOUNT && (
+                <div style={{ marginTop: 12 }}>
+                  <p className={styles.sub} style={{ marginBottom: 10 }}>
+                    A fresh account has nothing to compute a recommendation from, but launching still needs a real
+                    ad account to create campaigns on — pick which one this strategy should actually launch to.
+                  </p>
+                  <select
+                    className={styles.select}
+                    style={{ width: "100%", maxWidth: 420 }}
+                    value={launchAccountChoice}
+                    onChange={(e) => setLaunchAccountChoice(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Select an account to launch to…
+                    </option>
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </section>
 
@@ -248,7 +285,7 @@ export default function Strategy() {
                     rank={i}
                     budget={hasBudget ? budgetNumber : null}
                     currency={currency}
-                    canLaunch={isRealAccount}
+                    canLaunch={!!launchAccountId}
                     onLaunch={() => setLaunchingStrategy(strategy)}
                   />
                 ))
@@ -283,8 +320,9 @@ export default function Strategy() {
       {launchingStrategy && (
         <LaunchPanel
           strategy={launchingStrategy}
-          accountId={accountChoice}
+          accountId={launchAccountId}
           dailyBudget={budgetNumber}
+          hasHistory={hasHistory}
           onClose={() => setLaunchingStrategy(null)}
         />
       )}

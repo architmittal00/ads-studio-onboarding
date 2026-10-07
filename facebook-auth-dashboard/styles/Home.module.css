@@ -99,6 +99,37 @@
   background: rgba(175, 70, 253, 0.05);
 }
 
+/* ── Search-as-you-type combo box (e.g. the Meta interest picker) ── */
+.comboWrapper {
+  position: relative;
+}
+.comboDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #15132a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+.comboOption {
+  padding: 9px 13px;
+  font-size: 12.5px;
+  color: var(--t1);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.comboOption:last-child {
+  border-bottom: none;
+}
+.comboOption:hover {
+  background: rgba(175, 70, 253, 0.08);
+}
+
 /* ── Badges / pills ── */
 .pill {
   display: inline-flex;
