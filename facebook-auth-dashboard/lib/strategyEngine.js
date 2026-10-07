@@ -232,6 +232,16 @@ export const STRATEGIES = [
   },
 ];
 
+// How many of this strategy's ad sets need a user-chosen Meta interest
+// (currently only Strategy 8, but derived from the data rather than a
+// hardcoded strategy id so any future interest-based strategy picks this up
+// automatically). Shared between pages/strategy.js (owns the choices, now
+// made directly on the recommendation card) and components/LaunchPanel.js
+// (reads them back at launch time).
+export function countInterestAdsets(strategy) {
+  return strategy.campaigns.reduce((sum, c) => sum + c.adsets.filter((a) => a.type === "interest").length, 0);
+}
+
 // Picks every strategy whose stated conditions match the two inputs this
 // tool collects (experimentOpen, hasHistory), ranked — not narrowed to one.
 // Strategy 1/5 and 2/6 share identical stated conditions and differ only in
