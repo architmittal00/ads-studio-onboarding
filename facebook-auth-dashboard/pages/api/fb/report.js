@@ -10,6 +10,9 @@ const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ADSET_PAGE_SIZE = 200;
 const ADSET_FIELDS = "id,name,effective_status,daily_budget,lifetime_budget";
 
+const UNKNOWN_LANDING_PAGE_LABEL = "Unknown landing page";
+const UNKNOWN_LANDING_PAGE_SPEND_CUTOFF_PCT = 10;
+
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
 }
@@ -837,8 +840,54 @@ export default async function handler(req, res) {
   const purchasesByProduct = groupAndPareto(adRows, (r) =>
     r.creativeType === "Catalog"
       ? "Catalog / Dynamic creative (no fixed landing URL)"
-      : extractLandingPageLabel(r.landingUrl) || "Unknown landing page"
+      : extractLandingPageLabel(r.landingUrl) || UNKNOWN_LANDING_PAGE_LABEL
   );
+
+  // "Unknown landing page" is shown only once it's a material share of
+  // spend (>10%) — below that it's noise (a handful of untracked ads) that
+  // just clutters a breakdown meant to highlight where money is going.
+  // Decided by spend, not revenue, since the whole point of this bucket is
+  // "spend we can't attribute to a product" — the normal 80%-of-revenue
+  // cutoff above would otherwise hide it entirely whenever it has little or
+  // no attributable revenue, which is exactly the case most worth flagging
+  // (spend with nothing to show for it), so this overrides that cutoff's
+  // decision in both directions rather than just filtering after the fact.
+  const unknownLandingPageAds = adRows.filter((r) => r.creativeType !== "Catalog" && !r.landingUrl);
+  const unknownLandingPageSpend = unknownLandingPageAds.reduce((sum, r) => sum + r.spend, 0);
+  const unknownLandingPageSpendPct = totalSpendAll > 0 ? (unknownLandingPageSpend / totalSpendAll) * 100 : 0;
+  const unknownIdx = purchasesByProduct.contributors.findIndex((c) => c.label === UNKNOWN_LANDING_PAGE_LABEL);
+
+  if (unknownLandingPageSpendPct > UNKNOWN_LANDING_PAGE_SPEND_CUTOFF_PCT) {
+    if (unknownIdx === -1 && unknownLandingPageAds.length > 0) {
+      const revenue = unknownLandingPageAds.reduce((sum, r) => sum + r.revenue, 0);
+      const purchases = unknownLandingPageAds.reduce((sum, r) => sum + r.purchases, 0);
+      purchasesByProduct.contributors.push({
+        label: UNKNOWN_LANDING_PAGE_LABEL,
+        spend: unknownLandingPageSpend,
+        revenue,
+        roas: unknownLandingPageSpend > 0 ? revenue / unknownLandingPageSpend : 0,
+        purchases,
+        revenueSharePct: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
+        spendSharePct: unknownLandingPageSpendPct,
+      });
+      purchasesByProduct.contributorCount += 1;
+    }
+  } else if (unknownIdx !== -1) {
+    purchasesByProduct.contributors.splice(unknownIdx, 1);
+    purchasesByProduct.contributorCount -= 1;
+  }
+
+  // Keep the section's "X% of revenue / Y% of spend" summary honest after
+  // the override above may have added or removed a row outside of
+  // groupAndPareto's own 80%-of-revenue cutoff math.
+  purchasesByProduct.revenueSharePct =
+    totalRevenue > 0
+      ? (purchasesByProduct.contributors.reduce((sum, c) => sum + c.revenue, 0) / totalRevenue) * 100
+      : 0;
+  purchasesByProduct.spendSharePct =
+    totalSpendAll > 0
+      ? (purchasesByProduct.contributors.reduce((sum, c) => sum + c.spend, 0) / totalSpendAll) * 100
+      : 0;
 
   // The specific ads behind the "Unknown landing page" bucket above, so this
   // is debuggable (in Ads Manager, or by checking the ad's own creative)
