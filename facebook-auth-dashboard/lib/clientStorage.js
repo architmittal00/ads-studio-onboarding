@@ -90,3 +90,26 @@ export function setSidebarCollapsed(collapsed) {
     // Private browsing / blocked storage — silently ignore, nothing to persist to.
   }
 }
+
+const EXPLORE_VIEWS_KEY = "fb-dashboard:explore-views";
+
+// The Explore page's open tabs — each tab's query spec (never its fetched
+// result, which is ephemeral and re-derived from lib/clientCache.js's own
+// 30-min cache on restore) plus which one was active, so reopening the page
+// shows the same tabs instead of a single blank one.
+export function getExploreViews() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(EXPLORE_VIEWS_KEY) || "null");
+    return parsed && Array.isArray(parsed.views) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setExploreViews(data) {
+  try {
+    localStorage.setItem(EXPLORE_VIEWS_KEY, JSON.stringify(data));
+  } catch {
+    // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}
