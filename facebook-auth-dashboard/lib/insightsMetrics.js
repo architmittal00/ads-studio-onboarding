@@ -61,6 +61,16 @@ function pickAnyActionValue(entries, actionTypes) {
 
 const ADD_TO_CART_TYPES = ["omni_add_to_cart", "add_to_cart", "offsite_conversion.fb_pixel_add_to_cart"];
 const LEAD_TYPES = ["omni_lead", "lead", "offsite_conversion.fb_pixel_lead"];
+const INITIATE_CHECKOUT_TYPES = [
+  "omni_initiated_checkout",
+  "initiate_checkout",
+  "offsite_conversion.fb_pixel_initiate_checkout",
+];
+const ADD_PAYMENT_INFO_TYPES = [
+  "omni_add_payment_info",
+  "add_payment_info",
+  "offsite_conversion.fb_pixel_add_payment_info",
+];
 
 // A single "video watched to X%" field is itself an actions-shaped array
 // (`[{action_type: "video_view", value: "123"}]`) rather than a plain
@@ -180,6 +190,22 @@ export const METRIC_CATALOG = [
     fields: ["actions"],
     extract: (r) => pickAnyActionValue(r.actions, ["landing_page_view"]),
   },
+  {
+    key: "initiate_checkout",
+    label: "Initiate Checkout",
+    group: "Conversions",
+    format: "number",
+    fields: ["actions"],
+    extract: (r) => pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES),
+  },
+  {
+    key: "add_payment_info",
+    label: "Add Payment Info",
+    group: "Conversions",
+    format: "number",
+    fields: ["actions"],
+    extract: (r) => pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES),
+  },
 
   // Video
   {
@@ -213,6 +239,43 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["video_p100_watched_actions"],
     extract: (r) => firstActionValue(r.video_p100_watched_actions),
+  },
+  // Hook/Hold Rate are this catalog's first metrics derived from two raw
+  // Graph fields read directly in `extract` (roas is the closest existing
+  // precedent, one scalar + one actions array; these are two actions
+  // arrays). Division by zero returns `null`, not `Infinity` — `a/0` is a
+  // real JS number `formatMetricValue`'s isNaN guard won't catch, and would
+  // otherwise print literally as "Infinity".
+  {
+    key: "hook_rate",
+    label: "Hook Rate",
+    group: "Video",
+    format: "percent",
+    fields: ["video_play_actions", "impressions"],
+    extract: (r) => {
+      const plays = firstActionValue(r.video_play_actions);
+      const impressions = parseFloat(r.impressions || 0);
+      return impressions > 0 ? (plays / impressions) * 100 : null;
+    },
+  },
+  {
+    key: "hold_rate",
+    label: "Hold Rate",
+    group: "Video",
+    format: "percent",
+    // ThruPlay (video_thruplay_watched_actions) is only populated for video
+    // ads actually optimized toward ThruPlay — for other ads Meta omits the
+    // field entirely, which must render "—" (not applicable), not "0.00%"
+    // (a real, measured zero). The explicit presence check is what tells
+    // these two cases apart; firstActionValue alone can't, since it treats
+    // "absent" and "present with 0" identically.
+    fields: ["video_thruplay_watched_actions", "video_play_actions"],
+    extract: (r) => {
+      if (!r.video_thruplay_watched_actions) return null;
+      const plays = firstActionValue(r.video_play_actions);
+      const thruplays = firstActionValue(r.video_thruplay_watched_actions);
+      return plays > 0 ? (thruplays / plays) * 100 : null;
+    },
   },
 
   // Quality rankings — categorical text, not chartable
