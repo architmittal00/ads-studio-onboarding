@@ -327,13 +327,30 @@ export function rowIdentityKey(row, level, breakdownGroupValue) {
   return `${idPart}::${breakdownPart}`;
 }
 
-// Human label for a row — whichever level-identifying name and/or breakdown
-// dimension values are present — used as the table's leading column and the
-// chart's category/x-axis label.
-export function rowLabel(row, level, breakdownGroupValue) {
+// The level-identifying name (e.g. an ad's name) — null at the account
+// level, where there's no per-row entity to name.
+export function rowEntityLabel(row, level) {
   const nameField = LEVEL_NAME_FIELD[level];
-  const namePart = nameField ? row[nameField] : null;
+  return nameField ? row[nameField] ?? null : null;
+}
+
+// The breakdown dimension's value(s) for a row (e.g. "25-34, male") — null
+// when no breakdown is selected.
+export function rowBreakdownLabel(row, breakdownGroupValue) {
   const group = getBreakdownGroup(breakdownGroupValue);
-  const breakdownPart = group.breakdowns.map((b) => row[b]).filter(Boolean).join(", ");
+  if (group.breakdowns.length === 0) return null;
+  return group.breakdowns.map((b) => row[b]).filter(Boolean).join(", ") || null;
+}
+
+// Combined human label for a row — used where a single identifying string
+// is actually wanted (the chart's category/x-axis/series-pivot key, where an
+// ad name and its breakdown value together are exactly the right grouping
+// key). The table shows the entity name and breakdown value as separate
+// columns instead (see rowEntityLabel/rowBreakdownLabel) — combining them
+// into one string there made an ad's own name indistinguishable from the
+// breakdown value next to it.
+export function rowLabel(row, level, breakdownGroupValue) {
+  const namePart = rowEntityLabel(row, level);
+  const breakdownPart = rowBreakdownLabel(row, breakdownGroupValue);
   return [namePart, breakdownPart].filter(Boolean).join(" — ") || "Total";
 }

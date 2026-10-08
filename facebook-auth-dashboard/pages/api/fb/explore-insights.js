@@ -8,6 +8,8 @@ import {
   deriveRowMetrics,
   rowIdentityKey,
   rowLabel,
+  rowEntityLabel,
+  rowBreakdownLabel,
 } from "@/lib/insightsMetrics";
 
 const MAX_RANGE_DAYS = 30;
@@ -134,7 +136,12 @@ export default async function handler(req, res) {
 
   const rows = currentRaw.map((row) => {
     const metrics = deriveRowMetrics(row, metricKeys, cleanCustomFields);
-    const out = { label: rowLabel(row, level, breakdownGroup), ...metrics };
+    const out = {
+      label: rowLabel(row, level, breakdownGroup),
+      entityLabel: rowEntityLabel(row, level),
+      breakdownLabel: rowBreakdownLabel(row, breakdownGroup),
+      ...metrics,
+    };
     if (row.date_start) out.date = row.date_start;
 
     if (compareToPrevious) {

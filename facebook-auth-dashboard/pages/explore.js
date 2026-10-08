@@ -472,8 +472,39 @@ function ExploreResultsTable({ result, currency }) {
   const { rows, meta } = result;
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
+  // A level's own name (e.g. an ad) and a breakdown's value (e.g. "25-34,
+  // male") are two different things about a row, not one — shown as
+  // separate columns whenever both are present, rather than combined into a
+  // single string where an ad's own name became indistinguishable from the
+  // breakdown value sitting next to it.
+  const hasDate = !!meta.timeIncrement;
+  const hasEntity = meta.level !== "account";
+  const hasBreakdown = meta.breakdownGroup !== "none";
+
+  const leadingColumns = [];
+  if (hasDate) {
+    leadingColumns.push({ key: "date", label: "Date", maxWidth: 120 });
+  }
+  if (hasEntity) {
+    leadingColumns.push({
+      key: "entityLabel",
+      label: LEVEL_OPTIONS.find((l) => l.value === meta.level)?.label || "Name",
+      maxWidth: 240,
+    });
+  }
+  if (hasBreakdown) {
+    leadingColumns.push({
+      key: "breakdownLabel",
+      label: BREAKDOWN_GROUPS.find((g) => g.value === meta.breakdownGroup)?.label || "Breakdown",
+      maxWidth: 200,
+    });
+  }
+  if (leadingColumns.length === 0) {
+    leadingColumns.push({ key: "label", label: "Total", maxWidth: 160 });
+  }
+
   const columns = [
-    { key: "label", label: meta.breakdownGroup === "none" ? "Period" : "Breakdown", maxWidth: 260 },
+    ...leadingColumns,
     ...allKeys.map((key) => {
       const metric = METRIC_CATALOG.find((m) => m.key === key);
       const format = metric?.format || "number";
@@ -506,7 +537,7 @@ function ExploreResultsTable({ result, currency }) {
         defaultSortKey={meta.metricKeys[0] || "label"}
         maxHeight={480}
         searchable={rows.length > 6}
-        searchKeys={["label"]}
+        searchKeys={leadingColumns.map((c) => c.key)}
         searchPlaceholder="Search rows…"
       />
     </div>
