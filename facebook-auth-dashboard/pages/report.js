@@ -11,8 +11,9 @@ import MetricTrendModal from "@/components/MetricTrendModal";
 import Loader from "@/components/Loader";
 import DefaultRangeModal from "@/components/DefaultRangeModal";
 import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon, SettingsIcon } from "@/components/icons";
-import { getLastAccountId, setLastAccountId, getDefaultRangePreset, setDefaultRangePreset } from "@/lib/clientStorage";
+import { getDefaultRangePreset, setDefaultRangePreset } from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry, DEFAULT_CACHE_TTL_MS } from "@/lib/clientCache";
+import { useAccounts } from "@/components/AccountProvider";
 import styles from "@/styles/Home.module.css";
 
 // How long a report payload for a given (account, range) stays usable
@@ -223,9 +224,7 @@ const SECTIONS = [
 ];
 
 export default function Report() {
-  const [accounts, setAccounts] = useState([]);
-  const [accountsError, setAccountsError] = useState(null);
-  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const { adAccounts: accounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
 
   const [report, setReport] = useState(null);
   const [reportError, setReportError] = useState(null);
@@ -279,24 +278,6 @@ export default function Report() {
   const currency = accounts.find((a) => a.id === selectedAccountId)?.currency;
 
   useEffect(() => {
-    fetch("/api/fb/data")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.error) {
-          setAccountsError(json.error);
-        } else {
-          setAccounts(json.adAccounts || []);
-          if (json.adAccounts?.length) {
-            const lastId = getLastAccountId();
-            const stillExists = json.adAccounts.some((a) => a.id === lastId);
-            setSelectedAccountId(stillExists ? lastId : json.adAccounts[0].id);
-          }
-        }
-      })
-      .catch((err) => setAccountsError(err.message));
-  }, []);
-
-  useEffect(() => {
     if (!selectedAccountId) return;
     // Waits for the default-range effect above to resolve the saved
     // preference (or last_30d) before fetching anything, so there's no
@@ -305,8 +286,6 @@ export default function Report() {
     // Custom range waits for the user to hit Apply with both dates filled,
     // rather than firing a request on every keystroke in the date inputs.
     if (rangePreset === "custom" && !appliedCustomRange) return;
-
-    setLastAccountId(selectedAccountId);
 
     const since = appliedCustomRange?.since;
     const until = appliedCustomRange?.until;

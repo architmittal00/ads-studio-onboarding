@@ -6,6 +6,8 @@ import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import LaunchPanel from "@/components/LaunchPanel";
 import InterestTargetingSection from "@/components/InterestTargetingSection";
+import { useAccounts } from "@/components/AccountProvider";
+import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import {
   STRATEGIES,
   recommendStrategies,
@@ -27,8 +29,12 @@ function formatMoney(amount, currency) {
 }
 
 export default function Strategy() {
-  const [accounts, setAccounts] = useState([]);
-  const [accountsError, setAccountsError] = useState(null);
+  const {
+    adAccounts: accounts,
+    accountsError,
+    selectedAccountId: sharedAccountId,
+    setSelectedAccountId: setSharedAccountId,
+  } = useAccounts();
 
   const [dailyBudget, setDailyBudget] = useState("");
   const [currency, setCurrency] = useState("");
@@ -66,21 +72,33 @@ export default function Strategy() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
 
+  // Seeds this page's own account choice from the shared selection (picked
+  // on Dashboard/Report/here previously) the first time it's available —
+  // the account list itself now comes from the shared AccountProvider
+  // (components/AccountProvider.js) instead of this page independently
+  // fetching /api/fb/data, fixing a pre-existing bug where this was the one
+  // page that never even persisted its own last-chosen account. Only seeds
+  // once and only with a real account id — the FRESH_ACCOUNT sentinel is
+  // this page's own concept, never written into the shared selection.
   useEffect(() => {
-    fetch("/api/fb/data")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.error) setAccountsError(json.error);
-        else setAccounts(json.adAccounts || []);
-      })
-      .catch((err) => setAccountsError(err.message));
-  }, []);
+    if (accountChoice || !sharedAccountId) return;
+    const acc = accounts.find((a) => a.id === sharedAccountId);
+    if (!acc) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time seed from shared context state, not a derived-state anti-pattern
+    setAccountChoice(sharedAccountId);
+    if (acc.currency) setCurrency(acc.currency);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- accountChoice intentionally excluded, see guard above
+  }, [sharedAccountId, accounts]);
 
   function handleAccountChoice(id) {
     setAccountChoice(id);
     if (id !== FRESH_ACCOUNT) {
       const acc = accounts.find((a) => a.id === id);
       if (acc?.currency) setCurrency(acc.currency);
+      // Keeps the cross-tab selection in sync — picking a real account here
+      // shows it already selected on Dashboard/Report too. Picking "fresh"
+      // deliberately does NOT touch the shared selection (see above).
+      setSharedAccountId(id);
     }
   }
 
@@ -111,6 +129,18 @@ export default function Strategy() {
       return;
     }
 
+    // Seen this exact account+budget within the last 30 minutes — skip the
+    // fetch (and its debounce) entirely, same shared cache as every other
+    // page (lib/clientCache.js).
+    const cacheKey = `strategy-signal:${accountChoice}:${budgetNumber}`;
+    const cached = getCachedEntry(cacheKey);
+    if (cached) {
+      setHistorySignal(cached.data);
+      setHistoryError(null);
+      setHistoryLoading(false);
+      return;
+    }
+
     let ignore = false;
     setHistoryLoading(true);
     setHistoryError(null);
@@ -125,7 +155,10 @@ export default function Strategy() {
         .then((json) => {
           if (ignore) return;
           if (json.error) setHistoryError(json.error);
-          else setHistorySignal(json);
+          else {
+            setHistorySignal(json);
+            setCachedEntry(cacheKey, json);
+          }
         })
         .catch((err) => {
           if (!ignore) setHistoryError(err.message);
