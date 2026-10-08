@@ -246,6 +246,43 @@ export function getMetric(key) {
   return METRIC_CATALOG.find((m) => m.key === key);
 }
 
+// Shared number formatting for a metric's table cell/chart tooltip, driven
+// by its catalog `format` tag — one place so the Explore table and chart
+// always agree on how a given metric reads. `currency` is only used for
+// `format: "currency"`; falls back to a plain number if omitted (matches
+// the rest of this app's `money()`-less-currency fallback convention).
+export function formatMetricValue(value, format, currency) {
+  if (value == null) return "—";
+  if (format === "text") return String(value);
+  if (typeof value !== "number" || isNaN(value)) return "—";
+  switch (format) {
+    case "currency":
+      if (!currency) return value.toFixed(2);
+      try {
+        return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+      } catch {
+        return `${value.toFixed(2)} ${currency}`;
+      }
+    case "percent":
+      return `${value.toFixed(2)}%`;
+    case "decimal":
+      return value.toFixed(2);
+    case "number":
+      return Math.round(value).toLocaleString("en-US");
+    default:
+      return String(value);
+  }
+}
+
+// Only these formats are plottable as a numeric axis — "text" rankings
+// (quality_ranking etc.) are table-only.
+const CHARTABLE_FORMATS = new Set(["number", "currency", "percent", "decimal"]);
+
+export function isChartableMetric(key) {
+  const metric = getMetric(key);
+  return !!metric && CHARTABLE_FORMATS.has(metric.format);
+}
+
 // Deduped raw Graph API `fields` needed to compute every selected catalog
 // metric, plus the chosen level's identifying fields, plus any raw
 // passthrough field names typed into the "custom field" escape hatch.
