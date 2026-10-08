@@ -452,6 +452,22 @@ export default function Explore() {
   );
 }
 
+// The delta, when comparing, renders directly under its own metric's value
+// in the same cell/column — not as a separate trailing column. With several
+// metrics selected, a separate "<Metric> Δ%" column per metric pushed the
+// comparison for e.g. Spend far off to the right of the Spend column itself,
+// behind a horizontal scroll, making the two hard to read together.
+function DeltaBadge({ value }) {
+  if (typeof value !== "number") return null;
+  const color = value > 0 ? "#4ade80" : value < 0 ? "#ff7070" : "var(--t2)";
+  const arrow = value > 0 ? "▲" : value < 0 ? "▼" : "";
+  return (
+    <div style={{ fontSize: 11, color, marginTop: 2 }}>
+      {arrow} {Math.abs(value).toFixed(1)}%
+    </div>
+  );
+}
+
 function ExploreResultsTable({ result, currency }) {
   const { rows, meta } = result;
   const allKeys = [...meta.metricKeys, ...meta.customFields];
@@ -462,34 +478,25 @@ function ExploreResultsTable({ result, currency }) {
       const metric = METRIC_CATALOG.find((m) => m.key === key);
       const format = metric?.format || "number";
       const label = metric?.label || key;
+      const comparable = meta.compareToPrevious && format !== "text";
       return {
         key,
         label,
         align: "right",
         sortValue: (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
-        render: (row) => formatMetricValue(row[key], format, currency),
+        render: (row) => {
+          const value = formatMetricValue(row[key], format, currency);
+          if (!comparable) return value;
+          return (
+            <div>
+              <div>{value}</div>
+              <DeltaBadge value={row._deltaPct?.[key]} />
+            </div>
+          );
+        },
       };
     }),
   ];
-
-  if (meta.compareToPrevious) {
-    for (const key of allKeys) {
-      const metric = METRIC_CATALOG.find((m) => m.key === key);
-      if (!metric || metric.format === "text") continue;
-      columns.push({
-        key: `${key}_delta`,
-        label: `${metric.label} Δ%`,
-        align: "right",
-        sortValue: (row) => (typeof row._deltaPct?.[key] === "number" ? row._deltaPct[key] : -Infinity),
-        render: (row) => {
-          const v = row._deltaPct?.[key];
-          if (typeof v !== "number") return "—";
-          const color = v > 0 ? "#4ade80" : v < 0 ? "#ff7070" : "var(--t2)";
-          return <span style={{ color }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
-        },
-      });
-    }
-  }
 
   return (
     <div style={{ overflowX: "auto" }}>
