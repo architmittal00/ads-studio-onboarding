@@ -414,9 +414,13 @@ export default function Explore() {
     const hydrated = persisted.views.map((v) => {
       // Migrate a view persisted before multi-account support (single
       // `accountId`) to the current `accountIds` array shape, before
-      // anything below reads it.
+      // anything below reads it. Same reasoning for `nameFilters`/
+      // `compareCustomSince` — a view saved before those fields existed has
+      // neither, and several render paths below call `.length`/`.filter` on
+      // `nameFilters` with no further fallback, so this is where it has to
+      // be backfilled, not just wherever it's read.
       const accountIds = v.accountIds ?? (v.accountId ? [v.accountId] : []);
-      const migrated = { ...v, accountIds };
+      const migrated = { ...v, accountIds, nameFilters: v.nameFilters || [], compareCustomSince: v.compareCustomSince || "" };
       delete migrated.accountId;
       const cached =
         accountIds.length > 0 && v.metricKeys?.length > 0
@@ -566,12 +570,12 @@ export default function Explore() {
   function addNameFilter() {
     const value = newFilterValue.trim();
     if (!value || !effectiveNewFilterField) return;
-    updateActive((v) => ({ nameFilters: [...v.nameFilters, { id: newViewId(), field: effectiveNewFilterField, value }] }));
+    updateActive((v) => ({ nameFilters: [...(v.nameFilters || []), { id: newViewId(), field: effectiveNewFilterField, value }] }));
     setNewFilterValue("");
   }
 
   function removeNameFilter(id) {
-    updateActive((v) => ({ nameFilters: v.nameFilters.filter((f) => f.id !== id) }));
+    updateActive((v) => ({ nameFilters: (v.nameFilters || []).filter((f) => f.id !== id) }));
   }
 
   const result = activeView.result;
@@ -874,7 +878,7 @@ export default function Explore() {
                       + Exclude
                     </button>
                   </div>
-                  {activeView.nameFilters.length > 0 && (
+                  {(activeView.nameFilters || []).length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
                       {activeView.nameFilters.map((f) => (
                         <span key={f.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
