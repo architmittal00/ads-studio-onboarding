@@ -25,7 +25,7 @@ import styles from "@/styles/Home.module.css";
 // server-rendered — loaded only on this route, only on the client.
 const ExploreChart = dynamic(() => import("@/components/ExploreChart"), { ssr: false });
 
-const MAX_RANGE_DAYS = 30;
+const MAX_RANGE_DAYS = 90;
 const EXPLORE_CACHE_PREFIX = "explore:";
 const EXPLORE_CACHE_MAX_ENTRIES = 50;
 const MAX_VIEWS = 15;
@@ -36,6 +36,7 @@ const RANGE_PRESETS = [
   { key: "last_7d", label: "Last 7 Days" },
   { key: "last_14d", label: "Last 14 Days" },
   { key: "last_30d", label: "Last 30 Days" },
+  { key: "last_90d", label: "Last 90 Days" },
   { key: "custom", label: "Custom" },
 ];
 
@@ -86,6 +87,9 @@ const MAX_ACCOUNTS_PER_VIEW = 10;
 function createBlankView(seedAccountId = "") {
   return {
     id: newViewId(),
+    // A user-chosen tab name, overriding the auto-derived account/level
+    // title below — null until they rename it (double-click the tab).
+    customTitle: null,
     accountIds: seedAccountId ? [seedAccountId] : [],
     rangePreset: "last_30d",
     customSince: "",
@@ -138,6 +142,8 @@ function computeRange(preset, customSince, customUntil) {
       return { since: addDaysUTC(isoDate(today), -13), until: isoDate(today) };
     case "last_30d":
       return { since: addDaysUTC(isoDate(today), -29), until: isoDate(today) };
+    case "last_90d":
+      return { since: addDaysUTC(isoDate(today), -89), until: isoDate(today) };
     case "custom":
       return customSince && customUntil ? { since: customSince, until: customUntil } : null;
     default:
@@ -216,6 +222,10 @@ function withCapApplied(viewsList, protectedId) {
 }
 
 function viewTitle(view, adAccounts, fallbackIndex) {
+  // A user-set name wins outright — no auto-appended level suffix either,
+  // so renaming a tab gives full control over what it says, not just a
+  // prefix in front of what this function would otherwise have produced.
+  if (view.customTitle) return view.customTitle;
   const names = view.accountIds.map((id) => adAccounts.find((a) => a.id === id)?.name).filter(Boolean);
   const base =
     names.length === 0
@@ -242,6 +252,25 @@ export default function Explore() {
   const [views, setViews] = useState(() => [createBlankView("")]);
   const [activeViewId, setActiveViewId] = useState(() => views[0].id);
   const activeView = views.find((v) => v.id === activeViewId) || views[0];
+
+  // Which tab (if any) is currently showing its rename text input in place
+  // of its label — at most one at a time, cleared on commit/cancel/blur.
+  const [renamingViewId, setRenamingViewId] = useState(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  function startRenaming(view, fallbackIndex) {
+    setRenamingViewId(view.id);
+    setRenameDraft(view.customTitle || viewTitle(view, adAccounts, fallbackIndex));
+  }
+
+  function commitRename() {
+    if (renamingViewId) updateView(renamingViewId, { customTitle: renameDraft.trim() || null });
+    setRenamingViewId(null);
+  }
+
+  function cancelRename() {
+    setRenamingViewId(null);
+  }
 
   // Per-account currency lookup — the table formats each row in its OWN
   // account's currency (a row's `accountId` is always present, single- or
@@ -417,7 +446,18 @@ export default function Explore() {
   }
 
   function createNewViewFromActive() {
-    const newView = { ...activeView, id: newViewId(), result: null, resultFetchedAt: null, loading: false, error: null };
+    // customTitle resets — a duplicated tab showing the active tab's own
+    // custom name would read as two tabs with the same, now-ambiguous label;
+    // it falls back to the usual auto-derived account/level title instead.
+    const newView = {
+      ...activeView,
+      id: newViewId(),
+      customTitle: null,
+      result: null,
+      resultFetchedAt: null,
+      loading: false,
+      error: null,
+    };
     setViews((prev) => [...withCapApplied(prev, activeViewId), newView]);
     setActiveViewId(newView.id);
     runQueryForView(newView, false);
@@ -483,21 +523,35 @@ export default function Explore() {
         <main className={styles.main} style={{ maxWidth: 1200, margin: "0 auto" }}>
           <h1 className={styles.h1}>Explore</h1>
           <p className={styles.sub} style={{ marginTop: -8 }}>
-            Build any view of Facebook Ads data — pick an account, a date range (up to 30 days), a level, a
+            Build any view of Facebook Ads data — pick an account, a date range (up to 90 days), a level, a
             breakdown, and whatever metrics you want, then view it as a table or chart. Keep several views open at
             once, like browser tabs — each with its own account and query.
           </p>
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 6, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 6,
+              flexWrap: "wrap",
+              position: "sticky",
+              top: 0,
+              zIndex: 5,
+              background: "var(--bg)",
+              paddingTop: 8,
+              paddingBottom: 2,
+            }}
+          >
             {views.map((v, i) => {
               const isActive = v.id === activeViewId;
+              const isRenaming = renamingViewId === v.id;
               return (
                 <div
                   key={v.id}
                   onClick={() => setActiveViewId(v.id)}
-                  title={viewTitle(v, adAccounts, i)}
+                  title={isRenaming ? undefined : `${viewTitle(v, adAccounts, i)} — double-click to rename`}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -507,7 +561,7 @@ export default function Explore() {
                     cursor: "pointer",
                     fontSize: 12.5,
                     fontWeight: 600,
-                    maxWidth: 190,
+                    maxWidth: isRenaming ? 220 : 190,
                     background: isActive ? "var(--bg)" : "transparent",
                     border: "1px solid var(--border)",
                     borderBottom: isActive ? "2px solid var(--purple)" : "1px solid var(--border)",
@@ -515,10 +569,33 @@ export default function Explore() {
                   }}
                 >
                   {v.loading && <span className={`${styles.spinner} ${styles.spinnerSm}`} />}
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {viewTitle(v, adAccounts, i)}
-                  </span>
-                  {views.length > 1 && (
+                  {isRenaming ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      className={styles.select}
+                      value={renameDraft}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") cancelRename();
+                      }}
+                      style={{ width: 140, fontSize: 12.5, padding: "2px 6px" }}
+                    />
+                  ) : (
+                    <span
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        startRenaming(v, i);
+                      }}
+                      style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    >
+                      {viewTitle(v, adAccounts, i)}
+                    </span>
+                  )}
+                  {views.length > 1 && !isRenaming && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -861,12 +938,14 @@ export default function Explore() {
 
               {result.meta.accountErrors?.length > 0 && (
                 <div className={styles.error}>
-                  Showing the {result.meta.accountIds.length - result.meta.accountErrors.length} account
-                  {result.meta.accountIds.length - result.meta.accountErrors.length === 1 ? "" : "s"} that returned
-                  data — {result.meta.accountErrors
+                  {/* An account here may have zero rows (its only/every request failed) or still have partial
+                      data (one of several chunked date-range requests failed, the rest succeeded) — this note
+                      doesn't distinguish the two, just flags that something didn't come back clean. */}
+                  Some data may be missing or incomplete —{" "}
+                  {result.meta.accountErrors
                     .map((e) => `${adAccounts.find((a) => a.id === e.accountId)?.name || e.accountId} (${e.message})`)
-                    .join(", ")}{" "}
-                  failed.
+                    .join(", ")}
+                  .
                 </div>
               )}
 
