@@ -63,18 +63,30 @@ function newCustomMetricId() {
 // is scoped to.
 const CHARTABLE_FORMATS = new Set(["number", "currency", "percent", "decimal"]);
 
-function isChartableInCatalog(key, catalog) {
+// A currency-format metric can't be honestly charted on one shared axis once
+// more than one (possibly differently-currencied) account is selected — it
+// stays table-only (where each row already renders in its own account's
+// currency) rather than silently picking one account's currency for the
+// whole chart. `accountCount` is the number of accounts in the *result*
+// being charted, not necessarily the view's current selection.
+function isChartableForView(key, catalog, accountCount) {
   const metric = catalog.find((m) => m.key === key);
-  return !!metric && CHARTABLE_FORMATS.has(metric.format);
+  if (!metric || !CHARTABLE_FORMATS.has(metric.format)) return false;
+  if (metric.format === "currency" && accountCount > 1) return false;
+  return true;
 }
 
-// One independent tab: its own account, its own query spec, its own
-// fetched result/loading/error and view-mode — switching tabs never
-// touches another tab's state.
+const MAX_ACCOUNTS_PER_VIEW = 10;
+
+// One independent tab: its own account(s), its own query spec, its own
+// fetched result/loading/error and view-mode — switching tabs never touches
+// another tab's state. `accountIds` is always an array (even length-1) —
+// a single uniform field rather than a separate "one account" vs "several
+// accounts" shape to keep in sync.
 function createBlankView(seedAccountId = "") {
   return {
     id: newViewId(),
-    accountId: seedAccountId,
+    accountIds: seedAccountId ? [seedAccountId] : [],
     rangePreset: "last_30d",
     customSince: "",
     customUntil: "",
@@ -153,7 +165,10 @@ function parseCustomFields(text) {
 function buildQuerySpecFromView(view, customMetrics) {
   const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
   return {
-    accountId: view.accountId,
+    // Sorted so picking the same accounts in a different order (the
+    // multi-select doesn't guarantee pick order survives) still produces the
+    // same cache key / request body.
+    accountIds: [...view.accountIds].sort(),
     level: view.level,
     breakdownGroup: view.breakdownGroup,
     metricKeys: view.metricKeys,
@@ -173,11 +188,11 @@ function isViewRunnable(view, catalog) {
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
   const metricsResolve = view.metricKeys.length > 0 && view.metricKeys.every((k) => catalog.some((m) => m.key === k));
-  return !!view.accountId && rangeValid && metricsResolve;
+  return view.accountIds.length > 0 && rangeValid && metricsResolve;
 }
 
-function firstChartableKey(metricKeys, catalog) {
-  return metricKeys.find((k) => isChartableInCatalog(k, catalog)) || null;
+function firstChartableKey(metricKeys, catalog, accountCount) {
+  return metricKeys.find((k) => isChartableForView(k, catalog, accountCount)) || null;
 }
 
 async function fetchExploreInsights(body) {
@@ -201,8 +216,13 @@ function withCapApplied(viewsList, protectedId) {
 }
 
 function viewTitle(view, adAccounts, fallbackIndex) {
-  const account = adAccounts.find((a) => a.id === view.accountId);
-  const base = account?.name || `View ${fallbackIndex + 1}`;
+  const names = view.accountIds.map((id) => adAccounts.find((a) => a.id === id)?.name).filter(Boolean);
+  const base =
+    names.length === 0
+      ? `View ${fallbackIndex + 1}`
+      : names.length === 1
+        ? names[0]
+        : `${names[0]} +${names.length - 1} more`;
   if (view.level === "account") return base;
   const levelLabel = LEVEL_OPTIONS.find((l) => l.value === view.level)?.label;
   return `${base} · ${levelLabel}`;
@@ -223,7 +243,17 @@ export default function Explore() {
   const [activeViewId, setActiveViewId] = useState(() => views[0].id);
   const activeView = views.find((v) => v.id === activeViewId) || views[0];
 
-  const currency = adAccounts.find((a) => a.id === activeView.accountId)?.currency;
+  // Per-account currency lookup — the table formats each row in its OWN
+  // account's currency (a row's `accountId` is always present, single- or
+  // multi-account alike), rather than one view-level currency that would be
+  // wrong for every account but the first once more than one is selected.
+  const currencyByAccountId = useMemo(() => new Map(adAccounts.map((a) => [a.id, a.currency])), [adAccounts]);
+  // The chart, by contrast, keeps a single shared axis — only meaningful for
+  // exactly one account's currency, and only ever actually used when a
+  // currency-format metric is charted, which isChartableForView already
+  // restricts to the single-account case.
+  const chartCurrency =
+    activeView.accountIds.length === 1 ? currencyByAccountId.get(activeView.accountIds[0]) : undefined;
 
   // User-defined ratio metrics (numerator ÷ denominator, both built-in
   // catalog keys), shared across every open view — not per-view state, since
@@ -298,12 +328,18 @@ export default function Explore() {
     // list honestly empty for what's a genuine one-time restore.
     const customMetricsAtMount = getCustomMetrics();
     const hydrated = persisted.views.map((v) => {
+      // Migrate a view persisted before multi-account support (single
+      // `accountId`) to the current `accountIds` array shape, before
+      // anything below reads it.
+      const accountIds = v.accountIds ?? (v.accountId ? [v.accountId] : []);
+      const migrated = { ...v, accountIds };
+      delete migrated.accountId;
       const cached =
-        v.accountId && v.metricKeys?.length > 0
-          ? getCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(v, customMetricsAtMount)))
+        accountIds.length > 0 && v.metricKeys?.length > 0
+          ? getCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(migrated, customMetricsAtMount)))
           : null;
       return {
-        ...v,
+        ...migrated,
         result: cached?.data ?? null,
         resultFetchedAt: cached?.fetchedAt ?? null,
         loading: false,
@@ -326,7 +362,7 @@ export default function Explore() {
     hasSeededInitialAccountRef.current = true;
     // One-time seed of the first tab's account once the shared selector
     // resolves, not derived state.
-    setViews((prev) => prev.map((v, i) => (i === 0 && !v.accountId ? { ...v, accountId: selectedAccountId } : v)));
+    setViews((prev) => prev.map((v, i) => (i === 0 && v.accountIds.length === 0 ? { ...v, accountIds: [selectedAccountId] } : v)));
   }, [selectedAccountId]);
 
   // Persists the open tabs' query specs (never their fetched results, which
@@ -359,7 +395,7 @@ export default function Explore() {
           result: cached.data,
           resultFetchedAt: cached.fetchedAt,
           error: null,
-          chartMetricKey: firstChartableKey(cached.data.meta.metricKeys, effectiveCatalog),
+          chartMetricKey: firstChartableKey(cached.data.meta.metricKeys, effectiveCatalog, cached.data.meta.accountIds.length),
         });
         return;
       }
@@ -372,7 +408,7 @@ export default function Explore() {
           result: json,
           resultFetchedAt: Date.now(),
           error: null,
-          chartMetricKey: firstChartableKey(json.meta.metricKeys, effectiveCatalog),
+          chartMetricKey: firstChartableKey(json.meta.metricKeys, effectiveCatalog, json.meta.accountIds.length),
         });
         setCachedEntry(cacheKey, json, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
       })
@@ -413,14 +449,30 @@ export default function Explore() {
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
   const metricsResolve =
     activeView.metricKeys.length > 0 && activeView.metricKeys.every((k) => effectiveCatalog.some((m) => m.key === k));
-  const canRunQuery = !!activeView.accountId && rangeValid && metricsResolve;
+  const canRunQuery = activeView.accountIds.length > 0 && rangeValid && metricsResolve;
   const compareDisabled = activeView.timeIncrement !== "";
 
   const customFields = useMemo(() => parseCustomFields(activeView.customFieldsText), [activeView.customFieldsText]);
 
   const result = activeView.result;
-  const chartableMetricKeys = result ? result.meta.metricKeys.filter((k) => isChartableInCatalog(k, effectiveCatalog)) : [];
+  const chartableMetricKeys = result
+    ? result.meta.metricKeys.filter((k) => isChartableForView(k, effectiveCatalog, result.meta.accountIds.length))
+    : [];
   const isRerun = activeView.loading && !!result;
+
+  // Prefixes each row's `label` with its account's name whenever more than
+  // one account is selected, so ExploreChart's pivot-by-label logic
+  // naturally separates accounts into distinct lines/bars/series — purely a
+  // render-time view of the data, never mutating `result.rows` itself (the
+  // same row objects may be sitting in lib/clientCache.js's stored entry).
+  const chartRows = useMemo(() => {
+    if (!result) return [];
+    if (result.meta.accountIds.length <= 1) return result.rows;
+    return result.rows.map((r) => ({
+      ...r,
+      label: `${adAccounts.find((a) => a.id === r.accountId)?.name || r.accountId} — ${r.label}`,
+    }));
+  }, [result, adAccounts]);
 
   return (
     <Layout>
@@ -504,10 +556,16 @@ export default function Explore() {
           <section className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 0, borderTopLeftRadius: 0 }}>
             <div>
               <h2 className={styles.h2}>Account</h2>
+              <p className={styles.sub} style={{ marginBottom: 10 }}>
+                Pick one or more accounts — results from all of them come back merged into this one view, tagged
+                with which account each row came from (up to {MAX_ACCOUNTS_PER_VIEW} at a time).
+              </p>
               <AccountSelect
+                multiple
                 accounts={adAccounts}
-                value={activeView.accountId}
-                onChange={(id) => updateActive({ accountId: id })}
+                values={activeView.accountIds}
+                onChange={(ids) => updateActive({ accountIds: ids })}
+                maxSelected={MAX_ACCOUNTS_PER_VIEW}
                 style={{ width: "100%", maxWidth: 420 }}
               />
             </div>
@@ -801,6 +859,17 @@ export default function Explore() {
                 </div>
               </div>
 
+              {result.meta.accountErrors?.length > 0 && (
+                <div className={styles.error}>
+                  Showing the {result.meta.accountIds.length - result.meta.accountErrors.length} account
+                  {result.meta.accountIds.length - result.meta.accountErrors.length === 1 ? "" : "s"} that returned
+                  data — {result.meta.accountErrors
+                    .map((e) => `${adAccounts.find((a) => a.id === e.accountId)?.name || e.accountId} (${e.message})`)
+                    .join(", ")}{" "}
+                  failed.
+                </div>
+              )}
+
               <p className={styles.sub}>
                 {result.meta.since} → {result.meta.until}
                 {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
@@ -826,13 +895,18 @@ export default function Explore() {
               )}
 
               {activeView.viewMode === "table" ? (
-                <ExploreResultsTable result={result} currency={currency} effectiveCatalog={effectiveCatalog} />
+                <ExploreResultsTable
+                  result={result}
+                  adAccounts={adAccounts}
+                  currencyByAccountId={currencyByAccountId}
+                  effectiveCatalog={effectiveCatalog}
+                />
               ) : activeView.chartMetricKey ? (
                 <ExploreChart
-                  rows={result.rows}
+                  rows={chartRows}
                   meta={result.meta}
                   chartMetricKey={activeView.chartMetricKey}
-                  currency={currency}
+                  currency={chartCurrency}
                   effectiveCatalog={effectiveCatalog}
                 />
               ) : (
@@ -862,7 +936,7 @@ function DeltaBadge({ value }) {
   );
 }
 
-function ExploreResultsTable({ result, currency, effectiveCatalog }) {
+function ExploreResultsTable({ result, adAccounts, currencyByAccountId, effectiveCatalog }) {
   const { rows, meta } = result;
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
@@ -874,8 +948,13 @@ function ExploreResultsTable({ result, currency, effectiveCatalog }) {
   const hasDate = !!meta.timeIncrement;
   const hasEntity = meta.level !== "account";
   const hasBreakdown = meta.breakdownGroup !== "none";
+  const hasMultiAccount = meta.accountIds.length > 1;
 
   const leadingColumns = [];
+  if (hasMultiAccount) {
+    const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
+    leadingColumns.push({ key: "accountId", label: "Account", maxWidth: 200, render: accountName, sortValue: accountName });
+  }
   if (hasDate) {
     leadingColumns.push({ key: "date", label: "Date", maxWidth: 120 });
   }
@@ -910,7 +989,7 @@ function ExploreResultsTable({ result, currency, effectiveCatalog }) {
         align: "right",
         sortValue: (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
         render: (row) => {
-          const value = formatMetricValue(row[key], format, currency);
+          const value = formatMetricValue(row[key], format, currencyByAccountId.get(row.accountId));
           if (!comparable) return value;
           return (
             <div>

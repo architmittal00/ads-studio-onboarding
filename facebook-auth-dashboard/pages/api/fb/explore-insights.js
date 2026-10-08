@@ -13,6 +13,7 @@ import {
 } from "@/lib/insightsMetrics";
 
 const MAX_RANGE_DAYS = 30;
+const MAX_ACCOUNTS = 10;
 const VALID_LEVELS = LEVEL_OPTIONS.map((l) => l.value);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
   }
 
   const {
-    accountId,
+    accountIds,
     level = "account",
     breakdownGroup = "none",
     metricKeys,
@@ -55,8 +56,11 @@ export default async function handler(req, res) {
     compareToPrevious,
   } = req.body || {};
 
-  if (!accountId) {
-    return res.status(400).json({ error: "accountId is required" });
+  if (!Array.isArray(accountIds) || accountIds.length === 0) {
+    return res.status(400).json({ error: "At least one accountId is required" });
+  }
+  if (accountIds.length > MAX_ACCOUNTS) {
+    return res.status(400).json({ error: `Cannot query more than ${MAX_ACCOUNTS} accounts at once (got ${accountIds.length})` });
   }
   if (!VALID_LEVELS.includes(level)) {
     return res.status(400).json({ error: `level must be one of: ${VALID_LEVELS.join(", ")}` });
@@ -125,67 +129,105 @@ export default async function handler(req, res) {
   if (validTimeIncrement) baseParams.time_increment = validTimeIncrement;
 
   let previousRange = null;
-  const calls = [graphGetInsights(`/${accountId}/insights`, token, baseParams)];
-
   if (compareToPrevious) {
     // Immediately-preceding period of equal length — e.g. a 7-day range
     // compares against the 7 days right before it ("week-over-week" when
     // the chosen range happens to be a week, but this works for any length).
+    // Computed once — identical for every account.
     const prevUntil = new Date(`${since}T00:00:00Z`);
     prevUntil.setUTCDate(prevUntil.getUTCDate() - 1);
     const prevSince = new Date(prevUntil);
     prevSince.setUTCDate(prevSince.getUTCDate() - (rangeDays - 1));
     previousRange = { since: isoDate(prevSince), until: isoDate(prevUntil) };
-    // Run both periods in parallel, not sequentially — graphGetInsights's
-    // async-job path can take up to its own ~15s poll timeout per call, and
-    // there's no reason two independent queries should serialize that cost.
-    calls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: previousRange }));
   }
 
-  let results;
-  try {
-    results = await Promise.all(calls);
-  } catch (err) {
-    return res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
+  // One flat list of calls across every account (and, when comparing, both
+  // periods per account) — run together in a single Promise.allSettled, not
+  // nested per-account awaits, for the same reason the original single-
+  // account compare-to-previous code ran its two calls in parallel:
+  // graphGetInsights's async-job path can take up to its own ~15s poll
+  // timeout per call, and there's no reason independent queries should
+  // serialize that cost. allSettled (not all) so one revoked/erroring
+  // account doesn't block the others from returning data.
+  const callPlan = [];
+  const calls = [];
+  for (const accountId of accountIds) {
+    calls.push(graphGetInsights(`/${accountId}/insights`, token, baseParams));
+    callPlan.push({ accountId, period: "current" });
+    if (compareToPrevious) {
+      calls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: previousRange }));
+      callPlan.push({ accountId, period: "previous" });
+    }
   }
 
-  const [currentJson, previousJson] = results;
-  const currentRaw = currentJson.data || [];
-  const previousRaw = previousJson?.data || [];
+  const settled = await Promise.allSettled(calls);
 
-  const previousByKey = new Map();
-  for (const row of previousRaw) {
-    previousByKey.set(rowIdentityKey(row, level, breakdownGroup), row);
+  const byAccount = new Map(accountIds.map((id) => [id, { current: [], previous: [] }]));
+  const accountErrors = [];
+  let firstFailure = null;
+  settled.forEach((result, i) => {
+    const { accountId, period } = callPlan[i];
+    if (result.status === "fulfilled") {
+      byAccount.get(accountId)[period] = result.value.data || [];
+    } else {
+      if (!firstFailure) firstFailure = result.reason;
+      if (!accountErrors.some((e) => e.accountId === accountId)) {
+        accountErrors.push({ accountId, message: result.reason?.message || "Request failed" });
+      }
+    }
+  });
+
+  if (accountErrors.length === accountIds.length) {
+    // Every account failed — nothing to show, surface it as a real error
+    // rather than an empty-but-200 response.
+    return res.status(firstFailure?.graphResponse ? 400 : 500).json({ error: firstFailure?.message || "Request failed" });
   }
 
   const allKeys = [...metricKeys, ...cleanCustomFields];
 
-  const rows = currentRaw.map((row) => {
-    const metrics = deriveRowMetrics(row, metricKeys, cleanCustomFields, cleanCustomMetrics);
-    const out = {
-      label: rowLabel(row, level, breakdownGroup),
-      entityLabel: rowEntityLabel(row, level),
-      breakdownLabel: rowBreakdownLabel(row, breakdownGroup),
-      ...metrics,
-    };
-    if (row.date_start) out.date = row.date_start;
+  const rows = [];
+  for (const accountId of accountIds) {
+    const { current, previous } = byAccount.get(accountId);
 
-    if (compareToPrevious) {
-      const prevRow = previousByKey.get(rowIdentityKey(row, level, breakdownGroup));
-      const prevMetrics = prevRow ? deriveRowMetrics(prevRow, metricKeys, cleanCustomFields, cleanCustomMetrics) : null;
-      out._previous = prevMetrics;
-      out._deltaPct = {};
-      for (const key of allKeys) {
-        const curVal = metrics[key];
-        const prevVal = prevMetrics ? prevMetrics[key] : null;
-        out._deltaPct[key] =
-          typeof curVal === "number" && typeof prevVal === "number" && prevVal !== 0
-            ? ((curVal - prevVal) / Math.abs(prevVal)) * 100
-            : null;
-      }
+    // Scoped to this one account's own current/previous pair — at the
+    // account level (no breakdown, no entity), rowIdentityKey's id part is
+    // the literal string "account" for every account, so a Map shared
+    // across accounts would let one account's previous-period row silently
+    // match against a different account's current row. Keeping this Map
+    // local to each loop iteration is what prevents that collision.
+    const previousByKey = new Map();
+    for (const row of previous) {
+      previousByKey.set(rowIdentityKey(row, level, breakdownGroup), row);
     }
-    return out;
-  });
+
+    for (const row of current) {
+      const metrics = deriveRowMetrics(row, metricKeys, cleanCustomFields, cleanCustomMetrics);
+      const out = {
+        accountId,
+        label: rowLabel(row, level, breakdownGroup),
+        entityLabel: rowEntityLabel(row, level),
+        breakdownLabel: rowBreakdownLabel(row, breakdownGroup),
+        ...metrics,
+      };
+      if (row.date_start) out.date = row.date_start;
+
+      if (compareToPrevious) {
+        const prevRow = previousByKey.get(rowIdentityKey(row, level, breakdownGroup));
+        const prevMetrics = prevRow ? deriveRowMetrics(prevRow, metricKeys, cleanCustomFields, cleanCustomMetrics) : null;
+        out._previous = prevMetrics;
+        out._deltaPct = {};
+        for (const key of allKeys) {
+          const curVal = metrics[key];
+          const prevVal = prevMetrics ? prevMetrics[key] : null;
+          out._deltaPct[key] =
+            typeof curVal === "number" && typeof prevVal === "number" && prevVal !== 0
+              ? ((curVal - prevVal) / Math.abs(prevVal)) * 100
+              : null;
+        }
+      }
+      rows.push(out);
+    }
+  }
 
   res.status(200).json({
     rows,
@@ -194,6 +236,8 @@ export default async function handler(req, res) {
       breakdownGroup,
       metricKeys,
       customFields: cleanCustomFields,
+      accountIds,
+      accountErrors,
       since,
       until,
       timeIncrement: validTimeIncrement,
