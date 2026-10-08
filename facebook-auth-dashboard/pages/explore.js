@@ -79,16 +79,43 @@ function isChartableForView(key, catalog, accountCount) {
 
 const MAX_ACCOUNTS_PER_VIEW = 10;
 
-// Which "exclude rows by name" fields make sense at which level — mirrors
-// lib/insightsMetrics.js's LEVEL_EXTRA_FIELDS (a campaign-level query never
-// fetches adset_name/ad_name, so filtering by them there would always be a
-// silent no-op; restricting the picker to what's actually fetched avoids
-// offering a filter that can never match anything).
+// "Exclude rows by name" is intentionally independent of the selected Level
+// — filtering by Campaign name while viewing Account-level totals is exactly
+// the point (exclude that campaign's numbers from the total, not just hide a
+// row), so every field is always offered regardless of `view.level`. The
+// backend (pages/api/fb/explore-insights.js) fetches at whatever level is
+// actually needed to see the filtered-on name and re-aggregates back up to
+// the requested level; `rank` mirrors its LEVEL_RANK so the client can tell
+// *before* running the query whether that re-aggregation ("rollup") will
+// happen for the current level + filters, to explain why Reach-derived
+// metrics disappear when it does (see REACH_DEPENDENT_METRIC_KEYS below).
 const NAME_FILTER_FIELDS = [
-  { field: "campaignName", label: "Campaign name", levels: ["campaign", "adset", "ad"] },
-  { field: "adsetName", label: "Ad set name", levels: ["adset", "ad"] },
-  { field: "adName", label: "Ad name", levels: ["ad"] },
+  { field: "campaignName", label: "Campaign name", level: "campaign", rank: 1 },
+  { field: "adsetName", label: "Ad set name", level: "adset", rank: 2 },
+  { field: "adName", label: "Ad name", level: "ad", rank: 3 },
 ];
+const LEVEL_RANK = { account: 0, campaign: 1, adset: 2, ad: 3 };
+
+// Mirrors the backend's own REACH_DEPENDENT_KEYS exactly (same reasoning:
+// Facebook's own deduplicated Reach/Unique Clicks counts — and everything
+// derived from them — can't be correctly reconstructed once rows from
+// several campaigns/ad sets/ads are summed together into one rolled-up
+// total). Used here only to explain *why* a metric disappeared from a
+// result, never to decide what the backend actually computes.
+const REACH_DEPENDENT_METRIC_KEYS = new Set(["reach", "frequency", "cpp", "unique_clicks", "unique_ctr"]);
+
+// Whether the current level + active filters combination would force the
+// backend to fetch at a finer level and roll the result back up — i.e.
+// whether at least one filter targets an entity finer than `level` itself.
+// Purely informational on the client (the backend makes the authoritative
+// decision from the same data); used to show a heads-up before running the
+// query rather than only after.
+function wouldNeedRollup(level, activeFilters) {
+  return activeFilters.some((f) => {
+    const def = NAME_FILTER_FIELDS.find((d) => d.field === f.field);
+    return def && def.rank > LEVEL_RANK[level];
+  });
+}
 
 // One independent tab: its own account(s), its own query spec, its own
 // fetched result/loading/error and view-mode — switching tabs never touches
@@ -118,11 +145,13 @@ function createBlankView(seedAccountId = "") {
     // is always derived from it (same length as the primary range), never
     // picked independently.
     compareCustomSince: "",
-    // Client-only display filters — hide rows whose campaign/ad set/ad name
-    // contains any of these (case-insensitive). Deliberately left out of
-    // buildQuerySpecFromView: applying this doesn't need a new Graph API
-    // field or a new request, so it's never part of the query spec/cache key,
-    // and editing it never re-triggers a fetch.
+    // Exclude any row whose campaign/ad set/ad name contains one of these
+    // (case-insensitive) — sent to the backend as part of the query spec
+    // (see buildQuerySpecFromView), since excluding, say, a campaign while
+    // viewing Account-level totals means the backend has to re-fetch at
+    // Campaign level and re-sum what's left, not just hide an already-fetched
+    // row. Takes effect next time the query runs, same as every other field
+    // on this view (Level, Breakdown, Metrics, …) — not applied instantly.
     nameFilters: [],
     result: null,
     resultFetchedAt: null,
@@ -201,9 +230,11 @@ function customPreviousRangeFor(view, rangeDays) {
 // `customMetrics` (this user's full saved list) is filtered down to just the
 // definitions actually selected in `view.metricKeys` — the backend has no
 // localStorage access, so a selected custom metric's full definition (not
-// just its id) has to travel in the request. `nameFilters` is deliberately
-// NOT included here — it's a client-only display filter (see createBlankView)
-// and has no bearing on what's actually requested or cached.
+// just its id) has to travel in the request. `nameFilters` IS part of the
+// query spec (and so the cache key) — excluding, say, a campaign while
+// viewing Account totals changes what the backend actually fetches and sums
+// (see pages/api/fb/explore-insights.js), not just what's displayed from an
+// already-fetched result.
 function buildQuerySpecFromView(view, customMetrics) {
   const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
@@ -220,6 +251,11 @@ function buildQuerySpecFromView(view, customMetrics) {
     customMetrics: (customMetrics || [])
       .filter((cm) => view.metricKeys.includes(cm.id))
       .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey })),
+    // Only filters with real text to match on travel in the request — an
+    // in-progress, not-yet-"+ Exclude"d entry never reaches `nameFilters` in
+    // the first place (see addNameFilter below), but this stays defensive
+    // against any other path that might someday add one with a blank value.
+    nameFilters: (view.nameFilters || []).filter((f) => f.value.trim()).map((f) => ({ field: f.field, value: f.value.trim() })),
     since: range?.since,
     until: range?.until,
     timeIncrement: view.timeIncrement || null,
@@ -370,11 +406,8 @@ export default function Explore() {
     setCustomMetricDenominator("");
   }
 
-  // "Exclude rows by name" creation form — which field is picked defaults to
-  // the first one that's actually meaningful at the active view's level
-  // (recomputed below as `effectiveNewFilterField`, not stored state, since
-  // switching levels should never leave a stale, now-irrelevant field
-  // selected in the dropdown).
+  // "Exclude rows by name" creation form — always offers all three fields
+  // regardless of the active view's level (see NAME_FILTER_FIELDS above).
   const [newFilterField, setNewFilterField] = useState("campaignName");
   const [newFilterValue, setNewFilterValue] = useState("");
 
@@ -555,22 +588,17 @@ export default function Explore() {
 
   const customFields = useMemo(() => parseCustomFields(activeView.customFieldsText), [activeView.customFieldsText]);
 
-  // Only offer "exclude by name" fields this view's level actually fetches
-  // (see NAME_FILTER_FIELDS) — falls back to the first available one whenever
-  // the stored `newFilterField` selection no longer applies (e.g. the user
-  // switched from Ad level, where "Ad name" was selected, down to Campaign).
-  const availableNameFilterFields = useMemo(
-    () => NAME_FILTER_FIELDS.filter((f) => f.levels.includes(activeView.level)),
-    [activeView.level]
-  );
-  const effectiveNewFilterField = availableNameFilterFields.some((f) => f.field === newFilterField)
-    ? newFilterField
-    : availableNameFilterFields[0]?.field || "";
+  // Whether running this exact view, as currently configured, would make the
+  // backend fetch at a finer level than `activeView.level` and roll the
+  // result back up — shown as a heads-up before running the query, and used
+  // to explain why Reach-derived metrics won't be in the result.
+  const activeNameFilters = useMemo(() => (activeView.nameFilters || []).filter((f) => f.value.trim()), [activeView.nameFilters]);
+  const willRollup = wouldNeedRollup(activeView.level, activeNameFilters);
 
   function addNameFilter() {
     const value = newFilterValue.trim();
-    if (!value || !effectiveNewFilterField) return;
-    updateActive((v) => ({ nameFilters: [...(v.nameFilters || []), { id: newViewId(), field: effectiveNewFilterField, value }] }));
+    if (!value) return;
+    updateActive((v) => ({ nameFilters: [...(v.nameFilters || []), { id: newViewId(), field: newFilterField, value }] }));
     setNewFilterValue("");
   }
 
@@ -584,45 +612,27 @@ export default function Explore() {
     : [];
   const isRerun = activeView.loading && !!result;
 
-  // Only filters with real text to match on — an empty-string filter (the
-  // in-progress row before "+ Exclude" is clicked, were it ever persisted)
-  // would otherwise match every row via String(...).includes("").
-  const activeNameFilters = useMemo(
-    () => (activeView.nameFilters || []).filter((f) => f.value.trim()),
-    [activeView.nameFilters]
-  );
-
-  // Applied client-side, after the fetch — these never change what was
-  // requested or cached, only what's shown. A row with no value at all for a
-  // filtered field (e.g. an "Ad name" filter while entityLabel-less fields
-  // are absent at this level) never matches, so an inapplicable filter is a
-  // harmless no-op rather than hiding everything.
-  const filteredRows = useMemo(() => {
-    if (!result) return [];
-    if (activeNameFilters.length === 0) return result.rows;
-    return result.rows.filter(
-      (row) => !activeNameFilters.some((f) => String(row[f.field] ?? "").toLowerCase().includes(f.value.trim().toLowerCase()))
-    );
-  }, [result, activeNameFilters]);
-
   // Prefixes each row's `label` with its account's name whenever more than
   // one account is selected, so ExploreChart's pivot-by-label logic
   // naturally separates accounts into distinct lines/bars/series — purely a
-  // render-time view of the (already name-filtered) data, never mutating
-  // `result.rows` itself (the same row objects may be sitting in
-  // lib/clientCache.js's stored entry).
+  // render-time view of the data, never mutating `result.rows` itself (the
+  // same row objects may be sitting in lib/clientCache.js's stored entry).
+  // Excluded-by-name rows are already absent from `result.rows` itself (the
+  // backend applies — and, where necessary, re-aggregates around — every
+  // active name filter before ever returning a result), so there's no
+  // separate client-side filtering step here any more.
   const chartRows = useMemo(() => {
     if (!result) return [];
-    if (result.meta.accountIds.length <= 1) return filteredRows;
-    return filteredRows.map((r) => ({
+    if (result.meta.accountIds.length <= 1) return result.rows;
+    return result.rows.map((r) => ({
       ...r,
       label: `${adAccounts.find((a) => a.id === r.accountId)?.name || r.accountId} — ${r.label}`,
     }));
-  }, [result, filteredRows, adAccounts]);
+  }, [result, adAccounts]);
 
   function handleExportCsv() {
     if (!result) return;
-    const csv = toCsvString(buildCsvTable(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
+    const csv = toCsvString(buildCsvTable(result.rows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
     const viewIndex = views.findIndex((v) => v.id === activeView.id);
     const slug = viewTitle(activeView, adAccounts, viewIndex === -1 ? 0 : viewIndex)
       .toLowerCase()
@@ -845,57 +855,60 @@ export default function Explore() {
 
             <div>
               <h2 className={styles.h2}>Exclude rows by name</h2>
-              {availableNameFilterFields.length === 0 ? (
-                <p className={styles.sub}>Select Campaign, Ad Set, or Ad level above to filter by name.</p>
-              ) : (
-                <>
-                  <p className={styles.sub} style={{ marginBottom: 10 }}>
-                    Hide rows whose name contains any of the text below (e.g. exclude everything with &quot;ABCD&quot;
-                    in the campaign name) — applied instantly to what&apos;s already loaded, no need to re-run the
-                    query. Add as many as you like.
-                  </p>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <select className={styles.select} value={effectiveNewFilterField} onChange={(e) => setNewFilterField(e.target.value)}>
-                      {availableNameFilterFields.map((f) => (
-                        <option key={f.field} value={f.field}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
-                    <span className={styles.muted}>contains</span>
-                    <input
-                      type="text"
-                      className={styles.select}
-                      placeholder="e.g. ABCD"
-                      value={newFilterValue}
-                      onChange={(e) => setNewFilterValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addNameFilter();
-                      }}
-                      style={{ width: 200 }}
-                    />
-                    <button type="button" className={styles.btnSecondary} disabled={!newFilterValue.trim()} onClick={addNameFilter}>
-                      + Exclude
-                    </button>
-                  </div>
-                  {(activeView.nameFilters || []).length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                      {activeView.nameFilters.map((f) => (
-                        <span key={f.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {NAME_FILTER_FIELDS.find((o) => o.field === f.field)?.label || f.field}: &quot;{f.value}&quot;
-                          <button
-                            type="button"
-                            onClick={() => removeNameFilter(f.id)}
-                            title="Remove filter"
-                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
-                          >
-                            <CloseIcon size={10} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </>
+              <p className={styles.sub} style={{ marginBottom: 10 }}>
+                Exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above,
+                not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals,
+                and that campaign&apos;s numbers come out of the total, not just off the screen. Add as many as you
+                like; takes effect next time you run the query.
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <select className={styles.select} value={newFilterField} onChange={(e) => setNewFilterField(e.target.value)}>
+                  {NAME_FILTER_FIELDS.map((f) => (
+                    <option key={f.field} value={f.field}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+                <span className={styles.muted}>contains</span>
+                <input
+                  type="text"
+                  className={styles.select}
+                  placeholder="e.g. ABCD"
+                  value={newFilterValue}
+                  onChange={(e) => setNewFilterValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addNameFilter();
+                  }}
+                  style={{ width: 200 }}
+                />
+                <button type="button" className={styles.btnSecondary} disabled={!newFilterValue.trim()} onClick={addNameFilter}>
+                  + Exclude
+                </button>
+              </div>
+              {(activeView.nameFilters || []).length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  {activeView.nameFilters.map((f) => (
+                    <span key={f.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {NAME_FILTER_FIELDS.find((o) => o.field === f.field)?.label || f.field}: &quot;{f.value}&quot;
+                      <button
+                        type="button"
+                        onClick={() => removeNameFilter(f.id)}
+                        title="Remove filter"
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
+                      >
+                        <CloseIcon size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {willRollup && (
+                <p className={styles.sub} style={{ marginTop: 8 }}>
+                  A filter above needs finer-grained data than {LEVEL_OPTIONS.find((l) => l.value === activeView.level)?.label}{" "}
+                  level shows — results will be fetched at the finer level and combined back up, excluding the
+                  matching entities entirely. Reach, Frequency, CPP, and Unique CTR won&apos;t be available in this
+                  result: Facebook&apos;s reach/unique-click counts can&apos;t be correctly combined across entities.
+                </p>
               )}
             </div>
 
@@ -925,16 +938,28 @@ export default function Explore() {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {effectiveCatalog.filter((m) => m.group === group).map((m) => {
                         const selected = activeView.metricKeys.includes(m.key);
+                        // Still toggleable (so an already-selected one can be
+                        // turned off), but visually flagged — it'll be
+                        // silently absent from the result anyway once a
+                        // filter forces a rollup, see the note below.
+                        const unavailable = willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key);
                         return (
                           <button
                             key={m.key}
                             type="button"
                             onClick={() => toggleMetric(m.key)}
+                            title={unavailable ? "Not available while a name filter requires combining finer-grained data" : undefined}
                             className={selected ? styles.badgeInfo : styles.pill}
                             style={
                               selected
-                                ? { cursor: "pointer" }
-                                : { cursor: "pointer", background: "transparent", border: "1px dashed var(--border)", color: "var(--t2)" }
+                                ? { cursor: "pointer", opacity: unavailable ? 0.5 : 1 }
+                                : {
+                                    cursor: "pointer",
+                                    background: "transparent",
+                                    border: "1px dashed var(--border)",
+                                    color: "var(--t2)",
+                                    opacity: unavailable ? 0.5 : 1,
+                                  }
                             }
                           >
                             {selected ? "✓ " : "+ "}
@@ -1176,11 +1201,17 @@ export default function Explore() {
                 {result.meta.since} → {result.meta.until}
                 {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
                 {" · "}
-                {filteredRows.length} row{filteredRows.length === 1 ? "" : "s"}
-                {activeNameFilters.length > 0 &&
-                  filteredRows.length !== result.meta.rowCount &&
-                  ` (${result.meta.rowCount - filteredRows.length} hidden by name filter)`}
+                {result.meta.rowCount} row{result.meta.rowCount === 1 ? "" : "s"}
+                {result.meta.excludedByNameCount > 0 &&
+                  ` · ${result.meta.excludedByNameCount} excluded by name filter`}
               </p>
+              {result.meta.excludedMetrics?.length > 0 && (
+                <p className={styles.sub}>
+                  {result.meta.excludedMetrics.map((k) => effectiveCatalog.find((m) => m.key === k)?.label || k).join(", ")} not
+                  shown — a name filter required combining finer-grained data, and those can&apos;t be correctly
+                  combined across entities.
+                </p>
+              )}
 
               {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1201,7 +1232,7 @@ export default function Explore() {
 
               {activeView.viewMode === "table" ? (
                 <ExploreResultsTable
-                  rows={filteredRows}
+                  rows={result.rows}
                   meta={result.meta}
                   adAccounts={adAccounts}
                   currencyByAccountId={currencyByAccountId}
