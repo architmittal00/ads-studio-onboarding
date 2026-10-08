@@ -11,6 +11,9 @@
     },
     "pages/api/fb/top-landing-pages.js": {
       "maxDuration": 45
+    },
+    "pages/api/fb/explore-insights.js": {
+      "maxDuration": 60
     }
   }
 }
