@@ -23,6 +23,36 @@ const CHUNK_DAYS = 28;
 const VALID_LEVELS = LEVEL_OPTIONS.map((l) => l.value);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// "Exclude rows by name" is deliberately independent of the selected `level`
+// — a user viewing Account totals can still say "exclude any campaign named
+// X," and the resulting account total must have that campaign's numbers
+// genuinely removed from the sum, not just hidden from a table that was
+// already pre-aggregated by Facebook before we ever saw it. So whenever an
+// active filter targets a finer entity than `level`, this fetches at that
+// finer level instead (where the name is actually visible), drops the
+// matching entities, and re-aggregates ("rolls up") what's left back into
+// `level`-shaped rows — see rollupRows()/mergeRawRows() below.
+const LEVEL_RANK = { account: 0, campaign: 1, adset: 2, ad: 3 };
+const NAME_FILTER_FIELD_LEVEL = { campaignName: "campaign", adsetName: "adset", adName: "ad" };
+const NAME_FILTER_RAW_FIELD = { campaignName: "campaign_name", adsetName: "adset_name", adName: "ad_name" };
+const VALID_NAME_FILTER_FIELDS = Object.keys(NAME_FILTER_FIELD_LEVEL);
+
+// Metrics that can't be correctly re-derived once rows from several entities
+// get summed together, so they're dropped from the output whenever a rollup
+// actually happens (see needsRollup below) rather than silently showing a
+// plausible-looking but wrong number:
+//  - `reach`/`unique_clicks` are Facebook's own deduplicated counts — the
+//    same person reached by two campaigns counts once in each campaign's own
+//    `reach`, but summing those two campaigns' `reach` double-counts them.
+//    There's no field available here that lets this be corrected.
+//  - `frequency` (impressions/reach) and `cpp` (spend/reach) are derived
+//    directly from that same unreliable `reach`.
+//  - `unique_ctr` is derived from `unique_clicks`, same problem.
+// `ctr`/`cpc`/`cpm`/`roas` are NOT in this set — they're all re-derivable
+// from `impressions`/`clicks`/`spend`/`action_values`, which sum correctly,
+// so mergeRawRows() below recomputes them instead of dropping them.
+const REACH_DEPENDENT_KEYS = new Set(["reach", "frequency", "cpp", "unique_clicks", "unique_ctr"]);
+
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -53,6 +83,134 @@ function splitRangeIntoChunks(since, until, maxDays) {
   return chunks;
 }
 
+// Drops any raw Graph API row whose corresponding name field matches one of
+// the active filters (case-insensitive substring) — run before anything else
+// touches these rows, so an excluded entity never contributes to a later
+// rollup's sum. A row missing the field entirely (e.g. an "Ad name" filter
+// applied to a row fetched at the Campaign level) just never matches, same
+// as the original client-side version of this filter.
+function applyNameFilters(rows, filters) {
+  if (!filters.length) return rows;
+  return rows.filter(
+    (row) => !filters.some((f) => String(row[NAME_FILTER_RAW_FIELD[f.field]] ?? "").toLowerCase().includes(f.value))
+  );
+}
+
+// Sums one actions-shaped field (an array of `{action_type, value}`) across
+// several raw rows, combining entries that share an `action_type` into one —
+// e.g. two campaigns' `actions` arrays, each with their own "purchase" entry,
+// become a single "purchase" entry whose value is their sum. This is exactly
+// what every METRIC_CATALOG `extract` function already expects to read, so
+// the merged row can be handed to deriveRowMetrics() completely unchanged.
+function mergeActionArrays(arrays) {
+  const totals = new Map();
+  for (const arr of arrays) {
+    if (!arr) continue;
+    for (const entry of arr) {
+      totals.set(entry.action_type, (totals.get(entry.action_type) || 0) + parseFloat(entry.value || 0));
+    }
+  }
+  return [...totals.entries()].map(([action_type, value]) => ({ action_type, value: String(value) }));
+}
+
+const SCALAR_SUM_FIELDS = ["spend", "impressions", "clicks", "inline_link_clicks"];
+const ACTION_ARRAY_FIELDS = ["actions", "action_values", "video_p25_watched_actions", "video_p50_watched_actions", "video_p75_watched_actions", "video_p100_watched_actions", "video_play_actions"];
+
+// Merges several raw rows that all belong to the same rollup group (same
+// requested-level identity + breakdown + date, see rollupRows()) into one
+// synthetic row shaped just like a single Graph API row — so every existing
+// extract function in lib/insightsMetrics.js, which only ever knows how to
+// read one row, works on it completely unchanged.
+//
+// Starts from the group's first row (which already carries the correct
+// id/name/breakdown/date fields — identical across the group by
+// construction, since that's exactly what the group was keyed on) and then:
+//  - oversums the plain additive scalars,
+//  - sums the actions-shaped arrays by action_type,
+//  - preserves the "field entirely absent" vs "field present with 0" used by
+//    Hold Rate's video_thruplay_watched_actions (lib/insightsMetrics.js) —
+//    only merges rows that actually have it, and only includes the result if
+//    at least one row did,
+//  - deletes every field that would otherwise leak one entity's own narrow
+//    ratio into a row whose underlying totals have just changed:
+//    `ctr`/`cpc`/`cpm` are recomputed from the now-summed base fields
+//    instead (the catalog's extract functions read these fields directly
+//    rather than deriving them, so stale values must be overwritten, not
+//    merely left as rows[0]'s); `purchase_roas` is deleted so the `roas`
+//    metric's own fallback (lib/metrics.js's roasFromRow) recomputes it from
+//    the merged `spend`/`action_values` instead of trusting rows[0]'s
+//    narrower figure; `quality_ranking`/`engagement_rate_ranking`/
+//    `conversion_rate_ranking` are categorical and can't be combined, so
+//    they're dropped entirely (their extract functions already render an
+//    absent field as "unknown", which is honest here); any free-text custom
+//    field (`customFields`) is dropped for the same reason — this app has no
+//    way to know how to combine an arbitrary, unknown-shaped field.
+//  - `reach`/`unique_clicks`/`frequency`/`cpp`/`unique_ctr`
+//    (REACH_DEPENDENT_KEYS) are deleted outright — Facebook's own
+//    deduplicated counts can't be correctly reconstructed by summing
+//    per-entity values, so these are excluded from the result entirely
+//    rather than shown as a plausible-looking but wrong number (handled by
+//    the caller stripping them from `effectiveMetricKeys`, not here).
+function mergeRawRows(rows, customFields) {
+  const merged = { ...rows[0] };
+
+  for (const field of SCALAR_SUM_FIELDS) {
+    merged[field] = String(rows.reduce((sum, r) => sum + parseFloat(r[field] || 0), 0));
+  }
+  for (const field of ACTION_ARRAY_FIELDS) {
+    merged[field] = mergeActionArrays(rows.map((r) => r[field]));
+  }
+  const thruplayRows = rows.filter((r) => r.video_thruplay_watched_actions);
+  if (thruplayRows.length > 0) {
+    merged.video_thruplay_watched_actions = mergeActionArrays(thruplayRows.map((r) => r.video_thruplay_watched_actions));
+  } else {
+    delete merged.video_thruplay_watched_actions;
+  }
+
+  const impressions = parseFloat(merged.impressions || 0);
+  const clicks = parseFloat(merged.clicks || 0);
+  const spend = parseFloat(merged.spend || 0);
+  merged.ctr = impressions > 0 ? String((clicks / impressions) * 100) : "0";
+  merged.cpc = clicks > 0 ? String(spend / clicks) : "0";
+  merged.cpm = impressions > 0 ? String((spend / impressions) * 1000) : "0";
+
+  delete merged.purchase_roas;
+  delete merged.quality_ranking;
+  delete merged.engagement_rate_ranking;
+  delete merged.conversion_rate_ranking;
+  for (const field of REACH_DEPENDENT_KEYS) delete merged[field];
+  // Guards against the free-text "raw field name" escape hatch being typed
+  // as the same name as a field already computed above (e.g. someone adding
+  // "spend" there even though it's already offered as a metric pill) — never
+  // delete a field this function itself just summed/recomputed/reserved.
+  const reserved = new Set([...SCALAR_SUM_FIELDS, ...ACTION_ARRAY_FIELDS, "video_thruplay_watched_actions", "ctr", "cpc", "cpm", "purchase_roas", "quality_ranking", "engagement_rate_ranking", "conversion_rate_ranking", ...REACH_DEPENDENT_KEYS]);
+  for (const field of customFields) {
+    if (!reserved.has(field)) delete merged[field];
+  }
+
+  return merged;
+}
+
+// Groups already-name-filtered raw rows by what they'd share once rolled up
+// to `level` — the level's own identity (its own id, or the literal string
+// "account" when `level` is "account" itself — see rowIdentityKey()) plus
+// every active breakdown dimension, plus the date (when daily/weekly
+// grouping is on; rowIdentityKey alone doesn't account for that). Rows that
+// land in the same group are exactly the finer-grained entities whose
+// numbers need to be summed together to form one `level`-shaped total — e.g.
+// every remaining (non-excluded) campaign's rows for the same date and
+// breakdown value collapse into that one Account-level row for that
+// date/breakdown.
+function rollupRows(rows, level, breakdownGroupValue, customFields) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = `${rowIdentityKey(row, level, breakdownGroupValue)}::${row.date_start || ""}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  return [...groups.values()].map((groupRows) => mergeRawRows(groupRows, customFields));
+}
+
 // POST, not GET+query-string: the query spec (a breakdown group, a list of
 // metric keys, an optional list of raw custom field names, a compare toggle)
 // doesn't fit cleanly in a URL, and this endpoint isn't meant to be
@@ -76,6 +234,7 @@ export default async function handler(req, res) {
     metricKeys,
     customFields,
     customMetrics,
+    nameFilters,
     since,
     until,
     timeIncrement,
@@ -135,6 +294,46 @@ export default async function handler(req, res) {
     }
   }
 
+  // {field, value} — field names which name column to match (Campaign/Ad
+  // Set/Ad name), value is a case-insensitive "contains" match. An entry
+  // with an empty/whitespace-only value is dropped rather than rejected —
+  // mirrors the client only ever sending filters it considers "active".
+  const cleanNameFilters = [];
+  if (nameFilters !== undefined) {
+    if (!Array.isArray(nameFilters)) {
+      return res.status(400).json({ error: "nameFilters must be an array" });
+    }
+    for (const f of nameFilters) {
+      if (!f || !VALID_NAME_FILTER_FIELDS.includes(f.field) || typeof f.value !== "string") {
+        return res.status(400).json({ error: `Each nameFilters entry needs a field (${VALID_NAME_FILTER_FIELDS.join(", ")}) and a string value` });
+      }
+      const value = f.value.trim().toLowerCase();
+      if (value) cleanNameFilters.push({ field: f.field, value });
+    }
+  }
+
+  // The finest level any active filter needs to even see its own name field
+  // at, vs. the level actually requested — whichever is finer wins, since
+  // that's the only way to both know which entities to exclude AND still be
+  // able to roll the rest back up to what was asked for. See the comment on
+  // REACH_DEPENDENT_KEYS above and rollupRows()/mergeRawRows() below for what
+  // "rolling up" actually involves.
+  const requiredLevel = cleanNameFilters.reduce(
+    (lvl, f) => (LEVEL_RANK[NAME_FILTER_FIELD_LEVEL[f.field]] > LEVEL_RANK[lvl] ? NAME_FILTER_FIELD_LEVEL[f.field] : lvl),
+    level
+  );
+  const fetchLevel = LEVEL_RANK[requiredLevel] > LEVEL_RANK[level] ? requiredLevel : level;
+  const needsRollup = fetchLevel !== level;
+
+  // Reach-derived metrics are silently dropped from the OUTPUT (not the
+  // request) whenever a rollup is actually happening — `meta.metricKeys`
+  // reflects this, so the table/chart naturally stop showing columns for
+  // them (both already render only whatever's in `meta.metricKeys`, never
+  // the original request's `metricKeys`) with no further client change
+  // needed. `excludedMetrics` lets the UI explain why they disappeared.
+  const effectiveMetricKeys = needsRollup ? metricKeys.filter((k) => !REACH_DEPENDENT_KEYS.has(k)) : metricKeys;
+  const excludedMetrics = needsRollup ? metricKeys.filter((k) => REACH_DEPENDENT_KEYS.has(k)) : [];
+
   const validTimeIncrement = timeIncrement === "1" || timeIncrement === "7" ? timeIncrement : null;
   if (compareToPrevious && validTimeIncrement) {
     return res.status(400).json({
@@ -143,12 +342,13 @@ export default async function handler(req, res) {
   }
 
   const cleanCustomFields = Array.isArray(customFields) ? customFields.map((f) => String(f).trim()).filter(Boolean) : [];
+  const outputCustomFields = needsRollup ? [] : cleanCustomFields;
   const group = getBreakdownGroup(breakdownGroup);
-  const fields = resolveGraphFields(metricKeys, cleanCustomFields, level, cleanCustomMetrics).join(",");
+  const fields = resolveGraphFields(metricKeys, cleanCustomFields, fetchLevel, cleanCustomMetrics).join(",");
   const token = session.accessToken;
 
   const baseParams = {
-    level,
+    level: fetchLevel,
     fields,
     time_range: { since, until },
     limit: 500,
@@ -261,11 +461,35 @@ export default async function handler(req, res) {
     return res.status(firstFailure?.graphResponse ? 400 : 500).json({ error: firstFailure?.message || "Request failed" });
   }
 
-  const allKeys = [...metricKeys, ...cleanCustomFields];
+  const allKeys = [...effectiveMetricKeys, ...outputCustomFields];
+  let excludedByNameCount = 0;
 
   const rows = [];
   for (const accountId of accountIds) {
-    const { current, previous } = byAccount.get(accountId);
+    let { current, previous } = byAccount.get(accountId);
+
+    // Applied before anything else touches these rows — dropping an excluded
+    // entity here means it never contributes to a rollup's sum below, the
+    // same as if Facebook had never returned it. Counted (not excluded.length
+    // directly) since this runs per account and compareToPrevious doubles the
+    // per-account row count without doubling the number of *entities* a user
+    // would think of as "excluded".
+    const preFilterCount = current.length;
+    current = applyNameFilters(current, cleanNameFilters);
+    previous = applyNameFilters(previous, cleanNameFilters);
+    excludedByNameCount += preFilterCount - current.length;
+
+    // Rolls the (already filtered) finer-grained rows back up to `level` —
+    // e.g. every remaining campaign's rows become one Account-level total
+    // per date/breakdown, with the excluded campaigns' numbers genuinely
+    // absent from the sum rather than merely hidden from a table. A no-op
+    // when `fetchLevel === level` (the common case — no active filter forced
+    // a finer fetch), since each remaining row is already exactly the shape
+    // `level` expects.
+    if (needsRollup) {
+      current = rollupRows(current, level, breakdownGroup, cleanCustomFields);
+      previous = rollupRows(previous, level, breakdownGroup, cleanCustomFields);
+    }
 
     // Scoped to this one account's own current/previous pair — at the
     // account level (no breakdown, no entity), rowIdentityKey's id part is
@@ -279,29 +503,28 @@ export default async function handler(req, res) {
     }
 
     for (const row of current) {
-      const metrics = deriveRowMetrics(row, metricKeys, cleanCustomFields, cleanCustomMetrics);
+      const metrics = deriveRowMetrics(row, effectiveMetricKeys, outputCustomFields, cleanCustomMetrics);
       const out = {
         accountId,
         label: rowLabel(row, level, breakdownGroup),
         entityLabel: rowEntityLabel(row, level),
         breakdownLabel: rowBreakdownLabel(row, breakdownGroup),
         // Exposed independently of `entityLabel` (which is only ever the
-        // *selected* level's own name) so the client can offer a "exclude
-        // rows by name" filter against campaign/ad set/ad name regardless of
-        // which level is selected — e.g. filtering by campaign name while
-        // viewing at the ad level. Each is already part of this level's own
-        // LEVEL_EXTRA_FIELDS fetch (lib/insightsMetrics.js) whenever it's
-        // meaningful, so this adds no new Graph API fields.
-        campaignName: row.campaign_name ?? null,
-        adsetName: row.adset_name ?? null,
-        adName: row.ad_name ?? null,
+        // *selected* level's own name) for the "exclude rows by name" UI to
+        // show which campaign/ad set/ad a row came from. `null` whenever
+        // this row is itself a rollup of several entities (mergeRawRows()
+        // above keeps rows[0]'s own name fields verbatim, which would
+        // otherwise look like "this whole total is just this one campaign").
+        campaignName: needsRollup ? null : row.campaign_name ?? null,
+        adsetName: needsRollup ? null : row.adset_name ?? null,
+        adName: needsRollup ? null : row.ad_name ?? null,
         ...metrics,
       };
       if (row.date_start) out.date = row.date_start;
 
       if (compareToPrevious) {
         const prevRow = previousByKey.get(rowIdentityKey(row, level, breakdownGroup));
-        const prevMetrics = prevRow ? deriveRowMetrics(prevRow, metricKeys, cleanCustomFields, cleanCustomMetrics) : null;
+        const prevMetrics = prevRow ? deriveRowMetrics(prevRow, effectiveMetricKeys, outputCustomFields, cleanCustomMetrics) : null;
         out._previous = prevMetrics;
         out._deltaPct = {};
         for (const key of allKeys) {
@@ -322,8 +545,8 @@ export default async function handler(req, res) {
     meta: {
       level,
       breakdownGroup,
-      metricKeys,
-      customFields: cleanCustomFields,
+      metricKeys: effectiveMetricKeys,
+      customFields: outputCustomFields,
       accountIds,
       accountErrors,
       since,
@@ -333,6 +556,15 @@ export default async function handler(req, res) {
       previousSince: previousRange?.since || null,
       previousUntil: previousRange?.until || null,
       rowCount: rows.length,
+      // Lets the UI explain itself: whether a name filter forced fetching at
+      // a finer level than requested and rolling the result back up (and, if
+      // so, which requested metrics got dropped because they can't be
+      // correctly re-aggregated — see REACH_DEPENDENT_KEYS), and how many
+      // underlying entities a filter actually excluded.
+      nameFiltersApplied: cleanNameFilters.length > 0,
+      rollupApplied: needsRollup,
+      excludedMetrics,
+      excludedByNameCount,
     },
   });
 }
