@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import LaunchPanel from "@/components/LaunchPanel";
 import InterestTargetingSection from "@/components/InterestTargetingSection";
+import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import {
@@ -262,22 +263,13 @@ export default function Strategy() {
                 retargeting pool worth building a strategy around. Or mark this as a fresh/new account with no
                 prior data.
               </p>
-              <select
-                className={styles.select}
-                style={{ width: "100%", maxWidth: 420 }}
+              <AccountSelect
+                accounts={accounts}
+                extraOptions={[{ id: FRESH_ACCOUNT, name: "Fresh / new account (no prior data)" }]}
                 value={accountChoice}
-                onChange={(e) => handleAccountChoice(e.target.value)}
-              >
-                <option value="" disabled>
-                  Select an account…
-                </option>
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name}
-                  </option>
-                ))}
-                <option value={FRESH_ACCOUNT}>Fresh / new account (no prior data)</option>
-              </select>
+                onChange={handleAccountChoice}
+                style={{ width: "100%", maxWidth: 420 }}
+              />
 
               {isRealAccount && hasBudget && (
                 <div style={{ marginTop: 12 }}>
@@ -305,21 +297,13 @@ export default function Strategy() {
                     A fresh account has nothing to compute a recommendation from, but launching still needs a real
                     ad account to create campaigns on — pick which one this strategy should actually launch to.
                   </p>
-                  <select
-                    className={styles.select}
-                    style={{ width: "100%", maxWidth: 420 }}
+                  <AccountSelect
+                    accounts={accounts}
                     value={launchAccountChoice}
-                    onChange={(e) => setLaunchAccountChoice(e.target.value)}
-                  >
-                    <option value="" disabled>
-                      Select an account to launch to…
-                    </option>
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setLaunchAccountChoice}
+                    placeholder="Select an account to launch to…"
+                    style={{ width: "100%", maxWidth: 420 }}
+                  />
                 </div>
               )}
             </div>
