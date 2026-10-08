@@ -12,8 +12,14 @@ import {
   rowBreakdownLabel,
 } from "@/lib/insightsMetrics";
 
-const MAX_RANGE_DAYS = 30;
+const MAX_RANGE_DAYS = 90;
 const MAX_ACCOUNTS = 10;
+// Multiple of 7 — when `time_increment=7` (weekly grouping), Facebook buckets
+// days starting from each call's own `time_range.since`, so a chunk boundary
+// that didn't land on a multiple of 7 would split one calendar week across
+// two chunks as two partial-week rows instead of one. 28 (four weeks) keeps
+// every chunk's week buckets contiguous with the next chunk's.
+const CHUNK_DAYS = 28;
 const VALID_LEVELS = LEVEL_OPTIONS.map((l) => l.value);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,6 +31,26 @@ function isoDate(date) {
 // day, not 0) — matches how a human reads a date range picker.
 function inclusiveDayCount(since, until) {
   return Math.round((new Date(`${until}T00:00:00Z`) - new Date(`${since}T00:00:00Z`)) / DAY_MS) + 1;
+}
+
+// Splits one {since, until} range into consecutive sub-ranges of at most
+// `maxDays` each (the last one shorter if it doesn't divide evenly) — e.g.
+// a 90-day range in 28-day chunks becomes [28, 28, 28, 6] days. A range
+// already within the cap comes back as a single chunk, so this is a no-op
+// for the common case (today/this-week/last-30-days presets).
+function splitRangeIntoChunks(since, until, maxDays) {
+  const chunks = [];
+  let chunkStart = new Date(`${since}T00:00:00Z`);
+  const end = new Date(`${until}T00:00:00Z`);
+  while (chunkStart <= end) {
+    const chunkEnd = new Date(chunkStart);
+    chunkEnd.setUTCDate(chunkEnd.getUTCDate() + maxDays - 1);
+    if (chunkEnd > end) chunkEnd.setTime(end.getTime());
+    chunks.push({ since: isoDate(chunkStart), until: isoDate(chunkEnd) });
+    chunkStart = new Date(chunkEnd);
+    chunkStart.setUTCDate(chunkStart.getUTCDate() + 1);
+  }
+  return chunks;
 }
 
 // POST, not GET+query-string: the query spec (a breakdown group, a list of
@@ -141,19 +167,35 @@ export default async function handler(req, res) {
     previousRange = { since: isoDate(prevSince), until: isoDate(prevUntil) };
   }
 
-  // One flat list of calls across every account (and, when comparing, both
-  // periods per account) — run together in a single Promise.allSettled, not
-  // nested per-account awaits, for the same reason the original single-
-  // account compare-to-previous code ran its two calls in parallel:
-  // graphGetInsights's async-job path can take up to its own ~15s poll
-  // timeout per call, and there's no reason independent queries should
-  // serialize that cost. allSettled (not all) so one revoked/erroring
-  // account doesn't block the others from returning data.
+  // A daily/weekly-grouped query over a long range can return a lot of rows
+  // (days × entities × breakdown values) — chunked into several smaller
+  // date windows run in parallel, each well within Facebook's own per-call
+  // pagination ceiling, rather than one call whose result could silently
+  // truncate. An aggregate query (no time grouping) returns one pre-summed
+  // row per entity/breakdown regardless of range length, and Facebook's own
+  // sums (and derived ratios like CTR) can't be correctly reconstructed by
+  // just concatenating partial-range rows — only the time-series case is
+  // chunked, where each chunk's rows are already independent and safe to
+  // concatenate. (compareToPrevious is already mutually exclusive with
+  // time_increment, so the previous-period call is never chunked.)
+  const currentChunks = validTimeIncrement ? splitRangeIntoChunks(since, until, CHUNK_DAYS) : [{ since, until }];
+
+  // One flat list of calls across every account, every current-period chunk,
+  // and (when comparing) the previous period — run together in a single
+  // Promise.allSettled, not nested per-account awaits, for the same reason
+  // the original single-account compare-to-previous code ran its two calls
+  // in parallel: graphGetInsights's async-job path can take up to its own
+  // ~15s poll timeout per call, and there's no reason independent queries
+  // should serialize that cost. allSettled (not all) so one revoked/erroring
+  // account — or one failed chunk — doesn't block the rest from returning
+  // data.
   const callPlan = [];
   const calls = [];
   for (const accountId of accountIds) {
-    calls.push(graphGetInsights(`/${accountId}/insights`, token, baseParams));
-    callPlan.push({ accountId, period: "current" });
+    for (const chunk of currentChunks) {
+      calls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: chunk }));
+      callPlan.push({ accountId, period: "current" });
+    }
     if (compareToPrevious) {
       calls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: previousRange }));
       callPlan.push({ accountId, period: "previous" });
@@ -168,7 +210,7 @@ export default async function handler(req, res) {
   settled.forEach((result, i) => {
     const { accountId, period } = callPlan[i];
     if (result.status === "fulfilled") {
-      byAccount.get(accountId)[period] = result.value.data || [];
+      byAccount.get(accountId)[period].push(...(result.value.data || []));
     } else {
       if (!firstFailure) firstFailure = result.reason;
       if (!accountErrors.some((e) => e.accountId === accountId)) {
@@ -177,7 +219,12 @@ export default async function handler(req, res) {
     }
   });
 
-  if (accountErrors.length === accountIds.length) {
+  // Checked by actual data, not just by `accountErrors.length` — with a
+  // chunked time-series query, an account can appear in `accountErrors` from
+  // one failed chunk while still having real rows from its other, succeeded
+  // chunks. Only an account with zero current-period rows at all has nothing
+  // to show.
+  if (accountIds.every((id) => byAccount.get(id).current.length === 0)) {
     // Every account failed — nothing to show, surface it as a real error
     // rather than an empty-but-200 response.
     return res.status(firstFailure?.graphResponse ? 400 : 500).json({ error: firstFailure?.message || "Request failed" });
