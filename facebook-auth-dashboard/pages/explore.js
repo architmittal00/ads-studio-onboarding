@@ -79,6 +79,17 @@ function isChartableForView(key, catalog, accountCount) {
 
 const MAX_ACCOUNTS_PER_VIEW = 10;
 
+// Which "exclude rows by name" fields make sense at which level — mirrors
+// lib/insightsMetrics.js's LEVEL_EXTRA_FIELDS (a campaign-level query never
+// fetches adset_name/ad_name, so filtering by them there would always be a
+// silent no-op; restricting the picker to what's actually fetched avoids
+// offering a filter that can never match anything).
+const NAME_FILTER_FIELDS = [
+  { field: "campaignName", label: "Campaign name", levels: ["campaign", "adset", "ad"] },
+  { field: "adsetName", label: "Ad set name", levels: ["adset", "ad"] },
+  { field: "adName", label: "Ad name", levels: ["ad"] },
+];
+
 // One independent tab: its own account(s), its own query spec, its own
 // fetched result/loading/error and view-mode — switching tabs never touches
 // another tab's state. `accountIds` is always an array (even length-1) —
@@ -100,6 +111,19 @@ function createBlankView(seedAccountId = "") {
     metricKeys: ["spend", "impressions", "clicks", "ctr"],
     customFieldsText: "",
     compareToPrevious: false,
+    // Null (not an empty string) means "no custom comparison start date" —
+    // compareToPrevious then defaults to the immediately-preceding period of
+    // equal length, computed server-side. Set to a YYYY-MM-DD string once the
+    // user picks "Custom start date" below; the comparison period's end date
+    // is always derived from it (same length as the primary range), never
+    // picked independently.
+    compareCustomSince: "",
+    // Client-only display filters — hide rows whose campaign/ad set/ad name
+    // contains any of these (case-insensitive). Deliberately left out of
+    // buildQuerySpecFromView: applying this doesn't need a new Graph API
+    // field or a new request, so it's never part of the query spec/cache key,
+    // and editing it never re-triggers a fetch.
+    nameFilters: [],
     result: null,
     resultFetchedAt: null,
     loading: false,
@@ -162,14 +186,28 @@ function parseCustomFields(text) {
     .filter(Boolean);
 }
 
+// A custom comparison period is always the same length as the primary range
+// — only its *start* is the user's choice, mirroring the backend's own
+// enforcement of this in pages/api/fb/explore-insights.js. Returns null
+// whenever there's no (valid) custom start date to compute from, so callers
+// can fall back to the default immediately-preceding-period behavior.
+function customPreviousRangeFor(view, rangeDays) {
+  if (!view.compareToPrevious || view.timeIncrement || !view.compareCustomSince || !rangeDays) return null;
+  return { since: view.compareCustomSince, until: addDaysUTC(view.compareCustomSince, rangeDays - 1) };
+}
+
 // Pure: a view's current form fields -> the POST body /api/fb/explore-insights
 // expects. No `force` baked in — that's passed separately to runQueryForView.
 // `customMetrics` (this user's full saved list) is filtered down to just the
 // definitions actually selected in `view.metricKeys` — the backend has no
 // localStorage access, so a selected custom metric's full definition (not
-// just its id) has to travel in the request.
+// just its id) has to travel in the request. `nameFilters` is deliberately
+// NOT included here — it's a client-only display filter (see createBlankView)
+// and has no bearing on what's actually requested or cached.
 function buildQuerySpecFromView(view, customMetrics) {
   const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
+  const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
+  const customPrevious = customPreviousRangeFor(view, rangeDays);
   return {
     // Sorted so picking the same accounts in a different order (the
     // multi-select doesn't guarantee pick order survives) still produces the
@@ -186,6 +224,13 @@ function buildQuerySpecFromView(view, customMetrics) {
     until: range?.until,
     timeIncrement: view.timeIncrement || null,
     compareToPrevious: view.timeIncrement ? false : view.compareToPrevious,
+    // Omitted (not `null`) when there's no custom start date, so
+    // JSON.stringify drops the keys entirely — a view that's never touched
+    // this feature produces the exact same cache key / request body as
+    // before it existed, and the backend falls back to its own default
+    // immediately-preceding-period computation.
+    previousSince: customPrevious?.since,
+    previousUntil: customPrevious?.until,
   };
 }
 
@@ -194,7 +239,9 @@ function isViewRunnable(view, catalog) {
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
   const metricsResolve = view.metricKeys.length > 0 && view.metricKeys.every((k) => catalog.some((m) => m.key === k));
-  return view.accountIds.length > 0 && rangeValid && metricsResolve;
+  const customPrevious = customPreviousRangeFor(view, rangeDays);
+  const customPreviousValid = !customPrevious || customPrevious.until <= isoDate(todayUTC());
+  return view.accountIds.length > 0 && rangeValid && metricsResolve && customPreviousValid;
 }
 
 function firstChartableKey(metricKeys, catalog, accountCount) {
@@ -322,6 +369,14 @@ export default function Explore() {
     setCustomMetricNumerator("");
     setCustomMetricDenominator("");
   }
+
+  // "Exclude rows by name" creation form — which field is picked defaults to
+  // the first one that's actually meaningful at the active view's level
+  // (recomputed below as `effectiveNewFilterField`, not stored state, since
+  // switching levels should never leave a stale, now-irrelevant field
+  // selected in the dropdown).
+  const [newFilterField, setNewFilterField] = useState("campaignName");
+  const [newFilterValue, setNewFilterValue] = useState("");
 
   function deleteCustomMetric(id) {
     const next = customMetrics.filter((cm) => cm.id !== id);
@@ -489,10 +544,35 @@ export default function Explore() {
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
   const metricsResolve =
     activeView.metricKeys.length > 0 && activeView.metricKeys.every((k) => effectiveCatalog.some((m) => m.key === k));
-  const canRunQuery = activeView.accountIds.length > 0 && rangeValid && metricsResolve;
   const compareDisabled = activeView.timeIncrement !== "";
+  const customPrevious = customPreviousRangeFor(activeView, rangeDays);
+  const customPreviousValid = !customPrevious || customPrevious.until <= isoDate(todayUTC());
+  const canRunQuery = activeView.accountIds.length > 0 && rangeValid && metricsResolve && customPreviousValid;
 
   const customFields = useMemo(() => parseCustomFields(activeView.customFieldsText), [activeView.customFieldsText]);
+
+  // Only offer "exclude by name" fields this view's level actually fetches
+  // (see NAME_FILTER_FIELDS) — falls back to the first available one whenever
+  // the stored `newFilterField` selection no longer applies (e.g. the user
+  // switched from Ad level, where "Ad name" was selected, down to Campaign).
+  const availableNameFilterFields = useMemo(
+    () => NAME_FILTER_FIELDS.filter((f) => f.levels.includes(activeView.level)),
+    [activeView.level]
+  );
+  const effectiveNewFilterField = availableNameFilterFields.some((f) => f.field === newFilterField)
+    ? newFilterField
+    : availableNameFilterFields[0]?.field || "";
+
+  function addNameFilter() {
+    const value = newFilterValue.trim();
+    if (!value || !effectiveNewFilterField) return;
+    updateActive((v) => ({ nameFilters: [...v.nameFilters, { id: newViewId(), field: effectiveNewFilterField, value }] }));
+    setNewFilterValue("");
+  }
+
+  function removeNameFilter(id) {
+    updateActive((v) => ({ nameFilters: v.nameFilters.filter((f) => f.id !== id) }));
+  }
 
   const result = activeView.result;
   const chartableMetricKeys = result
@@ -500,19 +580,52 @@ export default function Explore() {
     : [];
   const isRerun = activeView.loading && !!result;
 
+  // Only filters with real text to match on — an empty-string filter (the
+  // in-progress row before "+ Exclude" is clicked, were it ever persisted)
+  // would otherwise match every row via String(...).includes("").
+  const activeNameFilters = useMemo(
+    () => (activeView.nameFilters || []).filter((f) => f.value.trim()),
+    [activeView.nameFilters]
+  );
+
+  // Applied client-side, after the fetch — these never change what was
+  // requested or cached, only what's shown. A row with no value at all for a
+  // filtered field (e.g. an "Ad name" filter while entityLabel-less fields
+  // are absent at this level) never matches, so an inapplicable filter is a
+  // harmless no-op rather than hiding everything.
+  const filteredRows = useMemo(() => {
+    if (!result) return [];
+    if (activeNameFilters.length === 0) return result.rows;
+    return result.rows.filter(
+      (row) => !activeNameFilters.some((f) => String(row[f.field] ?? "").toLowerCase().includes(f.value.trim().toLowerCase()))
+    );
+  }, [result, activeNameFilters]);
+
   // Prefixes each row's `label` with its account's name whenever more than
   // one account is selected, so ExploreChart's pivot-by-label logic
   // naturally separates accounts into distinct lines/bars/series — purely a
-  // render-time view of the data, never mutating `result.rows` itself (the
-  // same row objects may be sitting in lib/clientCache.js's stored entry).
+  // render-time view of the (already name-filtered) data, never mutating
+  // `result.rows` itself (the same row objects may be sitting in
+  // lib/clientCache.js's stored entry).
   const chartRows = useMemo(() => {
     if (!result) return [];
-    if (result.meta.accountIds.length <= 1) return result.rows;
-    return result.rows.map((r) => ({
+    if (result.meta.accountIds.length <= 1) return filteredRows;
+    return filteredRows.map((r) => ({
       ...r,
       label: `${adAccounts.find((a) => a.id === r.accountId)?.name || r.accountId} — ${r.label}`,
     }));
-  }, [result, adAccounts]);
+  }, [result, filteredRows, adAccounts]);
+
+  function handleExportCsv() {
+    if (!result) return;
+    const csv = toCsvString(buildCsvTable(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
+    const viewIndex = views.findIndex((v) => v.id === activeView.id);
+    const slug = viewTitle(activeView, adAccounts, viewIndex === -1 ? 0 : viewIndex)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    downloadCsv(`explore-${slug || "report"}-${result.meta.since}-to-${result.meta.until}.csv`, csv);
+  }
 
   return (
     <Layout>
@@ -727,6 +840,62 @@ export default function Explore() {
             </div>
 
             <div>
+              <h2 className={styles.h2}>Exclude rows by name</h2>
+              {availableNameFilterFields.length === 0 ? (
+                <p className={styles.sub}>Select Campaign, Ad Set, or Ad level above to filter by name.</p>
+              ) : (
+                <>
+                  <p className={styles.sub} style={{ marginBottom: 10 }}>
+                    Hide rows whose name contains any of the text below (e.g. exclude everything with &quot;ABCD&quot;
+                    in the campaign name) — applied instantly to what&apos;s already loaded, no need to re-run the
+                    query. Add as many as you like.
+                  </p>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <select className={styles.select} value={effectiveNewFilterField} onChange={(e) => setNewFilterField(e.target.value)}>
+                      {availableNameFilterFields.map((f) => (
+                        <option key={f.field} value={f.field}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className={styles.muted}>contains</span>
+                    <input
+                      type="text"
+                      className={styles.select}
+                      placeholder="e.g. ABCD"
+                      value={newFilterValue}
+                      onChange={(e) => setNewFilterValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addNameFilter();
+                      }}
+                      style={{ width: 200 }}
+                    />
+                    <button type="button" className={styles.btnSecondary} disabled={!newFilterValue.trim()} onClick={addNameFilter}>
+                      + Exclude
+                    </button>
+                  </div>
+                  {activeView.nameFilters.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                      {activeView.nameFilters.map((f) => (
+                        <span key={f.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {NAME_FILTER_FIELDS.find((o) => o.field === f.field)?.label || f.field}: &quot;{f.value}&quot;
+                          <button
+                            type="button"
+                            onClick={() => removeNameFilter(f.id)}
+                            title="Remove filter"
+                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
+                          >
+                            <CloseIcon size={10} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div>
               <h2 className={styles.h2}>Group by time</h2>
               <div className={styles.tabGroup}>
                 {TIME_GROUPING_OPTIONS.map((o) => (
@@ -859,8 +1028,9 @@ export default function Explore() {
             <div>
               <h2 className={styles.h2}>Compare to previous period</h2>
               <p className={styles.sub} style={{ marginBottom: 10 }}>
-                Shows each row&apos;s change against the immediately preceding period of equal length — a 7-day
-                range compares week-over-week.
+                By default, shows each row&apos;s change against the immediately preceding period of equal length —
+                a 7-day range compares week-over-week. Pick any other starting date below instead; the comparison
+                period is always the same length as the one you selected above, only its start date is your choice.
                 {compareDisabled && " Not available together with daily/weekly grouping."}
               </p>
               <div className={styles.tabGroup}>
@@ -878,6 +1048,50 @@ export default function Explore() {
                   On
                 </button>
               </div>
+              {activeView.compareToPrevious && !compareDisabled && (
+                <div style={{ marginTop: 10 }}>
+                  <div className={styles.tabGroup} style={{ marginBottom: 10 }}>
+                    <button
+                      className={!activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => updateActive({ compareCustomSince: "" })}
+                    >
+                      Immediately preceding (default)
+                    </button>
+                    <button
+                      className={activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() =>
+                        updateActive((v) => ({
+                          compareCustomSince: v.compareCustomSince || (range && rangeDays ? addDaysUTC(range.since, -rangeDays) : ""),
+                        }))
+                      }
+                    >
+                      Custom start date
+                    </button>
+                  </div>
+                  {activeView.compareCustomSince && (
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <input
+                        type="date"
+                        className={styles.select}
+                        value={activeView.compareCustomSince}
+                        max={isoDate(todayUTC())}
+                        onChange={(e) => updateActive({ compareCustomSince: e.target.value })}
+                      />
+                      {rangeDays && (
+                        <span className={styles.muted}>
+                          → {addDaysUTC(activeView.compareCustomSince, rangeDays - 1)} ({rangeDays} day
+                          {rangeDays === 1 ? "" : "s"}, matching the selected period)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {customPrevious && !customPreviousValid && (
+                    <p className={styles.sub} style={{ color: "#ff7070", marginTop: 8 }}>
+                      Comparison period can&apos;t extend into the future.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -920,19 +1134,24 @@ export default function Explore() {
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                 <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
-                <div className={styles.tabGroup}>
-                  <button
-                    className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => updateActive({ viewMode: "table" })}
-                  >
-                    Table
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
+                    Export CSV
                   </button>
-                  <button
-                    className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => updateActive({ viewMode: "chart" })}
-                  >
-                    Chart
-                  </button>
+                  <div className={styles.tabGroup}>
+                    <button
+                      className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => updateActive({ viewMode: "table" })}
+                    >
+                      Table
+                    </button>
+                    <button
+                      className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => updateActive({ viewMode: "chart" })}
+                    >
+                      Chart
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -953,7 +1172,10 @@ export default function Explore() {
                 {result.meta.since} → {result.meta.until}
                 {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
                 {" · "}
-                {result.meta.rowCount} row{result.meta.rowCount === 1 ? "" : "s"}
+                {filteredRows.length} row{filteredRows.length === 1 ? "" : "s"}
+                {activeNameFilters.length > 0 &&
+                  filteredRows.length !== result.meta.rowCount &&
+                  ` (${result.meta.rowCount - filteredRows.length} hidden by name filter)`}
               </p>
 
               {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
@@ -975,7 +1197,8 @@ export default function Explore() {
 
               {activeView.viewMode === "table" ? (
                 <ExploreResultsTable
-                  result={result}
+                  rows={filteredRows}
+                  meta={result.meta}
                   adAccounts={adAccounts}
                   currencyByAccountId={currencyByAccountId}
                   effectiveCatalog={effectiveCatalog}
@@ -1015,45 +1238,38 @@ function DeltaBadge({ value }) {
   );
 }
 
-function ExploreResultsTable({ result, adAccounts, currencyByAccountId, effectiveCatalog }) {
-  const { rows, meta } = result;
+// The leading, non-metric columns a result can have — shared between the
+// on-screen table (which wants per-column render/sortValue/maxWidth) and the
+// CSV export (which just wants `{key, label}` to read `row[key]` through). A
+// level's own name (e.g. an ad) and a breakdown's value (e.g. "25-34, male")
+// are two different things about a row, not one — kept as separate columns
+// whenever both are present, rather than combined into a single string where
+// an ad's own name became indistinguishable from the breakdown value sitting
+// next to it.
+function leadingColumnDefs(meta) {
+  const defs = [];
+  if (meta.accountIds.length > 1) defs.push({ key: "accountId", label: "Account" });
+  if (meta.timeIncrement) defs.push({ key: "date", label: "Date" });
+  if (meta.level !== "account") {
+    defs.push({ key: "entityLabel", label: LEVEL_OPTIONS.find((l) => l.value === meta.level)?.label || "Name" });
+  }
+  if (meta.breakdownGroup !== "none") {
+    defs.push({ key: "breakdownLabel", label: BREAKDOWN_GROUPS.find((g) => g.value === meta.breakdownGroup)?.label || "Breakdown" });
+  }
+  if (defs.length === 0) defs.push({ key: "label", label: "Total" });
+  return defs;
+}
+
+function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog }) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
-  // A level's own name (e.g. an ad) and a breakdown's value (e.g. "25-34,
-  // male") are two different things about a row, not one — shown as
-  // separate columns whenever both are present, rather than combined into a
-  // single string where an ad's own name became indistinguishable from the
-  // breakdown value sitting next to it.
-  const hasDate = !!meta.timeIncrement;
-  const hasEntity = meta.level !== "account";
-  const hasBreakdown = meta.breakdownGroup !== "none";
-  const hasMultiAccount = meta.accountIds.length > 1;
-
-  const leadingColumns = [];
-  if (hasMultiAccount) {
-    const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
-    leadingColumns.push({ key: "accountId", label: "Account", maxWidth: 200, render: accountName, sortValue: accountName });
-  }
-  if (hasDate) {
-    leadingColumns.push({ key: "date", label: "Date", maxWidth: 120 });
-  }
-  if (hasEntity) {
-    leadingColumns.push({
-      key: "entityLabel",
-      label: LEVEL_OPTIONS.find((l) => l.value === meta.level)?.label || "Name",
-      maxWidth: 240,
-    });
-  }
-  if (hasBreakdown) {
-    leadingColumns.push({
-      key: "breakdownLabel",
-      label: BREAKDOWN_GROUPS.find((g) => g.value === meta.breakdownGroup)?.label || "Breakdown",
-      maxWidth: 200,
-    });
-  }
-  if (leadingColumns.length === 0) {
-    leadingColumns.push({ key: "label", label: "Total", maxWidth: 160 });
-  }
+  const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
+  const LEADING_MAX_WIDTH = { accountId: 200, date: 120, entityLabel: 240, breakdownLabel: 200, label: 160 };
+  const leadingColumns = leadingColumnDefs(meta).map((def) =>
+    def.key === "accountId"
+      ? { ...def, maxWidth: LEADING_MAX_WIDTH.accountId, render: accountName, sortValue: accountName }
+      : { ...def, maxWidth: LEADING_MAX_WIDTH[def.key] }
+  );
 
   const columns = [
     ...leadingColumns,
@@ -1094,6 +1310,66 @@ function ExploreResultsTable({ result, adAccounts, currencyByAccountId, effectiv
       />
     </div>
   );
+}
+
+// Plain-text mirror of ExploreResultsTable's column logic (sharing
+// leadingColumnDefs for the leading columns) — a CSV cell is a formatted
+// string, not a React node, so this can't reuse that component's `render`
+// functions directly (they return <DeltaBadge>, not text). Rows passed in
+// are expected to already be filtered/sorted exactly as the user sees them —
+// this doesn't re-derive either.
+function buildCsvTable(rows, meta, adAccounts, currencyByAccountId, effectiveCatalog) {
+  const leading = leadingColumnDefs(meta);
+  const metricKeysAndFields = [...meta.metricKeys, ...meta.customFields];
+
+  const header = [...leading.map((c) => c.label)];
+  for (const key of metricKeysAndFields) {
+    const metric = effectiveCatalog.find((m) => m.key === key);
+    header.push(metric?.label || key);
+    if (meta.compareToPrevious) header.push(`${metric?.label || key} Δ%`);
+  }
+
+  const lines = [header];
+  for (const row of rows) {
+    const line = leading.map((c) =>
+      c.key === "accountId" ? adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId : row[c.key] ?? ""
+    );
+    for (const key of metricKeysAndFields) {
+      const metric = effectiveCatalog.find((m) => m.key === key);
+      const format = metric?.format || "number";
+      line.push(formatMetricValue(row[key], format, currencyByAccountId.get(row.accountId)));
+      if (meta.compareToPrevious) {
+        const delta = row._deltaPct?.[key];
+        line.push(typeof delta === "number" ? `${delta.toFixed(1)}%` : "");
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function escapeCsvCell(value) {
+  const s = String(value ?? "");
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function toCsvString(lines) {
+  return lines.map((line) => line.map(escapeCsvCell).join(",")).join("\r\n");
+}
+
+// A plain client-side file download, triggered only by the user's own
+// "Export CSV" click — the file is generated entirely from data already in
+// the page, not fetched from anywhere.
+function downloadCsv(filename, csvString) {
+  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export async function getServerSideProps(context) {
