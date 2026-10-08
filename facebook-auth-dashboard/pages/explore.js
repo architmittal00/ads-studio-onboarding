@@ -11,13 +11,13 @@ import AccountSelect from "@/components/AccountSelect";
 import { CloseIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { getExploreViews, setExploreViews } from "@/lib/clientStorage";
+import { getExploreViews, setExploreViews, getCustomMetrics, setCustomMetrics } from "@/lib/clientStorage";
 import {
   LEVEL_OPTIONS,
   BREAKDOWN_GROUPS,
   METRIC_CATALOG,
   formatMetricValue,
-  isChartableMetric,
+  buildEffectiveCatalog,
 } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
@@ -45,11 +45,27 @@ const TIME_GROUPING_OPTIONS = [
   { value: "7", label: "Weekly" },
 ];
 
-const METRIC_GROUPS = [...new Set(METRIC_CATALOG.map((m) => m.group))];
-
 function newViewId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `v${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+// Prefixed distinctly from newViewId() so a custom metric's id can never be
+// mistaken for (or collide with) a view id or a built-in catalog key.
+function newCustomMetricId() {
+  return `cm_${newViewId()}`;
+}
+
+// Only these formats are plottable as a numeric axis — mirrors
+// lib/insightsMetrics.js's own CHARTABLE_FORMATS, kept local here since this
+// needs to check against `effectiveCatalog` (built-ins + this user's custom
+// metrics), not just the built-in catalog the exported isChartableMetric()
+// is scoped to.
+const CHARTABLE_FORMATS = new Set(["number", "currency", "percent", "decimal"]);
+
+function isChartableInCatalog(key, catalog) {
+  const metric = catalog.find((m) => m.key === key);
+  return !!metric && CHARTABLE_FORMATS.has(metric.format);
 }
 
 // One independent tab: its own account, its own query spec, its own
@@ -130,7 +146,11 @@ function parseCustomFields(text) {
 
 // Pure: a view's current form fields -> the POST body /api/fb/explore-insights
 // expects. No `force` baked in — that's passed separately to runQueryForView.
-function buildQuerySpecFromView(view) {
+// `customMetrics` (this user's full saved list) is filtered down to just the
+// definitions actually selected in `view.metricKeys` — the backend has no
+// localStorage access, so a selected custom metric's full definition (not
+// just its id) has to travel in the request.
+function buildQuerySpecFromView(view, customMetrics) {
   const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
   return {
     accountId: view.accountId,
@@ -138,6 +158,9 @@ function buildQuerySpecFromView(view) {
     breakdownGroup: view.breakdownGroup,
     metricKeys: view.metricKeys,
     customFields: parseCustomFields(view.customFieldsText),
+    customMetrics: (customMetrics || [])
+      .filter((cm) => view.metricKeys.includes(cm.id))
+      .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey })),
     since: range?.since,
     until: range?.until,
     timeIncrement: view.timeIncrement || null,
@@ -145,15 +168,16 @@ function buildQuerySpecFromView(view) {
   };
 }
 
-function isViewRunnable(view) {
+function isViewRunnable(view, catalog) {
   const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
-  return !!view.accountId && rangeValid && view.metricKeys.length > 0;
+  const metricsResolve = view.metricKeys.length > 0 && view.metricKeys.every((k) => catalog.some((m) => m.key === k));
+  return !!view.accountId && rangeValid && metricsResolve;
 }
 
-function firstChartableKey(meta) {
-  return meta.metricKeys.find(isChartableMetric) || null;
+function firstChartableKey(metricKeys, catalog) {
+  return metricKeys.find((k) => isChartableInCatalog(k, catalog)) || null;
 }
 
 async function fetchExploreInsights(body) {
@@ -201,6 +225,60 @@ export default function Explore() {
 
   const currency = adAccounts.find((a) => a.id === activeView.accountId)?.currency;
 
+  // User-defined ratio metrics (numerator ÷ denominator, both built-in
+  // catalog keys), shared across every open view — not per-view state, since
+  // these are "what this user has defined" rather than part of any one
+  // query. `effectiveCatalog` merges them into the built-in catalog so the
+  // metric-picker pills, the chart-metric dropdown, and the results table's
+  // column lookup all work against custom metrics with no further changes.
+  const [customMetrics, setCustomMetricsState] = useState(() => getCustomMetrics());
+  const effectiveCatalog = useMemo(() => buildEffectiveCatalog(customMetrics), [customMetrics]);
+  const metricGroups = useMemo(() => [...new Set(effectiveCatalog.map((m) => m.group))], [effectiveCatalog]);
+
+  // Custom-metric creation form fields — restricted to METRIC_CATALOG (the
+  // built-in catalog only, never effectiveCatalog) so a custom metric can
+  // never reference another custom metric. No principled resolution order
+  // exists for that without cycle detection, which this deliberately-simple
+  // ratio-only feature doesn't need; the server independently rejects it too.
+  const [customMetricLabel, setCustomMetricLabel] = useState("");
+  const [customMetricNumerator, setCustomMetricNumerator] = useState("");
+  const [customMetricDenominator, setCustomMetricDenominator] = useState("");
+
+  function saveCustomMetric(def) {
+    const next = [...customMetrics, def];
+    setCustomMetricsState(next);
+    setCustomMetrics(next);
+  }
+
+  function createCustomMetric() {
+    if (!customMetricLabel.trim() || !customMetricNumerator || !customMetricDenominator) return;
+    saveCustomMetric({
+      id: newCustomMetricId(),
+      label: customMetricLabel.trim(),
+      numeratorKey: customMetricNumerator,
+      denominatorKey: customMetricDenominator,
+      format: "decimal",
+    });
+    setCustomMetricLabel("");
+    setCustomMetricNumerator("");
+    setCustomMetricDenominator("");
+  }
+
+  function deleteCustomMetric(id) {
+    const next = customMetrics.filter((cm) => cm.id !== id);
+    setCustomMetricsState(next);
+    setCustomMetrics(next);
+    // Sweep the deleted metric out of every open view so a restored view
+    // never keeps a dangling reference to a metric that no longer exists.
+    setViews((prev) =>
+      prev.map((v) => ({
+        ...v,
+        metricKeys: v.metricKeys.filter((k) => k !== id),
+        chartMetricKey: v.chartMetricKey === id ? null : v.chartMetricKey,
+      }))
+    );
+  }
+
   const hasSeededInitialAccountRef = useRef(false);
   const hasRestoredRef = useRef(false);
 
@@ -214,10 +292,15 @@ export default function Explore() {
     const persisted = getExploreViews();
     if (!persisted?.views?.length) return;
 
+    // Read directly rather than closing over the `customMetrics` state (both
+    // resolve to the same value at mount, since that state's own initializer
+    // is this same getCustomMetrics() call) — keeps this effect's dependency
+    // list honestly empty for what's a genuine one-time restore.
+    const customMetricsAtMount = getCustomMetrics();
     const hydrated = persisted.views.map((v) => {
       const cached =
         v.accountId && v.metricKeys?.length > 0
-          ? getCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(v)))
+          ? getCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(v, customMetricsAtMount)))
           : null;
       return {
         ...v,
@@ -265,8 +348,8 @@ export default function Explore() {
   }
 
   function runQueryForView(view, force) {
-    if (!isViewRunnable(view)) return;
-    const spec = buildQuerySpecFromView(view);
+    if (!isViewRunnable(view, effectiveCatalog)) return;
+    const spec = buildQuerySpecFromView(view, customMetrics);
     const cacheKey = EXPLORE_CACHE_PREFIX + JSON.stringify(spec);
 
     if (!force) {
@@ -276,7 +359,7 @@ export default function Explore() {
           result: cached.data,
           resultFetchedAt: cached.fetchedAt,
           error: null,
-          chartMetricKey: firstChartableKey(cached.data.meta),
+          chartMetricKey: firstChartableKey(cached.data.meta.metricKeys, effectiveCatalog),
         });
         return;
       }
@@ -285,7 +368,12 @@ export default function Explore() {
     updateView(view.id, { loading: true, error: null });
     fetchExploreInsights(spec)
       .then((json) => {
-        updateView(view.id, { result: json, resultFetchedAt: Date.now(), error: null, chartMetricKey: firstChartableKey(json.meta) });
+        updateView(view.id, {
+          result: json,
+          resultFetchedAt: Date.now(),
+          error: null,
+          chartMetricKey: firstChartableKey(json.meta.metricKeys, effectiveCatalog),
+        });
         setCachedEntry(cacheKey, json, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
       })
       .catch((err) => updateView(view.id, { error: err.message }))
@@ -323,13 +411,15 @@ export default function Explore() {
   const range = computeRange(activeView.rangePreset, activeView.customSince, activeView.customUntil);
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
-  const canRunQuery = !!activeView.accountId && rangeValid && activeView.metricKeys.length > 0;
+  const metricsResolve =
+    activeView.metricKeys.length > 0 && activeView.metricKeys.every((k) => effectiveCatalog.some((m) => m.key === k));
+  const canRunQuery = !!activeView.accountId && rangeValid && metricsResolve;
   const compareDisabled = activeView.timeIncrement !== "";
 
   const customFields = useMemo(() => parseCustomFields(activeView.customFieldsText), [activeView.customFieldsText]);
 
   const result = activeView.result;
-  const chartableMetricKeys = result ? result.meta.metricKeys.filter(isChartableMetric) : [];
+  const chartableMetricKeys = result ? result.meta.metricKeys.filter((k) => isChartableInCatalog(k, effectiveCatalog)) : [];
   const isRerun = activeView.loading && !!result;
 
   return (
@@ -519,13 +609,13 @@ export default function Explore() {
             <div>
               <h2 className={styles.h2}>Metrics</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {METRIC_GROUPS.map((group) => (
+                {metricGroups.map((group) => (
                   <div key={group}>
                     <p className={styles.muted} style={{ marginBottom: 6 }}>
                       {group}
                     </p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {METRIC_CATALOG.filter((m) => m.group === group).map((m) => {
+                      {effectiveCatalog.filter((m) => m.group === group).map((m) => {
                         const selected = activeView.metricKeys.includes(m.key);
                         return (
                           <button
@@ -561,6 +651,73 @@ export default function Explore() {
                   value={activeView.customFieldsText}
                   onChange={(e) => updateActive({ customFieldsText: e.target.value })}
                 />
+              </div>
+
+              <div style={{ marginTop: 14 }}>
+                <p className={styles.sub} style={{ marginBottom: 6 }}>
+                  Define your own ratio metric (e.g. Revenue ÷ Purchases) from any two metrics above — it&apos;s saved
+                  on this device and shows up as a pill in every view, under &quot;Custom&quot;.
+                </p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <select
+                    className={styles.select}
+                    value={customMetricNumerator}
+                    onChange={(e) => setCustomMetricNumerator(e.target.value)}
+                  >
+                    <option value="">Numerator…</option>
+                    {METRIC_CATALOG.map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className={styles.muted}>÷</span>
+                  <select
+                    className={styles.select}
+                    value={customMetricDenominator}
+                    onChange={(e) => setCustomMetricDenominator(e.target.value)}
+                  >
+                    <option value="">Denominator…</option>
+                    {METRIC_CATALOG.map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    className={styles.select}
+                    placeholder="Label, e.g. AOV"
+                    value={customMetricLabel}
+                    onChange={(e) => setCustomMetricLabel(e.target.value)}
+                    style={{ width: 160 }}
+                  />
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    disabled={!customMetricLabel.trim() || !customMetricNumerator || !customMetricDenominator}
+                    onClick={createCustomMetric}
+                  >
+                    Save Custom Metric
+                  </button>
+                </div>
+                {customMetrics.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                    {customMetrics.map((cm) => (
+                      <span key={cm.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {cm.label}
+                        <button
+                          type="button"
+                          onClick={() => deleteCustomMetric(cm.id)}
+                          title={`Delete ${cm.label}`}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
+                        >
+                          <CloseIcon size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -661,7 +818,7 @@ export default function Explore() {
                   >
                     {chartableMetricKeys.map((key) => (
                       <option key={key} value={key}>
-                        {METRIC_CATALOG.find((m) => m.key === key)?.label || key}
+                        {effectiveCatalog.find((m) => m.key === key)?.label || key}
                       </option>
                     ))}
                   </select>
@@ -669,9 +826,15 @@ export default function Explore() {
               )}
 
               {activeView.viewMode === "table" ? (
-                <ExploreResultsTable result={result} currency={currency} />
+                <ExploreResultsTable result={result} currency={currency} effectiveCatalog={effectiveCatalog} />
               ) : activeView.chartMetricKey ? (
-                <ExploreChart rows={result.rows} meta={result.meta} chartMetricKey={activeView.chartMetricKey} currency={currency} />
+                <ExploreChart
+                  rows={result.rows}
+                  meta={result.meta}
+                  chartMetricKey={activeView.chartMetricKey}
+                  currency={currency}
+                  effectiveCatalog={effectiveCatalog}
+                />
               ) : (
                 <p className={styles.sub}>No chartable metric selected — quality rankings are table-only.</p>
               )}
@@ -699,7 +862,7 @@ function DeltaBadge({ value }) {
   );
 }
 
-function ExploreResultsTable({ result, currency }) {
+function ExploreResultsTable({ result, currency, effectiveCatalog }) {
   const { rows, meta } = result;
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
@@ -737,7 +900,7 @@ function ExploreResultsTable({ result, currency }) {
   const columns = [
     ...leadingColumns,
     ...allKeys.map((key) => {
-      const metric = METRIC_CATALOG.find((m) => m.key === key);
+      const metric = effectiveCatalog.find((m) => m.key === key);
       const format = metric?.format || "number";
       const label = metric?.label || key;
       const comparable = meta.compareToPrevious && format !== "text";

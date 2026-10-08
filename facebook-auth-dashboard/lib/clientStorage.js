@@ -113,3 +113,26 @@ export function setExploreViews(data) {
     // Private browsing / blocked storage / quota exceeded — silently ignore.
   }
 }
+
+const CUSTOM_METRICS_KEY = "fb-dashboard:explore-custom-metrics";
+
+// User-defined ratio metrics for Explore (numerator metric ÷ denominator
+// metric, both existing catalog keys, plus a label) — shared across every
+// open view/tab, not per-view, since these are "what this user has defined"
+// rather than part of any one query.
+export function getCustomMetrics() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_METRICS_KEY) || "null");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setCustomMetrics(metrics) {
+  try {
+    localStorage.setItem(CUSTOM_METRICS_KEY, JSON.stringify(metrics));
+  } catch {
+    // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}
