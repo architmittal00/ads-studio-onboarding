@@ -1,44 +1,47 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
-import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
+import CacheStatus from "@/components/CacheStatus";
+import { useAccounts } from "@/components/AccountProvider";
+import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
 
-export default function Dashboard({ user }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
+function insightsCacheKey(accountId) {
+  return `insights:${accountId}`;
+}
 
-  const [selectedAccountId, setSelectedAccountId] = useState("");
+export default function Dashboard({ user }) {
+  const {
+    profile,
+    pages,
+    adAccounts,
+    accountsError: error,
+    selectedAccountId,
+    setSelectedAccountId,
+  } = useAccounts();
+  const data = profile ? { profile, pages, adAccounts } : null;
+
   const [insights, setInsights] = useState(null);
   const [insightsError, setInsightsError] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsFetchedAt, setInsightsFetchedAt] = useState(null);
 
-  useEffect(() => {
-    fetch("/api/fb/data")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.error) {
-          setError(json.error);
-        } else {
-          setData(json);
-          if (json.adAccounts?.length) {
-            const lastId = getLastAccountId();
-            const stillExists = json.adAccounts.some((a) => a.id === lastId);
-            setSelectedAccountId(stillExists ? lastId : json.adAccounts[0].id);
-          }
-        }
-      })
-      .catch((err) => setError(err.message));
-  }, []);
-
-  useEffect(() => {
-    if (selectedAccountId) setLastAccountId(selectedAccountId);
-  }, [selectedAccountId]);
-
-  function checkPerformance() {
+  function checkPerformance(force) {
     if (!selectedAccountId) return;
+    const cacheKey = insightsCacheKey(selectedAccountId);
+
+    if (!force) {
+      const cached = getCachedEntry(cacheKey);
+      if (cached) {
+        setInsights(cached.data);
+        setInsightsFetchedAt(cached.fetchedAt);
+        setInsightsError(null);
+        return;
+      }
+    }
+
     setInsightsLoading(true);
     setInsightsError(null);
     setInsights(null);
@@ -46,8 +49,13 @@ export default function Dashboard({ user }) {
     fetch(`/api/fb/insights?accountId=${encodeURIComponent(selectedAccountId)}`)
       .then((res) => res.json())
       .then((json) => {
-        if (json.error) setInsightsError(json.error);
-        else setInsights(json);
+        if (json.error) {
+          setInsightsError(json.error);
+        } else {
+          setInsights(json);
+          setInsightsFetchedAt(Date.now());
+          setCachedEntry(cacheKey, json);
+        }
       })
       .catch((err) => setInsightsError(err.message))
       .finally(() => setInsightsLoading(false));
@@ -138,10 +146,19 @@ export default function Dashboard({ user }) {
                         </option>
                       ))}
                     </select>
-                    <button className={styles.btnPrimary} onClick={checkPerformance} disabled={insightsLoading}>
+                    <button className={styles.btnPrimary} onClick={() => checkPerformance(false)} disabled={insightsLoading}>
                       {insightsLoading ? "Checking…" : "Check ROAS"}
                     </button>
                   </div>
+
+                  {insightsFetchedAt && (
+                    <CacheStatus
+                      label="ROAS"
+                      fetchedAt={insightsFetchedAt}
+                      loading={insightsLoading}
+                      onRefresh={() => checkPerformance(true)}
+                    />
+                  )}
 
                   {insightsError && <div className={styles.error}>Error: {insightsError}</div>}
 

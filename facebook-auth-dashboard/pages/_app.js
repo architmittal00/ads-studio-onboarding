@@ -1,6 +1,7 @@
 import "@/styles/globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { AccountProvider } from "@/components/AccountProvider";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -14,9 +15,11 @@ export default function App({
 }) {
   return (
     <SessionProvider session={session}>
-      <main className={plusJakartaSans.variable} style={{ fontFamily: "var(--font-studio)" }}>
-        <Component {...pageProps} />
-      </main>
+      <AccountProvider>
+        <main className={plusJakartaSans.variable} style={{ fontFamily: "var(--font-studio)" }}>
+          <Component {...pageProps} />
+        </main>
+      </AccountProvider>
     </SessionProvider>
   );
 }
