@@ -4,6 +4,7 @@ import { useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import CacheStatus from "@/components/CacheStatus";
+import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
@@ -135,17 +136,7 @@ export default function Dashboard({ user }) {
                 <div className={styles.card}>
                   <h2 className={styles.h2}>Ad Account Performance (Last 30 Days)</h2>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
-                    <select
-                      className={styles.select}
-                      value={selectedAccountId}
-                      onChange={(e) => setSelectedAccountId(e.target.value)}
-                    >
-                      {data.adAccounts.map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.name}
-                        </option>
-                      ))}
-                    </select>
+                    <AccountSelect accounts={data.adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 240 }} />
                     <button className={styles.btnPrimary} onClick={() => checkPerformance(false)} disabled={insightsLoading}>
                       {insightsLoading ? "Checking…" : "Check ROAS"}
                     </button>

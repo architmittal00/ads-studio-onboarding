@@ -10,6 +10,7 @@ import CreativeLightbox from "@/components/CreativeLightbox";
 import MetricTrendModal from "@/components/MetricTrendModal";
 import Loader from "@/components/Loader";
 import DefaultRangeModal from "@/components/DefaultRangeModal";
+import AccountSelect from "@/components/AccountSelect";
 import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon, SettingsIcon } from "@/components/icons";
 import { getDefaultRangePreset, setDefaultRangePreset } from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry, DEFAULT_CACHE_TTL_MS } from "@/lib/clientCache";
@@ -543,17 +544,7 @@ export default function Report() {
           <div className={styles.sectionRow}>
             <h1 className={styles.h1}>Account Handover Report</h1>
             {accounts.length > 0 && (
-              <select
-                className={styles.select}
-                value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
-              >
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name}
-                  </option>
-                ))}
-              </select>
+              <AccountSelect accounts={accounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 240 }} />
             )}
           </div>
 

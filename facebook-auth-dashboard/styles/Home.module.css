@@ -98,6 +98,17 @@
   border-color: rgba(175, 70, 253, 0.4);
   background: rgba(175, 70, 253, 0.05);
 }
+/* The closed <select> box sits over this app's dark page background, so its
+   own near-transparent `background` above looks fine — but the native
+   dropdown *popup* a browser renders for <option>s is a separate overlay
+   that does NOT inherit the page behind it. Without an explicit opaque
+   background here, Windows Chrome/Edge fall back to a plain white popup,
+   and `.select`'s light `color: var(--t1)` then renders as near-invisible
+   light-on-white text. A solid (not rgba) background fixes this. */
+.select option {
+  background-color: var(--bg);
+  color: var(--t1);
+}
 
 /* ── Search-as-you-type combo box (e.g. the Meta interest picker) ── */
 .comboWrapper {

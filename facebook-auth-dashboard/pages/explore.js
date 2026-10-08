@@ -7,6 +7,7 @@ import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
+import AccountSelect from "@/components/AccountSelect";
 import { CloseIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
@@ -413,21 +414,12 @@ export default function Explore() {
           <section className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 0, borderTopLeftRadius: 0 }}>
             <div>
               <h2 className={styles.h2}>Account</h2>
-              <select
-                className={styles.select}
-                style={{ width: "100%", maxWidth: 420 }}
+              <AccountSelect
+                accounts={adAccounts}
                 value={activeView.accountId}
-                onChange={(e) => updateActive({ accountId: e.target.value })}
-              >
-                <option value="" disabled>
-                  Select an account…
-                </option>
-                {adAccounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(id) => updateActive({ accountId: id })}
+                style={{ width: "100%", maxWidth: 420 }}
+              />
             </div>
 
             <div>
