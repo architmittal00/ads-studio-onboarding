@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { formatMetricValue, getMetric } from "@/lib/insightsMetrics";
+import { formatMetricValue } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
 const MAX_CHART_ROWS = 20;
@@ -91,8 +91,12 @@ function buildChartSpec({ rows, chartMetricKey, timeIncrement, hasBreakdown, com
 // `chartMetricKey` is the one metric the user picked to plot (metrics/
 // breakdown values can both be numerous — plotting exactly one keeps every
 // shape above legible rather than attempting every metric at once).
-export default function ExploreChart({ rows, meta, chartMetricKey, currency }) {
-  const metric = getMetric(chartMetricKey);
+// `effectiveCatalog` is the built-in catalog merged with the user's own
+// custom metrics (lib/insightsMetrics.js's buildEffectiveCatalog) — passed
+// in rather than imported directly so a custom metric's label/format
+// resolve here the same way a built-in one's does.
+export default function ExploreChart({ rows, meta, chartMetricKey, currency, effectiveCatalog }) {
+  const metric = effectiveCatalog.find((m) => m.key === chartMetricKey);
   if (!rows || rows.length === 0 || !metric) {
     return <p className={styles.sub}>No data to chart.</p>;
   }

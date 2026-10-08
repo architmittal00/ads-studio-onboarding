@@ -309,6 +309,28 @@ export function getMetric(key) {
   return METRIC_CATALOG.find((m) => m.key === key);
 }
 
+// Merges the built-in catalog with a caller-supplied list of user-defined
+// ratio metrics (`{id, label, numeratorKey, denominatorKey, format}`,
+// persisted via lib/clientStorage.js's getCustomMetrics/setCustomMetrics)
+// into one array shaped like ordinary catalog entries — everything built
+// against METRIC_CATALOG for *display* (the metric-picker pills, the chart
+// metric dropdown, the results table's column lookup) works unchanged
+// against custom metrics as long as it's handed this merged list instead.
+// Custom entries have no `fields`/`extract` of their own (unlike a real
+// catalog entry) — resolveGraphFields/deriveRowMetrics below resolve them
+// via their numeratorKey/denominatorKey instead.
+export function buildEffectiveCatalog(customMetrics) {
+  const customEntries = (customMetrics || []).map((cm) => ({
+    key: cm.id,
+    label: cm.label,
+    group: "Custom",
+    format: cm.format || "decimal",
+    numeratorKey: cm.numeratorKey,
+    denominatorKey: cm.denominatorKey,
+  }));
+  return [...METRIC_CATALOG, ...customEntries];
+}
+
 // Shared number formatting for a metric's table cell/chart tooltip, driven
 // by its catalog `format` tag — one place so the Explore table and chart
 // always agree on how a given metric reads. `currency` is only used for
@@ -348,12 +370,29 @@ export function isChartableMetric(key) {
 
 // Deduped raw Graph API `fields` needed to compute every selected catalog
 // metric, plus the chosen level's identifying fields, plus any raw
-// passthrough field names typed into the "custom field" escape hatch.
-export function resolveGraphFields(metricKeys, customFields, level) {
+// passthrough field names typed into the "custom field" escape hatch, plus
+// — for a selected user-defined ratio metric (`customMetrics`, keyed by
+// `key`/`id` and matched against `metricKeys` the same way a built-in metric
+// is) — whatever its numerator/denominator metrics themselves need. A custom
+// metric has no `fields` of its own; its Graph-field needs are always
+// whichever two built-in metrics (or raw field names) it references.
+export function resolveGraphFields(metricKeys, customFields, level, customMetrics = []) {
   const fieldSet = new Set(LEVEL_EXTRA_FIELDS[level] || []);
+  const customById = new Map(customMetrics.map((cm) => [cm.id, cm]));
   for (const key of metricKeys || []) {
-    const metric = getMetric(key);
-    if (metric) metric.fields.forEach((f) => fieldSet.add(f));
+    const builtin = getMetric(key);
+    if (builtin) {
+      builtin.fields.forEach((f) => fieldSet.add(f));
+      continue;
+    }
+    const custom = customById.get(key);
+    if (custom) {
+      [custom.numeratorKey, custom.denominatorKey].forEach((k) => {
+        const m = getMetric(k);
+        if (m) m.fields.forEach((f) => fieldSet.add(f));
+        else fieldSet.add(k);
+      });
+    }
   }
   for (const field of customFields || []) {
     if (field) fieldSet.add(field.trim());
@@ -363,16 +402,33 @@ export function resolveGraphFields(metricKeys, customFields, level) {
 
 // Flattens one raw Graph API insights row into `{ [metricKey]: value }` for
 // every chosen catalog metric, plus `{ [rawFieldName]: value }` for every
-// raw custom field — so the client never needs to know Facebook's actual
-// response shape (actions arrays, etc.), just `row[key]`.
-export function deriveRowMetrics(rawRow, metricKeys, customFields) {
+// raw custom field, plus `{ [customMetricId]: value }` for every selected
+// user-defined ratio metric — so the client never needs to know Facebook's
+// actual response shape, just `row[key]`. Two passes: built-ins (and raw
+// custom fields) first, straight from the raw row; then custom ratios,
+// which read their numerator/denominator out of what pass one already
+// produced (falling back to the raw row for a raw-custom-field operand).
+// A zero/missing/non-numeric denominator — or numerator — yields `null`
+// (not `0` or `Infinity`), matching this catalog's hook_rate/hold_rate
+// convention, so it renders as "—" rather than a misleading number.
+export function deriveRowMetrics(rawRow, metricKeys, customFields, customMetrics = []) {
   const result = {};
-  for (const key of metricKeys || []) {
+  const customById = new Map(customMetrics.map((cm) => [cm.id, cm]));
+  const builtinKeys = (metricKeys || []).filter((k) => !customById.has(k));
+  const customKeys = (metricKeys || []).filter((k) => customById.has(k));
+
+  for (const key of builtinKeys) {
     const metric = getMetric(key);
     if (metric) result[key] = metric.extract(rawRow);
   }
   for (const field of customFields || []) {
     if (field) result[field] = rawRow[field] ?? null;
+  }
+  for (const key of customKeys) {
+    const cm = customById.get(key);
+    const num = result[cm.numeratorKey] ?? rawRow[cm.numeratorKey];
+    const den = result[cm.denominatorKey] ?? rawRow[cm.denominatorKey];
+    result[key] = typeof num === "number" && typeof den === "number" && den !== 0 ? num / den : null;
   }
   return result;
 }

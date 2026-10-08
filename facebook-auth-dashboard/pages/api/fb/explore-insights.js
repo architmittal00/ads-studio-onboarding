@@ -48,6 +48,7 @@ export default async function handler(req, res) {
     breakdownGroup = "none",
     metricKeys,
     customFields,
+    customMetrics,
     since,
     until,
     timeIncrement,
@@ -77,6 +78,31 @@ export default async function handler(req, res) {
   if (!Array.isArray(metricKeys) || metricKeys.length === 0) {
     return res.status(400).json({ error: "At least one metric is required" });
   }
+
+  // customMetrics carries the full definition (not just the id) for any
+  // user-defined ratio metric present in metricKeys — this route has no
+  // localStorage access, so the client must send what it already has.
+  // Nesting (a custom metric referencing another custom metric) is rejected
+  // here as well as in the UI, since there's no principled resolution order
+  // for it without cycle detection, which this deliberately-simple feature
+  // doesn't need.
+  const cleanCustomMetrics = [];
+  if (customMetrics !== undefined) {
+    if (!Array.isArray(customMetrics)) {
+      return res.status(400).json({ error: "customMetrics must be an array" });
+    }
+    const idsInBatch = new Set(customMetrics.map((cm) => cm && cm.id));
+    for (const cm of customMetrics) {
+      if (!cm || typeof cm.id !== "string" || typeof cm.numeratorKey !== "string" || typeof cm.denominatorKey !== "string") {
+        return res.status(400).json({ error: "Each customMetrics entry needs id, numeratorKey, and denominatorKey" });
+      }
+      if (idsInBatch.has(cm.numeratorKey) || idsInBatch.has(cm.denominatorKey)) {
+        return res.status(400).json({ error: `Custom metric "${cm.id}" cannot reference another custom metric` });
+      }
+      cleanCustomMetrics.push({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey });
+    }
+  }
+
   const validTimeIncrement = timeIncrement === "1" || timeIncrement === "7" ? timeIncrement : null;
   if (compareToPrevious && validTimeIncrement) {
     return res.status(400).json({
@@ -86,7 +112,7 @@ export default async function handler(req, res) {
 
   const cleanCustomFields = Array.isArray(customFields) ? customFields.map((f) => String(f).trim()).filter(Boolean) : [];
   const group = getBreakdownGroup(breakdownGroup);
-  const fields = resolveGraphFields(metricKeys, cleanCustomFields, level).join(",");
+  const fields = resolveGraphFields(metricKeys, cleanCustomFields, level, cleanCustomMetrics).join(",");
   const token = session.accessToken;
 
   const baseParams = {
@@ -135,7 +161,7 @@ export default async function handler(req, res) {
   const allKeys = [...metricKeys, ...cleanCustomFields];
 
   const rows = currentRaw.map((row) => {
-    const metrics = deriveRowMetrics(row, metricKeys, cleanCustomFields);
+    const metrics = deriveRowMetrics(row, metricKeys, cleanCustomFields, cleanCustomMetrics);
     const out = {
       label: rowLabel(row, level, breakdownGroup),
       entityLabel: rowEntityLabel(row, level),
@@ -146,7 +172,7 @@ export default async function handler(req, res) {
 
     if (compareToPrevious) {
       const prevRow = previousByKey.get(rowIdentityKey(row, level, breakdownGroup));
-      const prevMetrics = prevRow ? deriveRowMetrics(prevRow, metricKeys, cleanCustomFields) : null;
+      const prevMetrics = prevRow ? deriveRowMetrics(prevRow, metricKeys, cleanCustomFields, cleanCustomMetrics) : null;
       out._previous = prevMetrics;
       out._deltaPct = {};
       for (const key of allKeys) {
