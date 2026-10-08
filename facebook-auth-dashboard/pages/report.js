@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import SectionNav from "@/components/SectionNav";
@@ -12,17 +12,21 @@ import Loader from "@/components/Loader";
 import DefaultRangeModal from "@/components/DefaultRangeModal";
 import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon, SettingsIcon } from "@/components/icons";
 import { getLastAccountId, setLastAccountId, getDefaultRangePreset, setDefaultRangePreset } from "@/lib/clientStorage";
+import { getCachedEntry, setCachedEntry, DEFAULT_CACHE_TTL_MS } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
 
-// How long a report payload for a given (account, range) stays usable in the
-// browser tab without re-hitting the API at all — separate from, and in
-// addition to, the server's own 30-min cache (lib/reportCache.js). This is
-// what makes flipping Last 7 Days -> Last 30 Days -> back to Last 7 Days an
-// instant, no-network operation instead of a fresh request every time.
-const CLIENT_CACHE_TTL_MS = 30 * 60 * 1000;
+// How long a report payload for a given (account, range) stays usable
+// without re-hitting the API at all — separate from, and in addition to, the
+// server's own 30-min cache (lib/reportCache.js). Backed by localStorage
+// (lib/clientCache.js), not just an in-tab Map, so this survives a reload
+// and is shared across tabs in the same browser, not just the one that
+// happened to fetch it. This is what makes flipping Last 7 Days -> Last 30
+// Days -> back to Last 7 Days an instant, no-network operation instead of a
+// fresh request every time.
+const CLIENT_CACHE_TTL_MS = DEFAULT_CACHE_TTL_MS;
 
 function clientCacheKey(accountId, rangePreset, since, until) {
-  return `${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
+  return `report:${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
 }
 
 const NAME_COL_WIDTH = 240;
@@ -266,12 +270,6 @@ export default function Report() {
     setShowDefaultRangeModal(false);
   }
 
-  // In-memory per-tab cache of report payloads, keyed by account+range, so
-  // switching back to a range already seen in this tab within the last 30
-  // minutes shows instantly with no API call. A ref (not state) since
-  // writing to it should never itself trigger a re-render.
-  const reportCacheRef = useRef(new Map());
-
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30000);
@@ -313,11 +311,14 @@ export default function Report() {
     const since = appliedCustomRange?.since;
     const until = appliedCustomRange?.until;
     const cacheKey = clientCacheKey(selectedAccountId, rangePreset, since, until);
-    const cached = reportCacheRef.current.get(cacheKey);
+    const cached = getCachedEntry(cacheKey, CLIENT_CACHE_TTL_MS);
 
-    if (cached && Date.now() - cached.fetchedAt < CLIENT_CACHE_TTL_MS) {
-      // Seen this exact account+range within the last 30 minutes in this tab
-      // — show it immediately, no request at all (Hard Refresh still bypasses this).
+    if (cached) {
+      // Seen this exact account+range within the last 30 minutes, in any tab
+      // (localStorage, not an in-tab cache) — show it immediately, no
+      // request at all (Hard Refresh still bypasses this). Synchronous
+      // state hydration from a cache hit, not a derived-state anti-pattern.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReport(cached.data);
       setReportError(null);
       setReportLoading(false);
@@ -341,7 +342,7 @@ export default function Report() {
         if (json.error) setReportError(json.error);
         else {
           setReport(json);
-          reportCacheRef.current.set(cacheKey, { data: json, fetchedAt: Date.now() });
+          setCachedEntry(cacheKey, json);
         }
       })
       .catch((err) => {
@@ -373,7 +374,7 @@ export default function Report() {
         if (json.error) setReportError(json.error);
         else {
           setReport(json);
-          reportCacheRef.current.set(cacheKey, { data: json, fetchedAt: Date.now() });
+          setCachedEntry(cacheKey, json);
         }
       })
       .catch((err) => setReportError(err.message))
