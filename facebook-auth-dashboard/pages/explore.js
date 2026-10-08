@@ -1,14 +1,16 @@
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import { getServerSession } from "next-auth/next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
+import { CloseIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
+import { getExploreViews, setExploreViews } from "@/lib/clientStorage";
 import {
   LEVEL_OPTIONS,
   BREAKDOWN_GROUPS,
@@ -24,7 +26,8 @@ const ExploreChart = dynamic(() => import("@/components/ExploreChart"), { ssr: f
 
 const MAX_RANGE_DAYS = 30;
 const EXPLORE_CACHE_PREFIX = "explore:";
-const EXPLORE_CACHE_MAX_ENTRIES = 20;
+const EXPLORE_CACHE_MAX_ENTRIES = 50;
+const MAX_VIEWS = 15;
 
 const RANGE_PRESETS = [
   { key: "today", label: "Today" },
@@ -42,6 +45,36 @@ const TIME_GROUPING_OPTIONS = [
 ];
 
 const METRIC_GROUPS = [...new Set(METRIC_CATALOG.map((m) => m.group))];
+
+function newViewId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `v${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+// One independent tab: its own account, its own query spec, its own
+// fetched result/loading/error and view-mode — switching tabs never
+// touches another tab's state.
+function createBlankView(seedAccountId = "") {
+  return {
+    id: newViewId(),
+    accountId: seedAccountId,
+    rangePreset: "last_30d",
+    customSince: "",
+    customUntil: "",
+    level: "account",
+    breakdownGroup: "none",
+    timeIncrement: "",
+    metricKeys: ["spend", "impressions", "clicks", "ctr"],
+    customFieldsText: "",
+    compareToPrevious: false,
+    result: null,
+    resultFetchedAt: null,
+    loading: false,
+    error: null,
+    viewMode: "table",
+    chartMetricKey: null,
+  };
+}
 
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
@@ -87,6 +120,41 @@ function inclusiveDayCount(since, until) {
   return Math.round((new Date(`${until}T00:00:00Z`) - new Date(`${since}T00:00:00Z`)) / 86400000) + 1;
 }
 
+function parseCustomFields(text) {
+  return text
+    .split(",")
+    .map((f) => f.trim())
+    .filter(Boolean);
+}
+
+// Pure: a view's current form fields -> the POST body /api/fb/explore-insights
+// expects. No `force` baked in — that's passed separately to runQueryForView.
+function buildQuerySpecFromView(view) {
+  const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
+  return {
+    accountId: view.accountId,
+    level: view.level,
+    breakdownGroup: view.breakdownGroup,
+    metricKeys: view.metricKeys,
+    customFields: parseCustomFields(view.customFieldsText),
+    since: range?.since,
+    until: range?.until,
+    timeIncrement: view.timeIncrement || null,
+    compareToPrevious: view.timeIncrement ? false : view.compareToPrevious,
+  };
+}
+
+function isViewRunnable(view) {
+  const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
+  const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
+  const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
+  return !!view.accountId && rangeValid && view.metricKeys.length > 0;
+}
+
+function firstChartableKey(meta) {
+  return meta.metricKeys.find(isChartableMetric) || null;
+}
+
 async function fetchExploreInsights(body) {
   const res = await fetch("/api/fb/explore-insights", {
     method: "POST",
@@ -98,94 +166,170 @@ async function fetchExploreInsights(body) {
   return json;
 }
 
+// Keeps at most MAX_VIEWS tabs, evicting the oldest one that isn't the
+// currently active tab — same shape as lib/clientCache.js's own
+// maxEntriesForPrefix pruning.
+function withCapApplied(viewsList, protectedId) {
+  if (viewsList.length < MAX_VIEWS) return viewsList;
+  const evictIdx = viewsList[0].id === protectedId ? 1 : 0;
+  return viewsList.filter((_, i) => i !== evictIdx);
+}
+
+function viewTitle(view, adAccounts, fallbackIndex) {
+  const account = adAccounts.find((a) => a.id === view.accountId);
+  const base = account?.name || `View ${fallbackIndex + 1}`;
+  if (view.level === "account") return base;
+  const levelLabel = LEVEL_OPTIONS.find((l) => l.value === view.level)?.label;
+  return `${base} · ${levelLabel}`;
+}
+
+function describeQuery(view) {
+  const levelLabel = LEVEL_OPTIONS.find((l) => l.value === view.level)?.label;
+  const breakdownLabel = BREAKDOWN_GROUPS.find((g) => g.value === view.breakdownGroup)?.label;
+  const parts = [levelLabel];
+  if (view.breakdownGroup !== "none") parts.push(breakdownLabel);
+  return `Updating — ${parts.join(" · ")}…`;
+}
+
 export default function Explore() {
-  const { adAccounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
-  const currency = adAccounts.find((a) => a.id === selectedAccountId)?.currency;
+  const { adAccounts, accountsError, selectedAccountId } = useAccounts();
 
-  const [rangePreset, setRangePreset] = useState("last_30d");
-  const [customSince, setCustomSince] = useState("");
-  const [customUntil, setCustomUntil] = useState("");
-  const [level, setLevel] = useState("account");
-  const [breakdownGroup, setBreakdownGroup] = useState("none");
-  const [timeIncrement, setTimeIncrement] = useState("");
-  const [metricKeys, setMetricKeys] = useState(["spend", "impressions", "clicks", "ctr"]);
-  const [customFieldsText, setCustomFieldsText] = useState("");
-  const [compareToPrevious, setCompareToPrevious] = useState(false);
+  const [views, setViews] = useState(() => [createBlankView("")]);
+  const [activeViewId, setActiveViewId] = useState(() => views[0].id);
+  const activeView = views.find((v) => v.id === activeViewId) || views[0];
 
-  const [result, setResult] = useState(null);
-  const [resultFetchedAt, setResultFetchedAt] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState("table");
-  const [chartMetricKey, setChartMetricKey] = useState(null);
+  const currency = adAccounts.find((a) => a.id === activeView.accountId)?.currency;
 
-  const range = computeRange(rangePreset, customSince, customUntil);
-  const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
-  const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
+  const hasSeededInitialAccountRef = useRef(false);
+  const hasRestoredRef = useRef(false);
 
-  const customFields = useMemo(
-    () =>
-      customFieldsText
-        .split(",")
-        .map((f) => f.trim())
-        .filter(Boolean),
-    [customFieldsText]
-  );
+  // One-time restore of previously-open tabs from localStorage — replaces
+  // the single deterministic blank tab wholesale. Pre-populates each
+  // restored tab's result from the shared query cache when still fresh, so
+  // reopening the page shows the same data instead of blank tabs.
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    const persisted = getExploreViews();
+    if (!persisted?.views?.length) return;
 
-  const canRunQuery = !!selectedAccountId && rangeValid && metricKeys.length > 0;
-  const compareDisabled = timeIncrement !== "";
+    const hydrated = persisted.views.map((v) => {
+      const cached =
+        v.accountId && v.metricKeys?.length > 0
+          ? getCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(v)))
+          : null;
+      return {
+        ...v,
+        result: cached?.data ?? null,
+        resultFetchedAt: cached?.fetchedAt ?? null,
+        loading: false,
+        error: null,
+      };
+    });
+    // One-time hydration from localStorage on mount, not derived state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViews(hydrated);
+    setActiveViewId(hydrated.some((v) => v.id === persisted.activeViewId) ? persisted.activeViewId : hydrated[0].id);
+  }, []);
 
-  function toggleMetric(key) {
-    setMetricKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  // Seeds only the very first tab's account from the shared selector, once
+  // it resolves (AccountProvider's own fetch may still be in flight when
+  // this page first mounts) — a no-op if the restore effect above already
+  // filled in a real accountId. Every other tab gets its account at
+  // creation time, directly from the event handler that creates it.
+  useEffect(() => {
+    if (hasSeededInitialAccountRef.current || !selectedAccountId) return;
+    hasSeededInitialAccountRef.current = true;
+    // One-time seed of the first tab's account once the shared selector
+    // resolves, not derived state.
+    setViews((prev) => prev.map((v, i) => (i === 0 && !v.accountId ? { ...v, accountId: selectedAccountId } : v)));
+  }, [selectedAccountId]);
+
+  // Persists the open tabs' query specs (never their fetched results, which
+  // are ephemeral and re-derived from the cache on restore) whenever they
+  // change — a plain sync-to-external-system effect, not a state update.
+  useEffect(() => {
+    setExploreViews({
+      activeViewId,
+      views: views.map(({ result, resultFetchedAt, loading, error, ...spec }) => spec),
+    });
+  }, [views, activeViewId]);
+
+  function updateView(id, patch) {
+    setViews((prev) => prev.map((v) => (v.id === id ? { ...v, ...(typeof patch === "function" ? patch(v) : patch) } : v)));
   }
 
-  function buildQuerySpec(force) {
-    return {
-      accountId: selectedAccountId,
-      level,
-      breakdownGroup,
-      metricKeys,
-      customFields,
-      since: range.since,
-      until: range.until,
-      timeIncrement: timeIncrement || null,
-      compareToPrevious: compareDisabled ? false : compareToPrevious,
-      force,
-    };
+  function updateActive(patch) {
+    updateView(activeViewId, patch);
   }
 
-  function runQuery(force) {
-    if (!canRunQuery) return;
-    const spec = buildQuerySpec(force);
+  function runQueryForView(view, force) {
+    if (!isViewRunnable(view)) return;
+    const spec = buildQuerySpecFromView(view);
     const cacheKey = EXPLORE_CACHE_PREFIX + JSON.stringify(spec);
 
     if (!force) {
       const cached = getCachedEntry(cacheKey);
       if (cached) {
-        setResult(cached.data);
-        setResultFetchedAt(cached.fetchedAt);
-        setError(null);
-        const firstChartable = cached.data.meta.metricKeys.find(isChartableMetric);
-        setChartMetricKey(firstChartable || null);
+        updateView(view.id, {
+          result: cached.data,
+          resultFetchedAt: cached.fetchedAt,
+          error: null,
+          chartMetricKey: firstChartableKey(cached.data.meta),
+        });
         return;
       }
     }
 
-    setLoading(true);
-    setError(null);
+    updateView(view.id, { loading: true, error: null });
     fetchExploreInsights(spec)
       .then((json) => {
-        setResult(json);
-        setResultFetchedAt(Date.now());
+        updateView(view.id, { result: json, resultFetchedAt: Date.now(), error: null, chartMetricKey: firstChartableKey(json.meta) });
         setCachedEntry(cacheKey, json, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
-        const firstChartable = json.meta.metricKeys.find(isChartableMetric);
-        setChartMetricKey(firstChartable || null);
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => updateView(view.id, { error: err.message }))
+      .finally(() => updateView(view.id, { loading: false }));
   }
 
+  function createNewViewFromActive() {
+    const newView = { ...activeView, id: newViewId(), result: null, resultFetchedAt: null, loading: false, error: null };
+    setViews((prev) => [...withCapApplied(prev, activeViewId), newView]);
+    setActiveViewId(newView.id);
+    runQueryForView(newView, false);
+  }
+
+  function addBlankView() {
+    const blank = createBlankView(selectedAccountId);
+    setViews((prev) => [...withCapApplied(prev, activeViewId), blank]);
+    setActiveViewId(blank.id);
+  }
+
+  function closeView(id) {
+    if (views.length <= 1) return;
+    const idx = views.findIndex((v) => v.id === id);
+    if (idx === -1) return;
+    const next = views.filter((v) => v.id !== id);
+    setViews(next);
+    if (id === activeViewId) setActiveViewId(next[Math.max(0, idx - 1)].id);
+  }
+
+  function toggleMetric(key) {
+    updateActive((v) => ({
+      metricKeys: v.metricKeys.includes(key) ? v.metricKeys.filter((k) => k !== key) : [...v.metricKeys, key],
+    }));
+  }
+
+  const range = computeRange(activeView.rangePreset, activeView.customSince, activeView.customUntil);
+  const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
+  const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
+  const canRunQuery = !!activeView.accountId && rangeValid && activeView.metricKeys.length > 0;
+  const compareDisabled = activeView.timeIncrement !== "";
+
+  const customFields = useMemo(() => parseCustomFields(activeView.customFieldsText), [activeView.customFieldsText]);
+
+  const result = activeView.result;
   const chartableMetricKeys = result ? result.meta.metricKeys.filter(isChartableMetric) : [];
+  const isRerun = activeView.loading && !!result;
 
   return (
     <Layout>
@@ -196,21 +340,84 @@ export default function Explore() {
         <main className={styles.main} style={{ maxWidth: 1200, margin: "0 auto" }}>
           <h1 className={styles.h1}>Explore</h1>
           <p className={styles.sub} style={{ marginTop: -8 }}>
-            Build any view of this account&apos;s Facebook Ads data — pick a date range (up to 30 days), a level, a
-            breakdown, and whatever metrics you want, then view it as a table or chart. Nothing runs until you click
-            Run Query.
+            Build any view of Facebook Ads data — pick an account, a date range (up to 30 days), a level, a
+            breakdown, and whatever metrics you want, then view it as a table or chart. Keep several views open at
+            once, like browser tabs — each with its own account and query.
           </p>
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-          <section className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 6, flexWrap: "wrap" }}>
+            {views.map((v, i) => {
+              const isActive = v.id === activeViewId;
+              return (
+                <div
+                  key={v.id}
+                  onClick={() => setActiveViewId(v.id)}
+                  title={viewTitle(v, adAccounts, i)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 10px",
+                    borderRadius: "10px 10px 0 0",
+                    cursor: "pointer",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    maxWidth: 190,
+                    background: isActive ? "var(--bg)" : "transparent",
+                    border: "1px solid var(--border)",
+                    borderBottom: isActive ? "2px solid var(--purple)" : "1px solid var(--border)",
+                    color: isActive ? "var(--t1)" : "var(--t2)",
+                  }}
+                >
+                  {v.loading && <span className={`${styles.spinner} ${styles.spinnerSm}`} />}
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {viewTitle(v, adAccounts, i)}
+                  </span>
+                  {views.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeView(v.id);
+                      }}
+                      title="Close this view"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        color: "inherit",
+                        display: "flex",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <CloseIcon size={11} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={addBlankView}
+              title="New view"
+              className={styles.btnSecondary}
+              style={{ padding: "6px 12px", borderRadius: "10px 10px 0 0" }}
+            >
+              +
+            </button>
+          </div>
+
+          <section className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 0, borderTopLeftRadius: 0 }}>
             <div>
               <h2 className={styles.h2}>Account</h2>
               <select
                 className={styles.select}
                 style={{ width: "100%", maxWidth: 420 }}
-                value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
+                value={activeView.accountId}
+                onChange={(e) => updateActive({ accountId: e.target.value })}
               >
                 <option value="" disabled>
                   Select an account…
@@ -229,34 +436,34 @@ export default function Explore() {
                 {RANGE_PRESETS.map((p) => (
                   <button
                     key={p.key}
-                    className={rangePreset === p.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setRangePreset(p.key)}
+                    className={activeView.rangePreset === p.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                    onClick={() => updateActive({ rangePreset: p.key })}
                   >
                     {p.label}
                   </button>
                 ))}
               </div>
-              {rangePreset === "custom" && (
+              {activeView.rangePreset === "custom" && (
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <input
                     type="date"
                     className={styles.select}
-                    value={customSince}
-                    max={customUntil || isoDate(todayUTC())}
-                    onChange={(e) => setCustomSince(e.target.value)}
+                    value={activeView.customSince}
+                    max={activeView.customUntil || isoDate(todayUTC())}
+                    onChange={(e) => updateActive({ customSince: e.target.value })}
                   />
                   <span className={styles.muted}>to</span>
                   <input
                     type="date"
                     className={styles.select}
-                    value={customUntil}
-                    min={customSince || undefined}
+                    value={activeView.customUntil}
+                    min={activeView.customSince || undefined}
                     max={
-                      customSince
-                        ? [addDaysUTC(customSince, MAX_RANGE_DAYS - 1), isoDate(todayUTC())].sort()[0]
+                      activeView.customSince
+                        ? [addDaysUTC(activeView.customSince, MAX_RANGE_DAYS - 1), isoDate(todayUTC())].sort()[0]
                         : isoDate(todayUTC())
                     }
-                    onChange={(e) => setCustomUntil(e.target.value)}
+                    onChange={(e) => updateActive({ customUntil: e.target.value })}
                   />
                 </div>
               )}
@@ -273,8 +480,8 @@ export default function Explore() {
                 {LEVEL_OPTIONS.map((l) => (
                   <button
                     key={l.value}
-                    className={level === l.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setLevel(l.value)}
+                    className={activeView.level === l.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                    onClick={() => updateActive({ level: l.value })}
                   >
                     {l.label}
                   </button>
@@ -291,8 +498,8 @@ export default function Explore() {
               <select
                 className={styles.select}
                 style={{ width: "100%", maxWidth: 420 }}
-                value={breakdownGroup}
-                onChange={(e) => setBreakdownGroup(e.target.value)}
+                value={activeView.breakdownGroup}
+                onChange={(e) => updateActive({ breakdownGroup: e.target.value })}
               >
                 {BREAKDOWN_GROUPS.map((g) => (
                   <option key={g.value} value={g.value}>
@@ -308,8 +515,8 @@ export default function Explore() {
                 {TIME_GROUPING_OPTIONS.map((o) => (
                   <button
                     key={o.value}
-                    className={timeIncrement === o.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setTimeIncrement(o.value)}
+                    className={activeView.timeIncrement === o.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                    onClick={() => updateActive({ timeIncrement: o.value })}
                   >
                     {o.label}
                   </button>
@@ -327,7 +534,7 @@ export default function Explore() {
                     </p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {METRIC_CATALOG.filter((m) => m.group === group).map((m) => {
-                        const selected = metricKeys.includes(m.key);
+                        const selected = activeView.metricKeys.includes(m.key);
                         return (
                           <button
                             key={m.key}
@@ -359,8 +566,8 @@ export default function Explore() {
                   className={styles.select}
                   style={{ width: "100%" }}
                   placeholder="e.g. website_ctr, mobile_app_purchase_roas"
-                  value={customFieldsText}
-                  onChange={(e) => setCustomFieldsText(e.target.value)}
+                  value={activeView.customFieldsText}
+                  onChange={(e) => updateActive({ customFieldsText: e.target.value })}
                 />
               </div>
             </div>
@@ -374,14 +581,14 @@ export default function Explore() {
               </p>
               <div className={styles.tabGroup}>
                 <button
-                  className={!compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => setCompareToPrevious(false)}
+                  className={!activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => updateActive({ compareToPrevious: false })}
                 >
                   Off
                 </button>
                 <button
-                  className={compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => setCompareToPrevious(true)}
+                  className={activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => updateActive({ compareToPrevious: true })}
                   disabled={compareDisabled}
                 >
                   On
@@ -389,28 +596,56 @@ export default function Explore() {
               </div>
             </div>
 
-            <button type="button" className={styles.btnPrimary} style={{ alignSelf: "flex-start" }} disabled={!canRunQuery || loading} onClick={() => runQuery(false)}>
-              {loading ? "Running…" : "Run Query"}
-            </button>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                disabled={!canRunQuery || activeView.loading}
+                onClick={() => runQueryForView(activeView, false)}
+              >
+                {activeView.loading ? "Updating…" : "Update This View"}
+              </button>
+              <button type="button" className={styles.btnSecondary} disabled={!canRunQuery} onClick={createNewViewFromActive}>
+                + Create New View
+              </button>
+            </div>
           </section>
 
-          {error && <div className={styles.error}>Error: {error}</div>}
-          {loading && !result && <Loader label="Running your query…" />}
+          {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
+          {activeView.loading && !result && <Loader label="Running your query…" />}
 
           {result && (
-            <section className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <section className={styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 16 }}>
+              {isRerun && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: 14,
+                    background: "rgba(10,9,20,.72)",
+                    backdropFilter: "blur(2px)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 20,
+                  }}
+                >
+                  <Loader label={describeQuery(activeView)} />
+                </div>
+              )}
+
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-                <CacheStatus label="Result" fetchedAt={resultFetchedAt} loading={loading} onRefresh={() => runQuery(true)} />
+                <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
                 <div className={styles.tabGroup}>
                   <button
-                    className={viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setViewMode("table")}
+                    className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                    onClick={() => updateActive({ viewMode: "table" })}
                   >
                     Table
                   </button>
                   <button
-                    className={viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setViewMode("chart")}
+                    className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                    onClick={() => updateActive({ viewMode: "chart" })}
                   >
                     Chart
                   </button>
@@ -424,10 +659,14 @@ export default function Explore() {
                 {result.meta.rowCount} row{result.meta.rowCount === 1 ? "" : "s"}
               </p>
 
-              {viewMode === "chart" && chartableMetricKeys.length > 0 && (
+              {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className={styles.muted}>Chart metric</span>
-                  <select className={styles.select} value={chartMetricKey || ""} onChange={(e) => setChartMetricKey(e.target.value)}>
+                  <select
+                    className={styles.select}
+                    value={activeView.chartMetricKey || ""}
+                    onChange={(e) => updateActive({ chartMetricKey: e.target.value })}
+                  >
                     {chartableMetricKeys.map((key) => (
                       <option key={key} value={key}>
                         {METRIC_CATALOG.find((m) => m.key === key)?.label || key}
@@ -437,10 +676,10 @@ export default function Explore() {
                 </div>
               )}
 
-              {viewMode === "table" ? (
+              {activeView.viewMode === "table" ? (
                 <ExploreResultsTable result={result} currency={currency} />
-              ) : chartMetricKey ? (
-                <ExploreChart rows={result.rows} meta={result.meta} chartMetricKey={chartMetricKey} currency={currency} />
+              ) : activeView.chartMetricKey ? (
+                <ExploreChart rows={result.rows} meta={result.meta} chartMetricKey={activeView.chartMetricKey} currency={currency} />
               ) : (
                 <p className={styles.sub}>No chartable metric selected — quality rankings are table-only.</p>
               )}
