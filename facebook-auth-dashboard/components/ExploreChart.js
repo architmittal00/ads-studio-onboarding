@@ -27,20 +27,27 @@ const SERIES_COLORS = [
 ];
 
 // Every "possible combination" this app's query builder can produce reduces
-// to one of four shapes, each wanting a different chart:
-//  - time-grouped, no breakdown: one row per date -> a plain line/trend.
-//  - time-grouped + breakdown: one row per (date, breakdown value) -> a
-//    multi-line chart, one line per breakdown value, pivoted by date.
-//  - breakdown, not time-grouped: one row per breakdown value, no date ->
-//    a bar chart ranked by the chosen metric, capped to the top N.
-//  - neither (one aggregate row): nothing to plot as a trend/category chart
-//    — only meaningful when comparing to the previous period, as a 2-bar
-//    "then vs now" — otherwise there's truly only one number, so the table
-//    is the right place for it, not a chart.
-function buildChartSpec({ rows, chartMetricKey, timeIncrement, hasBreakdown, compareToPrevious }) {
+// to one of four shapes, each wanting a different chart. The dimension that
+// actually matters for "one series vs several" isn't literally "is a
+// breakdown selected" — it's "do these rows represent more than one distinct
+// thing" (`multiEntity`, `rows.label`'s distinct-value count), which is also
+// true for multiple accounts (pages/explore.js prefixes `label` with the
+// account name before handing rows here whenever more than one account is
+// selected) or a breakdown, or both at once — same pivot-by-label logic
+// handles all three:
+//  - time-grouped, single entity: one row per date -> a plain line/trend.
+//  - time-grouped, multiple entities: one row per (date, entity) -> a
+//    multi-line chart, one line per entity, pivoted by date.
+//  - multiple entities, not time-grouped: one row per entity, no date -> a
+//    bar chart ranked by the chosen metric, capped to the top N.
+//  - single entity, no time grouping (one aggregate row): nothing to plot as
+//    a trend/category chart — only meaningful when comparing to the previous
+//    period, as a 2-bar "then vs now" — otherwise there's truly only one
+//    number, so the table is the right place for it, not a chart.
+function buildChartSpec({ rows, chartMetricKey, timeIncrement, multiEntity, compareToPrevious }) {
   const hasTime = !!timeIncrement;
 
-  if (hasTime && !hasBreakdown) {
+  if (hasTime && !multiEntity) {
     const data = [...rows].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map((r) => ({
       x: r.date,
       [chartMetricKey]: r[chartMetricKey],
@@ -48,7 +55,7 @@ function buildChartSpec({ rows, chartMetricKey, timeIncrement, hasBreakdown, com
     return { type: "line", data, series: [chartMetricKey] };
   }
 
-  if (hasTime && hasBreakdown) {
+  if (hasTime && multiEntity) {
     const byDate = new Map();
     const labels = [];
     for (const r of rows) {
@@ -61,7 +68,7 @@ function buildChartSpec({ rows, chartMetricKey, timeIncrement, hasBreakdown, com
     return { type: "line", data, series, truncatedSeries: labels.length > MAX_CHART_SERIES };
   }
 
-  if (!hasTime && hasBreakdown) {
+  if (!hasTime && multiEntity) {
     const sorted = [...rows].sort((a, b) => (b[chartMetricKey] || 0) - (a[chartMetricKey] || 0));
     const top = sorted.slice(0, MAX_CHART_ROWS);
     return {
@@ -101,11 +108,12 @@ export default function ExploreChart({ rows, meta, chartMetricKey, currency, eff
     return <p className={styles.sub}>No data to chart.</p>;
   }
 
+  const multiEntity = new Set(rows.map((r) => r.label)).size > 1;
   const spec = buildChartSpec({
     rows,
     chartMetricKey,
     timeIncrement: meta.timeIncrement,
-    hasBreakdown: meta.breakdownGroup !== "none",
+    multiEntity,
     compareToPrevious: meta.compareToPrevious,
   });
 
