@@ -80,6 +80,8 @@ export default async function handler(req, res) {
     until,
     timeIncrement,
     compareToPrevious,
+    previousSince: customPreviousSince,
+    previousUntil: customPreviousUntil,
   } = req.body || {};
 
   if (!Array.isArray(accountIds) || accountIds.length === 0) {
@@ -156,15 +158,44 @@ export default async function handler(req, res) {
 
   let previousRange = null;
   if (compareToPrevious) {
-    // Immediately-preceding period of equal length — e.g. a 7-day range
-    // compares against the 7 days right before it ("week-over-week" when
-    // the chosen range happens to be a week, but this works for any length).
-    // Computed once — identical for every account.
-    const prevUntil = new Date(`${since}T00:00:00Z`);
-    prevUntil.setUTCDate(prevUntil.getUTCDate() - 1);
-    const prevSince = new Date(prevUntil);
-    prevSince.setUTCDate(prevSince.getUTCDate() - (rangeDays - 1));
-    previousRange = { since: isoDate(prevSince), until: isoDate(prevUntil) };
+    if (customPreviousSince || customPreviousUntil) {
+      // A user-chosen comparison window, not the immediately-preceding one —
+      // still constrained to the exact same length as the primary range (the
+      // one piece of this that isn't the user's choice), so every delta is
+      // still a like-for-like comparison.
+      if (
+        !customPreviousSince ||
+        !customPreviousUntil ||
+        isNaN(Date.parse(customPreviousSince)) ||
+        isNaN(Date.parse(customPreviousUntil))
+      ) {
+        return res.status(400).json({ error: "previousSince and previousUntil must both be valid YYYY-MM-DD dates" });
+      }
+      if (customPreviousSince > customPreviousUntil) {
+        return res.status(400).json({ error: "previousSince must not be after previousUntil" });
+      }
+      if (customPreviousUntil > todayStr) {
+        return res.status(400).json({ error: "previousUntil cannot be in the future" });
+      }
+      const customDays = inclusiveDayCount(customPreviousSince, customPreviousUntil);
+      if (customDays !== rangeDays) {
+        return res.status(400).json({
+          error: `Comparison period must be exactly ${rangeDays} day${rangeDays === 1 ? "" : "s"} long, matching the selected date range (got ${customDays})`,
+        });
+      }
+      previousRange = { since: customPreviousSince, until: customPreviousUntil };
+    } else {
+      // Default: the immediately-preceding period of equal length — e.g. a
+      // 7-day range compares against the 7 days right before it
+      // ("week-over-week" when the chosen range happens to be a week, but
+      // this works for any length). Computed once — identical for every
+      // account.
+      const prevUntil = new Date(`${since}T00:00:00Z`);
+      prevUntil.setUTCDate(prevUntil.getUTCDate() - 1);
+      const prevSince = new Date(prevUntil);
+      prevSince.setUTCDate(prevSince.getUTCDate() - (rangeDays - 1));
+      previousRange = { since: isoDate(prevSince), until: isoDate(prevUntil) };
+    }
   }
 
   // A daily/weekly-grouped query over a long range can return a lot of rows
@@ -254,6 +285,16 @@ export default async function handler(req, res) {
         label: rowLabel(row, level, breakdownGroup),
         entityLabel: rowEntityLabel(row, level),
         breakdownLabel: rowBreakdownLabel(row, breakdownGroup),
+        // Exposed independently of `entityLabel` (which is only ever the
+        // *selected* level's own name) so the client can offer a "exclude
+        // rows by name" filter against campaign/ad set/ad name regardless of
+        // which level is selected — e.g. filtering by campaign name while
+        // viewing at the ad level. Each is already part of this level's own
+        // LEVEL_EXTRA_FIELDS fetch (lib/insightsMetrics.js) whenever it's
+        // meaningful, so this adds no new Graph API fields.
+        campaignName: row.campaign_name ?? null,
+        adsetName: row.adset_name ?? null,
+        adName: row.ad_name ?? null,
         ...metrics,
       };
       if (row.date_start) out.date = row.date_start;
