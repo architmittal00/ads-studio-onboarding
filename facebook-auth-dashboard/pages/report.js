@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import SectionNav from "@/components/SectionNav";
@@ -17,18 +17,90 @@ import { getCachedEntry, setCachedEntry, DEFAULT_CACHE_TTL_MS } from "@/lib/clie
 import { useAccounts } from "@/components/AccountProvider";
 import styles from "@/styles/Home.module.css";
 
-// How long a report payload for a given (account, range) stays usable
-// without re-hitting the API at all — separate from, and in addition to, the
-// server's own 30-min cache (lib/reportCache.js). Backed by localStorage
-// (lib/clientCache.js), not just an in-tab Map, so this survives a reload
-// and is shared across tabs in the same browser, not just the one that
-// happened to fetch it. This is what makes flipping Last 7 Days -> Last 30
-// Days -> back to Last 7 Days an instant, no-network operation instead of a
-// fresh request every time.
+// How long a report payload for a given (account, range, section) stays
+// usable without re-hitting the API at all — separate from, and in addition
+// to, each endpoint's own 30-min server-side cache (lib/reportCache.js).
+// Backed by localStorage (lib/clientCache.js), not just an in-tab Map, so
+// this survives a reload and is shared across tabs in the same browser, not
+// just the one that happened to fetch it. This is what makes flipping Last 7
+// Days -> Last 30 Days -> back to Last 7 Days an instant, no-network
+// operation instead of a fresh request every time.
 const CLIENT_CACHE_TTL_MS = DEFAULT_CACHE_TTL_MS;
 
-function clientCacheKey(accountId, rangePreset, since, until) {
-  return `report:${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
+// The report used to be one endpoint returning one big object, rendered only
+// once every last piece of it was ready — so a single slow Graph call (an
+// account-wide breakdown, say) held the entire page behind one spinner even
+// though most sections don't depend on each other. It's now backed by
+// several independent endpoints under /api/fb/report/*, one per group below
+// — each section of the page renders the moment *its own* group's data
+// arrives, with the rest still showing their own loaders. `core` is the one
+// exception that's still a single (heavier) endpoint: Top Campaigns, Pareto,
+// Creative Type, Product, High-Frequency, Structure, and Budget Utilization
+// all branch off the same underlying per-ad data pipeline, so splitting
+// those seven apart too would mean re-fetching/re-deriving that whole
+// pipeline seven times over instead of once — see
+// pages/api/fb/report/core.js's header comment for the full reasoning.
+const REPORT_GROUPS = [
+  { key: "headline", endpoint: "headline", label: "Overview & Trends" },
+  { key: "ageGender", endpoint: "age-gender", label: "Age & Gender" },
+  { key: "region", endpoint: "region", label: "By State" },
+  { key: "placement", endpoint: "placement", label: "By Platform & Placement" },
+  { key: "pixelHealth", endpoint: "pixel-health", label: "Pixel Health" },
+  { key: "core", endpoint: "core", label: "Campaigns, Structure & Budget" },
+];
+
+function initialGroupState() {
+  return { data: null, error: null, loading: false, fetchedAt: null };
+}
+
+function clientCacheKey(groupKey, accountId, rangePreset, since, until) {
+  return `report:${groupKey}:${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
+}
+
+async function fetchReportSection(endpoint, accountId, { force, rangePreset, since, until } = {}) {
+  const params = new URLSearchParams({ accountId, rangePreset: rangePreset || "last_30d" });
+  if (force) params.set("force", "true");
+  if (rangePreset === "custom" && since && until) {
+    params.set("since", since);
+    params.set("until", until);
+  }
+  const res = await fetch(`/api/fb/report/${endpoint}?${params.toString()}`);
+  return res.json();
+}
+
+// Mirrors pages/api/fb/report/headline.js's (and originally pages/api/fb/
+// report.js's) own resolveRange()/lastNDaysRange() exactly — explicit UTC
+// methods throughout, so this always agrees with what the server actually
+// computes regardless of the viewer's own browser timezone (same reasoning
+// as pages/explore.js's own client-side date math). Computed purely from
+// state already available on the client, so the date-range heading can
+// render immediately — it doesn't need to wait on any one section's fetch
+// to resolve, unlike every other render-prop field below.
+function toDateStr(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function lastNDaysRangeUTC(n, today) {
+  const until = new Date(today);
+  until.setUTCDate(until.getUTCDate() - 1);
+  const since = new Date(until);
+  since.setUTCDate(since.getUTCDate() - (n - 1));
+  return { since: toDateStr(since), until: toDateStr(until) };
+}
+
+function resolveClientRange(rangePreset, customSince, customUntil) {
+  const today = new Date();
+  if (rangePreset === "today") {
+    const d = toDateStr(today);
+    return { since: d, until: d, label: "Today" };
+  }
+  if (rangePreset === "last_7d") {
+    return { ...lastNDaysRangeUTC(7, today), label: "Last 7 Days" };
+  }
+  if (rangePreset === "custom" && customSince && customUntil) {
+    return { since: customSince, until: customUntil, label: `${customSince} → ${customUntil}` };
+  }
+  return { ...lastNDaysRangeUTC(30, today), label: "Last 30 Days" };
 }
 
 const NAME_COL_WIDTH = 240;
@@ -131,6 +203,28 @@ function BreakdownSection({
   );
 }
 
+// Gates one report section on its own fetch group's state: renders the real
+// content (via the render-prop `children`) once `group.data` has arrived,
+// an inline error if that group's fetch failed, or a loader in the section's
+// own place otherwise — so a slow/heavy group (e.g. `core`) never blocks a
+// fast one (e.g. `headline`) from showing up first. Module-level for the
+// same reason as BreakdownSection above.
+function SectionGate({ group, loadingLabel, children }) {
+  if (group.data) return children(group.data);
+  if (group.error) {
+    return (
+      <div className={styles.card} style={{ borderColor: "rgba(239,68,68,.3)" }}>
+        <div className={styles.error}>Error: {group.error}</div>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.card}>
+      <Loader label={loadingLabel} />
+    </div>
+  );
+}
+
 // Filters the campaign -> ad set -> ad tree by a search term. If an
 // ancestor's own name matches, all of its descendants are kept as-is
 // (searching "Diwali" and matching a campaign name shows everything under
@@ -181,17 +275,6 @@ function sortByField(list, field, dir) {
   return copy;
 }
 
-async function fetchReportData(accountId, { force, rangePreset, since, until } = {}) {
-  const params = new URLSearchParams({ accountId, rangePreset: rangePreset || "last_30d" });
-  if (force) params.set("force", "true");
-  if (rangePreset === "custom" && since && until) {
-    params.set("since", since);
-    params.set("until", until);
-  }
-  const res = await fetch(`/api/fb/report?${params.toString()}`);
-  return res.json();
-}
-
 const RANGE_PRESETS = [
   { key: "today", label: "Today" },
   { key: "last_7d", label: "Last 7 Days" },
@@ -227,9 +310,13 @@ const SECTIONS = [
 export default function Report() {
   const { adAccounts: accounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
 
-  const [report, setReport] = useState(null);
-  const [reportError, setReportError] = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
+  const [groups, setGroups] = useState(() => Object.fromEntries(REPORT_GROUPS.map((g) => [g.key, initialGroupState()])));
+  // Bumped on every account/range change (and every Hard Refresh) — each
+  // in-flight fetch's resolution checks this before applying its result, so
+  // a slow response from a since-abandoned account/range never clobbers
+  // state for whatever's actually selected now. One counter shared by all 6
+  // groups' fetches, since they're all kicked off together.
+  const fetchGenerationRef = useRef(0);
 
   const [expandedCampaigns, setExpandedCampaigns] = useState({});
   const [expandedAdsets, setExpandedAdsets] = useState({});
@@ -278,6 +365,49 @@ export default function Report() {
 
   const currency = accounts.find((a) => a.id === selectedAccountId)?.currency;
 
+  function updateGroup(key, patch) {
+    setGroups((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], ...(typeof patch === "function" ? patch(prev[key]) : patch) },
+    }));
+  }
+
+  // Fires one independent fetch per group — each updates only its own slice
+  // of `groups` as soon as *it* resolves, completely independently of how
+  // long any of the others take. A group with a warm client cache entry
+  // renders instantly (no request at all); the rest show their own loader
+  // until their fetch comes back. `force` (Hard Refresh) keeps each group's
+  // last-good data visible while it's re-fetched, rather than blanking it.
+  function runAllGroups(generation, accountId, { force, rangePreset: preset, since, until }) {
+    for (const group of REPORT_GROUPS) {
+      const cacheKey = clientCacheKey(group.key, accountId, preset, since, until);
+
+      if (!force) {
+        const cached = getCachedEntry(cacheKey, CLIENT_CACHE_TTL_MS);
+        if (cached) {
+          updateGroup(group.key, { data: cached.data, error: null, loading: false, fetchedAt: cached.data.cachedAt });
+          continue;
+        }
+      }
+
+      updateGroup(group.key, (prev) => ({ loading: true, error: null, data: force ? prev.data : null }));
+      fetchReportSection(group.endpoint, accountId, { force, rangePreset: preset, since, until })
+        .then((json) => {
+          if (generation !== fetchGenerationRef.current) return;
+          if (json.error) {
+            updateGroup(group.key, { error: json.error, loading: false });
+          } else {
+            updateGroup(group.key, { data: json, error: null, loading: false, fetchedAt: json.cachedAt });
+            setCachedEntry(cacheKey, json);
+          }
+        })
+        .catch((err) => {
+          if (generation !== fetchGenerationRef.current) return;
+          updateGroup(group.key, { error: err.message, loading: false });
+        });
+    }
+  }
+
   useEffect(() => {
     if (!selectedAccountId) return;
     // Waits for the default-range effect above to resolve the saved
@@ -290,51 +420,13 @@ export default function Report() {
 
     const since = appliedCustomRange?.since;
     const until = appliedCustomRange?.until;
-    const cacheKey = clientCacheKey(selectedAccountId, rangePreset, since, until);
-    const cached = getCachedEntry(cacheKey, CLIENT_CACHE_TTL_MS);
-
-    if (cached) {
-      // Seen this exact account+range within the last 30 minutes, in any tab
-      // (localStorage, not an in-tab cache) — show it immediately, no
-      // request at all (Hard Refresh still bypasses this). Synchronous
-      // state hydration from a cache hit, not a derived-state anti-pattern.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setReport(cached.data);
-      setReportError(null);
-      setReportLoading(false);
-      setExpandedCampaigns({});
-      setExpandedAdsets({});
-      return;
-    }
-
-    // Standard fetch-on-param-change pattern (react.dev/learn/synchronizing-with-effects#fetching-data):
-    // resetting loading/error/data state synchronously here is intentional, not a sync-derived-state bug.
-    setReportLoading(true);
-    setReportError(null);
-    setReport(null);
+    const generation = ++fetchGenerationRef.current;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGroups(Object.fromEntries(REPORT_GROUPS.map((g) => [g.key, initialGroupState()])));
     setExpandedCampaigns({});
     setExpandedAdsets({});
-
-    let ignore = false;
-    fetchReportData(selectedAccountId, { force: false, rangePreset, since, until })
-      .then((json) => {
-        if (ignore) return;
-        if (json.error) setReportError(json.error);
-        else {
-          setReport(json);
-          setCachedEntry(cacheKey, json);
-        }
-      })
-      .catch((err) => {
-        if (!ignore) setReportError(err.message);
-      })
-      .finally(() => {
-        if (!ignore) setReportLoading(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
+    runAllGroups(generation, selectedAccountId, { force: false, rangePreset, since, until });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runAllGroups is stable in spirit (deps are the args passed in); including it would just re-trigger on every render
   }, [selectedAccountId, rangePreset, appliedCustomRange]);
 
   function handleApplyCustomRange() {
@@ -346,19 +438,8 @@ export default function Report() {
     if (!selectedAccountId) return;
     const since = appliedCustomRange?.since;
     const until = appliedCustomRange?.until;
-    const cacheKey = clientCacheKey(selectedAccountId, rangePreset, since, until);
-    setReportLoading(true);
-    setReportError(null);
-    fetchReportData(selectedAccountId, { force: true, rangePreset, since, until })
-      .then((json) => {
-        if (json.error) setReportError(json.error);
-        else {
-          setReport(json);
-          setCachedEntry(cacheKey, json);
-        }
-      })
-      .catch((err) => setReportError(err.message))
-      .finally(() => setReportLoading(false));
+    const generation = ++fetchGenerationRef.current;
+    runAllGroups(generation, selectedAccountId, { force: true, rangePreset, since, until });
   }
 
   function money(amount) {
@@ -417,10 +498,11 @@ export default function Report() {
   }
 
   function expandAllStructure() {
-    if (!report) return;
+    const campaigns = groups.core.data?.structure?.campaigns;
+    if (!campaigns) return;
     const allCampaigns = {};
     const allAdsets = {};
-    for (const c of report.structure.campaigns) {
+    for (const c of campaigns) {
       allCampaigns[c.id] = true;
       for (const a of c.adsets) {
         allAdsets[a.id] = true;
@@ -442,13 +524,9 @@ export default function Report() {
   // intact, only the order within each level changes. When a search term is
   // active, non-matching branches are dropped and matching ones are forced
   // open so the result is visible without a manual click.
-  function buildStructureRows() {
-    if (!report) return [];
+  function buildStructureRows(campaigns) {
     const field = STRUCTURE_SORT_FIELD[structureSortKey];
-    const { campaigns: visibleCampaigns, forceExpandIds } = filterStructureTree(
-      report.structure.campaigns,
-      structureSearch
-    );
+    const { campaigns: visibleCampaigns, forceExpandIds } = filterStructureTree(campaigns, structureSearch);
     const isExpanded = (id) => (forceExpandIds ? forceExpandIds.has(id) : false) || !!expandedCampaigns[id];
     const isAdsetExpanded = (id) => (forceExpandIds ? forceExpandIds.has(id) : false) || !!expandedAdsets[id];
 
@@ -534,6 +612,20 @@ export default function Report() {
     return rows;
   }
 
+  // Available the moment account+range are resolved — doesn't wait on any
+  // one section's fetch, so the date-range heading can render immediately.
+  const dateRange = useMemo(
+    () => resolveClientRange(rangePreset, appliedCustomRange?.since, appliedCustomRange?.until),
+    [rangePreset, appliedCustomRange]
+  );
+
+  const canShowReport = !!selectedAccountId && !!rangePreset && (rangePreset !== "custom" || !!appliedCustomRange);
+  const anyLoading = REPORT_GROUPS.some((g) => groups[g.key].loading);
+  const allSettled = REPORT_GROUPS.every((g) => groups[g.key].data || groups[g.key].error);
+  const pendingLabels = REPORT_GROUPS.filter((g) => !groups[g.key].data && !groups[g.key].error).map((g) => g.label);
+  const latestFetchedAt = Math.max(0, ...REPORT_GROUPS.map((g) => groups[g.key].fetchedAt || 0)) || null;
+  const allWarnings = REPORT_GROUPS.flatMap((g) => groups[g.key].data?.warnings || []);
+
   return (
     <Layout>
       <Head>
@@ -605,27 +697,30 @@ export default function Report() {
           )}
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
-          {!accountsError && accounts.length === 0 && !reportLoading && (
+          {!accountsError && accounts.length === 0 && !anyLoading && (
             <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
           )}
 
-          {reportLoading && !report && <Loader label="Building the report…" />}
-          {reportError && <div className={styles.error}>Error: {reportError}</div>}
-
-          {report && (
+          {canShowReport && (
             <>
               <div className={styles.sectionRow} style={{ marginTop: -8 }}>
-                <p className={styles.sub} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <p className={styles.sub} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span>
-                    {report.dateRange.label}: {report.dateRange.since} → {report.dateRange.until} ·{" "}
-                    {report.fromCache ? "cached" : "freshly fetched"}, updated {formatAge(now - report.cachedAt)}
+                    {dateRange.label}: {dateRange.since} → {dateRange.until}
                   </span>
-                  {reportLoading && <Loader inline label="Refreshing…" />}
+                  {!allSettled ? (
+                    <Loader
+                      inline
+                      label={pendingLabels.length > 0 ? `Loading ${pendingLabels.join(", ")}…` : "Loading…"}
+                    />
+                  ) : (
+                    latestFetchedAt && <span>· updated {formatAge(now - latestFetchedAt)}</span>
+                  )}
                 </p>
-                <button className={styles.btnSecondary} onClick={handleHardRefresh} disabled={reportLoading}>
+                <button className={styles.btnSecondary} onClick={handleHardRefresh} disabled={anyLoading}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <RefreshIcon size={13} />
-                    {reportLoading ? "Refreshing…" : "Hard Refresh"}
+                    {anyLoading ? "Refreshing…" : "Hard Refresh"}
                   </span>
                 </button>
               </div>
@@ -634,11 +729,11 @@ export default function Report() {
                 <SectionNav sections={SECTIONS} />
 
                 <div className={styles.reportContent} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                {report.warnings?.length > 0 && (
+                {allWarnings.length > 0 && (
                   <div className={styles.card} style={{ borderColor: "rgba(245,158,11,.25)" }}>
                     <h2 className={styles.h2}>Some data could not be loaded</h2>
                     <ul className={styles.list}>
-                      {report.warnings.map((w, i) => (
+                      {allWarnings.map((w, i) => (
                         <li key={i} className={styles.sub}>
                           · {w}
                         </li>
@@ -648,119 +743,588 @@ export default function Report() {
                 )}
 
                 {/* Overview */}
-                <section id="overview">
-                  <h2 className={styles.h2}>{report.dateRange.label}</h2>
-                  <p className={styles.sub} style={{ marginBottom: 10 }}>
-                    Click any metric to see its {report.trend.granularity} trend.
-                  </p>
-                  <div className={styles.statBar}>
-                    <Stat label="Spend" value={money(report.overview.spend)} onClick={() => openTrend("spend")} />
-                    <Stat
-                      label="Purchases"
-                      value={report.overview.purchases.toFixed(0)}
-                      onClick={() => openTrend("purchases")}
-                    />
-                    <Stat label="ROAS" value={`${report.overview.roas.toFixed(2)}x`} onClick={() => openTrend("roas")} />
-                    <Stat label="CTR" value={`${report.overview.ctr.toFixed(2)}%`} onClick={() => openTrend("ctr")} />
-                    <Stat label="CVR" value={`${report.overview.cvr.toFixed(2)}%`} onClick={() => openTrend("cvr")} />
-                  </div>
-                </section>
+                <SectionGate group={groups.headline} loadingLabel="Loading overview…">
+                  {(data) => (
+                    <section id="overview">
+                      <h2 className={styles.h2}>{dateRange.label}</h2>
+                      <p className={styles.sub} style={{ marginBottom: 10 }}>
+                        Click any metric to see its {data.trend.granularity} trend.
+                      </p>
+                      <div className={styles.statBar}>
+                        <Stat label="Spend" value={money(data.overview.spend)} onClick={() => openTrend("spend")} />
+                        <Stat
+                          label="Purchases"
+                          value={data.overview.purchases.toFixed(0)}
+                          onClick={() => openTrend("purchases")}
+                        />
+                        <Stat label="ROAS" value={`${data.overview.roas.toFixed(2)}x`} onClick={() => openTrend("roas")} />
+                        <Stat label="CTR" value={`${data.overview.ctr.toFixed(2)}%`} onClick={() => openTrend("ctr")} />
+                        <Stat label="CVR" value={`${data.overview.cvr.toFixed(2)}%`} onClick={() => openTrend("cvr")} />
+                      </div>
+                    </section>
+                  )}
+                </SectionGate>
 
                 {/* Best week / month */}
-                <section id="trends">
-                  <p className={styles.sub} style={{ marginBottom: 10 }}>
-                    Fixed 90-day/6-month lookback for historical context — independent of the date range selected
-                    above.
-                  </p>
-                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                  <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
-                    <h2 className={styles.h2}>Best Week (ROAS, last 90 days)</h2>
-                    {report.bestWeek ? (
-                      <>
-                        <p className={styles.statValue}>{report.bestWeek.roas.toFixed(2)}x</p>
-                        <p className={styles.sub}>
-                          {report.bestWeek.since} → {report.bestWeek.until} · spend {money(report.bestWeek.spend)}
-                        </p>
-                      </>
-                    ) : (
-                      <p className={styles.sub}>No weeks with spend in this window.</p>
-                    )}
-                  </div>
-                  <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
-                    <h2 className={styles.h2}>Best Month (ROAS, last 6 months)</h2>
-                    {report.bestMonth ? (
-                      <>
-                        <p className={styles.statValue}>{report.bestMonth.roas.toFixed(2)}x</p>
-                        <p className={styles.sub}>
-                          {report.bestMonth.since} → {report.bestMonth.until} · spend{" "}
-                          {money(report.bestMonth.spend)}
-                        </p>
-                      </>
-                    ) : (
-                      <p className={styles.sub}>No months with spend in this window.</p>
-                    )}
-                  </div>
-                  </div>
-                </section>
+                <SectionGate group={groups.headline} loadingLabel="Loading best week/month…">
+                  {(data) => (
+                    <section id="trends">
+                      <p className={styles.sub} style={{ marginBottom: 10 }}>
+                        Fixed 90-day/6-month lookback for historical context — independent of the date range selected
+                        above.
+                      </p>
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
+                        <h2 className={styles.h2}>Best Week (ROAS, last 90 days)</h2>
+                        {data.bestWeek ? (
+                          <>
+                            <p className={styles.statValue}>{data.bestWeek.roas.toFixed(2)}x</p>
+                            <p className={styles.sub}>
+                              {data.bestWeek.since} → {data.bestWeek.until} · spend {money(data.bestWeek.spend)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className={styles.sub}>No weeks with spend in this window.</p>
+                        )}
+                      </div>
+                      <div className={styles.card} style={{ flex: 1, minWidth: 260 }}>
+                        <h2 className={styles.h2}>Best Month (ROAS, last 6 months)</h2>
+                        {data.bestMonth ? (
+                          <>
+                            <p className={styles.statValue}>{data.bestMonth.roas.toFixed(2)}x</p>
+                            <p className={styles.sub}>
+                              {data.bestMonth.since} → {data.bestMonth.until} · spend{" "}
+                              {money(data.bestMonth.spend)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className={styles.sub}>No months with spend in this window.</p>
+                        )}
+                      </div>
+                      </div>
+                    </section>
+                  )}
+                </SectionGate>
 
                 {/* Top spending campaigns */}
-                <section id="top-campaigns" className={styles.card}>
-                  <h2 className={styles.h2}>Top Spending Campaigns ({report.dateRange.label})</h2>
-                  <p className={styles.sub} style={{ marginBottom: 12 }}>
-                    Click a row to jump to it in Account Structure.
-                  </p>
-                  <SortableTable
-                    defaultSortKey="spend"
-                    maxHeight={360}
-                    searchable
-                    searchPlaceholder="Search campaigns…"
-                    emptyMessage="No campaign spend in this window."
-                    rows={report.topCampaigns}
-                    onRowClick={(r) => jumpToCampaignInStructure(r.id)}
-                    columns={[
-                      { key: "name", label: "Campaign", maxWidth: NAME_COL_WIDTH },
-                      { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
-                      { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
-                      {
-                        key: "revenueSharePct",
-                        label: "% Revenue",
-                        align: "right",
-                        render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
-                      },
-                      { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
-                    ]}
-                  />
-                </section>
-
-                {/* 80% pareto */}
-                <section id="pareto" className={styles.card}>
-                  <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From</h2>
-                  {report.pareto.totalAdCount === 0 ? (
-                    <p className={styles.sub}>No ad-level purchase data in this window.</p>
-                  ) : (
-                    <>
+                <SectionGate group={groups.core} loadingLabel="Loading top campaigns…">
+                  {(data) => (
+                    <section id="top-campaigns" className={styles.card}>
+                      <h2 className={styles.h2}>Top Spending Campaigns ({dateRange.label})</h2>
                       <p className={styles.sub} style={{ marginBottom: 12 }}>
-                        <strong style={{ color: "var(--t1)" }}>
-                          {report.pareto.contributorCount} of {report.pareto.totalAdCount} ads
-                        </strong>{" "}
-                        ({report.pareto.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
-                        <strong style={{ color: "var(--t1)" }}>
-                          {report.pareto.spendSharePct.toFixed(0)}% of spend
-                        </strong>
-                        .
+                        Click a row to jump to it in Account Structure.
                       </p>
                       <SortableTable
-                        defaultSortKey="revenue"
+                        defaultSortKey="spend"
                         maxHeight={360}
                         searchable
-                        searchPlaceholder="Search creatives…"
-                        rows={report.pareto.contributors}
+                        searchPlaceholder="Search campaigns…"
+                        emptyMessage="No campaign spend in this window."
+                        rows={data.topCampaigns}
+                        onRowClick={(r) => jumpToCampaignInStructure(r.id)}
                         columns={[
+                          { key: "name", label: "Campaign", maxWidth: NAME_COL_WIDTH },
+                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                          { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
                           {
-                            key: "name",
-                            label: "Creative",
-                            render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} />,
+                            key: "revenueSharePct",
+                            label: "% Revenue",
+                            align: "right",
+                            render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
                           },
+                          { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+                        ]}
+                      />
+                    </section>
+                  )}
+                </SectionGate>
+
+                {/* 80% pareto */}
+                <SectionGate group={groups.core} loadingLabel="Loading revenue concentration…">
+                  {(data) => (
+                    <section id="pareto" className={styles.card}>
+                      <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From</h2>
+                      {data.pareto.totalAdCount === 0 ? (
+                        <p className={styles.sub}>No ad-level purchase data in this window.</p>
+                      ) : (
+                        <>
+                          <p className={styles.sub} style={{ marginBottom: 12 }}>
+                            <strong style={{ color: "var(--t1)" }}>
+                              {data.pareto.contributorCount} of {data.pareto.totalAdCount} ads
+                            </strong>{" "}
+                            ({data.pareto.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
+                            <strong style={{ color: "var(--t1)" }}>
+                              {data.pareto.spendSharePct.toFixed(0)}% of spend
+                            </strong>
+                            .
+                          </p>
+                          <SortableTable
+                            defaultSortKey="revenue"
+                            maxHeight={360}
+                            searchable
+                            searchPlaceholder="Search creatives…"
+                            rows={data.pareto.contributors}
+                            columns={[
+                              {
+                                key: "name",
+                                label: "Creative",
+                                render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} />,
+                              },
+                              {
+                                key: "status",
+                                label: "Status",
+                                render: (r) => (r.status ? <StatusDot status={r.status} /> : <span className={styles.muted}>—</span>),
+                              },
+                              {
+                                key: "campaignName",
+                                label: "Campaign",
+                                maxWidth: 180,
+                                render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
+                              },
+                              { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                              { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
+                              {
+                                key: "revenueSharePct",
+                                label: "% Revenue",
+                                align: "right",
+                                render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
+                              },
+                              { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+                              { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
+                            ]}
+                          />
+                        </>
+                      )}
+                    </section>
+                  )}
+                </SectionGate>
+
+                {/* Where 80% of purchase revenue comes from, by age/gender */}
+                <SectionGate group={groups.ageGender} loadingLabel="Loading age/gender breakdown…">
+                  {(data) => (
+                    <BreakdownSection
+                      id="age-gender"
+                      title="Where 80% of Purchase Revenue Comes From — Age & Gender"
+                      data={data.purchasesByAgeGender}
+                      labelHeader="Age · Gender"
+                      searchPlaceholder="Search age/gender…"
+                      emptyMessage="No age/gender breakdown data in this window."
+                      money={money}
+                    />
+                  )}
+                </SectionGate>
+
+                {/* Where 80% of spend goes, by state — Facebook doesn't return purchase revenue broken down by
+                    region for this account (a Meta Aggregated Event Measurement restriction on geographic
+                    breakdowns for web conversions, confirmed directly — not something fixable here), so this is a
+                    spend pareto rather than the revenue one every other breakdown uses. */}
+                <SectionGate group={groups.region} loadingLabel="Loading state breakdown…">
+                  {(data) => (
+                    <section id="region" className={styles.card}>
+                      <h2 className={styles.h2}>Where 80% of Ad Spend Goes — State</h2>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        Facebook returns spend by state for this account, but never returns purchase revenue broken
+                        down by state — the per-state rows carry engagement data (clicks, video views, etc.) but no
+                        purchase action, even though the account has plenty of purchases overall (see Age & Gender or
+                        Pareto above, which do carry it). That&apos;s a known Meta platform limitation — Aggregated
+                        Event Measurement commonly excludes geographic breakdowns from web conversion event
+                        reporting — not something this app can fetch around, so here&apos;s spend concentration
+                        instead.
+                      </p>
+                      {data.spendByRegion.totalGroupCount === 0 ? (
+                        <p className={styles.sub}>No region breakdown data in this window (not available for every country).</p>
+                      ) : (
+                        <>
+                          <p className={styles.sub} style={{ marginBottom: 12 }}>
+                            <strong style={{ color: "var(--t1)" }}>
+                              {data.spendByRegion.contributorCount} of {data.spendByRegion.totalGroupCount} states
+                            </strong>{" "}
+                            account for <strong style={{ color: "var(--t1)" }}>{data.spendByRegion.spendSharePct.toFixed(0)}% of spend</strong>.
+                          </p>
+                          <SortableTable
+                            defaultSortKey="spend"
+                            maxHeight={360}
+                            searchable={data.spendByRegion.contributors.length > 6}
+                            searchKeys={["label"]}
+                            searchPlaceholder="Search states…"
+                            rows={data.spendByRegion.contributors}
+                            columns={[
+                              { key: "label", label: "State", maxWidth: 220 },
+                              { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                              {
+                                key: "spendSharePct",
+                                label: "% Spend",
+                                align: "right",
+                                render: (r) => `${r.spendSharePct.toFixed(1)}%`,
+                              },
+                            ]}
+                          />
+                        </>
+                      )}
+                    </section>
+                  )}
+                </SectionGate>
+
+                {/* Full purchase split by creative type — only 3 possible groups, so no 80% cutoff */}
+                <SectionGate group={groups.core} loadingLabel="Loading creative type breakdown…">
+                  {(data) => (
+                    <BreakdownSection
+                      id="creative-type"
+                      title="Purchases by Creative Type"
+                      data={data.purchasesByCreativeType}
+                      labelHeader="Creative Type"
+                      showSummary={false}
+                      emptyMessage="No creative-level purchase data in this window."
+                      money={money}
+                    />
+                  )}
+                </SectionGate>
+
+                {/* Where 80% of purchase revenue comes from, by platform + placement */}
+                <SectionGate group={groups.placement} loadingLabel="Loading platform & placement breakdown…">
+                  {(data) => (
+                    <BreakdownSection
+                      id="placement"
+                      title="Where 80% of Purchase Revenue Comes From — Platform & Placement"
+                      data={data.purchasesByPlacement}
+                      labelHeader="Placement"
+                      searchPlaceholder="Search placements…"
+                      emptyMessage="No placement breakdown data in this window."
+                      money={money}
+                    />
+                  )}
+                </SectionGate>
+
+                {/* Where 80% of purchase revenue comes from, by product — reverse-engineered from each ad's landing URL */}
+                <SectionGate group={groups.core} loadingLabel="Loading product breakdown…">
+                  {(data) => (
+                    <section id="product" className={styles.card}>
+                      <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From — Product</h2>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        Facebook has no native per-product revenue breakdown outside catalog reporting, so this is
+                        derived from each ad&apos;s landing page URL (e.g. a Shopify-style <code>/products/handle</code>{" "}
+                        path becomes the product name) — resolved from the ad&apos;s own creative, or from the
+                        underlying Page post for ads built by boosting an existing post (common for video/Reels ads).
+                        Catalog/Dynamic ads have no single fixed URL — Facebook generates the real destination per
+                        product at serve time — so their revenue shows as its own &quot;Catalog / Dynamic
+                        creative&quot; row instead of being dropped. A &quot;Unknown landing page&quot; row means
+                        neither lookup found a URL (e.g. the underlying post is on a Page this login doesn&apos;t
+                        have read access to, or was deleted) — shown only once it accounts for more than 10% of
+                        spend, since below that it&apos;s rarely worth the clutter; past it, worth checking which ads
+                        fall into it in Ads Manager directly.
+                      </p>
+                      {data.purchasesByProduct.totalGroupCount === 0 ? (
+                        <p className={styles.sub}>No ad-level purchase data in this window.</p>
+                      ) : (
+                        <>
+                          <p className={styles.sub} style={{ marginBottom: 12 }}>
+                            <strong style={{ color: "var(--t1)" }}>
+                              {data.purchasesByProduct.contributorCount} of{" "}
+                              {data.purchasesByProduct.totalGroupCount} products/pages
+                            </strong>{" "}
+                            ({data.purchasesByProduct.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
+                            <strong style={{ color: "var(--t1)" }}>
+                              {data.purchasesByProduct.spendSharePct.toFixed(0)}% of spend
+                            </strong>
+                            .
+                          </p>
+                          <SortableTable
+                            defaultSortKey="revenue"
+                            maxHeight={360}
+                            searchable={data.purchasesByProduct.contributors.length > 6}
+                            searchKeys={["label"]}
+                            searchPlaceholder="Search products…"
+                            rows={data.purchasesByProduct.contributors}
+                            columns={[
+                              { key: "label", label: "Product / Landing Page", maxWidth: 240 },
+                              { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                              { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
+                              {
+                                key: "revenueSharePct",
+                                label: "% Revenue",
+                                align: "right",
+                                render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
+                              },
+                              { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+                              {
+                                key: "purchases",
+                                label: "Purchases",
+                                align: "right",
+                                render: (r) => r.purchases.toFixed(0),
+                              },
+                            ]}
+                          />
+                        </>
+                      )}
+                      {data.unresolvedLandingPageAds?.length > 0 &&
+                        data.purchasesByProduct.contributors.some((c) => c.label === "Unknown landing page") && (
+                        <div style={{ marginTop: 20 }}>
+                          <h2 className={styles.h2} style={{ fontSize: 13 }}>
+                            Ads behind &quot;Unknown landing page&quot; (highest spend first)
+                          </h2>
+                          <p className={styles.sub} style={{ marginBottom: 12 }}>
+                            Showing up to 50. Click through to Ads Manager to check each ad&apos;s destination directly.
+                          </p>
+                          <SortableTable
+                            defaultSortKey="spend"
+                            maxHeight={300}
+                            searchable={data.unresolvedLandingPageAds.length > 6}
+                            searchKeys={["name"]}
+                            searchPlaceholder="Search ads…"
+                            rows={data.unresolvedLandingPageAds}
+                            columns={[
+                              {
+                                key: "name",
+                                label: "Ad",
+                                maxWidth: 220,
+                                render: (r) => (
+                                  <a
+                                    href={`https://www.facebook.com/adsmanager/manage/ads?act=${selectedAccountId.replace(
+                                      /^act_/,
+                                      ""
+                                    )}&selected_ad_ids=${r.id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: "var(--purple)" }}
+                                  >
+                                    {r.name}
+                                  </a>
+                                ),
+                              },
+                              { key: "id", label: "Ad ID" },
+                              {
+                                key: "campaignName",
+                                label: "Campaign",
+                                maxWidth: 180,
+                                render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
+                              },
+                              { key: "creativeType", label: "Type" },
+                              { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                            ]}
+                          />
+                        </div>
+                      )}
+                    </section>
+                  )}
+                </SectionGate>
+
+                {/* Pixel health */}
+                <SectionGate group={groups.pixelHealth} loadingLabel="Loading pixel health…">
+                  {(data) => (
+                    <section id="pixel-health" className={styles.card}>
+                      <h2 className={styles.h2}>Pixel Event Health</h2>
+                      {data.pixelHealth.pixels.length === 0 && data.pixelHealth.concerns.length === 0 ? (
+                        <p className={styles.sub}>No pixel data available.</p>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {data.pixelHealth.pixels.map((p) => (
+                            <div key={p.id} className={styles.listItem}>
+                              {p.name}
+                              <span
+                                className={
+                                  p.status === "healthy"
+                                    ? styles.badgeGood
+                                    : p.status === "stale"
+                                    ? styles.badgeWarn
+                                    : styles.badgeDanger
+                                }
+                              >
+                                {p.status === "healthy"
+                                  ? "Firing normally"
+                                  : p.status === "stale"
+                                  ? `Stale (${p.daysSinceFired.toFixed(1)}d)`
+                                  : "Never fired"}
+                              </span>
+                            </div>
+                          ))}
+                          {data.pixelHealth.concerns
+                            .filter((c) => c.status === "missing")
+                            .map((c, i) => (
+                              <div key={`missing-${i}`} className={styles.listItem}>
+                                {c.name}
+                                <span className={styles.badgeDanger}>Missing</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </section>
+                  )}
+                </SectionGate>
+
+                {/* Account structure: campaign → ad set → ad drill-down */}
+                <SectionGate group={groups.core} loadingLabel="Loading account structure…">
+                  {(data) => (
+                    <section id="structure" className={styles.card}>
+                      <div className={styles.sectionRow}>
+                        <div>
+                          <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+                            Account Structure ({data.structure.campaignCount} campaigns, {data.structure.adsetCount}{" "}
+                            ad sets)
+                          </h2>
+                          <p className={styles.sub}>
+                            Only campaigns/ad sets with spend in the selected range ({dateRange.label}) are shown.
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <div style={{ position: "relative" }}>
+                            <span
+                              style={{
+                                position: "absolute",
+                                left: 11,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                color: "var(--t3)",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              <SearchIcon size={13} />
+                            </span>
+                            <input
+                              type="text"
+                              className={styles.select}
+                              placeholder="Search campaigns, ad sets, ads…"
+                              value={structureSearch}
+                              onChange={(e) => setStructureSearch(e.target.value)}
+                              style={{ width: 220, paddingLeft: 30 }}
+                            />
+                          </div>
+                          <span className={styles.muted}>Sort by</span>
+                          <select
+                            className={styles.select}
+                            value={structureSortKey}
+                            onChange={(e) => setStructureSortKey(e.target.value)}
+                          >
+                            {STRUCTURE_SORT_OPTIONS.map((opt) => (
+                              <option key={opt.key} value={opt.key}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className={styles.btnSecondary}
+                            onClick={() => setStructureSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                          >
+                            {structureSortDir === "asc" ? "▲ Asc" : "▼ Desc"}
+                          </button>
+                          <button className={styles.btnSecondary} onClick={expandAllStructure}>
+                            Expand All
+                          </button>
+                          <button className={styles.btnSecondary} onClick={collapseAllStructure}>
+                            Collapse All
+                          </button>
+                        </div>
+                      </div>
+                      {data.structure.campaigns.length === 0 ? (
+                        <p className={styles.sub}>No campaigns with spend in this window.</p>
+                      ) : buildStructureRows(data.structure.campaigns).length === 0 ? (
+                        <p className={styles.sub}>No matches for &quot;{structureSearch}&quot;.</p>
+                      ) : (
+                        <div className={styles.tableScroll} style={{ maxHeight: 520 }}>
+                          <table className={styles.table}>
+                            <thead>
+                              <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th style={{ textAlign: "right" }}>Budget</th>
+                                <th style={{ textAlign: "right" }}>Spend</th>
+                                <th style={{ textAlign: "right" }}>Purchases</th>
+                                <th style={{ textAlign: "right" }}>ROAS</th>
+                                <th style={{ textAlign: "right" }}>Frequency</th>
+                                <th style={{ textAlign: "right" }}>Creatives</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {buildStructureRows(data.structure.campaigns).map((row) => (
+                                <tr
+                                  key={row.key}
+                                  id={row.anchorId}
+                                  onClick={row.onToggle || undefined}
+                                  style={row.onToggle ? { cursor: "pointer" } : undefined}
+                                >
+                                  <td>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: 6,
+                                        paddingLeft: row.level * 20,
+                                        maxWidth: NAME_COL_WIDTH + row.level * 20,
+                                        overflow: "hidden",
+                                      }}
+                                    >
+                                      <span style={{ width: 14, display: "inline-block", color: "var(--t3)", flexShrink: 0 }}>
+                                        {row.hasChildren ? (row.expanded ? "▾" : "▸") : ""}
+                                      </span>
+                                      {row.level === 2 && (
+                                        <Thumb
+                                          src={row.thumbnailUrl}
+                                          size={24}
+                                          isVideo={row.isVideo}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setLightboxItem(row);
+                                          }}
+                                        />
+                                      )}
+                                      <span
+                                        title={row.name}
+                                        className={styles.clamp3}
+                                        style={{
+                                          fontWeight: row.level === 0 ? 700 : row.level === 1 ? 600 : 400,
+                                          color: row.level === 2 ? "var(--t2)" : "var(--t1)",
+                                          minWidth: 0,
+                                          flex: "1 1 auto",
+                                        }}
+                                      >
+                                        {row.name}
+                                      </span>
+                                      {row.countLabel && (
+                                        <span className={styles.muted} style={{ flexShrink: 0 }}>
+                                          ({row.countLabel})
+                                        </span>
+                                      )}
+                                      {row.budgetBadge && <BudgetTypeBadge type={row.budgetBadge} />}
+                                    </div>
+                                  </td>
+                                  <td>{row.status ? <StatusDot status={row.status} /> : <span className={styles.muted}>—</span>}</td>
+                                  <td style={{ textAlign: "right" }}>{row.budgetText}</td>
+                                  <td style={{ textAlign: "right" }}>{money(row.spend)}</td>
+                                  <td style={{ textAlign: "right" }}>{row.purchases.toFixed(0)}</td>
+                                  <td style={{ textAlign: "right" }}>{row.roas.toFixed(2)}x</td>
+                                  <td style={{ textAlign: "right" }}>
+                                    {row.frequency != null ? row.frequency.toFixed(2) : "—"}
+                                  </td>
+                                  <td style={{ textAlign: "right" }}>{row.creativesText}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  )}
+                </SectionGate>
+
+                {/* High frequency ads */}
+                <SectionGate group={groups.core} loadingLabel="Loading high-frequency ads…">
+                  {(data) => (
+                    <section id="high-frequency" className={styles.card}>
+                      <h2 className={styles.h2}>High-Frequency Ads (&gt;3, excluding retargeting)</h2>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        Frequency here is per-ad over {dateRange.label.toLowerCase()} ({dateRange.since} →{" "}
+                        {dateRange.until}) — it will not match a campaign- or ad-set-level frequency column in Ads
+                        Manager, since reach is deduplicated differently at each level. Compare against Ads
+                        Manager&apos;s own per-ad frequency for the same dates.
+                      </p>
+                      <SortableTable
+                        defaultSortKey="frequency"
+                        maxHeight={360}
+                        searchable
+                        searchPlaceholder="Search ads…"
+                        emptyMessage="No ads over frequency 3 outside retargeting campaigns/ad sets."
+                        rows={data.highFrequencyAds}
+                        columns={[
+                          { key: "name", label: "Ad", render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} /> },
                           {
                             key: "status",
                             label: "Status",
@@ -772,595 +1336,180 @@ export default function Report() {
                             maxWidth: 180,
                             render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
                           },
-                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
-                          { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
                           {
-                            key: "revenueSharePct",
-                            label: "% Revenue",
-                            align: "right",
-                            render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
-                          },
-                          { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
-                          { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
-                        ]}
-                      />
-                    </>
-                  )}
-                </section>
-
-                {/* Where 80% of purchase revenue comes from, by age/gender */}
-                <BreakdownSection
-                  id="age-gender"
-                  title="Where 80% of Purchase Revenue Comes From — Age & Gender"
-                  data={report.purchasesByAgeGender}
-                  labelHeader="Age · Gender"
-                  searchPlaceholder="Search age/gender…"
-                  emptyMessage="No age/gender breakdown data in this window."
-                  money={money}
-                />
-
-                {/* Where 80% of spend goes, by state — Facebook doesn't return purchase revenue broken down by
-                    region for this account (a Meta Aggregated Event Measurement restriction on geographic
-                    breakdowns for web conversions, confirmed directly — not something fixable here), so this is a
-                    spend pareto rather than the revenue one every other breakdown uses. */}
-                <section id="region" className={styles.card}>
-                  <h2 className={styles.h2}>Where 80% of Ad Spend Goes — State</h2>
-                  <p className={styles.sub} style={{ marginBottom: 12 }}>
-                    Facebook returns spend by state for this account, but never returns purchase revenue broken
-                    down by state — the per-state rows carry engagement data (clicks, video views, etc.) but no
-                    purchase action, even though the account has plenty of purchases overall (see Age & Gender or
-                    Pareto above, which do carry it). That&apos;s a known Meta platform limitation — Aggregated Event
-                    Measurement commonly excludes geographic breakdowns from web conversion event reporting — not
-                    something this app can fetch around, so here&apos;s spend concentration instead.
-                  </p>
-                  {report.spendByRegion.totalGroupCount === 0 ? (
-                    <p className={styles.sub}>No region breakdown data in this window (not available for every country).</p>
-                  ) : (
-                    <>
-                      <p className={styles.sub} style={{ marginBottom: 12 }}>
-                        <strong style={{ color: "var(--t1)" }}>
-                          {report.spendByRegion.contributorCount} of {report.spendByRegion.totalGroupCount} states
-                        </strong>{" "}
-                        account for <strong style={{ color: "var(--t1)" }}>{report.spendByRegion.spendSharePct.toFixed(0)}% of spend</strong>.
-                      </p>
-                      <SortableTable
-                        defaultSortKey="spend"
-                        maxHeight={360}
-                        searchable={report.spendByRegion.contributors.length > 6}
-                        searchKeys={["label"]}
-                        searchPlaceholder="Search states…"
-                        rows={report.spendByRegion.contributors}
-                        columns={[
-                          { key: "label", label: "State", maxWidth: 220 },
-                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
-                          {
-                            key: "spendSharePct",
-                            label: "% Spend",
-                            align: "right",
-                            render: (r) => `${r.spendSharePct.toFixed(1)}%`,
-                          },
-                        ]}
-                      />
-                    </>
-                  )}
-                </section>
-
-                {/* Full purchase split by creative type — only 3 possible groups, so no 80% cutoff */}
-                <BreakdownSection
-                  id="creative-type"
-                  title="Purchases by Creative Type"
-                  data={report.purchasesByCreativeType}
-                  labelHeader="Creative Type"
-                  showSummary={false}
-                  emptyMessage="No creative-level purchase data in this window."
-                  money={money}
-                />
-
-                {/* Where 80% of purchase revenue comes from, by platform + placement */}
-                <BreakdownSection
-                  id="placement"
-                  title="Where 80% of Purchase Revenue Comes From — Platform & Placement"
-                  data={report.purchasesByPlacement}
-                  labelHeader="Placement"
-                  searchPlaceholder="Search placements…"
-                  emptyMessage="No placement breakdown data in this window."
-                  money={money}
-                />
-
-                {/* Where 80% of purchase revenue comes from, by product — reverse-engineered from each ad's landing URL */}
-                <section id="product" className={styles.card}>
-                  <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From — Product</h2>
-                  <p className={styles.sub} style={{ marginBottom: 12 }}>
-                    Facebook has no native per-product revenue breakdown outside catalog reporting, so this is
-                    derived from each ad&apos;s landing page URL (e.g. a Shopify-style <code>/products/handle</code>{" "}
-                    path becomes the product name) — resolved from the ad&apos;s own creative, or from the
-                    underlying Page post for ads built by boosting an existing post (common for video/Reels ads).
-                    Catalog/Dynamic ads have no single fixed URL — Facebook generates the real destination per
-                    product at serve time — so their revenue shows as its own &quot;Catalog / Dynamic creative&quot;
-                    row instead of being dropped. A &quot;Unknown landing page&quot; row means neither lookup found a
-                    URL (e.g. the underlying post is on a Page this login doesn&apos;t have read access to, or was
-                    deleted) — shown only once it accounts for more than 10% of spend, since below that it&apos;s
-                    rarely worth the clutter; past it, worth checking which ads fall into it in Ads Manager directly.
-                  </p>
-                  {report.purchasesByProduct.totalGroupCount === 0 ? (
-                    <p className={styles.sub}>No ad-level purchase data in this window.</p>
-                  ) : (
-                    <>
-                      <p className={styles.sub} style={{ marginBottom: 12 }}>
-                        <strong style={{ color: "var(--t1)" }}>
-                          {report.purchasesByProduct.contributorCount} of{" "}
-                          {report.purchasesByProduct.totalGroupCount} products/pages
-                        </strong>{" "}
-                        ({report.purchasesByProduct.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
-                        <strong style={{ color: "var(--t1)" }}>
-                          {report.purchasesByProduct.spendSharePct.toFixed(0)}% of spend
-                        </strong>
-                        .
-                      </p>
-                      <SortableTable
-                        defaultSortKey="revenue"
-                        maxHeight={360}
-                        searchable={report.purchasesByProduct.contributors.length > 6}
-                        searchKeys={["label"]}
-                        searchPlaceholder="Search products…"
-                        rows={report.purchasesByProduct.contributors}
-                        columns={[
-                          { key: "label", label: "Product / Landing Page", maxWidth: 240 },
-                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
-                          { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
-                          {
-                            key: "revenueSharePct",
-                            label: "% Revenue",
-                            align: "right",
-                            render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
-                          },
-                          { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
-                          {
-                            key: "purchases",
-                            label: "Purchases",
-                            align: "right",
-                            render: (r) => r.purchases.toFixed(0),
-                          },
-                        ]}
-                      />
-                    </>
-                  )}
-                  {report.unresolvedLandingPageAds?.length > 0 &&
-                    report.purchasesByProduct.contributors.some((c) => c.label === "Unknown landing page") && (
-                    <div style={{ marginTop: 20 }}>
-                      <h2 className={styles.h2} style={{ fontSize: 13 }}>
-                        Ads behind &quot;Unknown landing page&quot; (highest spend first)
-                      </h2>
-                      <p className={styles.sub} style={{ marginBottom: 12 }}>
-                        Showing up to 50. Click through to Ads Manager to check each ad&apos;s destination directly.
-                      </p>
-                      <SortableTable
-                        defaultSortKey="spend"
-                        maxHeight={300}
-                        searchable={report.unresolvedLandingPageAds.length > 6}
-                        searchKeys={["name"]}
-                        searchPlaceholder="Search ads…"
-                        rows={report.unresolvedLandingPageAds}
-                        columns={[
-                          {
-                            key: "name",
-                            label: "Ad",
-                            maxWidth: 220,
-                            render: (r) => (
-                              <a
-                                href={`https://www.facebook.com/adsmanager/manage/ads?act=${selectedAccountId.replace(
-                                  /^act_/,
-                                  ""
-                                )}&selected_ad_ids=${r.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{ color: "var(--purple)" }}
-                              >
-                                {r.name}
-                              </a>
-                            ),
-                          },
-                          { key: "id", label: "Ad ID" },
-                          {
-                            key: "campaignName",
-                            label: "Campaign",
+                            key: "adsetName",
+                            label: "Ad Set",
                             maxWidth: 180,
-                            render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
+                            render: (r) => <span className={styles.muted}>{r.adsetName}</span>,
                           },
-                          { key: "creativeType", label: "Type" },
-                          { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                          {
+                            key: "frequency",
+                            label: "Frequency",
+                            align: "right",
+                            render: (r) => <span className={styles.badgeWarn}>{r.frequency.toFixed(2)}</span>,
+                          },
                         ]}
                       />
-                    </div>
+                    </section>
                   )}
-                </section>
-
-                {/* Pixel health */}
-                <section id="pixel-health" className={styles.card}>
-                  <h2 className={styles.h2}>Pixel Event Health</h2>
-                  {report.pixelHealth.pixels.length === 0 && report.pixelHealth.concerns.length === 0 ? (
-                    <p className={styles.sub}>No pixel data available.</p>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {report.pixelHealth.pixels.map((p) => (
-                        <div key={p.id} className={styles.listItem}>
-                          {p.name}
-                          <span
-                            className={
-                              p.status === "healthy"
-                                ? styles.badgeGood
-                                : p.status === "stale"
-                                ? styles.badgeWarn
-                                : styles.badgeDanger
-                            }
-                          >
-                            {p.status === "healthy"
-                              ? "Firing normally"
-                              : p.status === "stale"
-                              ? `Stale (${p.daysSinceFired.toFixed(1)}d)`
-                              : "Never fired"}
-                          </span>
-                        </div>
-                      ))}
-                      {report.pixelHealth.concerns
-                        .filter((c) => c.status === "missing")
-                        .map((c, i) => (
-                          <div key={`missing-${i}`} className={styles.listItem}>
-                            {c.name}
-                            <span className={styles.badgeDanger}>Missing</span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </section>
-
-                {/* Account structure: campaign → ad set → ad drill-down */}
-                <section id="structure" className={styles.card}>
-                  <div className={styles.sectionRow}>
-                    <div>
-                      <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-                        Account Structure ({report.structure.campaignCount} campaigns, {report.structure.adsetCount}{" "}
-                        ad sets)
-                      </h2>
-                      <p className={styles.sub}>
-                        Only campaigns/ad sets with spend in the selected range ({report.dateRange.label}) are shown.
-                      </p>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <div style={{ position: "relative" }}>
-                        <span
-                          style={{
-                            position: "absolute",
-                            left: 11,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            color: "var(--t3)",
-                            pointerEvents: "none",
-                          }}
-                        >
-                          <SearchIcon size={13} />
-                        </span>
-                        <input
-                          type="text"
-                          className={styles.select}
-                          placeholder="Search campaigns, ad sets, ads…"
-                          value={structureSearch}
-                          onChange={(e) => setStructureSearch(e.target.value)}
-                          style={{ width: 220, paddingLeft: 30 }}
-                        />
-                      </div>
-                      <span className={styles.muted}>Sort by</span>
-                      <select
-                        className={styles.select}
-                        value={structureSortKey}
-                        onChange={(e) => setStructureSortKey(e.target.value)}
-                      >
-                        {STRUCTURE_SORT_OPTIONS.map((opt) => (
-                          <option key={opt.key} value={opt.key}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className={styles.btnSecondary}
-                        onClick={() => setStructureSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-                      >
-                        {structureSortDir === "asc" ? "▲ Asc" : "▼ Desc"}
-                      </button>
-                      <button className={styles.btnSecondary} onClick={expandAllStructure}>
-                        Expand All
-                      </button>
-                      <button className={styles.btnSecondary} onClick={collapseAllStructure}>
-                        Collapse All
-                      </button>
-                    </div>
-                  </div>
-                  {report.structure.campaigns.length === 0 ? (
-                    <p className={styles.sub}>No campaigns with spend in this window.</p>
-                  ) : buildStructureRows().length === 0 ? (
-                    <p className={styles.sub}>No matches for &quot;{structureSearch}&quot;.</p>
-                  ) : (
-                    <div className={styles.tableScroll} style={{ maxHeight: 520 }}>
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th style={{ textAlign: "right" }}>Budget</th>
-                            <th style={{ textAlign: "right" }}>Spend</th>
-                            <th style={{ textAlign: "right" }}>Purchases</th>
-                            <th style={{ textAlign: "right" }}>ROAS</th>
-                            <th style={{ textAlign: "right" }}>Frequency</th>
-                            <th style={{ textAlign: "right" }}>Creatives</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {buildStructureRows().map((row) => (
-                            <tr
-                              key={row.key}
-                              id={row.anchorId}
-                              onClick={row.onToggle || undefined}
-                              style={row.onToggle ? { cursor: "pointer" } : undefined}
-                            >
-                              <td>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "flex-start",
-                                    gap: 6,
-                                    paddingLeft: row.level * 20,
-                                    maxWidth: NAME_COL_WIDTH + row.level * 20,
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  <span style={{ width: 14, display: "inline-block", color: "var(--t3)", flexShrink: 0 }}>
-                                    {row.hasChildren ? (row.expanded ? "▾" : "▸") : ""}
-                                  </span>
-                                  {row.level === 2 && (
-                                    <Thumb
-                                      src={row.thumbnailUrl}
-                                      size={24}
-                                      isVideo={row.isVideo}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setLightboxItem(row);
-                                      }}
-                                    />
-                                  )}
-                                  <span
-                                    title={row.name}
-                                    className={styles.clamp3}
-                                    style={{
-                                      fontWeight: row.level === 0 ? 700 : row.level === 1 ? 600 : 400,
-                                      color: row.level === 2 ? "var(--t2)" : "var(--t1)",
-                                      minWidth: 0,
-                                      flex: "1 1 auto",
-                                    }}
-                                  >
-                                    {row.name}
-                                  </span>
-                                  {row.countLabel && (
-                                    <span className={styles.muted} style={{ flexShrink: 0 }}>
-                                      ({row.countLabel})
-                                    </span>
-                                  )}
-                                  {row.budgetBadge && <BudgetTypeBadge type={row.budgetBadge} />}
-                                </div>
-                              </td>
-                              <td>{row.status ? <StatusDot status={row.status} /> : <span className={styles.muted}>—</span>}</td>
-                              <td style={{ textAlign: "right" }}>{row.budgetText}</td>
-                              <td style={{ textAlign: "right" }}>{money(row.spend)}</td>
-                              <td style={{ textAlign: "right" }}>{row.purchases.toFixed(0)}</td>
-                              <td style={{ textAlign: "right" }}>{row.roas.toFixed(2)}x</td>
-                              <td style={{ textAlign: "right" }}>
-                                {row.frequency != null ? row.frequency.toFixed(2) : "—"}
-                              </td>
-                              <td style={{ textAlign: "right" }}>{row.creativesText}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                {/* High frequency ads */}
-                <section id="high-frequency" className={styles.card}>
-                  <h2 className={styles.h2}>High-Frequency Ads (&gt;3, excluding retargeting)</h2>
-                  <p className={styles.sub} style={{ marginBottom: 12 }}>
-                    Frequency here is per-ad over {report.dateRange.label.toLowerCase()} ({report.dateRange.since} →{" "}
-                    {report.dateRange.until}) — it will not match a campaign- or ad-set-level frequency column in
-                    Ads Manager, since reach is deduplicated differently at each level. Compare against Ads
-                    Manager&apos;s own per-ad frequency for the same dates.
-                  </p>
-                  <SortableTable
-                    defaultSortKey="frequency"
-                    maxHeight={360}
-                    searchable
-                    searchPlaceholder="Search ads…"
-                    emptyMessage="No ads over frequency 3 outside retargeting campaigns/ad sets."
-                    rows={report.highFrequencyAds}
-                    columns={[
-                      { key: "name", label: "Ad", render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} /> },
-                      {
-                        key: "status",
-                        label: "Status",
-                        render: (r) => (r.status ? <StatusDot status={r.status} /> : <span className={styles.muted}>—</span>),
-                      },
-                      {
-                        key: "campaignName",
-                        label: "Campaign",
-                        maxWidth: 180,
-                        render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
-                      },
-                      {
-                        key: "adsetName",
-                        label: "Ad Set",
-                        maxWidth: 180,
-                        render: (r) => <span className={styles.muted}>{r.adsetName}</span>,
-                      },
-                      {
-                        key: "frequency",
-                        label: "Frequency",
-                        align: "right",
-                        render: (r) => <span className={styles.badgeWarn}>{r.frequency.toFixed(2)}</span>,
-                      },
-                    ]}
-                  />
-                </section>
+                </SectionGate>
 
                 {/* Budget utilization, split by CBO / ABO */}
-                <section id="budget-utilization" className={styles.card}>
-                  <h2 className={styles.h2}>Budget Utilization &amp; Creative Count</h2>
-                  <p className={styles.sub} style={{ marginBottom: 12 }}>
-                    CBO campaigns are judged at the campaign level; ABO campaigns are judged ad set by ad set, since
-                    that is where the budget actually lives. Rows under 100% utilization are flagged — for those, we
-                    take the avg daily spend split across its existing creatives (Avg Spend/Creative) and work out how
-                    many creatives, at that same rate, it would take to spend the full daily budget (Additional
-                    Needed). Fully-utilized rows show no recommendation — there&apos;s no unspent budget left for
-                    extra creatives to unlock. Sort by Utilization to find underspend, or by Additional Needed to find
-                    creative gaps.
-                  </p>
+                <SectionGate group={groups.core} loadingLabel="Loading budget utilization…">
+                  {(data) => (
+                    <section id="budget-utilization" className={styles.card}>
+                      <h2 className={styles.h2}>Budget Utilization &amp; Creative Count</h2>
+                      <p className={styles.sub} style={{ marginBottom: 12 }}>
+                        CBO campaigns are judged at the campaign level; ABO campaigns are judged ad set by ad set,
+                        since that is where the budget actually lives. Rows under 100% utilization are flagged — for
+                        those, we take the avg daily spend split across its existing creatives (Avg Spend/Creative)
+                        and work out how many creatives, at that same rate, it would take to spend the full daily
+                        budget (Additional Needed). Fully-utilized rows show no recommendation — there&apos;s no
+                        unspent budget left for extra creatives to unlock. Sort by Utilization to find underspend, or
+                        by Additional Needed to find creative gaps.
+                      </p>
 
-                  <div className={styles.tabGroup} style={{ marginBottom: 14 }}>
-                    <button
-                      className={budgetTab === "CBO" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                      onClick={() => setBudgetTab("CBO")}
-                    >
-                      CBO Campaigns ({report.budgetUtilization.cboCampaigns.length})
-                    </button>
-                    <button
-                      className={budgetTab === "ABO" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                      onClick={() => setBudgetTab("ABO")}
-                    >
-                      ABO Ad Sets ({report.budgetUtilization.aboAdsets.length})
-                    </button>
-                  </div>
+                      <div className={styles.tabGroup} style={{ marginBottom: 14 }}>
+                        <button
+                          className={budgetTab === "CBO" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                          onClick={() => setBudgetTab("CBO")}
+                        >
+                          CBO Campaigns ({data.budgetUtilization.cboCampaigns.length})
+                        </button>
+                        <button
+                          className={budgetTab === "ABO" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                          onClick={() => setBudgetTab("ABO")}
+                        >
+                          ABO Ad Sets ({data.budgetUtilization.aboAdsets.length})
+                        </button>
+                      </div>
 
-                  {budgetTab === "CBO" ? (
-                    <SortableTable
-                      defaultSortKey="utilizationPct"
-                      defaultSortDir="asc"
-                      maxHeight={360}
-                      searchable
-                      searchPlaceholder="Search campaigns…"
-                      emptyMessage="No active CBO campaigns."
-                      rows={report.budgetUtilization.cboCampaigns}
-                      rowClassName={(r) => (r.utilizationPct != null && r.utilizationPct < 100 ? styles.rowUnderutilized : undefined)}
-                      columns={[
-                        { key: "name", label: "Campaign", maxWidth: NAME_COL_WIDTH },
-                        {
-                          key: "dailyBudget",
-                          label: "Daily Budget",
-                          align: "right",
-                          render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
-                        },
-                        { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
-                        {
-                          key: "utilizationPct",
-                          label: "Utilization",
-                          align: "right",
-                          render: (r) =>
-                            r.utilizationPct == null ? (
-                              "—"
-                            ) : (
-                              <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
-                                {r.utilizationPct.toFixed(0)}%
-                              </span>
-                            ),
-                        },
-                        { key: "creativeCount", label: "Creatives", align: "right" },
-                        {
-                          key: "avgSpendPerCreative",
-                          label: "Avg Spend/Creative",
-                          align: "right",
-                          render: (r) => (r.avgSpendPerCreative != null ? money(r.avgSpendPerCreative) : "—"),
-                        },
-                        {
-                          key: "recommendedCreatives",
-                          label: "Recommended",
-                          align: "right",
-                          render: (r) => (r.recommendedCreatives != null ? r.recommendedCreatives : "—"),
-                        },
-                        {
-                          key: "additionalNeeded",
-                          label: "Additional Needed",
-                          align: "right",
-                          render: (r) =>
-                            r.additionalNeeded > 0 ? (
-                              <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
-                            ) : (
-                              "—"
-                            ),
-                        },
-                      ]}
-                    />
-                  ) : (
-                    <SortableTable
-                      defaultSortKey="utilizationPct"
-                      defaultSortDir="asc"
-                      maxHeight={360}
-                      searchable
-                      searchPlaceholder="Search ad sets…"
-                      emptyMessage="No active ad sets in ABO campaigns."
-                      rows={report.budgetUtilization.aboAdsets}
-                      rowClassName={(r) => (r.utilizationPct != null && r.utilizationPct < 100 ? styles.rowUnderutilized : undefined)}
-                      columns={[
-                        { key: "name", label: "Ad Set", maxWidth: NAME_COL_WIDTH },
-                        {
-                          key: "campaignName",
-                          label: "Campaign",
-                          maxWidth: 180,
-                          render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
-                        },
-                        {
-                          key: "dailyBudget",
-                          label: "Daily Budget",
-                          align: "right",
-                          render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
-                        },
-                        { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
-                        {
-                          key: "utilizationPct",
-                          label: "Utilization",
-                          align: "right",
-                          render: (r) =>
-                            r.utilizationPct == null ? (
-                              "—"
-                            ) : (
-                              <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
-                                {r.utilizationPct.toFixed(0)}%
-                              </span>
-                            ),
-                        },
-                        { key: "creativeCount", label: "Creatives", align: "right" },
-                        {
-                          key: "avgSpendPerCreative",
-                          label: "Avg Spend/Creative",
-                          align: "right",
-                          render: (r) => (r.avgSpendPerCreative != null ? money(r.avgSpendPerCreative) : "—"),
-                        },
-                        {
-                          key: "recommendedCreatives",
-                          label: "Recommended",
-                          align: "right",
-                          render: (r) => (r.recommendedCreatives != null ? r.recommendedCreatives : "—"),
-                        },
-                        {
-                          key: "additionalNeeded",
-                          label: "Additional Needed",
-                          align: "right",
-                          render: (r) =>
-                            r.additionalNeeded > 0 ? (
-                              <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
-                            ) : (
-                              "—"
-                            ),
-                        },
-                      ]}
-                    />
+                      {budgetTab === "CBO" ? (
+                        <SortableTable
+                          defaultSortKey="utilizationPct"
+                          defaultSortDir="asc"
+                          maxHeight={360}
+                          searchable
+                          searchPlaceholder="Search campaigns…"
+                          emptyMessage="No active CBO campaigns."
+                          rows={data.budgetUtilization.cboCampaigns}
+                          rowClassName={(r) => (r.utilizationPct != null && r.utilizationPct < 100 ? styles.rowUnderutilized : undefined)}
+                          columns={[
+                            { key: "name", label: "Campaign", maxWidth: NAME_COL_WIDTH },
+                            {
+                              key: "dailyBudget",
+                              label: "Daily Budget",
+                              align: "right",
+                              render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
+                            },
+                            { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
+                            {
+                              key: "utilizationPct",
+                              label: "Utilization",
+                              align: "right",
+                              render: (r) =>
+                                r.utilizationPct == null ? (
+                                  "—"
+                                ) : (
+                                  <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
+                                    {r.utilizationPct.toFixed(0)}%
+                                  </span>
+                                ),
+                            },
+                            { key: "creativeCount", label: "Creatives", align: "right" },
+                            {
+                              key: "avgSpendPerCreative",
+                              label: "Avg Spend/Creative",
+                              align: "right",
+                              render: (r) => (r.avgSpendPerCreative != null ? money(r.avgSpendPerCreative) : "—"),
+                            },
+                            {
+                              key: "recommendedCreatives",
+                              label: "Recommended",
+                              align: "right",
+                              render: (r) => (r.recommendedCreatives != null ? r.recommendedCreatives : "—"),
+                            },
+                            {
+                              key: "additionalNeeded",
+                              label: "Additional Needed",
+                              align: "right",
+                              render: (r) =>
+                                r.additionalNeeded > 0 ? (
+                                  <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
+                                ) : (
+                                  "—"
+                                ),
+                            },
+                          ]}
+                        />
+                      ) : (
+                        <SortableTable
+                          defaultSortKey="utilizationPct"
+                          defaultSortDir="asc"
+                          maxHeight={360}
+                          searchable
+                          searchPlaceholder="Search ad sets…"
+                          emptyMessage="No active ad sets in ABO campaigns."
+                          rows={data.budgetUtilization.aboAdsets}
+                          rowClassName={(r) => (r.utilizationPct != null && r.utilizationPct < 100 ? styles.rowUnderutilized : undefined)}
+                          columns={[
+                            { key: "name", label: "Ad Set", maxWidth: NAME_COL_WIDTH },
+                            {
+                              key: "campaignName",
+                              label: "Campaign",
+                              maxWidth: 180,
+                              render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
+                            },
+                            {
+                              key: "dailyBudget",
+                              label: "Daily Budget",
+                              align: "right",
+                              render: (r) => (r.dailyBudget != null ? money(r.dailyBudget) : "—"),
+                            },
+                            { key: "avgDailySpend7d", label: "Avg Daily Spend (7d)", align: "right", render: (r) => money(r.avgDailySpend7d) },
+                            {
+                              key: "utilizationPct",
+                              label: "Utilization",
+                              align: "right",
+                              render: (r) =>
+                                r.utilizationPct == null ? (
+                                  "—"
+                                ) : (
+                                  <span className={r.utilizationPct < 100 ? styles.badgeWarn : styles.badgeGood}>
+                                    {r.utilizationPct.toFixed(0)}%
+                                  </span>
+                                ),
+                            },
+                            { key: "creativeCount", label: "Creatives", align: "right" },
+                            {
+                              key: "avgSpendPerCreative",
+                              label: "Avg Spend/Creative",
+                              align: "right",
+                              render: (r) => (r.avgSpendPerCreative != null ? money(r.avgSpendPerCreative) : "—"),
+                            },
+                            {
+                              key: "recommendedCreatives",
+                              label: "Recommended",
+                              align: "right",
+                              render: (r) => (r.recommendedCreatives != null ? r.recommendedCreatives : "—"),
+                            },
+                            {
+                              key: "additionalNeeded",
+                              label: "Additional Needed",
+                              align: "right",
+                              render: (r) =>
+                                r.additionalNeeded > 0 ? (
+                                  <span className={styles.badgeWarn}>+{r.additionalNeeded}</span>
+                                ) : (
+                                  "—"
+                                ),
+                            },
+                          ]}
+                        />
+                      )}
+                    </section>
                   )}
-                </section>
+                </SectionGate>
                 </div>
               </div>
             </>
@@ -1370,8 +1519,8 @@ export default function Report() {
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       <MetricTrendModal
         metric={trendMetric}
-        trend={report?.trend}
-        rangeLabel={report?.dateRange?.label}
+        trend={groups.headline.data?.trend}
+        rangeLabel={dateRange.label}
         onClose={() => setTrendMetric(null)}
       />
       <DefaultRangeModal

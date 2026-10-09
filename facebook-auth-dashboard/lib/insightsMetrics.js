@@ -23,7 +23,7 @@ const LEVEL_EXTRA_FIELDS = {
 // multi-select of individual dimensions. Meta restricts which breakdowns can
 // combine with each other and which are valid at which `level`, in ways
 // this app has no reliable way to pre-validate; offering pre-combined groups
-// (the first three below already proven working in pages/api/fb/report.js)
+// (the first three below already proven working in pages/api/fb/report/age-gender.js, region.js, and placement.js)
 // avoids producing mostly-400s, while Facebook's own error message still
 // surfaces verbatim for the rare invalid case (e.g. a breakdown not valid at
 // the chosen level).

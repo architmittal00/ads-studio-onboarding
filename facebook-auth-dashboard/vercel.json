@@ -1,7 +1,22 @@
 {
   "functions": {
-    "pages/api/fb/report.js": {
+    "pages/api/fb/report/core.js": {
       "maxDuration": 60
+    },
+    "pages/api/fb/report/headline.js": {
+      "maxDuration": 45
+    },
+    "pages/api/fb/report/age-gender.js": {
+      "maxDuration": 45
+    },
+    "pages/api/fb/report/region.js": {
+      "maxDuration": 45
+    },
+    "pages/api/fb/report/placement.js": {
+      "maxDuration": 45
+    },
+    "pages/api/fb/report/pixel-health.js": {
+      "maxDuration": 45
     },
     "pages/api/fb/launch-strategy.js": {
       "maxDuration": 60
