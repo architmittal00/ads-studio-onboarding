@@ -46,7 +46,7 @@ export async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,body,call_to_action,object_story_spec{link_data{link,message},video_data{video_id,message,call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},bodies{text}}}",
+          "effective_status,creative{id,thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,body,call_to_action,object_story_spec{link_data{link,message},video_data{video_id,message,call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},bodies{text}}}",
       })
     )
   );
@@ -90,6 +90,7 @@ export async function fetchAdDetails(adIds, token) {
         status: obj.effective_status || null,
         thumbnailUrl: creative.thumbnail_url || creative.image_url || null,
         videoId,
+        creativeId: creative.id || null,
         creativeType,
         landingUrl,
         caption,
