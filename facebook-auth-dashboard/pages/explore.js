@@ -702,32 +702,47 @@ export default function Explore() {
     return [...new Set(result.rows.map((r) => r.status).filter(Boolean))].sort();
   }, [result]);
 
-  function addMetricCondition() {
+  // Metric-threshold conditions are edited in a local draft, completely
+  // separate from `activeView.resultFilters.metricConditions` (the committed
+  // version `filteredRows` actually reads), so typing a value — or changing
+  // its metric/operator — doesn't re-filter the table on every keystroke.
+  // Nothing here takes effect until "Apply Filters" is clicked (see
+  // applyMetricFilters below). Re-synced only when the active tab itself
+  // changes, so switching to another view shows *that* view's own committed
+  // filters as the starting draft rather than carrying over in-progress,
+  // never-applied edits from the previous tab.
+  const [draftConditions, setDraftConditions] = useState(() => activeView.resultFilters.metricConditions);
+  useEffect(() => {
+    // Resets the draft to match the newly-active tab's own committed
+    // filters — not a derived-state anti-pattern; this is the one moment
+    // the draft is deliberately allowed to diverge from the previous
+    // render's value (switching tabs), not a value React could compute
+    // during render itself.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraftConditions(activeView.resultFilters.metricConditions);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately keyed only on the tab switching, not on every resultFilters change, which would wipe out in-progress edits made since the last Apply
+  }, [activeViewId]);
+
+  const hasPendingMetricChanges = JSON.stringify(draftConditions) !== JSON.stringify(activeView.resultFilters.metricConditions);
+
+  function addDraftCondition() {
     const numericKeys = (result?.meta.metricKeys || []).filter(
       (k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text"
     );
     if (numericKeys.length === 0) return;
-    updateActive((v) => ({
-      resultFilters: {
-        ...v.resultFilters,
-        metricConditions: [...v.resultFilters.metricConditions, { id: newViewId(), metricKey: numericKeys[0], operator: "gte", value: 0 }],
-      },
-    }));
+    setDraftConditions((prev) => [...prev, { id: newViewId(), metricKey: numericKeys[0], operator: "gte", value: 0 }]);
   }
 
-  function updateMetricCondition(id, patch) {
-    updateActive((v) => ({
-      resultFilters: {
-        ...v.resultFilters,
-        metricConditions: v.resultFilters.metricConditions.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-      },
-    }));
+  function updateDraftCondition(id, patch) {
+    setDraftConditions((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
 
-  function removeMetricCondition(id) {
-    updateActive((v) => ({
-      resultFilters: { ...v.resultFilters, metricConditions: v.resultFilters.metricConditions.filter((c) => c.id !== id) },
-    }));
+  function removeDraftCondition(id) {
+    setDraftConditions((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  function applyMetricFilters() {
+    updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: draftConditions } }));
   }
 
   // `statusValues: null` means "no filter" (every status counts as checked)
@@ -1348,25 +1363,38 @@ export default function Explore() {
                 </p>
               )}
 
-              {/* Post-query pivot filters — applied instantly to `result` already sitting in state, no re-fetch */}
+              {/* Post-query pivot filters — applied to `result` already sitting in state, no re-fetch.
+                  Metric conditions are a local draft until "Apply Filters" is clicked, so typing a
+                  value doesn't re-filter the table on every keystroke; Status checkboxes (below)
+                  stay instant since a checkbox click has no typing-jank to smooth over. */}
               <div className={styles.card} style={{ padding: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span className={styles.muted} style={{ fontWeight: 600 }}>
                     Filter results
                   </span>
-                  <button type="button" className={styles.btnSecondary} onClick={addMetricCondition}>
+                  <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
                     + Metric filter
                   </button>
+                  {draftConditions.length > 0 && (
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      disabled={!hasPendingMetricChanges}
+                      onClick={applyMetricFilters}
+                    >
+                      Apply Filters
+                    </button>
+                  )}
                 </div>
 
-                {activeView.resultFilters.metricConditions.length > 0 && (
+                {draftConditions.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                    {activeView.resultFilters.metricConditions.map((c) => (
+                    {draftConditions.map((c) => (
                       <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <select
                           className={styles.select}
                           value={c.metricKey}
-                          onChange={(e) => updateMetricCondition(c.id, { metricKey: e.target.value })}
+                          onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}
                         >
                           {result.meta.metricKeys
                             .filter((k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text")
@@ -1379,7 +1407,7 @@ export default function Explore() {
                         <select
                           className={styles.select}
                           value={c.operator}
-                          onChange={(e) => updateMetricCondition(c.id, { operator: e.target.value })}
+                          onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}
                         >
                           {METRIC_FILTER_OPERATORS.map((op) => (
                             <option key={op.value} value={op.value}>
@@ -1392,12 +1420,13 @@ export default function Explore() {
                           className={styles.select}
                           style={{ width: 110 }}
                           value={c.value}
-                          onChange={(e) => updateMetricCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                          onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                          onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
                         />
                         <button
                           type="button"
                           className={styles.btnSecondary}
-                          onClick={() => removeMetricCondition(c.id)}
+                          onClick={() => removeDraftCondition(c.id)}
                           aria-label="Remove filter"
                         >
                           <CloseIcon size={12} />
