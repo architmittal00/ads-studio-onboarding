@@ -203,7 +203,7 @@ function Stat({ label, value }) {
 function formatCurrency(amount, currency) {
   if (!currency) return amount.toFixed(2);
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency }).format(amount);
   } catch {
     return `${amount.toFixed(2)} ${currency}`;
   }

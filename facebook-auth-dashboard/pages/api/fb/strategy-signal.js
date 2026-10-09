@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGetInsights } from "@/lib/facebookGraph";
 import { pickActionCount, pickPurchaseCount } from "@/lib/metrics";
+import { lastNDaysRange } from "@/lib/adCreativeDetails";
 
 // Decides whether an ad account has "enough history" to justify a
 // retargeting-led strategy (vs. one built around prospecting), instead of
@@ -31,9 +32,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Facebook's own `date_preset: "last_30d"` shortcut can silently drift
+    // from what "Last 30 Days" means everywhere else in this app (it also
+    // includes today, an incomplete day) — an explicit time_range instead,
+    // same as pages/report.js and pages/explore.js.
     const json = await graphGetInsights(`/${accountId}/insights`, session.accessToken, {
       fields: "impressions,spend,cpm,actions",
-      date_preset: "last_30d",
+      time_range: lastNDaysRange(30, new Date()),
     });
 
     const row = json.data?.[0];
@@ -63,7 +68,7 @@ export default async function handler(req, res) {
     const actualVisitors = linkClicks;
 
     const hasEnoughHistory = projectedVisitors < actualVisitors;
-    const fmt = (n) => Math.round(n).toLocaleString("en-US");
+    const fmt = (n) => Math.round(n).toLocaleString("en-IN");
 
     res.status(200).json({
       hasEnoughHistory,

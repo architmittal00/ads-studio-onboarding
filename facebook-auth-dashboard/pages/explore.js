@@ -245,6 +245,17 @@ function todayUTC() {
   return d;
 }
 
+// Mirrors pages/report.js's own lastNDaysRangeUTC() (and lib/adCreativeDetails.js's
+// server-side lastNDaysRange()) exactly: "Last N Days" means the N full days
+// immediately before today, not including today itself — today's own data is
+// still accumulating throughout the day and isn't a complete, comparable day
+// the way Ads Manager's "Last N days" picker also treats it. "Today" and
+// "Yesterday" are separate, explicit presets and are unaffected by this.
+function lastNDaysRangeExcludingToday(n, today) {
+  const until = addDaysUTC(isoDate(today), -1);
+  return { since: addDaysUTC(until, -(n - 1)), until };
+}
+
 // Every preset resolves to a concrete {since, until} — "custom" is the only
 // one that depends on user input rather than "now".
 function computeRange(preset, customSince, customUntil) {
@@ -257,13 +268,13 @@ function computeRange(preset, customSince, customUntil) {
       return { since: y, until: y };
     }
     case "last_7d":
-      return { since: addDaysUTC(isoDate(today), -6), until: isoDate(today) };
+      return lastNDaysRangeExcludingToday(7, today);
     case "last_14d":
-      return { since: addDaysUTC(isoDate(today), -13), until: isoDate(today) };
+      return lastNDaysRangeExcludingToday(14, today);
     case "last_30d":
-      return { since: addDaysUTC(isoDate(today), -29), until: isoDate(today) };
+      return lastNDaysRangeExcludingToday(30, today);
     case "last_90d":
-      return { since: addDaysUTC(isoDate(today), -89), until: isoDate(today) };
+      return lastNDaysRangeExcludingToday(90, today);
     case "custom":
       return customSince && customUntil ? { since: customSince, until: customUntil } : null;
     default:

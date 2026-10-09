@@ -446,7 +446,7 @@ export default function Report() {
   function money(amount) {
     if (!currency) return amount.toFixed(2);
     try {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(
+      return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(
         amount
       );
     } catch {

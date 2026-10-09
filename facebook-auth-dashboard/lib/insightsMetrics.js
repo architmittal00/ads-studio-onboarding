@@ -344,7 +344,7 @@ export function formatMetricValue(value, format, currency) {
     case "currency":
       if (!currency) return value.toFixed(2);
       try {
-        return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+        return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
       } catch {
         return `${value.toFixed(2)} ${currency}`;
       }
@@ -353,7 +353,7 @@ export function formatMetricValue(value, format, currency) {
     case "decimal":
       return value.toFixed(2);
     case "number":
-      return Math.round(value).toLocaleString("en-US");
+      return Math.round(value).toLocaleString("en-IN");
     default:
       return String(value);
   }
