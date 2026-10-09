@@ -2,15 +2,18 @@ import { useEffect, useState } from "react";
 
 // Fullscreen preview for a single creative. Plays video ads using the direct
 // source URL resolved server-side from the creative's video_id when that's
-// available; Facebook frequently denies access to that raw file even when
-// everything else about the ad is readable (see pages/api/fb/report/core.js's
-// fetchVideoSources), so this falls back to fetching a live render of the ad
-// itself — on demand, only once this specific video is actually opened —
-// via the Ad Previews API (pages/api/fb/ad-preview.js), which isn't subject
-// to that same restriction since it renders the ad through Facebook's own
-// preview tool rather than exposing the file. Falls back further to a
-// "Watch on Facebook" link, and finally to the static thumbnail, for the
-// rare case even that fails.
+// available (Facebook frequently denies access to that raw file even when
+// everything else about the ad is readable — see pages/api/fb/report/core.js's
+// fetchVideoSources). For every other case — a video with no accessible
+// source, or any image ad, whose stored `thumbnailUrl` is only a small
+// cropped square, not the actual creative — this fetches a live render of
+// the ad itself on demand, only once this specific item is actually opened,
+// via the Ad Previews API (pages/api/fb/ad-preview.js). That endpoint
+// renders the ad through Facebook's own preview tool rather than exposing a
+// stored asset directly, so it isn't subject to the same per-asset access
+// restrictions and shows the ad exactly as it would really appear. Falls
+// back further to a "Watch on Facebook" link (video only) and finally to the
+// small stored thumbnail, for the rare case even that fails.
 export default function CreativeLightbox({ item, onClose }) {
   const [preview, setPreview] = useState({ loading: false, url: null, error: null });
 
@@ -23,13 +26,15 @@ export default function CreativeLightbox({ item, onClose }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [item, onClose]);
 
+  const hasNativeVideo = !!(item?.isVideo && item.videoUrl);
+
   useEffect(() => {
     // No setState here for the "doesn't need fetching" case — render already
-    // gates every use of `preview` on `item.isVideo && !item.videoUrl`, so a
-    // stale value from a previously-opened item can never leak into the
-    // wrong item's display; the "needs fetching" branch below clears it
-    // anyway as soon as a new qualifying item is opened.
-    if (!item?.isVideo || item.videoUrl || !item.id) return;
+    // gates every use of `preview` on `!hasNativeVideo`, so a stale value
+    // from a previously-opened item can never leak into the wrong item's
+    // display; the "needs fetching" branch below clears it anyway as soon as
+    // a new qualifying item is opened.
+    if (!item || hasNativeVideo || !item.id) return;
     let cancelled = false;
     // Kicks off an async fetch (which itself sets loading/error/result
     // state) — intentional, not a derived-state anti-pattern.
@@ -48,13 +53,16 @@ export default function CreativeLightbox({ item, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [item?.id, item?.isVideo, item?.videoUrl]);
+    // Only item.id (not the whole item) and hasNativeVideo should re-trigger
+    // this fetch — other fields on item (caption, name, …) change the
+    // display but never need a fresh preview fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id, hasNativeVideo]);
 
   if (!item) return null;
 
-  const showNativeVideo = item.isVideo && item.videoUrl;
-  const showLivePreview = item.isVideo && !item.videoUrl && preview.url;
-  const stillResolving = item.isVideo && !item.videoUrl && preview.loading;
+  const showLivePreview = !hasNativeVideo && preview.url;
+  const stillResolving = !hasNativeVideo && preview.loading;
 
   return (
     <div
@@ -104,7 +112,7 @@ export default function CreativeLightbox({ item, onClose }) {
           ×
         </button>
 
-        {showNativeVideo ? (
+        {hasNativeVideo ? (
           <video
             src={item.videoUrl}
             controls
@@ -149,9 +157,9 @@ export default function CreativeLightbox({ item, onClose }) {
           <p style={{ color: "rgba(255,255,255,.6)", fontSize: 12, textAlign: "center" }}>Loading preview…</p>
         )}
 
-        {item.isVideo && !item.videoUrl && !preview.loading && !preview.url && (
+        {!hasNativeVideo && !preview.loading && !preview.url && (
           <p style={{ color: "rgba(255,255,255,.6)", fontSize: 12, textAlign: "center" }}>
-            Inline preview unavailable — showing thumbnail only
+            Live preview unavailable — showing thumbnail only
             {item.videoPermalink ? (
               <>
                 {". "}
