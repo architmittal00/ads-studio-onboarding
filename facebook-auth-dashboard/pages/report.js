@@ -586,6 +586,7 @@ export default function Report() {
             for (const ad of sortedAds) {
               rows.push({
                 key: `ad-${ad.id}`,
+                id: ad.id,
                 level: 2,
                 hasChildren: false,
                 expanded: false,
