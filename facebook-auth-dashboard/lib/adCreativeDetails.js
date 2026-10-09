@@ -1,4 +1,5 @@
 import { graphGet } from "./facebookGraph";
+import { titleCaseSnake } from "./reportShared";
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -45,7 +46,7 @@ export async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,call_to_action,object_story_spec{link_data{link},video_data{video_id,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
+          "effective_status,creative{thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,body,call_to_action,object_story_spec{link_data{link,message},video_data{video_id,message,call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},bodies{text}}}",
       })
     )
   );
@@ -73,12 +74,26 @@ export async function fetchAdDetails(adIds, token) {
         creative.call_to_action?.value?.link ||
         creative.asset_feed_spec?.link_urls?.[0]?.website_url ||
         null;
+      // Primary ad text, checked across the shapes it can show up in — plain
+      // image/video ads carry it on `body`, link/video-post ads carry it on
+      // their object_story_spec instead, and Advantage+/dynamic-creative ads
+      // (no single fixed body) carry it as the first of several candidate
+      // texts under asset_feed_spec.
+      const caption =
+        creative.body ||
+        creative.object_story_spec?.link_data?.message ||
+        creative.object_story_spec?.video_data?.message ||
+        creative.asset_feed_spec?.bodies?.[0]?.text ||
+        null;
+      const ctaType = creative.call_to_action?.type || creative.object_story_spec?.video_data?.call_to_action?.type || null;
       detailsByAdId[id] = {
         status: obj.effective_status || null,
         thumbnailUrl: creative.thumbnail_url || creative.image_url || null,
         videoId,
         creativeType,
         landingUrl,
+        caption,
+        ctaLabel: ctaType ? titleCaseSnake(ctaType.toLowerCase()) : null,
         // Set only when none of the structured creative fields above had a
         // link (rare now that call_to_action is checked) — resolved as a
         // last resort from the ad's underlying Page post, in a follow-up
