@@ -465,6 +465,7 @@ export default async function handler(req, res) {
 
   // ── Top spending campaigns (derived from the structure tree) ──
   const totalCampaignRevenue = campaigns.reduce((sum, c) => sum + c.revenueInRange, 0);
+  const totalCampaignSpend = campaigns.reduce((sum, c) => sum + c.spendInRange, 0);
   const topCampaigns = [...campaigns]
     .map((c) => ({
       id: c.id,
@@ -472,7 +473,10 @@ export default async function handler(req, res) {
       spend: c.spendInRange,
       revenue: c.revenueInRange,
       roas: c.roasInRange,
+      // Share of the whole account's revenue/spend — not just the top 10
+      // shown here, same denominator revenueSharePct already used.
       revenueSharePct: totalCampaignRevenue > 0 ? (c.revenueInRange / totalCampaignRevenue) * 100 : 0,
+      spendSharePct: totalCampaignSpend > 0 ? (c.spendInRange / totalCampaignSpend) * 100 : 0,
     }))
     .sort((a, b) => b.spend - a.spend)
     .slice(0, 10);
@@ -515,6 +519,7 @@ export default async function handler(req, res) {
       caption: c.caption,
       ctaLabel: c.ctaLabel,
       revenueSharePct: totalRevenue > 0 ? (c.revenue / totalRevenue) * 100 : 0,
+      spendSharePct: totalSpendAll > 0 ? (c.spend / totalSpendAll) * 100 : 0,
     })),
   };
 
@@ -586,6 +591,7 @@ export default async function handler(req, res) {
     contributors: creativeContributors.map((c) => ({
       ...c,
       revenueSharePct: totalCreativeRevenue > 0 ? (c.revenue / totalCreativeRevenue) * 100 : 0,
+      spendSharePct: totalCreativeSpend > 0 ? (c.spend / totalCreativeSpend) * 100 : 0,
     })),
   };
 

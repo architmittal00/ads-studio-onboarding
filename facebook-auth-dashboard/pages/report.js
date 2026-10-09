@@ -193,6 +193,12 @@ function BreakdownSection({
                 align: "right",
                 render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
               },
+              {
+                key: "spendSharePct",
+                label: "% Spend",
+                align: "right",
+                render: (r) => `${r.spendSharePct.toFixed(1)}%`,
+              },
               { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
               { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
             ]}
@@ -838,6 +844,12 @@ export default function Report() {
                             align: "right",
                             render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
                           },
+                          {
+                            key: "spendSharePct",
+                            label: "% Spend",
+                            align: "right",
+                            render: (r) => `${r.spendSharePct.toFixed(1)}%`,
+                          },
                           { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
                         ]}
                       />
@@ -923,6 +935,12 @@ export default function Report() {
                                   label: "% Revenue",
                                   align: "right",
                                   render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
+                                },
+                                {
+                                  key: "spendSharePct",
+                                  label: "% Spend",
+                                  align: "right",
+                                  render: (r) => `${r.spendSharePct.toFixed(1)}%`,
                                 },
                                 { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
                                 { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
@@ -1080,6 +1098,12 @@ export default function Report() {
                                 label: "% Revenue",
                                 align: "right",
                                 render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
+                              },
+                              {
+                                key: "spendSharePct",
+                                label: "% Spend",
+                                align: "right",
+                                render: (r) => `${r.spendSharePct.toFixed(1)}%`,
                               },
                               { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
                               {
