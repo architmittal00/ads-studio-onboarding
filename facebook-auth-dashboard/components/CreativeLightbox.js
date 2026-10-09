@@ -102,9 +102,63 @@ export default function CreativeLightbox({ item, onClose }) {
           </p>
         )}
 
-        <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, textAlign: "center", maxWidth: "80vw" }}>
-          {item.name}
-        </p>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, maxWidth: "80vw" }}>
+          <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, textAlign: "center" }}>{item.name}</p>
+
+          {item.caption && (
+            <p
+              style={{
+                color: "rgba(255,255,255,.75)",
+                fontSize: 12,
+                textAlign: "center",
+                maxWidth: 480,
+                maxHeight: 90,
+                overflowY: "auto",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {item.caption}
+            </p>
+          )}
+
+          {(item.ctaLabel || item.landingUrl) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+              {item.ctaLabel && (
+                <span
+                  style={{
+                    background: "rgba(255,255,255,.12)",
+                    border: "1px solid rgba(255,255,255,.2)",
+                    color: "#fff",
+                    borderRadius: 6,
+                    padding: "3px 10px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  {item.ctaLabel}
+                </span>
+              )}
+              {item.landingUrl && (
+                <a
+                  href={item.landingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    color: "#b9a6ff",
+                    fontSize: 12,
+                    maxWidth: 400,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {item.landingUrl}
+                </a>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

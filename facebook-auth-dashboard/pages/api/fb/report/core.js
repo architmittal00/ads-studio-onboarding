@@ -315,6 +315,8 @@ export default async function handler(req, res) {
       videoUrl: isVideo ? videoSourceByVideoId[details.videoId] || null : null,
       creativeType: details?.creativeType || "Static",
       landingUrl: details?.landingUrl || (details?.postId ? postLandingUrlByPostId[details.postId] : null) || null,
+      caption: details?.caption || null,
+      ctaLabel: details?.ctaLabel || null,
     };
   });
 
@@ -374,6 +376,9 @@ export default async function handler(req, res) {
             thumbnailUrl: r.thumbnailUrl,
             isVideo: r.isVideo,
             videoUrl: r.videoUrl,
+            landingUrl: r.landingUrl,
+            caption: r.caption,
+            ctaLabel: r.ctaLabel,
           };
         })
         .sort((x, y) => y.spend - x.spend);
@@ -475,6 +480,9 @@ export default async function handler(req, res) {
       thumbnailUrl: c.thumbnailUrl,
       isVideo: c.isVideo,
       videoUrl: c.videoUrl,
+      landingUrl: c.landingUrl,
+      caption: c.caption,
+      ctaLabel: c.ctaLabel,
       revenueSharePct: totalRevenue > 0 ? (c.revenue / totalRevenue) * 100 : 0,
     })),
   };
@@ -575,6 +583,9 @@ export default async function handler(req, res) {
       thumbnailUrl: r.thumbnailUrl,
       isVideo: r.isVideo,
       videoUrl: r.videoUrl,
+      landingUrl: r.landingUrl,
+      caption: r.caption,
+      ctaLabel: r.ctaLabel,
     }))
     .sort((a, b) => b.frequency - a.frequency);
 
