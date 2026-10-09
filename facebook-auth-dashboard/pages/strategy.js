@@ -23,7 +23,7 @@ const FRESH_ACCOUNT = "__fresh__";
 function formatMoney(amount, currency) {
   if (!currency) return amount.toFixed(0);
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
   } catch {
     return `${amount.toFixed(0)} ${currency}`;
   }
