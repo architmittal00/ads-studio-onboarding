@@ -204,7 +204,7 @@ export default async function handler(req, res) {
     graphGetInsights(`/${accountId}/insights`, token, {
       level: "ad",
       fields:
-        "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,creative_id,spend,impressions,clicks,frequency,actions,action_values",
+        "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,spend,impressions,clicks,frequency,actions,action_values",
       time_range: graphTimeRange,
       limit: 500,
     }),
@@ -240,7 +240,6 @@ export default async function handler(req, res) {
       adsetName: row.adset_name,
       campaignId: row.campaign_id,
       campaignName: row.campaign_name,
-      creativeId: row.creative_id || null,
       spend,
       revenue,
       roas,
@@ -343,6 +342,7 @@ export default async function handler(req, res) {
       videoUrl: isVideo ? videoSourceByVideoId[details.videoId]?.source || null : null,
       videoPermalink: isVideo ? videoSourceByVideoId[details.videoId]?.permalinkUrl || null : null,
       creativeType: details?.creativeType || "Static",
+      creativeId: details?.creativeId || null,
       landingUrl: details?.landingUrl || (details?.postId ? postLandingUrlByPostId[details.postId] : null) || null,
       caption: details?.caption || null,
       ctaLabel: details?.ctaLabel || null,
