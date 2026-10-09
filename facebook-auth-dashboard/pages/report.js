@@ -27,6 +27,17 @@ import styles from "@/styles/Home.module.css";
 // operation instead of a fresh request every time.
 const CLIENT_CACHE_TTL_MS = DEFAULT_CACHE_TTL_MS;
 
+// Bump whenever a report group's payload shape changes (a field renamed,
+// removed, or — like the % Spend columns — added and immediately read
+// without an `?? undefined` guard). Without this, a browser with a still-warm
+// cache entry from before the deploy keeps rendering the OLD payload shape
+// against the NEW frontend code until the 30-min TTL above expires, which is
+// exactly what broke production after the % Spend column PR: cached `core`
+// payloads missing the new `spendSharePct` field crashed on `.toFixed()`.
+// Bumping this invalidates every existing cache entry immediately instead of
+// waiting out the TTL.
+const CLIENT_CACHE_SCHEMA_VERSION = 2;
+
 // The report used to be one endpoint returning one big object, rendered only
 // once every last piece of it was ready — so a single slow Graph call (an
 // account-wide breakdown, say) held the entire page behind one spinner even
@@ -54,7 +65,7 @@ function initialGroupState() {
 }
 
 function clientCacheKey(groupKey, accountId, rangePreset, since, until) {
-  return `report:${groupKey}:${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
+  return `report:v${CLIENT_CACHE_SCHEMA_VERSION}:${groupKey}:${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
 }
 
 async function fetchReportSection(endpoint, accountId, { force, rangePreset, since, until } = {}) {
