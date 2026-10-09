@@ -23,6 +23,7 @@ export default function Sidebar() {
   const router = useRouter();
   const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(true);
+  const [hovering, setHovering] = useState(false);
 
   useEffect(() => {
     const saved = getSidebarCollapsed();
@@ -38,6 +39,11 @@ export default function Sidebar() {
     });
   }
 
+  // Persisted preference stays collapsed; hovering just temporarily reveals
+  // labels without writing to localStorage, so the rail snaps back once the
+  // pointer leaves.
+  const expanded = !collapsed || hovering;
+
   const name = session?.user?.name || "";
   const initials = name
     .split(" ")
@@ -47,12 +53,16 @@ export default function Sidebar() {
     .join("") || "?";
 
   return (
-    <nav className={collapsed ? `${styles.appSidebar} ${styles.appSidebarCollapsed}` : styles.appSidebar}>
+    <nav
+      className={expanded ? styles.appSidebar : `${styles.appSidebar} ${styles.appSidebarCollapsed}`}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+    >
       <div className={styles.appSidebarHeader}>
         <div className={styles.logoMark} style={{ width: 32, height: 32, fontSize: 13 }}>
           f
         </div>
-        {!collapsed && <span style={{ fontSize: 13, fontWeight: 800, color: "var(--t1)" }}>Ads Dashboard</span>}
+        {expanded && <span style={{ fontSize: 13, fontWeight: 800, color: "var(--t1)" }}>Ads Dashboard</span>}
       </div>
 
       <button
@@ -72,11 +82,11 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              title={collapsed ? link.label : undefined}
+              title={expanded ? undefined : link.label}
               className={active ? `${styles.appNavLink} ${styles.appNavLinkActive}` : styles.appNavLink}
             >
               <Icon size={17} />
-              {!collapsed && <span>{link.label}</span>}
+              {expanded && <span>{link.label}</span>}
             </Link>
           );
         })}
@@ -91,7 +101,7 @@ export default function Sidebar() {
             initials
           )}
         </div>
-        {!collapsed && <span className={styles.appSidebarUserName}>{name || "Account"}</span>}
+        {expanded && <span className={styles.appSidebarUserName}>{name || "Account"}</span>}
         <button
           type="button"
           className={styles.appSidebarIconBtn}
