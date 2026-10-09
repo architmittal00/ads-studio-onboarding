@@ -594,6 +594,7 @@ export default function Report() {
                 thumbnailUrl: ad.thumbnailUrl,
                 isVideo: ad.isVideo,
                 videoUrl: ad.videoUrl,
+                videoPermalink: ad.videoPermalink,
                 landingUrl: ad.landingUrl,
                 caption: ad.caption,
                 ctaLabel: ad.ctaLabel,
