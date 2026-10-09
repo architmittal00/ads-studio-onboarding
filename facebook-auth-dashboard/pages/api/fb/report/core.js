@@ -1,18 +1,29 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 import { getCachedReport, setCachedReport } from "@/lib/reportCache";
-import {
-  lastNDaysRange,
-  chunk,
-  fetchAdDetails,
-  fetchPostLandingUrls,
-  extractLandingPageLabel,
-} from "@/lib/adCreativeDetails";
+import { lastNDaysRange, chunk, fetchAdDetails, fetchPostLandingUrls, extractLandingPageLabel } from "@/lib/adCreativeDetails";
+import { requireReportRequest, settled, groupAndPareto, toMajorUnits } from "@/lib/reportShared";
 
+// The Handover Report (pages/report.js) used to be one single endpoint
+// (the old pages/api/fb/report.js) computing all ~13 sections in one
+// request/response — the whole page stayed blank behind one spinner until
+// every last one of them was ready, even though most sections don't depend
+// on each other at all. It's now split into several endpoints under this
+// directory, one per independent chunk of work, so the page can render each
+// section the moment *its own* data arrives: pages/api/fb/report/headline.js
+// (Overview/Best Week/Best Month), age-gender.js, region.js, placement.js,
+// and pixel-health.js are each one cheap, fully independent Graph call.
+//
+// This file is the exception: Top Campaigns, Revenue Concentration/Pareto,
+// Purchases by Creative Type, Purchases by Product, High-Frequency Ads,
+// Account Structure, and Budget Utilization all branch off the SAME
+// underlying pipeline — one heavy `level: "ad"` insights call, enriched with
+// ad details/accurate-frequency/video-source/landing-page lookups, plus the
+// campaign→adset structure tree. Splitting those seven sections into their
+// own endpoints too would mean re-running that whole expensive pipeline
+// seven times over instead of once, so they're kept together here and
+// appear together once this one (slower, heavier) endpoint resolves.
 const RTG_PATTERN = /rtg|retarget/i;
-const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const ADSET_PAGE_SIZE = 200;
 const ADSET_FIELDS = "id,name,effective_status,daily_budget,lifetime_budget";
@@ -23,38 +34,6 @@ const UNKNOWN_LANDING_PAGE_LABEL = "Unknown landing page";
 // underlying gap (unattributed spend), just surfaced in different places, so
 // they use the same bar for "is this a big enough problem to show".
 const LANDING_PAGE_SPEND_CUTOFF_PCT = 10;
-
-function toDateStr(d) {
-  return d.toISOString().slice(0, 10);
-}
-
-// Resolves the report's main date window from query params: a preset
-// (today/last_7d/last_30d) or an explicit custom since/until. Falls back to
-// last_30d for anything missing/invalid — the previous fixed default.
-function resolveRange(query, today) {
-  const preset = query.rangePreset || "last_30d";
-
-  if (preset === "today") {
-    const d = toDateStr(today);
-    return { since: d, until: d, label: "Today", preset };
-  }
-  if (preset === "last_7d") {
-    return { ...lastNDaysRange(7, today), label: "Last 7 Days", preset };
-  }
-  if (preset === "custom" && VALID_DATE.test(query.since) && VALID_DATE.test(query.until) && query.since <= query.until) {
-    return { since: query.since, until: query.until, label: `${query.since} → ${query.until}`, preset };
-  }
-  return { ...lastNDaysRange(30, today), label: "Last 30 Days", preset: "last_30d" };
-}
-
-function daysBetween(since, until) {
-  const ms = new Date(`${until}T00:00:00Z`) - new Date(`${since}T00:00:00Z`);
-  return Math.round(ms / 86400000) + 1;
-}
-
-function settled(result, fallback) {
-  return result.status === "fulfilled" ? result.value : fallback;
-}
 
 // Resolves a direct, playable video URL for each video ID (Facebook's Video
 // object `source` field), so the creative lightbox can actually play video
@@ -127,114 +106,6 @@ async function fetchAccurateFrequency(adIds, accountId, timeRange, token) {
   return frequencyByAdId;
 }
 
-// Groups `items` (each with spend/revenue/purchases) by `keyFn`, sums each
-// group, and — unless `applyCutoff` is false — keeps only the highest-ranked
-// groups needed to reach 80% of the total for whichever `metric` is passed
-// ("revenue", the default, for the usual "where does 80% of purchase
-// revenue come from" framing; "spend" for dimensions — like region, where
-// Facebook doesn't return purchase data at all — where spend concentration
-// is the only thing there's data for).
-function groupAndPareto(items, keyFn, { applyCutoff = true, metric = "revenue" } = {}) {
-  const groups = new Map();
-  for (const item of items) {
-    const key = keyFn(item);
-    if (!key) continue;
-    if (!groups.has(key)) groups.set(key, { label: key, spend: 0, revenue: 0, purchases: 0 });
-    const g = groups.get(key);
-    g.spend += item.spend;
-    g.revenue += item.revenue;
-    g.purchases += item.purchases;
-  }
-
-  const allGroups = [...groups.values()].map((g) => ({
-    ...g,
-    roas: g.spend > 0 ? g.revenue / g.spend : 0,
-  }));
-  const totalRevenue = allGroups.reduce((sum, g) => sum + g.revenue, 0);
-  const totalSpend = allGroups.reduce((sum, g) => sum + g.spend, 0);
-  const total = metric === "spend" ? totalSpend : totalRevenue;
-  const sorted = [...allGroups].sort((a, b) => b[metric] - a[metric]);
-
-  let cumRevenue = 0;
-  let cumSpend = 0;
-  const contributors = [];
-  for (const g of sorted) {
-    if (applyCutoff && g[metric] <= 0) break;
-    cumRevenue += g.revenue;
-    cumSpend += g.spend;
-    const cum = metric === "spend" ? cumSpend : cumRevenue;
-    contributors.push({
-      ...g,
-      revenueSharePct: totalRevenue > 0 ? (g.revenue / totalRevenue) * 100 : 0,
-      spendSharePct: totalSpend > 0 ? (g.spend / totalSpend) * 100 : 0,
-    });
-    if (applyCutoff && total > 0 && cum / total >= 0.8) break;
-  }
-
-  return {
-    totalGroupCount: allGroups.length,
-    contributorCount: contributors.length,
-    revenueSharePct: totalRevenue > 0 ? (cumRevenue / totalRevenue) * 100 : 0,
-    spendSharePct: totalSpend > 0 ? (cumSpend / totalSpend) * 100 : 0,
-    contributors,
-  };
-}
-
-function bestBucket(rows) {
-  if (!rows || !rows.length) return null;
-  let best = null;
-  for (const row of rows) {
-    const { spend, revenue, roas } = roasFromRow(row);
-    if (spend <= 0) continue;
-    if (!best || roas > best.roas) {
-      best = { roas, spend, revenue, since: row.date_start, until: row.date_stop };
-    }
-  }
-  return best;
-}
-
-// Facebook returns daily_budget/lifetime_budget in the account currency's
-// minor unit (e.g. cents). This doesn't hold for zero-decimal currencies
-// (JPY, KRW, etc.) — acceptable simplification for now.
-function toMajorUnits(value) {
-  return value ? parseFloat(value) / 100 : null;
-}
-
-function capitalize(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-}
-
-function titleCaseSnake(s) {
-  return s
-    ? s
-        .split("_")
-        .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
-        .join(" ")
-    : s;
-}
-
-// Facebook's `platform_position` values are often already prefixed with the
-// platform name (e.g. "instagram_reels", "facebook_reels") — strip that
-// redundant prefix before combining with the platform label, so placements
-// read "Instagram · Reels" / "Facebook · Reels" rather than
-// "Instagram · Instagram Reels".
-function placementLabel(platform, position) {
-  if (!platform || !position) return null;
-  const prefix = `${platform}_`;
-  const trimmed = position.startsWith(prefix) ? position.slice(prefix.length) : position;
-  return `${titleCaseSnake(platform)} · ${titleCaseSnake(trimmed)}`;
-}
-
-// Best-effort "what product is this ad pointing at" derived from its landing
-// page URL — Facebook's insights API has no native per-product revenue
-// breakdown outside of catalog/DPA reporting, so this reverse-engineers it
-// from the destination URL instead. Recognizes the common Shopify-style
-// `/products/<handle>` path and turns the handle into a readable label;
-// anything else falls back to the raw path, which is still a valid (if less
-// pretty) grouping key. Catalog/dynamic-creative ads have no single fixed
-// URL (the destination is generated per-product by Facebook at serve time)
-// and are called out as their own bucket by the caller rather than through
-// this function.
 // The campaigns fetch above (`graphGetAllPages`) paginates the top-level
 // campaigns connection, but each campaign's *nested* `adsets` edge has its
 // own independent paging cursor — a campaign with more than
@@ -275,81 +146,47 @@ function addToAgg(agg, ad) {
   if (ad.spend > 0) agg.creativeIds.add(ad.id);
 }
 
+// Creative recommendation is budget-driven, not benchmarked against the
+// account average: a campaign/ad set only needs more creatives if it is
+// actually leaving its OWN daily budget unspent. We take its current avg
+// spend per creative (its own avgDailySpend7d / creativeCount — a fully
+// utilized budget tells us nothing about the right ratio) and ask how many
+// creatives, at that same rate, would be needed to spend the full daily
+// budget. E.g. ₹10k budget, ₹6k avg daily spend, 2 creatives → ₹3k/creative
+// → ceil(10000/3000) = 4 creatives needed → +2 more.
+// Only meaningful when utilization is under 100% — a fully (or over-)
+// spent budget has nothing left for extra creatives to unlock.
+function creativeRecommendation(agg, { dailyBudget, avgDailySpend7d, utilizationPct }) {
+  const creativeCount = agg.creativeIds.size;
+  const avgSpendPerCreative = creativeCount > 0 ? avgDailySpend7d / creativeCount : null;
+  const isUnderUtilized = utilizationPct != null && utilizationPct < 100;
+  if (!isUnderUtilized || !dailyBudget || !avgSpendPerCreative || avgSpendPerCreative <= 0) {
+    return { creativeCount, avgSpendPerCreative, recommendedCreatives: null, additionalNeeded: null };
+  }
+  const recommendedCreatives = Math.ceil(dailyBudget / avgSpendPerCreative);
+  return {
+    creativeCount,
+    avgSpendPerCreative,
+    recommendedCreatives,
+    additionalNeeded: Math.max(0, recommendedCreatives - creativeCount),
+  };
+}
+
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
-
-  if (!session?.accessToken) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
-
-  const { accountId } = req.query;
-  if (!accountId) {
-    return res.status(400).json({ error: "accountId is required" });
-  }
-
-  const token = session.accessToken;
-  const today = new Date();
-  const range = resolveRange(req.query, today);
-  // Facebook's `time_range` param rejects any keys beyond since/until — strip
-  // the label/preset we attach to `range` for our own response/cache-key use.
-  const graphTimeRange = { since: range.since, until: range.until };
-  const range7d = lastNDaysRange(7, today);
-
-  const force = req.query.force === "true" || req.query.force === "1";
-  const cacheKey = `${session.user?.email || "unknown"}:${accountId}:${range.since}:${range.until}`;
+  const ctx = await requireReportRequest(req, res, lastNDaysRange);
+  if (!ctx) return;
+  const { token, accountId, today, graphTimeRange, force, cacheKeyBase } = ctx;
+  const cacheKey = `${cacheKeyBase}:core`;
 
   if (!force) {
     const cached = getCachedReport(cacheKey);
-    if (cached) {
-      return res.status(200).json({ ...cached.data, cachedAt: cached.fetchedAt, fromCache: true });
-    }
+    if (cached) return res.status(200).json({ ...cached.data, cachedAt: cached.fetchedAt, fromCache: true });
   }
 
-  // Trend chart granularity: daily for a month or less, weekly beyond that —
-  // mirrors how Ads Manager switches granularity on its own trend charts.
-  const rangeDays = daysBetween(range.since, range.until);
-  const trendIncrement = rangeDays <= 31 ? 1 : 7;
-
-  const since90 = new Date(today);
-  since90.setDate(today.getDate() - 90);
-  const since6mo = new Date(today);
-  since6mo.setMonth(today.getMonth() - 6);
-
+  const range7d = lastNDaysRange(7, today);
   const warnings = [];
 
-  const [
-    overviewResult,
-    trendResult,
-    weeklyResult,
-    monthlyResult,
-    adLevelResult,
-    structureResult,
-    pixelsResult,
-    last7CampaignResult,
-    last7AdsetResult,
-    ageGenderResult,
-    regionResult,
-    platformResult,
-  ] = await Promise.allSettled([
-    graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
-      time_range: graphTimeRange,
-    }),
-    graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
-      time_range: graphTimeRange,
-      time_increment: trendIncrement,
-    }),
-    graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,actions,action_values,purchase_roas",
-      time_range: { since: toDateStr(since90), until: toDateStr(today) },
-      time_increment: 7,
-    }),
-    graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,actions,action_values,purchase_roas",
-      time_range: { since: toDateStr(since6mo), until: toDateStr(today) },
-      time_increment: "monthly",
-    }),
+  const [adLevelResult, structureResult, last7CampaignResult, last7AdsetResult] = await Promise.allSettled([
     graphGetInsights(`/${accountId}/insights`, token, {
       level: "ad",
       fields:
@@ -360,9 +197,6 @@ export default async function handler(req, res) {
     graphGetAllPages(`/${accountId}/campaigns`, token, {
       fields: `id,name,effective_status,objective,daily_budget,lifetime_budget,adsets.limit(${ADSET_PAGE_SIZE}){${ADSET_FIELDS}}`,
       limit: 200,
-    }),
-    graphGetAllPages(`/${accountId}/adspixels`, token, {
-      fields: "id,name,last_fired_time,creation_time",
     }),
     graphGetInsights(`/${accountId}/insights`, token, {
       level: "campaign",
@@ -376,65 +210,7 @@ export default async function handler(req, res) {
       time_range: range7d,
       limit: 500,
     }),
-    graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,actions,action_values,purchase_roas",
-      time_range: graphTimeRange,
-      breakdowns: "age,gender",
-      limit: 500,
-    }),
-    graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,actions,action_values,purchase_roas",
-      time_range: graphTimeRange,
-      breakdowns: "region",
-      limit: 500,
-    }),
-    graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,actions,action_values,purchase_roas",
-      time_range: graphTimeRange,
-      breakdowns: "publisher_platform,platform_position",
-      limit: 500,
-    }),
   ]);
-
-  // ── Overview (selected range) ──
-  const overviewJson = settled(overviewResult, null);
-  if (overviewResult.status === "rejected") warnings.push(`Overview metrics unavailable: ${overviewResult.reason.message}`);
-  const overviewRow = overviewJson?.data?.[0];
-  const overview = overviewRow
-    ? (() => {
-        const { spend, revenue, roas } = roasFromRow(overviewRow);
-        const clicks = parseFloat(overviewRow.clicks || 0);
-        const ctr = parseFloat(overviewRow.ctr || 0);
-        const purchases = pickPurchaseCount(overviewRow.actions);
-        const cvr = clicks > 0 ? (purchases / clicks) * 100 : 0;
-        return { spend, revenue, roas, ctr, purchases, cvr };
-      })()
-    : { spend: 0, revenue: 0, roas: 0, ctr: 0, purchases: 0, cvr: 0 };
-
-  // ── Trend: per-metric daily/weekly series for the selected range, powers
-  // the click-to-drill-down chart on each overview stat ──
-  const trendJson = settled(trendResult, null);
-  if (trendResult.status === "rejected") warnings.push(`Trend chart data unavailable: ${trendResult.reason.message}`);
-
-  const trendPoints = (trendJson?.data || []).map((row) => {
-    const { spend, roas } = roasFromRow(row);
-    const clicks = parseFloat(row.clicks || 0);
-    const ctr = parseFloat(row.ctr || 0);
-    const purchases = pickPurchaseCount(row.actions);
-    const cvr = clicks > 0 ? (purchases / clicks) * 100 : 0;
-    return { since: row.date_start, until: row.date_stop, spend, purchases, roas, ctr, cvr };
-  });
-  const trend = { granularity: trendIncrement === 1 ? "daily" : "weekly", points: trendPoints };
-
-  // ── Best week / best month by ROAS (fixed lookback, independent of the
-  // selected range — these exist to surface historical context) ──
-  const weeklyJson = settled(weeklyResult, null);
-  if (weeklyResult.status === "rejected") warnings.push(`Weekly trend unavailable: ${weeklyResult.reason.message}`);
-  const monthlyJson = settled(monthlyResult, null);
-  if (monthlyResult.status === "rejected") warnings.push(`Monthly trend unavailable: ${monthlyResult.reason.message}`);
-
-  const bestWeek = bestBucket(weeklyJson?.data);
-  const bestMonth = bestBucket(monthlyJson?.data);
 
   // ── Ad-level data: the single source of truth for campaign/adset aggregation ──
   const adLevelJson = settled(adLevelResult, null);
@@ -541,32 +317,6 @@ export default async function handler(req, res) {
       landingUrl: details?.landingUrl || (details?.postId ? postLandingUrlByPostId[details.postId] : null) || null,
     };
   });
-
-  // Creative recommendation is budget-driven, not benchmarked against the
-  // account average: a campaign/ad set only needs more creatives if it is
-  // actually leaving its OWN daily budget unspent. We take its current avg
-  // spend per creative (its own avgDailySpend7d / creativeCount — a fully
-  // utilized budget tells us nothing about the right ratio) and ask how many
-  // creatives, at that same rate, would be needed to spend the full daily
-  // budget. E.g. ₹10k budget, ₹6k avg daily spend, 2 creatives → ₹3k/creative
-  // → ceil(10000/3000) = 4 creatives needed → +2 more.
-  // Only meaningful when utilization is under 100% — a fully (or over-)
-  // spent budget has nothing left for extra creatives to unlock.
-  function creativeRecommendation(agg, { dailyBudget, avgDailySpend7d, utilizationPct }) {
-    const creativeCount = agg.creativeIds.size;
-    const avgSpendPerCreative = creativeCount > 0 ? avgDailySpend7d / creativeCount : null;
-    const isUnderUtilized = utilizationPct != null && utilizationPct < 100;
-    if (!isUnderUtilized || !dailyBudget || !avgSpendPerCreative || avgSpendPerCreative <= 0) {
-      return { creativeCount, avgSpendPerCreative, recommendedCreatives: null, additionalNeeded: null };
-    }
-    const recommendedCreatives = Math.ceil(dailyBudget / avgSpendPerCreative);
-    return {
-      creativeCount,
-      avgSpendPerCreative,
-      recommendedCreatives,
-      additionalNeeded: Math.max(0, recommendedCreatives - creativeCount),
-    };
-  }
 
   // ── Account structure: campaigns → ad sets → ads, budget-type aware ──
   const structureJson = settled(structureResult, null);
@@ -729,56 +479,9 @@ export default async function handler(req, res) {
     })),
   };
 
-  // ── Where 80% of purchase revenue comes from, by age/gender, by state, and
-  // the full (uncut) split by creative type ──
-  const ageGenderJson = settled(ageGenderResult, null);
-  if (ageGenderResult.status === "rejected")
-    warnings.push(`Age/gender breakdown unavailable: ${ageGenderResult.reason.message}`);
-  const ageGenderRows = (ageGenderJson?.data || []).map((row) => {
-    const { spend, revenue } = roasFromRow(row);
-    return { spend, revenue, purchases: pickPurchaseCount(row.actions), age: row.age, gender: row.gender };
-  });
-  const purchasesByAgeGender = groupAndPareto(
-    ageGenderRows,
-    (r) => (r.age && r.gender ? `${r.age} · ${capitalize(r.gender)}` : null)
-  );
-
-  // Facebook doesn't return purchase/action_values data broken down by
-  // region for this account (confirmed: real spend/clicks per state, but
-  // zero purchase actions in any row — a Meta Aggregated Event Measurement
-  // restriction on geographic breakdowns for web conversions, not a fetch
-  // issue here). So this is a spend pareto, not a revenue one like the other
-  // breakdowns — top 80% of spend by state, rather than purchase revenue.
-  const regionJson = settled(regionResult, null);
-  if (regionResult.status === "rejected")
-    warnings.push(`Region breakdown unavailable: ${regionResult.reason.message}`);
-  const regionRows = (regionJson?.data || []).map((row) => {
-    const { spend, revenue } = roasFromRow(row);
-    return { spend, revenue, purchases: pickPurchaseCount(row.actions), region: row.region };
-  });
-  const spendByRegion = groupAndPareto(regionRows, (r) => r.region || null, { metric: "spend" });
-
   // Only three possible buckets, so show the full split rather than an
   // 80%-cutoff pareto — truncating a 3-way breakdown isn't useful.
   const purchasesByCreativeType = groupAndPareto(adRows, (r) => r.creativeType, { applyCutoff: false });
-
-  // ── Platform & placement (e.g. "Instagram · Reels", "Facebook · Feed") —
-  // one combined 80%-of-revenue breakdown rather than a separate full-split
-  // "by platform" table and a cut "by placement" table. ──
-  const platformJson = settled(platformResult, null);
-  if (platformResult.status === "rejected")
-    warnings.push(`Platform/placement breakdown unavailable: ${platformResult.reason.message}`);
-  const platformRows = (platformJson?.data || []).map((row) => {
-    const { spend, revenue } = roasFromRow(row);
-    return {
-      spend,
-      revenue,
-      purchases: pickPurchaseCount(row.actions),
-      platform: row.publisher_platform,
-      position: row.platform_position,
-    };
-  });
-  const purchasesByPlacement = groupAndPareto(platformRows, (r) => placementLabel(r.platform, r.position));
 
   // ── Where 80% of purchase revenue comes from, by product — reverse-
   // engineered from each ad's landing page URL, since Facebook's insights
@@ -917,28 +620,6 @@ export default async function handler(req, res) {
       .sort((a, b) => (a.utilizationPct ?? Infinity) - (b.utilizationPct ?? Infinity)),
   };
 
-  // ── Pixel health (best-effort: existence + staleness only) ──
-  const pixelsJson = settled(pixelsResult, null);
-  if (pixelsResult.status === "rejected")
-    warnings.push(`Pixel health unavailable: ${pixelsResult.reason.message}`);
-
-  const pixels = (pixelsJson?.data || []).map((p) => {
-    const lastFired = p.last_fired_time ? new Date(p.last_fired_time) : null;
-    const daysSinceFired = lastFired ? (Date.now() - lastFired.getTime()) / 86400000 : null;
-    return {
-      id: p.id,
-      name: p.name,
-      lastFiredTime: p.last_fired_time || null,
-      daysSinceFired,
-      status: !lastFired ? "never_fired" : daysSinceFired > 3 ? "stale" : "healthy",
-    };
-  });
-
-  const pixelConcerns = pixels.filter((p) => p.status !== "healthy");
-  if (pixelsJson && pixels.length === 0) {
-    pixelConcerns.push({ name: "No pixel connected to this ad account", status: "missing" });
-  }
-
   // Account Structure only shows campaigns/ad sets that actually spent in
   // the selected range — the "what's live and running" view. Budget
   // Utilization above deliberately uses the unfiltered `campaigns` tree
@@ -950,17 +631,9 @@ export default async function handler(req, res) {
   const structureAdsetCount = structureCampaigns.reduce((sum, c) => sum + c.adsets.length, 0);
 
   const payload = {
-    dateRange: range,
-    trend,
-    overview,
-    bestWeek,
-    bestMonth,
     topCampaigns,
     pareto,
-    purchasesByAgeGender,
-    spendByRegion,
     purchasesByCreativeType,
-    purchasesByPlacement,
     purchasesByProduct,
     unresolvedLandingPageAds,
     highFrequencyAds,
@@ -969,7 +642,6 @@ export default async function handler(req, res) {
       adsetCount: structureAdsetCount,
       campaigns: structureCampaigns,
     },
-    pixelHealth: { pixels, concerns: pixelConcerns },
     budgetUtilization,
     warnings,
   };

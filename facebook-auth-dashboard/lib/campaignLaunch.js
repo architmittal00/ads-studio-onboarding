@@ -3,7 +3,7 @@ import { searchAdInterests, pickBestMatch } from "./metaInterestSearch";
 // ── Naming convention ──
 // Campaign: TEST-{Funnel}-{Objective}-S{StrategyId}-{YYYYMMDD}
 // Ad set:   TEST-{Funnel}-{AudienceTag}
-// Centralized here so it's consistent and so pages/api/fb/report.js's
+// Centralized here so it's consistent and so pages/api/fb/report/core.js's
 // RTG_PATTERN regex (matches "rtg"/"retarget", case-insensitive) keeps
 // recognizing retargeting ad sets created this way.
 //
@@ -158,7 +158,7 @@ export async function resolveInterestId(token, query) {
 }
 
 // Facebook budgets are in the account currency's minor unit (cents/paise) —
-// same convention as toMajorUnits()'s inverse in pages/api/fb/report.js.
+// same convention as toMajorUnits()'s inverse in lib/reportShared.js.
 export function toMinorUnits(amount) {
   return Math.round(amount * 100);
 }

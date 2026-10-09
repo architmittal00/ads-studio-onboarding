@@ -11,7 +11,7 @@ const TOP_LANDING_PAGES_LIMIT = 15;
 // step: top landing pages by revenue, always a fixed last-30-days window
 // (independent of whatever range the user has selected on /report) — see
 // lib/adCreativeDetails.js's lastNDaysRange(). Grouped by the actual raw URL
-// (unlike /api/fb/report's purchasesByProduct, which only keeps a derived
+// (unlike /api/fb/report/core's purchasesByProduct, which only keeps a derived
 // label) since the AI needs real links, not just display labels.
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
