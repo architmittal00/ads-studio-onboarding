@@ -1,8 +1,10 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGetInsights } from "@/lib/facebookGraph";
+import { graphGet, graphGetInsights } from "@/lib/facebookGraph";
+import { chunk } from "@/lib/adCreativeDetails";
 import {
   LEVEL_OPTIONS,
+  LEVEL_ID_FIELD,
   getBreakdownGroup,
   resolveGraphFields,
   deriveRowMetrics,
@@ -94,6 +96,36 @@ function applyNameFilters(rows, filters) {
   return rows.filter(
     (row) => !filters.some((f) => String(row[NAME_FILTER_RAW_FIELD[f.field]] ?? "").toLowerCase().includes(f.value))
   );
+}
+
+// Campaign/ad set/ad `effective_status` (Active/Paused/etc.) isn't an
+// Insights API field at all — it lives on the entity's own node, not on an
+// insights row — so this is a separate, one-time batched-by-id lookup (same
+// `?ids=` pattern as lib/adCreativeDetails.js's fetchAdDetails) run after the
+// main insights data is in hand, purely so the client can offer a "Status"
+// filter alongside the metric-threshold ones. Only ever called when there's
+// one real entity id per row to look up (see canHaveStatus below) — never at
+// the account level, and never when a name filter forced a rollup, since a
+// rolled-up row represents several entities that can't share one status
+// (same reasoning campaignName/adsetName/adName are nulled out in that
+// case).
+async function fetchEntityStatuses(ids, token) {
+  const statusById = {};
+  if (ids.length === 0) return statusById;
+
+  const batches = chunk(ids, 50);
+  const results = await Promise.allSettled(
+    batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: "effective_status" }))
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(result.value || {})) {
+      if (obj.effective_status) statusById[id] = obj.effective_status;
+    }
+  }
+
+  return statusById;
 }
 
 // Sums one actions-shaped field (an array of `{action_type, value}`) across
@@ -464,6 +496,14 @@ export default async function handler(req, res) {
   const allKeys = [...effectiveMetricKeys, ...outputCustomFields];
   let excludedByNameCount = 0;
 
+  // Whether a row can meaningfully have its own status at all: not at the
+  // account level (no single entity to check), and not when a name filter
+  // forced fetching at a finer level than requested (see needsRollup above)
+  // — a rolled-up row is several entities merged into one, so there's no one
+  // status to attach (same reasoning entity names are nulled out below).
+  const statusIdField = LEVEL_ID_FIELD[level];
+  const canHaveStatus = !needsRollup && !!statusIdField;
+
   const rows = [];
   for (const accountId of accountIds) {
     let { current, previous } = byAccount.get(accountId);
@@ -521,6 +561,10 @@ export default async function handler(req, res) {
         ...metrics,
       };
       if (row.date_start) out.date = row.date_start;
+      // Temporary — read by the status lookup below, then stripped before
+      // the response is sent. Not merged into the `out` object literal above
+      // since it must never leak into the client payload as-is.
+      if (canHaveStatus) out.__entityId = row[statusIdField] || null;
 
       if (compareToPrevious) {
         const prevRow = previousByKey.get(rowIdentityKey(row, level, breakdownGroup));
@@ -537,6 +581,26 @@ export default async function handler(req, res) {
         }
       }
       rows.push(out);
+    }
+  }
+
+  // One lookup across every account/row together (not per-account), so an
+  // id used by several rows (e.g. the same campaign appearing once per
+  // breakdown value) is only ever fetched once.
+  if (canHaveStatus) {
+    const idsNeeded = [...new Set(rows.map((r) => r.__entityId).filter(Boolean))];
+    let statusById = {};
+    try {
+      statusById = await fetchEntityStatuses(idsNeeded, token);
+    } catch {
+      // Soft-fail — status only powers an optional filter, not core report
+      // data, so a failed lookup just means no status on any row (the
+      // client's Status filter won't offer any options) rather than failing
+      // the whole query.
+    }
+    for (const row of rows) {
+      row.status = statusById[row.__entityId] || null;
+      delete row.__entityId;
     }
   }
 
@@ -565,6 +629,12 @@ export default async function handler(req, res) {
       rollupApplied: needsRollup,
       excludedMetrics,
       excludedByNameCount,
+      // Tells the client whether rows carry a real `status` and the Status
+      // filter is worth showing at all — false at the account level (no
+      // single entity to check) or whenever a name filter forced a rollup
+      // (a rolled-up row represents several entities, which can't share one
+      // status).
+      statusAvailable: canHaveStatus,
     },
   });
 }
