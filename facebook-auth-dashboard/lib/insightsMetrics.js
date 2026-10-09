@@ -10,7 +10,7 @@ export const LEVEL_OPTIONS = [
 // Fields always pulled in for a given level so a result row is labelable
 // even if the user picked zero fields that happen to include a name — not
 // exposed as metrics themselves, just identity/display plumbing.
-const LEVEL_ID_FIELD = { account: null, campaign: "campaign_id", adset: "adset_id", ad: "ad_id" };
+export const LEVEL_ID_FIELD = { account: null, campaign: "campaign_id", adset: "adset_id", ad: "ad_id" };
 const LEVEL_NAME_FIELD = { account: null, campaign: "campaign_name", adset: "adset_name", ad: "ad_name" };
 const LEVEL_EXTRA_FIELDS = {
   account: [],

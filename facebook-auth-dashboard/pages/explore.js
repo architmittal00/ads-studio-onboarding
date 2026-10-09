@@ -117,6 +117,65 @@ function wouldNeedRollup(level, activeFilters) {
   });
 }
 
+// Post-query pivot-style filters — see createBlankView's resultFilters
+// comment for why these are a client-side concern, not a backend one.
+const METRIC_FILTER_OPERATORS = [
+  { value: "gte", label: "≥" },
+  { value: "lte", label: "≤" },
+  { value: "gt", label: ">" },
+  { value: "lt", label: "<" },
+  { value: "eq", label: "=" },
+  { value: "neq", label: "≠" },
+];
+
+function compareMetricValue(rowValue, operator, threshold) {
+  if (typeof rowValue !== "number" || isNaN(rowValue) || typeof threshold !== "number" || isNaN(threshold)) return false;
+  switch (operator) {
+    case "gte":
+      return rowValue >= threshold;
+    case "lte":
+      return rowValue <= threshold;
+    case "gt":
+      return rowValue > threshold;
+    case "lt":
+      return rowValue < threshold;
+    case "eq":
+      return rowValue === threshold;
+    case "neq":
+      return rowValue !== threshold;
+    default:
+      return true;
+  }
+}
+
+// `availableMetricKeys` guards against a condition left over from before the
+// user removed that metric from the view (Metrics picker) — without this, a
+// stale condition's `row[key]` would be `undefined` on every row, which
+// compareMetricValue correctly treats as "doesn't match", silently hiding
+// every single row instead of just no-op'ing the dangling condition.
+function applyResultFilters(rows, resultFilters, availableMetricKeys) {
+  if (!rows) return rows;
+  let out = rows;
+  const conditions = (resultFilters?.metricConditions || []).filter((c) => availableMetricKeys.includes(c.metricKey));
+  if (conditions.length > 0) {
+    out = out.filter((row) => conditions.every((c) => compareMetricValue(row[c.metricKey], c.operator, c.value)));
+  }
+  if (resultFilters?.statusValues && resultFilters.statusValues.length > 0) {
+    out = out.filter((row) => resultFilters.statusValues.includes(row.status));
+  }
+  return out;
+}
+
+function humanizeStatus(status) {
+  return status
+    ? status
+        .toLowerCase()
+        .split("_")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
+    : "—";
+}
+
 // One independent tab: its own account(s), its own query spec, its own
 // fetched result/loading/error and view-mode — switching tabs never touches
 // another tab's state. `accountIds` is always an array (even length-1) —
@@ -153,6 +212,14 @@ function createBlankView(seedAccountId = "") {
     // row. Takes effect next time the query runs, same as every other field
     // on this view (Level, Breakdown, Metrics, …) — not applied instantly.
     nameFilters: [],
+    // Post-query pivot-style filtering — unlike nameFilters above, these
+    // never travel to the backend (not part of buildQuerySpecFromView/the
+    // cache key) and apply instantly, client-side, to whatever's already in
+    // `result`: a metric-threshold condition only ever hides/shows rows that
+    // are already fully computed (no re-aggregation concern the way
+    // nameFilters has), and `statusValues` is `null` for "no filter" (every
+    // status shown) or an explicit array of statuses to keep.
+    resultFilters: { metricConditions: [], statusValues: null },
     result: null,
     resultFetchedAt: null,
     loading: false,
@@ -453,7 +520,13 @@ export default function Explore() {
       // `nameFilters` with no further fallback, so this is where it has to
       // be backfilled, not just wherever it's read.
       const accountIds = v.accountIds ?? (v.accountId ? [v.accountId] : []);
-      const migrated = { ...v, accountIds, nameFilters: v.nameFilters || [], compareCustomSince: v.compareCustomSince || "" };
+      const migrated = {
+        ...v,
+        accountIds,
+        nameFilters: v.nameFilters || [],
+        compareCustomSince: v.compareCustomSince || "",
+        resultFilters: v.resultFilters || { metricConditions: [], statusValues: null },
+      };
       delete migrated.accountId;
       const cached =
         accountIds.length > 0 && v.metricKeys?.length > 0
@@ -612,6 +685,65 @@ export default function Explore() {
     : [];
   const isRerun = activeView.loading && !!result;
 
+  // Post-query pivot filters applied instantly, client-side, to whatever's
+  // already in `result` — never a re-fetch. Everything downstream (table,
+  // chart, CSV export, the row-count line) reads this instead of
+  // `result.rows` directly, so filtering stays consistent everywhere the
+  // result set is consumed.
+  const filteredRows = useMemo(
+    () => (result ? applyResultFilters(result.rows, activeView.resultFilters, result.meta.metricKeys) : []),
+    [result, activeView.resultFilters]
+  );
+
+  // Every distinct status actually present in the *unfiltered* result, so
+  // unchecking one doesn't make its own checkbox disappear.
+  const availableStatuses = useMemo(() => {
+    if (!result?.meta.statusAvailable) return [];
+    return [...new Set(result.rows.map((r) => r.status).filter(Boolean))].sort();
+  }, [result]);
+
+  function addMetricCondition() {
+    const numericKeys = (result?.meta.metricKeys || []).filter(
+      (k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text"
+    );
+    if (numericKeys.length === 0) return;
+    updateActive((v) => ({
+      resultFilters: {
+        ...v.resultFilters,
+        metricConditions: [...v.resultFilters.metricConditions, { id: newViewId(), metricKey: numericKeys[0], operator: "gte", value: 0 }],
+      },
+    }));
+  }
+
+  function updateMetricCondition(id, patch) {
+    updateActive((v) => ({
+      resultFilters: {
+        ...v.resultFilters,
+        metricConditions: v.resultFilters.metricConditions.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      },
+    }));
+  }
+
+  function removeMetricCondition(id) {
+    updateActive((v) => ({
+      resultFilters: { ...v.resultFilters, metricConditions: v.resultFilters.metricConditions.filter((c) => c.id !== id) },
+    }));
+  }
+
+  // `statusValues: null` means "no filter" (every status counts as checked)
+  // — toggling one off for the first time has to materialize the full
+  // current list minus that one, and toggling the last excluded one back on
+  // collapses back to `null` so the stored shape stays canonical rather than
+  // accumulating an explicit "all of them" array over time.
+  function toggleStatus(status) {
+    updateActive((v) => {
+      const current = v.resultFilters.statusValues ?? availableStatuses;
+      const next = current.includes(status) ? current.filter((s) => s !== status) : [...current, status];
+      const allChecked = availableStatuses.length > 0 && availableStatuses.every((s) => next.includes(s));
+      return { resultFilters: { ...v.resultFilters, statusValues: allChecked ? null : next } };
+    });
+  }
+
   // Prefixes each row's `label` with its account's name whenever more than
   // one account is selected, so ExploreChart's pivot-by-label logic
   // naturally separates accounts into distinct lines/bars/series — purely a
@@ -619,20 +751,21 @@ export default function Explore() {
   // same row objects may be sitting in lib/clientCache.js's stored entry).
   // Excluded-by-name rows are already absent from `result.rows` itself (the
   // backend applies — and, where necessary, re-aggregates around — every
-  // active name filter before ever returning a result), so there's no
-  // separate client-side filtering step here any more.
+  // active name filter before ever returning a result); `filteredRows`
+  // layers the post-query pivot filters (metric thresholds, status) on top
+  // of that, client-side.
   const chartRows = useMemo(() => {
     if (!result) return [];
-    if (result.meta.accountIds.length <= 1) return result.rows;
-    return result.rows.map((r) => ({
+    if (result.meta.accountIds.length <= 1) return filteredRows;
+    return filteredRows.map((r) => ({
       ...r,
       label: `${adAccounts.find((a) => a.id === r.accountId)?.name || r.accountId} — ${r.label}`,
     }));
-  }, [result, adAccounts]);
+  }, [result, filteredRows, adAccounts]);
 
   function handleExportCsv() {
     if (!result) return;
-    const csv = toCsvString(buildCsvTable(result.rows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
+    const csv = toCsvString(buildCsvTable(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
     const viewIndex = views.findIndex((v) => v.id === activeView.id);
     const slug = viewTitle(activeView, adAccounts, viewIndex === -1 ? 0 : viewIndex)
       .toLowerCase()
@@ -1201,7 +1334,9 @@ export default function Explore() {
                 {result.meta.since} → {result.meta.until}
                 {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
                 {" · "}
-                {result.meta.rowCount} row{result.meta.rowCount === 1 ? "" : "s"}
+                {filteredRows.length === result.meta.rowCount
+                  ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
+                  : `${filteredRows.length} of ${result.meta.rowCount} rows (filtered)`}
                 {result.meta.excludedByNameCount > 0 &&
                   ` · ${result.meta.excludedByNameCount} excluded by name filter`}
               </p>
@@ -1212,6 +1347,82 @@ export default function Explore() {
                   combined across entities.
                 </p>
               )}
+
+              {/* Post-query pivot filters — applied instantly to `result` already sitting in state, no re-fetch */}
+              <div className={styles.card} style={{ padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span className={styles.muted} style={{ fontWeight: 600 }}>
+                    Filter results
+                  </span>
+                  <button type="button" className={styles.btnSecondary} onClick={addMetricCondition}>
+                    + Metric filter
+                  </button>
+                </div>
+
+                {activeView.resultFilters.metricConditions.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                    {activeView.resultFilters.metricConditions.map((c) => (
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <select
+                          className={styles.select}
+                          value={c.metricKey}
+                          onChange={(e) => updateMetricCondition(c.id, { metricKey: e.target.value })}
+                        >
+                          {result.meta.metricKeys
+                            .filter((k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text")
+                            .map((k) => (
+                              <option key={k} value={k}>
+                                {effectiveCatalog.find((m) => m.key === k)?.label || k}
+                              </option>
+                            ))}
+                        </select>
+                        <select
+                          className={styles.select}
+                          value={c.operator}
+                          onChange={(e) => updateMetricCondition(c.id, { operator: e.target.value })}
+                        >
+                          {METRIC_FILTER_OPERATORS.map((op) => (
+                            <option key={op.value} value={op.value}>
+                              {op.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          className={styles.select}
+                          style={{ width: 110 }}
+                          value={c.value}
+                          onChange={(e) => updateMetricCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                        />
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => removeMetricCondition(c.id)}
+                          aria-label="Remove filter"
+                        >
+                          <CloseIcon size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {result.meta.statusAvailable && availableStatuses.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
+                    <span className={styles.muted}>Status</span>
+                    {availableStatuses.map((s) => (
+                      <label key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+                        <input
+                          type="checkbox"
+                          checked={!activeView.resultFilters.statusValues || activeView.resultFilters.statusValues.includes(s)}
+                          onChange={() => toggleStatus(s)}
+                        />
+                        {humanizeStatus(s)}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1232,7 +1443,7 @@ export default function Explore() {
 
               {activeView.viewMode === "table" ? (
                 <ExploreResultsTable
-                  rows={result.rows}
+                  rows={filteredRows}
                   meta={result.meta}
                   adAccounts={adAccounts}
                   currencyByAccountId={currencyByAccountId}
@@ -1308,6 +1519,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
 
   const columns = [
     ...leadingColumns,
+    ...(meta.statusAvailable ? [{ key: "status", label: "Status", render: (row) => humanizeStatus(row.status) }] : []),
     ...allKeys.map((key) => {
       const metric = effectiveCatalog.find((m) => m.key === key);
       const format = metric?.format || "number";
@@ -1358,6 +1570,7 @@ function buildCsvTable(rows, meta, adAccounts, currencyByAccountId, effectiveCat
   const metricKeysAndFields = [...meta.metricKeys, ...meta.customFields];
 
   const header = [...leading.map((c) => c.label)];
+  if (meta.statusAvailable) header.push("Status");
   for (const key of metricKeysAndFields) {
     const metric = effectiveCatalog.find((m) => m.key === key);
     header.push(metric?.label || key);
@@ -1369,6 +1582,7 @@ function buildCsvTable(rows, meta, adAccounts, currencyByAccountId, effectiveCat
     const line = leading.map((c) =>
       c.key === "accountId" ? adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId : row[c.key] ?? ""
     );
+    if (meta.statusAvailable) line.push(humanizeStatus(row.status));
     for (const key of metricKeysAndFields) {
       const metric = effectiveCatalog.find((m) => m.key === key);
       const format = metric?.format || "number";
