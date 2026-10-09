@@ -37,24 +37,38 @@ const LANDING_PAGE_SPEND_CUTOFF_PCT = 10;
 
 // Resolves a direct, playable video URL for each video ID (Facebook's Video
 // object `source` field), so the creative lightbox can actually play video
-// ads instead of just showing their static thumbnail.
+// ads instead of just showing their static thumbnail. Also fetches
+// `permalink_url` (a link to view the video on Facebook) as a fallback for
+// when `source` can't be resolved — Meta frequently denies access to a
+// video's raw CDN file (an ads-specific permission/review gate, separate
+// from and stricter than just being able to see the ad's other metadata)
+// even though the same token can see everything else about that ad fine.
+// That per-video denial comes back as `{ [id]: { error: {...} } }` inside an
+// otherwise-200 batch response — NOT a thrown exception (graphGet only
+// throws on a request-level error) — so it has to be checked for explicitly
+// per id, or it silently (and misleadingly) looks identical to "no video".
 async function fetchVideoSources(videoIds, token) {
-  const sourceByVideoId = {};
-  if (videoIds.length === 0) return sourceByVideoId;
+  const byVideoId = {};
+  const errorSamples = [];
+  if (videoIds.length === 0) return { byVideoId, errorSamples };
 
   const batches = chunk(videoIds, 50);
   const results = await Promise.allSettled(
-    batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: "source" }))
+    batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: "source,permalink_url" }))
   );
 
   for (const result of results) {
     if (result.status !== "fulfilled") continue;
     for (const [id, obj] of Object.entries(result.value || {})) {
-      if (obj.source) sourceByVideoId[id] = obj.source;
+      if (obj.error) {
+        if (errorSamples.length < 3) errorSamples.push(obj.error.message);
+        continue;
+      }
+      byVideoId[id] = { source: obj.source || null, permalinkUrl: obj.permalink_url || null };
     }
   }
 
-  return sourceByVideoId;
+  return { byVideoId, errorSamples };
 }
 
 // Facebook's bulk `/act_x/insights?level=ad` call — the one the main
@@ -262,7 +276,20 @@ export default async function handler(req, res) {
   const videoIds = [...new Set(Object.values(adDetailsById).map((d) => d.videoId).filter(Boolean))];
   let videoSourceByVideoId = {};
   try {
-    videoSourceByVideoId = await fetchVideoSources(videoIds, token);
+    const { byVideoId, errorSamples } = await fetchVideoSources(videoIds, token);
+    videoSourceByVideoId = byVideoId;
+    // A per-video permission error comes back inside an otherwise-successful
+    // batch response (see fetchVideoSources' own comment), so it wouldn't
+    // otherwise surface anywhere — without this, every video ad would just
+    // silently show "preview unavailable" with no indication why.
+    if (errorSamples.length > 0 && videoIds.length > 0) {
+      const resolvedCount = Object.keys(byVideoId).filter((id) => byVideoId[id].source).length;
+      warnings.push(
+        `Could not load an inline preview for ${videoIds.length - resolvedCount} of ${videoIds.length} video ad(s) (e.g. "${
+          errorSamples[0]
+        }") — this is typically Meta restricting direct video-file access regardless of ad permissions; a "Watch on Facebook" link is shown instead where available.`
+      );
+    }
   } catch (err) {
     warnings.push(`Video playback URLs unavailable: ${err.message}`);
   }
@@ -312,7 +339,8 @@ export default async function handler(req, res) {
       status: details?.status || null,
       thumbnailUrl: details?.thumbnailUrl || null,
       isVideo,
-      videoUrl: isVideo ? videoSourceByVideoId[details.videoId] || null : null,
+      videoUrl: isVideo ? videoSourceByVideoId[details.videoId]?.source || null : null,
+      videoPermalink: isVideo ? videoSourceByVideoId[details.videoId]?.permalinkUrl || null : null,
       creativeType: details?.creativeType || "Static",
       landingUrl: details?.landingUrl || (details?.postId ? postLandingUrlByPostId[details.postId] : null) || null,
       caption: details?.caption || null,
@@ -376,6 +404,7 @@ export default async function handler(req, res) {
             thumbnailUrl: r.thumbnailUrl,
             isVideo: r.isVideo,
             videoUrl: r.videoUrl,
+            videoPermalink: r.videoPermalink,
             landingUrl: r.landingUrl,
             caption: r.caption,
             ctaLabel: r.ctaLabel,
@@ -480,6 +509,7 @@ export default async function handler(req, res) {
       thumbnailUrl: c.thumbnailUrl,
       isVideo: c.isVideo,
       videoUrl: c.videoUrl,
+      videoPermalink: c.videoPermalink,
       landingUrl: c.landingUrl,
       caption: c.caption,
       ctaLabel: c.ctaLabel,
@@ -583,6 +613,7 @@ export default async function handler(req, res) {
       thumbnailUrl: r.thumbnailUrl,
       isVideo: r.isVideo,
       videoUrl: r.videoUrl,
+      videoPermalink: r.videoPermalink,
       landingUrl: r.landingUrl,
       caption: r.caption,
       ctaLabel: r.ctaLabel,

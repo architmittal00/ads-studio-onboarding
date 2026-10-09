@@ -97,8 +97,24 @@ export default function CreativeLightbox({ item, onClose }) {
         )}
 
         {item.isVideo && !item.videoUrl && (
-          <p style={{ color: "rgba(255,255,255,.6)", fontSize: 12 }}>
-            Video preview unavailable — showing thumbnail only.
+          <p style={{ color: "rgba(255,255,255,.6)", fontSize: 12, textAlign: "center" }}>
+            Inline preview unavailable — showing thumbnail only
+            {item.videoPermalink ? (
+              <>
+                {". "}
+                <a
+                  href={item.videoPermalink}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ color: "#b9a6ff" }}
+                >
+                  Watch on Facebook ↗
+                </a>
+              </>
+            ) : (
+              "."
+            )}
           </p>
         )}
 
