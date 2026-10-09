@@ -323,6 +323,7 @@ export default function Report() {
   const [structureSortKey, setStructureSortKey] = useState("spend");
   const [structureSortDir, setStructureSortDir] = useState("desc");
   const [budgetTab, setBudgetTab] = useState("CBO");
+  const [paretoView, setParetoView] = useState("ad");
   const [structureSearch, setStructureSearch] = useState("");
   const [lightboxItem, setLightboxItem] = useState(null);
   const [trendMetric, setTrendMetric] = useState(null);
@@ -844,64 +845,94 @@ export default function Report() {
                   )}
                 </SectionGate>
 
-                {/* 80% pareto */}
+                {/* 80% pareto — at the ad level (default) or rolled up by creative_id,
+                    so the same creative reused across several ads shows as one row */}
                 <SectionGate group={groups.core} loadingLabel="Loading revenue concentration…">
-                  {(data) => (
-                    <section id="pareto" className={styles.card}>
-                      <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From</h2>
-                      {data.pareto.totalAdCount === 0 ? (
-                        <p className={styles.sub}>No ad-level purchase data in this window.</p>
-                      ) : (
-                        <>
+                  {(data) => {
+                    const paretoData = paretoView === "creative" ? data.paretoByCreative : data.pareto;
+                    const totalCount = paretoView === "creative" ? paretoData.totalCreativeCount : paretoData.totalAdCount;
+                    const unitLabel = paretoView === "creative" ? "creatives" : "ads";
+                    return (
+                      <section id="pareto" className={styles.card}>
+                        <div className={styles.sectionRow} style={{ marginBottom: 2 }}>
+                          <h2 className={styles.h2}>Where 80% of Purchase Revenue Comes From</h2>
+                          <div className={styles.tabGroup}>
+                            <button
+                              className={paretoView === "ad" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                              onClick={() => setParetoView("ad")}
+                            >
+                              By Ad
+                            </button>
+                            <button
+                              className={paretoView === "creative" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                              onClick={() => setParetoView("creative")}
+                            >
+                              By Creative ID
+                            </button>
+                          </div>
+                        </div>
+                        {paretoView === "creative" && (
                           <p className={styles.sub} style={{ marginBottom: 12 }}>
-                            <strong style={{ color: "var(--t1)" }}>
-                              {data.pareto.contributorCount} of {data.pareto.totalAdCount} ads
-                            </strong>{" "}
-                            ({data.pareto.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
-                            <strong style={{ color: "var(--t1)" }}>
-                              {data.pareto.spendSharePct.toFixed(0)}% of spend
-                            </strong>
-                            .
+                            Rolled up by creative_id — the same creative reused across several ads (or ad sets/campaigns)
+                            counts once here, as one row, with spend/revenue/purchases summed across all of them. Named
+                            after its highest-spending ad, with a &quot;+N&quot; for the other ads folded in. Catalog /
+                            Dynamic Creative ads are excluded — they have no single fixed visual to show.
                           </p>
-                          <SortableTable
-                            defaultSortKey="revenue"
-                            maxHeight={360}
-                            searchable
-                            searchPlaceholder="Search creatives…"
-                            rows={data.pareto.contributors}
-                            columns={[
-                              {
-                                key: "name",
-                                label: "Creative",
-                                render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} />,
-                              },
-                              {
-                                key: "status",
-                                label: "Status",
-                                render: (r) => (r.status ? <StatusDot status={r.status} /> : <span className={styles.muted}>—</span>),
-                              },
-                              {
-                                key: "campaignName",
-                                label: "Campaign",
-                                maxWidth: 180,
-                                render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
-                              },
-                              { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
-                              { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
-                              {
-                                key: "revenueSharePct",
-                                label: "% Revenue",
-                                align: "right",
-                                render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
-                              },
-                              { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
-                              { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
-                            ]}
-                          />
-                        </>
-                      )}
-                    </section>
-                  )}
+                        )}
+                        {totalCount === 0 ? (
+                          <p className={styles.sub}>No {paretoView === "creative" ? "creative-level" : "ad-level"} purchase data in this window.</p>
+                        ) : (
+                          <>
+                            <p className={styles.sub} style={{ marginBottom: 12 }}>
+                              <strong style={{ color: "var(--t1)" }}>
+                                {paretoData.contributorCount} of {totalCount} {unitLabel}
+                              </strong>{" "}
+                              ({paretoData.revenueSharePct.toFixed(0)}% of purchase revenue) account for{" "}
+                              <strong style={{ color: "var(--t1)" }}>
+                                {paretoData.spendSharePct.toFixed(0)}% of spend
+                              </strong>
+                              .
+                            </p>
+                            <SortableTable
+                              defaultSortKey="revenue"
+                              maxHeight={360}
+                              searchable
+                              searchPlaceholder="Search creatives…"
+                              rows={paretoData.contributors}
+                              columns={[
+                                {
+                                  key: "name",
+                                  label: "Creative",
+                                  render: (r) => <CreativeCell ad={r} onOpen={setLightboxItem} />,
+                                },
+                                {
+                                  key: "status",
+                                  label: "Status",
+                                  render: (r) => (r.status ? <StatusDot status={r.status} /> : <span className={styles.muted}>—</span>),
+                                },
+                                {
+                                  key: "campaignName",
+                                  label: "Campaign",
+                                  maxWidth: 180,
+                                  render: (r) => <span className={styles.muted}>{r.campaignName}</span>,
+                                },
+                                { key: "spend", label: "Spend", align: "right", render: (r) => money(r.spend) },
+                                { key: "revenue", label: "Revenue", align: "right", render: (r) => money(r.revenue) },
+                                {
+                                  key: "revenueSharePct",
+                                  label: "% Revenue",
+                                  align: "right",
+                                  render: (r) => `${r.revenueSharePct.toFixed(1)}%`,
+                                },
+                                { key: "roas", label: "ROAS", align: "right", render: (r) => `${r.roas.toFixed(2)}x` },
+                                { key: "purchases", label: "Purchases", align: "right", render: (r) => r.purchases.toFixed(0) },
+                              ]}
+                            />
+                          </>
+                        )}
+                      </section>
+                    );
+                  }}
                 </SectionGate>
 
                 {/* Where 80% of purchase revenue comes from, by age/gender */}

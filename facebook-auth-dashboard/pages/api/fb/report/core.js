@@ -204,7 +204,7 @@ export default async function handler(req, res) {
     graphGetInsights(`/${accountId}/insights`, token, {
       level: "ad",
       fields:
-        "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,spend,impressions,clicks,frequency,actions,action_values",
+        "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,creative_id,spend,impressions,clicks,frequency,actions,action_values",
       time_range: graphTimeRange,
       limit: 500,
     }),
@@ -240,6 +240,7 @@ export default async function handler(req, res) {
       adsetName: row.adset_name,
       campaignId: row.campaign_id,
       campaignName: row.campaign_name,
+      creativeId: row.creative_id || null,
       spend,
       revenue,
       roas,
@@ -517,6 +518,77 @@ export default async function handler(req, res) {
     })),
   };
 
+  // ── Same 80% purchase-revenue pareto, but grouped by creative_id instead
+  // of by individual ad — several ads (the same creative reused across ad
+  // sets or campaigns, most commonly) often share one creative, and "which
+  // creative is actually winning" is usually the more useful question than
+  // "which ad". Catalog/Dynamic Creative ads are excluded entirely rather
+  // than bucketed (unlike the Product breakdown's "Catalog" bucket) since
+  // Facebook generates a different image per product at serve time — there's
+  // no single fixed visual a creative_id could represent for them. A
+  // creative's row is represented by its highest-spending ad (name, status,
+  // campaign, thumbnail, caption, CTA, destination link all come from that
+  // one ad), with spend/revenue/purchases summed across every ad sharing it;
+  // the display name gets a "+N" suffix for the N other ads folded in, so
+  // it's clear at a glance this row isn't just a single ad.
+  const creativeEligibleRows = adRows.filter((r) => r.creativeType !== "Catalog" && r.creativeId);
+  const adsByCreativeId = new Map();
+  for (const r of creativeEligibleRows) {
+    if (!adsByCreativeId.has(r.creativeId)) adsByCreativeId.set(r.creativeId, []);
+    adsByCreativeId.get(r.creativeId).push(r);
+  }
+
+  const creativeGroups = [...adsByCreativeId.values()].map((ads) => {
+    const topAd = [...ads].sort((a, b) => b.spend - a.spend)[0];
+    const extraAdCount = ads.length - 1;
+    const spend = ads.reduce((sum, a) => sum + a.spend, 0);
+    const revenue = ads.reduce((sum, a) => sum + a.revenue, 0);
+    const purchases = ads.reduce((sum, a) => sum + a.purchases, 0);
+    return {
+      id: topAd.id,
+      name: extraAdCount > 0 ? `${topAd.name} +${extraAdCount}` : topAd.name,
+      status: topAd.status,
+      campaignName: topAd.campaignName,
+      spend,
+      revenue,
+      roas: spend > 0 ? revenue / spend : 0,
+      purchases,
+      thumbnailUrl: topAd.thumbnailUrl,
+      isVideo: topAd.isVideo,
+      videoUrl: topAd.videoUrl,
+      videoPermalink: topAd.videoPermalink,
+      landingUrl: topAd.landingUrl,
+      caption: topAd.caption,
+      ctaLabel: topAd.ctaLabel,
+    };
+  });
+
+  const totalCreativeRevenue = creativeGroups.reduce((sum, g) => sum + g.revenue, 0);
+  const totalCreativeSpend = creativeGroups.reduce((sum, g) => sum + g.spend, 0);
+  const sortedCreativesByRevenue = [...creativeGroups].sort((a, b) => b.revenue - a.revenue);
+
+  let cumCreativeRevenue = 0;
+  let cumCreativeSpend = 0;
+  const creativeContributors = [];
+  for (const g of sortedCreativesByRevenue) {
+    if (g.revenue <= 0) break;
+    cumCreativeRevenue += g.revenue;
+    cumCreativeSpend += g.spend;
+    creativeContributors.push(g);
+    if (totalCreativeRevenue > 0 && cumCreativeRevenue / totalCreativeRevenue >= 0.8) break;
+  }
+
+  const paretoByCreative = {
+    contributorCount: creativeContributors.length,
+    totalCreativeCount: creativeGroups.length,
+    revenueSharePct: totalCreativeRevenue > 0 ? (cumCreativeRevenue / totalCreativeRevenue) * 100 : 0,
+    spendSharePct: totalCreativeSpend > 0 ? (cumCreativeSpend / totalCreativeSpend) * 100 : 0,
+    contributors: creativeContributors.map((c) => ({
+      ...c,
+      revenueSharePct: totalCreativeRevenue > 0 ? (c.revenue / totalCreativeRevenue) * 100 : 0,
+    })),
+  };
+
   // Only three possible buckets, so show the full split rather than an
   // 80%-cutoff pareto — truncating a 3-way breakdown isn't useful.
   const purchasesByCreativeType = groupAndPareto(adRows, (r) => r.creativeType, { applyCutoff: false });
@@ -675,6 +747,7 @@ export default async function handler(req, res) {
   const payload = {
     topCampaigns,
     pareto,
+    paretoByCreative,
     purchasesByCreativeType,
     purchasesByProduct,
     unresolvedLandingPageAds,
