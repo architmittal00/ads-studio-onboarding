@@ -91,6 +91,30 @@ export function setSidebarCollapsed(collapsed) {
   }
 }
 
+const EXPLORE_QUERY_PANEL_COLLAPSED_KEY = "fb-dashboard:explore-query-panel-collapsed";
+
+// Collapsed (result front and center) vs expanded (query form visible
+// side-by-side) state of Explore's query/filters panel — same per-device
+// preference pattern as the app sidebar above. `null` means "never set on
+// this device"; the page itself decides the default (collapsed) rather than
+// assuming a stored "false".
+export function getExploreQueryPanelCollapsed() {
+  try {
+    const value = localStorage.getItem(EXPLORE_QUERY_PANEL_COLLAPSED_KEY);
+    return value == null ? null : value === "1";
+  } catch {
+    return null;
+  }
+}
+
+export function setExploreQueryPanelCollapsed(collapsed) {
+  try {
+    localStorage.setItem(EXPLORE_QUERY_PANEL_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
+
 const EXPLORE_VIEWS_KEY = "fb-dashboard:explore-views";
 
 // The Explore page's open tabs — each tab's query spec (never its fetched
