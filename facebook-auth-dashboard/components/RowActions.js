@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { formatMetricValue, LEVEL_OPTIONS } from "@/lib/insightsMetrics";
 import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon } from "./icons";
@@ -40,7 +40,29 @@ function determineActions(row) {
 // row has no single entity to act on or nothing about it is actionable.
 export default function RowActions({ row, level, currency, onActionApplied }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Viewport-relative {top, right} for the open menu, computed from the
+  // trigger button's own getBoundingClientRect() at open time — see the
+  // .rowActionMenu comment in styles/Home.module.css for why this can't just
+  // be `position: absolute` anchored to the button.
+  const [menuPos, setMenuPos] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
+  const triggerRef = useRef(null);
+
+  // A fixed-position menu doesn't move when its *ancestor* scrolls (unlike
+  // the old absolutely-positioned one, which rode along with the row) — the
+  // table's own internal scroll (`.tableScroll`) wouldn't fire a listener
+  // attached to the menu or the window in the bubble phase, since an
+  // element's own scroll event doesn't bubble, so this listens during the
+  // capture phase instead, which does see it. Closing on any scroll avoids a
+  // menu silently drifting away from the button it belongs to.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function close() {
+      setMenuOpen(false);
+    }
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [menuOpen]);
 
   if (!row.entityId) return null;
   const actions = determineActions(row);
@@ -51,6 +73,14 @@ export default function RowActions({ row, level, currency, onActionApplied }) {
     setPendingAction(action);
   }
 
+  function toggleMenu() {
+    if (!menuOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setMenuOpen((o) => !o);
+  }
+
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       {actions.length === 1 ? (
@@ -58,16 +88,17 @@ export default function RowActions({ row, level, currency, onActionApplied }) {
       ) : (
         <>
           <button
+            ref={triggerRef}
             type="button"
             className={styles.rowActionBtn}
-            onClick={() => setMenuOpen((o) => !o)}
+            onClick={toggleMenu}
             onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
           >
             Take Action
             <ChevronIcon direction={menuOpen ? "up" : "down"} size={10} />
           </button>
-          {menuOpen && (
-            <div className={styles.rowActionMenu}>
+          {menuOpen && menuPos && (
+            <div className={styles.rowActionMenu} style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}>
               {actions.map((action) => (
                 <button
                   key={action.key}
