@@ -41,7 +41,7 @@ export default function TrendChart({ points, formatValue = (v) => v.toFixed(2), 
               x2={width - padding.right}
               y1={gy}
               y2={gy}
-              stroke="rgba(255,255,255,.06)"
+              stroke="rgba(var(--surface-tint-rgb),.06)"
               strokeWidth={1}
             />
           );
@@ -89,16 +89,16 @@ export default function TrendChart({ points, formatValue = (v) => v.toFixed(2), 
             left: `${(x(hoverIndex) / width) * 100}%`,
             top: `${(y(points[hoverIndex].value) / height) * 100}%`,
             transform: "translate(-50%, -130%)",
-            background: "#13112b",
-            border: "1px solid rgba(255,255,255,.12)",
+            background: "var(--bg)",
+            border: "1px solid rgba(var(--surface-tint-rgb),.12)",
             borderRadius: 8,
             padding: "6px 10px",
             fontSize: 12,
             fontWeight: 600,
-            color: "#fff",
+            color: "var(--t1)",
             whiteSpace: "nowrap",
             pointerEvents: "none",
-            boxShadow: "0 6px 24px rgba(0,0,0,.4)",
+            boxShadow: "var(--shadow-sm)",
           }}
         >
           {points[hoverIndex].label}: {formatValue(points[hoverIndex].value)}

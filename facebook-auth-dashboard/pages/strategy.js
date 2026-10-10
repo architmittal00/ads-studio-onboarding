@@ -275,7 +275,7 @@ export default function Strategy() {
                 <div style={{ marginTop: 12 }}>
                   {historyLoading && <Loader inline label="Checking the account's last 30 days…" />}
                   {historyError && (
-                    <p className={styles.sub} style={{ color: "#ff7070" }}>
+                    <p className={styles.sub} style={{ color: "var(--red)" }}>
                       Couldn&apos;t check this account&apos;s history ({historyError}) — treating it as a fresh
                       account for now.
                     </p>

@@ -40,7 +40,7 @@ export default function MetricTrendModal({ metric, trend, rangeLabel, onClose })
       <div
         onClick={(e) => e.stopPropagation()}
         className={styles.card}
-        style={{ background: "#0f0e1e", width: "min(720px, 100%)", maxHeight: "85vh", overflow: "auto" }}
+        style={{ background: "var(--bg)", width: "min(720px, 100%)", maxHeight: "85vh", overflow: "auto" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>

@@ -92,7 +92,7 @@ export default function Logs() {
                           </span>
                         </td>
                         <td>{log.durationMs}ms</td>
-                        <td style={{ color: "#ff7070", fontSize: 11 }}>{log.error || "—"}</td>
+                        <td style={{ color: "var(--red)", fontSize: 11 }}>{log.error || "—"}</td>
                       </tr>
                       {expandedId === log.id && (
                         <tr>

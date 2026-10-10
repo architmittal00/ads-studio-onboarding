@@ -145,12 +145,13 @@ export default function ExploreChart({ rows, meta, chartMetricKey, currency, eff
       <div style={{ width: "100%", height: 360 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ChartComponent data={spec.data}>
-            <CartesianGrid stroke="rgba(255,255,255,.06)" />
+            <CartesianGrid stroke="rgba(var(--surface-tint-rgb),.06)" />
             <XAxis dataKey="x" stroke="var(--t3)" fontSize={11} />
             <YAxis stroke="var(--t3)" fontSize={11} tickFormatter={formatValue} width={70} />
             <Tooltip
-              contentStyle={{ background: "#13112b", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8 }}
+              contentStyle={{ background: "var(--bg)", border: "1px solid rgba(var(--surface-tint-rgb),.12)", borderRadius: 8 }}
               labelStyle={{ color: "var(--t1)" }}
+              itemStyle={{ color: "var(--t1)" }}
               formatter={(v) => formatValue(v)}
             />
             {spec.series.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}

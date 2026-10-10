@@ -42,7 +42,7 @@ export default function DefaultRangeModal({ open, current, onSelect, onClose }) 
       <div
         onClick={(e) => e.stopPropagation()}
         className={styles.card}
-        style={{ background: "#0f0e1e", width: "min(360px, 100%)" }}
+        style={{ background: "var(--bg)", width: "min(360px, 100%)" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>

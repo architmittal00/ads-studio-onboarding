@@ -144,7 +144,7 @@ export default function InterestPicker({ label, values, onChange, suggested, sug
           <div className={styles.comboDropdown}>
             {loading && <div className={styles.comboOption}>Searching…</div>}
             {!loading && error && (
-              <div className={styles.comboOption} style={{ color: "#ff7070" }}>
+              <div className={styles.comboOption} style={{ color: "var(--red)" }}>
                 {error}
               </div>
             )}

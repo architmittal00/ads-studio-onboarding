@@ -157,7 +157,7 @@ export default function AccountSelect({
                 key={a.id}
                 className={styles.comboOption}
                 onMouseDown={() => pick(a)}
-                style={a.id === value ? { background: "rgba(175, 70, 253, 0.12)", fontWeight: 700 } : undefined}
+                style={a.id === value ? { background: "rgba(var(--purple-rgb), 0.12)", fontWeight: 700 } : undefined}
               >
                 {a.name}
               </div>

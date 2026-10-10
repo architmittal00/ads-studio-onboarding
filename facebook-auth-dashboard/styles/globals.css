@@ -4,7 +4,66 @@
   box-sizing: border-box;
 }
 
+/* Light is the default rendering — pages/_document.js's inline script is
+   what flips `data-theme` to "dark" (see [data-theme="dark"] below), and it
+   runs before first paint so there's no flash. If that script hasn't run yet
+   (or never will, e.g. JS disabled), this plain :root is what renders —
+   which is why light, not dark, lives here. Values are the exact Light
+   column from the shared design-system token skill (src/UiComponentVersion2/
+   design-system/tokens.module.css) for every token this app actually uses;
+   `*-rgb` triplets are mechanical decompositions of those same hex values
+   (not separately-chosen colors) so translucent tints (badges, glows, hover
+   washes) can recolor via `rgba(var(--x-rgb), alpha)` without a second
+   hardcoded hex to keep in sync. */
 :root {
+  --bg: #fbf5f0;
+  --card: rgba(15, 15, 25, 0.04);
+  --card2: rgba(15, 15, 25, 0.07);
+
+  --border: rgba(15, 15, 25, 0.1);
+  --border2: rgba(15, 15, 25, 0.15);
+
+  --t1: #16151f;
+  --t2: rgba(22, 21, 31, 0.55);
+  --t3: rgba(22, 21, 31, 0.28);
+
+  --purple: #ec7c6f;
+  --pink: #f2a98e;
+  --mid: #ef9182;
+  --grad: linear-gradient(135deg, #ec7c6f, #ef9182, #f2a98e);
+
+  --green: #1a8f4c;
+  --amber: #c9720f;
+  --red: #d43939;
+  --blue: #3b82f6;
+
+  /* Same-opacity "ink" swap for any plain white-tint surface/border/divider
+     that doesn't go through a named token above — e.g. rgba(var(--surface-
+     tint-rgb), .06) for a hover wash. Base (15, 15, 25) matches every light
+     surface/border value the skill gives (--surface-*, --border, --border2
+     all decompose to this same ink), so this isn't a separate color choice. */
+  --surface-tint-rgb: 15, 15, 25;
+  --bg-rgb: 251, 245, 240;
+
+  --purple-rgb: 236, 124, 111;
+  --pink-rgb: 242, 169, 142;
+  --mid-rgb: 239, 145, 130;
+  --green-rgb: 26, 143, 76;
+  --amber-rgb: 201, 114, 15;
+  --red-rgb: 212, 57, 57;
+  --blue-rgb: 59, 130, 246;
+
+  /* Neutral drop shadows, from the skill's shadow-sm/md tiers — used for any
+     floating solid panel (dropdown, tooltip) via var(--shadow-sm/md), not
+     inlined per-component. */
+  --shadow-sm: 0 4px 16px rgba(15, 15, 25, 0.08);
+  --shadow-md: 0 8px 32px rgba(15, 15, 25, 0.1);
+}
+
+/* Applied by pages/_document.js's inline script only when the device's OS
+   reports `prefers-color-scheme: dark` — this is the app's previous (and
+   only, pre-light-theme) palette, unchanged. */
+:root[data-theme="dark"] {
   --bg: #0b0b14;
   --card: rgba(255, 255, 255, 0.04);
   --card2: rgba(255, 255, 255, 0.07);
@@ -25,6 +84,20 @@
   --amber: #f59e0b;
   --red: #ef4444;
   --blue: #60a5fa;
+
+  --surface-tint-rgb: 255, 255, 255;
+  --bg-rgb: 11, 11, 20;
+
+  --purple-rgb: 175, 70, 253;
+  --pink-rgb: 244, 52, 157;
+  --mid-rgb: 218, 59, 194;
+  --green-rgb: 34, 197, 94;
+  --amber-rgb: 245, 158, 11;
+  --red-rgb: 239, 68, 68;
+  --blue-rgb: 96, 165, 250;
+
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
 html,
@@ -47,7 +120,7 @@ body::before {
   pointer-events: none;
   background: radial-gradient(
     ellipse 40% 50% at 75% 20%,
-    rgba(175, 70, 253, 0.07),
+    rgba(var(--purple-rgb), 0.07),
     transparent 65%
   );
   z-index: 0;
@@ -68,6 +141,6 @@ input {
   width: 4px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--surface-tint-rgb), 0.07);
   border-radius: 3px;
 }
