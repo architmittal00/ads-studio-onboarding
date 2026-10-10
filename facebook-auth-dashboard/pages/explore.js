@@ -8,7 +8,7 @@ import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
-import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon, ChartIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import {
@@ -475,6 +475,62 @@ function summarizeQuery(view, adAccounts) {
   return `${accountLabel} · ${rangeLabel} · ${levelLabel} level · ${metricCount} metric${metricCount === 1 ? "" : "s"}`;
 }
 
+// Small "?" badge that swaps a section's always-visible explanatory paragraph
+// for a native-tooltip hover — keeps the (narrow) query panel scannable while
+// still putting the full explanation one hover away.
+function HelpHint({ text }) {
+  return (
+    <span className={styles.helpHint} title={text} tabIndex={0} role="note" aria-label={text}>
+      ?
+    </span>
+  );
+}
+
+function SectionHeading({ children, hint }) {
+  return (
+    <h2 className={styles.h2} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {children}
+      {hint && <HelpHint text={hint} />}
+    </h2>
+  );
+}
+
+// Shown in the result area before a view has ever been run — otherwise that
+// whole side of the screen is just blank, which is a confusing first
+// impression for a page whose entire point is the query panel next to it.
+function ExploreEmptyState({ canRunQuery, onRun, loading }) {
+  return (
+    <section className={styles.card}>
+      <div className={styles.exploreEmptyState}>
+        <div className={styles.exploreEmptyIcon}>
+          <ChartIcon size={26} />
+        </div>
+        <div>
+          <h2 className={styles.h2} style={{ marginBottom: 6 }}>
+            Ready for your next view
+          </h2>
+          <p className={styles.sub}>
+            Set up your query in the panel on the right, then run it to see the table or chart here.
+          </p>
+        </div>
+        <div className={styles.exploreEmptySteps}>
+          {["Pick an account", "Choose a level, date range & breakdown", "Select the metrics you care about", 'Click "Update This View"'].map(
+            (step, i) => (
+              <div key={step} className={styles.exploreEmptyStep}>
+                <span className={styles.exploreEmptyStepNum}>{i + 1}</span>
+                {step}
+              </div>
+            )
+          )}
+        </div>
+        <button type="button" className={styles.btnPrimary} disabled={!canRunQuery || loading} onClick={onRun}>
+          {loading ? "Updating…" : "Update This View"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function Explore() {
   const { adAccounts, accountsError, selectedAccountId } = useAccounts();
 
@@ -907,6 +963,9 @@ export default function Explore() {
     <>
       {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
       {activeView.loading && !result && <Loader label="Running your query…" />}
+      {!activeView.error && !activeView.loading && !result && (
+        <ExploreEmptyState canRunQuery={canRunQuery} loading={activeView.loading} onRun={() => runQueryForView(activeView, false)} />
+      )}
 
       {result && (
         <section className={styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1255,11 +1314,11 @@ export default function Explore() {
                   </div>
 
                   <div>
-                    <h2 className={styles.h2}>Account</h2>
-                    <p className={styles.sub} style={{ marginBottom: 10 }}>
-                      Pick one or more accounts — results from all of them come back merged into this one view, tagged
-                      with which account each row came from (up to {MAX_ACCOUNTS_PER_VIEW} at a time).
-                    </p>
+                    <SectionHeading
+                      hint={`Pick one or more accounts — results from all of them come back merged into this one view, tagged with which account each row came from (up to ${MAX_ACCOUNTS_PER_VIEW} at a time).`}
+                    >
+                      Account
+                    </SectionHeading>
                     <AccountSelect
                       multiple
                       accounts={adAccounts}
@@ -1330,11 +1389,9 @@ export default function Explore() {
                   </div>
 
                   <div>
-                    <h2 className={styles.h2}>Breakdown</h2>
-                    <p className={styles.sub} style={{ marginBottom: 10 }}>
-                      One breakdown at a time — Meta restricts which dimensions can combine, so these are pre-combined,
-                      known-good groups rather than a free pick-any-combination list.
-                    </p>
+                    <SectionHeading hint="One breakdown at a time — Meta restricts which dimensions can combine, so these are pre-combined, known-good groups rather than a free pick-any-combination list.">
+                      Breakdown
+                    </SectionHeading>
                     <select
                       className={styles.select}
                       style={{ width: "100%", maxWidth: 420 }}
@@ -1350,13 +1407,9 @@ export default function Explore() {
                   </div>
 
                   <div>
-                    <h2 className={styles.h2}>Exclude rows by name</h2>
-                    <p className={styles.sub} style={{ marginBottom: 10 }}>
-                      Exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above,
-                      not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals,
-                      and that campaign&apos;s numbers come out of the total, not just off the screen. Add as many as you
-                      like; takes effect next time you run the query.
-                    </p>
+                    <SectionHeading hint="Exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above, not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals, and that campaign's numbers come out of the total, not just off the screen. Add as many as you like; takes effect next time you run the query.">
+                      Exclude rows by name
+                    </SectionHeading>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <select className={styles.select} value={newFilterField} onChange={(e) => setNewFilterField(e.target.value)}>
                         {NAME_FILTER_FIELDS.map((f) => (
@@ -1401,14 +1454,9 @@ export default function Explore() {
                   </div>
 
                   <div>
-                    <h2 className={styles.h2}>Only show these IDs</h2>
-                    <p className={styles.sub} style={{ marginBottom: 10 }}>
-                      Paste one or more Campaign/Ad Set/Ad IDs (comma, space, or newline separated) to scope this
-                      view to exactly those entities — works at any Level above, not just the matching one, same as
-                      &quot;Exclude rows by name&quot;. Handy for jumping straight to specific campaigns or ads you
-                      spotted elsewhere (e.g. in a different date range) — see the copy icon next to each row&apos;s
-                      name in the results table below once you have one.
-                    </p>
+                    <SectionHeading hint={'Paste one or more Campaign/Ad Set/Ad IDs (comma, space, or newline separated) to scope this view to exactly those entities — works at any Level above, not just the matching one, same as "Exclude rows by name". Handy for jumping straight to specific campaigns or ads you spotted elsewhere (e.g. in a different date range) — see the copy icon next to each row\'s name in the results table once you have one.'}>
+                      Only show these IDs
+                    </SectionHeading>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <select
                         className={styles.select}
@@ -1514,9 +1562,9 @@ export default function Explore() {
                       ))}
                     </div>
                     <div style={{ marginTop: 14 }}>
-                      <p className={styles.sub} style={{ marginBottom: 6 }}>
-                        Not finding a field above? Add any raw Facebook Insights field name (comma-separated) — anything
-                        Meta exposes, passed straight through.
+                      <p className={styles.muted} style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        Custom raw fields
+                        <HelpHint text="Not finding a field above? Add any raw Facebook Insights field name (comma-separated) — anything Meta exposes, passed straight through." />
                       </p>
                       <input
                         type="text"
@@ -1529,9 +1577,9 @@ export default function Explore() {
                     </div>
 
                     <div style={{ marginTop: 14 }}>
-                      <p className={styles.sub} style={{ marginBottom: 6 }}>
-                        Define your own ratio metric (e.g. Revenue ÷ Purchases) from any two metrics above — it&apos;s saved
-                        on this device and shows up as a pill in every view, under &quot;Custom&quot;.
+                      <p className={styles.muted} style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        Custom ratio metric
+                        <HelpHint text={'Define your own ratio metric (e.g. Revenue ÷ Purchases) from any two metrics above — it\'s saved on this device and shows up as a pill in every view, under "Custom".'} />
                       </p>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         <select
@@ -1597,13 +1645,14 @@ export default function Explore() {
                   </div>
 
                   <div>
-                    <h2 className={styles.h2}>Compare to previous period</h2>
-                    <p className={styles.sub} style={{ marginBottom: 10 }}>
-                      By default, shows each row&apos;s change against the immediately preceding period of equal length —
-                      a 7-day range compares week-over-week. Pick any other starting date below instead; the comparison
-                      period is always the same length as the one you selected above, only its start date is your choice.
-                      {compareDisabled && " Not available together with daily/weekly grouping."}
-                    </p>
+                    <SectionHeading hint="By default, shows each row's change against the immediately preceding period of equal length — a 7-day range compares week-over-week. Pick any other starting date below instead; the comparison period is always the same length as the one you selected above, only its start date is your choice.">
+                      Compare to previous period
+                    </SectionHeading>
+                    {compareDisabled && (
+                      <p className={styles.sub} style={{ marginBottom: 10 }}>
+                        Not available together with daily/weekly grouping.
+                      </p>
+                    )}
                     <div className={styles.tabGroup}>
                       <button
                         className={!activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
