@@ -172,7 +172,7 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, interest
       <div
         onClick={(e) => e.stopPropagation()}
         className={styles.card}
-        style={{ background: "#0f0e1e", width: "min(560px, 100%)", maxHeight: "85vh", overflow: "auto" }}
+        style={{ background: "var(--bg)", width: "min(560px, 100%)", maxHeight: "85vh", overflow: "auto" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
@@ -226,7 +226,7 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, interest
                 ))}
               </select>
               {pages.length === 0 && (
-                <p className={styles.sub} style={{ color: "#ff7070" }}>
+                <p className={styles.sub} style={{ color: "var(--red)" }}>
                   No Pages found — a Page is required to launch.
                 </p>
               )}
@@ -248,7 +248,7 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, interest
                 ))}
               </select>
               {pixels.length === 0 && (
-                <p className={styles.sub} style={{ color: "#ff7070" }}>
+                <p className={styles.sub} style={{ color: "var(--red)" }}>
                   No pixel found on this account — required for Add to Cart/Purchase optimization.
                 </p>
               )}
@@ -317,7 +317,7 @@ function LaunchResult({ result, onClose, adsManagerUrl }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
       <p className={styles.sub}>
-        <strong style={{ color: result.success ? "#4ade80" : "#fbbf24" }}>
+        <strong style={{ color: result.success ? "var(--green)" : "var(--amber)" }}>
           {result.success ? "Launched successfully." : "Launched with some errors — see below."}
         </strong>
       </p>
@@ -347,7 +347,7 @@ function LaunchResult({ result, onClose, adsManagerUrl }) {
               )}
             </div>
             {!c.success && (
-              <p className={styles.sub} style={{ color: "#ff7070", marginTop: 6 }}>
+              <p className={styles.sub} style={{ color: "var(--red)", marginTop: 6 }}>
                 {c.error}
               </p>
             )}

@@ -971,7 +971,7 @@ export default function Explore() {
                 </div>
               )}
               {range && !rangeValid && (
-                <p className={styles.sub} style={{ color: "#ff7070", marginTop: 8 }}>
+                <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
                   Date range cannot exceed {MAX_RANGE_DAYS} days (currently {rangeDays}).
                 </p>
               )}
@@ -1274,7 +1274,7 @@ export default function Explore() {
                     </div>
                   )}
                   {customPrevious && !customPreviousValid && (
-                    <p className={styles.sub} style={{ color: "#ff7070", marginTop: 8 }}>
+                    <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
                       Comparison period can&apos;t extend into the future.
                     </p>
                   )}
@@ -1515,7 +1515,7 @@ export default function Explore() {
 // behind a horizontal scroll, making the two hard to read together.
 function DeltaBadge({ value }) {
   if (typeof value !== "number") return null;
-  const color = value > 0 ? "#4ade80" : value < 0 ? "#ff7070" : "var(--t2)";
+  const color = value > 0 ? "var(--green)" : value < 0 ? "var(--red)" : "var(--t2)";
   const arrow = value > 0 ? "▲" : value < 0 ? "▼" : "";
   return (
     <div style={{ fontSize: 11, color, marginTop: 2 }}>

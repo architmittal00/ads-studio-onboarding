@@ -166,7 +166,7 @@ export default function InterestTargetingSection({
         )}
 
         {recommendError && (
-          <p className={styles.sub} style={{ color: "#ff7070" }}>
+          <p className={styles.sub} style={{ color: "var(--red)" }}>
             Couldn&apos;t get AI suggestions ({recommendError}) — you can still search for interests directly below.
           </p>
         )}
@@ -186,7 +186,7 @@ export default function InterestTargetingSection({
       </div>
 
       {duplicateInterestIds.length > 0 && (
-        <p className={styles.sub} style={{ color: "#fbbf24" }}>
+        <p className={styles.sub} style={{ color: "var(--amber)" }}>
           The same interest is targeted by more than one ad set — Meta works best with distinct targeting here, but
           you can launch anyway.
         </p>

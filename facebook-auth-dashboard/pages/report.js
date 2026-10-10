@@ -230,7 +230,7 @@ function SectionGate({ group, loadingLabel, children }) {
   if (group.data) return children(group.data);
   if (group.error) {
     return (
-      <div className={styles.card} style={{ borderColor: "rgba(239,68,68,.3)" }}>
+      <div className={styles.card} style={{ borderColor: "rgba(var(--red-rgb),.3)" }}>
         <div className={styles.error}>Error: {group.error}</div>
       </div>
     );
@@ -753,7 +753,7 @@ export default function Report() {
 
                 <div className={styles.reportContent} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {allWarnings.length > 0 && (
-                  <div className={styles.card} style={{ borderColor: "rgba(245,158,11,.25)" }}>
+                  <div className={styles.card} style={{ borderColor: "rgba(var(--amber-rgb),.25)" }}>
                     <h2 className={styles.h2}>Some data could not be loaded</h2>
                     <ul className={styles.list}>
                       {allWarnings.map((w, i) => (

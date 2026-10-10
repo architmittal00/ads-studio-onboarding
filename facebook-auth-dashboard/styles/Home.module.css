@@ -56,7 +56,7 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 24px rgba(175, 70, 253, 0.3);
+  box-shadow: 0 4px 24px rgba(var(--purple-rgb), 0.3);
   transition: opacity 0.15s;
 }
 .btnPrimary:hover {
@@ -69,8 +69,8 @@
 }
 
 .btnSecondary {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--surface-tint-rgb), 0.06);
+  border: 1px solid rgba(var(--surface-tint-rgb), 0.1);
   color: var(--t2);
   padding: 8px 14px;
   border-radius: 9px;
@@ -80,7 +80,7 @@
   transition: background 0.15s, color 0.15s;
 }
 .btnSecondary:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--surface-tint-rgb), 0.1);
   color: var(--t1);
 }
 
@@ -88,15 +88,15 @@
 .select {
   padding: 9px 13px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--surface-tint-rgb), 0.04);
+  border: 1px solid rgba(var(--surface-tint-rgb), 0.1);
   color: var(--t1);
   font-size: 13px;
   outline: none;
 }
 .select:focus {
-  border-color: rgba(175, 70, 253, 0.4);
-  background: rgba(175, 70, 253, 0.05);
+  border-color: rgba(var(--purple-rgb), 0.4);
+  background: rgba(var(--purple-rgb), 0.05);
 }
 /* The closed <select> box sits over this app's dark page background, so its
    own near-transparent `background` above looks fine — but the native
@@ -122,10 +122,10 @@
   z-index: 50;
   max-height: 260px;
   overflow-y: auto;
-  background: #15132a;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
 }
 .comboOption {
   padding: 9px 13px;
@@ -138,7 +138,7 @@
   border-bottom: none;
 }
 .comboOption:hover {
-  background: rgba(175, 70, 253, 0.08);
+  background: rgba(var(--purple-rgb), 0.08);
 }
 
 /* ── Badges / pills ── */
@@ -149,8 +149,8 @@
   border-radius: 20px;
   font-size: 10px;
   font-weight: 700;
-  background: rgba(175, 70, 253, 0.12);
-  border: 1px solid rgba(175, 70, 253, 0.2);
+  background: rgba(var(--purple-rgb), 0.12);
+  border: 1px solid rgba(var(--purple-rgb), 0.2);
   color: var(--purple);
 }
 
@@ -166,7 +166,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--surface-tint-rgb), 0.02);
   border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 13px;
@@ -231,9 +231,9 @@ button.stat:hover {
 }
 
 .error {
-  color: #ff7070;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: var(--red);
+  background: rgba(var(--red-rgb), 0.08);
+  border: 1px solid rgba(var(--red-rgb), 0.15);
   border-radius: 9px;
   padding: 10px 14px;
   font-size: 12px;
@@ -242,7 +242,7 @@ button.stat:hover {
 
 .avatar {
   border-radius: 50%;
-  border: 2px solid rgba(175, 70, 253, 0.4);
+  border: 2px solid rgba(var(--purple-rgb), 0.4);
 }
 
 .logoMark {
@@ -255,6 +255,10 @@ button.stat:hover {
   justify-content: center;
   font-size: 15px;
   font-weight: 800;
+  /* Always white, regardless of theme — same reasoning as .btnPrimary/
+     .appAvatar below: this sits directly on the brand gradient, not a
+     themed surface, so it doesn't follow --t1. */
+  color: #fff;
   flex-shrink: 0;
 }
 
@@ -266,9 +270,9 @@ button.stat:hover {
   border-radius: 20px;
   font-size: 10px;
   font-weight: 700;
-  background: rgba(34, 197, 94, 0.07);
-  border: 1px solid rgba(34, 197, 94, 0.15);
-  color: #4ade80;
+  background: rgba(var(--green-rgb), 0.07);
+  border: 1px solid rgba(var(--green-rgb), 0.15);
+  color: var(--green);
 }
 
 .badgeWarn {
@@ -278,14 +282,14 @@ button.stat:hover {
   border-radius: 20px;
   font-size: 10px;
   font-weight: 700;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  color: #fbbf24;
+  background: rgba(var(--amber-rgb), 0.1);
+  border: 1px solid rgba(var(--amber-rgb), 0.25);
+  color: var(--amber);
 }
 
 .rowUnderutilized {
-  background: rgba(245, 158, 11, 0.06);
-  box-shadow: inset 2px 0 0 rgba(245, 158, 11, 0.5);
+  background: rgba(var(--amber-rgb), 0.06);
+  box-shadow: inset 2px 0 0 rgba(var(--amber-rgb), 0.5);
 }
 
 .badgeDanger {
@@ -295,9 +299,9 @@ button.stat:hover {
   border-radius: 20px;
   font-size: 10px;
   font-weight: 700;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.15);
-  color: #ff7070;
+  background: rgba(var(--red-rgb), 0.08);
+  border: 1px solid rgba(var(--red-rgb), 0.15);
+  color: var(--red);
 }
 
 /* ── Tables ── */
@@ -349,7 +353,7 @@ button.stat:hover {
 
 /* ── Tree table rows (account structure) hover like Ads Manager's table ── */
 .table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--surface-tint-rgb), 0.02);
 }
 
 /* ── Badge variant: ABO (blue, vs. CBO's default purple pill) ── */
@@ -360,9 +364,9 @@ button.stat:hover {
   border-radius: 20px;
   font-size: 10px;
   font-weight: 700;
-  background: rgba(96, 165, 250, 0.07);
-  border: 1px solid rgba(96, 165, 250, 0.15);
-  color: #93c5fd;
+  background: rgba(var(--blue-rgb), 0.07);
+  border: 1px solid rgba(var(--blue-rgb), 0.15);
+  color: var(--blue);
 }
 
 /* ── Scrollable table container: caps long tables with a sticky header ── */
@@ -372,7 +376,7 @@ button.stat:hover {
 .tableScroll .table thead th {
   position: sticky;
   top: 0;
-  background: rgba(11, 11, 20, 0.95);
+  background: rgba(var(--bg-rgb), 0.95);
   z-index: 1;
 }
 
@@ -417,7 +421,7 @@ button.stat:hover {
   color: var(--t1);
 }
 .sideNavLinkActive {
-  background: rgba(175, 70, 253, 0.12);
+  background: rgba(var(--purple-rgb), 0.12);
   color: var(--purple);
 }
 
@@ -448,7 +452,7 @@ button.stat:hover {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.12);
+  border: 3px solid rgba(var(--surface-tint-rgb), 0.12);
   border-top-color: var(--purple);
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -554,8 +558,8 @@ button.stat:hover {
   color: var(--t1);
 }
 .appNavLinkActive {
-  background: rgba(175, 70, 253, 0.15);
-  border: 1px solid rgba(175, 70, 253, 0.3);
+  background: rgba(var(--purple-rgb), 0.15);
+  border: 1px solid rgba(var(--purple-rgb), 0.3);
   color: var(--purple);
 }
 .appSidebarCollapsed .appNavLink {
@@ -640,7 +644,7 @@ button.stat:hover {
 /* ── Tabs (e.g. CBO / ABO switch) ── */
 .tabGroup {
   display: inline-flex;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--surface-tint-rgb), 0.03);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 3px;
@@ -657,7 +661,7 @@ button.stat:hover {
   cursor: pointer;
 }
 .tabActive {
-  background: rgba(175, 70, 253, 0.15);
-  border: 1px solid rgba(175, 70, 253, 0.3);
+  background: rgba(var(--purple-rgb), 0.15);
+  border: 1px solid rgba(var(--purple-rgb), 0.3);
   color: var(--purple);
 }
