@@ -160,10 +160,16 @@
   background: rgba(var(--purple-rgb), 0.1);
   border-color: rgba(var(--purple-rgb), 0.3);
 }
+/* `position` and its `top`/`left` are set inline (components/RowActions.js),
+   not here — the menu needs to escape Explore's results table, which caps
+   its height with `.tableScroll`'s `overflow: auto` (see that class below).
+   A row near the bottom of that scrollable area would otherwise have this
+   menu clipped to nothing visible the instant it opens below the button
+   (`position: absolute` is clipped by any scrolling ancestor regardless of
+   z-index) — `position: fixed`, positioned from the trigger button's own
+   getBoundingClientRect(), paints relative to the viewport instead and is
+   never clipped by it. */
 .rowActionMenu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
   z-index: 50;
   min-width: 140px;
   background: var(--bg);
