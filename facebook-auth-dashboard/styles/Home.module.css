@@ -361,9 +361,24 @@ button.stat:hover {
 
 /* ── Tables ── */
 .table {
-  width: 100%;
+  /* min-width, not width: a plain `width: 100%` forces the table into
+     exactly the scroll container's width no matter what — with
+     table-layout: auto, every column that CAN'T shrink (numbers, the
+     Actions button, anything with white-space: nowrap) claims its full
+     content width first, and whatever's left — sometimes less than one
+     character — gets forced onto the one column that CAN wrap (.clamp3's
+     text columns), which is what produced the "Ad" column rendering one
+     letter per line. min-width: 100% instead lets the table grow past the
+     container's width when its natural content needs more room, so
+     .tableScroll's own overflow: auto scrolls horizontally the way it was
+     clearly meant to, rather than the table quietly destroying one column
+     to avoid ever doing that. */
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
+}
+.tableResizable {
+  table-layout: fixed;
 }
 .table th {
   text-align: left;
@@ -375,6 +390,38 @@ button.stat:hover {
   letter-spacing: 0.4px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Drag-to-resize handle on a resizable table's column borders (see
+   SortableTable's `resizableColumns` prop). A slim hit target right on the
+   column's trailing edge; widened via a transparent halo rather than making
+   the visible bar itself fat, so it's easy to grab without looking chunky
+   at rest. */
+.colResizeHandle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 9px;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+.colResizeHandle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: var(--border2);
+}
+.colResizeHandle:hover::after,
+.colResizeHandle.resizing::after {
+  background: var(--purple);
+  width: 2px;
+  left: 3.5px;
 }
 .table td {
   padding: 8px 10px;

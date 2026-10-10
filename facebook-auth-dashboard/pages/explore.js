@@ -1981,6 +1981,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
           searchable={rows.length > 6}
           searchKeys={leadingColumns.map((c) => c.key)}
           searchPlaceholder="Search rows…"
+          resizableColumns
         />
       </div>
     </div>
