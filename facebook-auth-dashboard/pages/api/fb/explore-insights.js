@@ -133,10 +133,7 @@ function applyIdFilter(rows, idFilter) {
 // main insights data is in hand, purely so the client can offer a "Status"
 // filter alongside the metric-threshold ones. Only ever called when there's
 // one real entity id per row to look up (see canHaveStatus below) — never at
-// the account level, and never when a name filter forced a rollup, since a
-// rolled-up row represents several entities that can't share one status
-// (same reasoning campaignName/adsetName/adName are nulled out in that
-// case).
+// the account level, where there's no single entity a row could point at.
 async function fetchEntityStatuses(ids, token) {
   const statusById = {};
   if (ids.length === 0) return statusById;
@@ -545,13 +542,18 @@ export default async function handler(req, res) {
   const allKeys = [...effectiveMetricKeys, ...outputCustomFields];
   let excludedByNameCount = 0;
 
-  // Whether a row can meaningfully have its own status at all: not at the
-  // account level (no single entity to check), and not when a name filter
-  // forced fetching at a finer level than requested (see needsRollup above)
-  // — a rolled-up row is several entities merged into one, so there's no one
-  // status to attach (same reasoning entity names are nulled out below).
+  // Whether a row can meaningfully have its own status/id at all: only false
+  // at the account level, which has no single entity to point at (every row
+  // shares the literal rowIdentityKey() id-part "account", so a rollup there
+  // really does merge several distinct entities into one total). At every
+  // other level, a rollup still lands each output row on exactly one entity
+  // — rowIdentityKey()/rollupRows() group finer-grained rows by `level`'s own
+  // id field precisely so mergeRawRows() always starts from (and keeps) one
+  // consistent id for the group, e.g. "every ad set under campaign X" still
+  // rolls up to a single row whose campaign_id is X. So this does NOT also
+  // require `!needsRollup`.
   const statusIdField = LEVEL_ID_FIELD[level];
-  const canHaveStatus = !needsRollup && !!statusIdField;
+  const canHaveStatus = !!statusIdField;
 
   const rows = [];
   for (const accountId of accountIds) {
@@ -623,9 +625,8 @@ export default async function handler(req, res) {
       // also sent to the client as-is so the results table can offer a
       // "copy ID" action (for jumping straight to this exact entity in
       // another view/date range via the "only show these IDs" filter).
-      // Same gating as status: absent whenever there's no single entity to
-      // point at (account level, or a rolled-up row representing several
-      // entities merged together).
+      // Same gating as status: absent only at the account level, where
+      // there's no single entity to point at.
       if (canHaveStatus) out.entityId = row[statusIdField] || null;
 
       if (compareToPrevious) {
@@ -692,10 +693,8 @@ export default async function handler(req, res) {
       excludedMetrics,
       excludedByNameCount,
       // Tells the client whether rows carry a real `status` and the Status
-      // filter is worth showing at all — false at the account level (no
-      // single entity to check) or whenever a name filter forced a rollup
-      // (a rolled-up row represents several entities, which can't share one
-      // status).
+      // filter is worth showing at all — false only at the account level,
+      // which has no single entity to check.
       statusAvailable: canHaveStatus,
     },
   });

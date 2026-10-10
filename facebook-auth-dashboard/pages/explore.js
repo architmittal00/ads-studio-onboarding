@@ -1804,6 +1804,13 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
   // search state; there's no reason a selection should survive a new result.
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const selectableRows = rows.filter((r) => r.entityId);
+  // Deduplicated — a breakdown (e.g. Age & Gender) can repeat the same
+  // entity across several rows, and selection is keyed by entity id, not
+  // row, so "select all"/its checked state needs the unique id count, not
+  // the row count.
+  const selectableIds = [...new Set(selectableRows.map((r) => r.entityId))];
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && selectableIds.some((id) => selectedIds.has(id));
 
   function toggleSelected(id) {
     setSelectedIds((prev) => {
@@ -1812,6 +1819,10 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
       else next.add(id);
       return next;
     });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
   }
 
   function copyText(text) {
@@ -1847,7 +1858,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
       ? [
           {
             key: "__select",
-            label: "",
+            label: <SelectAllCheckbox checked={allSelected} indeterminate={someSelected} onChange={toggleSelectAll} />,
             maxWidth: 28,
             render: (row) =>
               row.entityId ? (
@@ -1924,6 +1935,24 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
 // Small inline "copy this one ID" control used in the results table's
 // leading name column — flashes a checkmark for a moment so clicking it
 // gives some feedback beyond the silent clipboard write.
+// Lives in the "__select" column's own header (a <th> that otherwise toggles
+// sort on click, see SortableTable) — stopPropagation keeps a click on the
+// checkbox from also re-sorting the table underneath it.
+function SelectAllCheckbox({ checked, indeterminate, onChange }) {
+  return (
+    <input
+      type="checkbox"
+      ref={(el) => {
+        if (el) el.indeterminate = indeterminate;
+      }}
+      checked={checked}
+      onChange={onChange}
+      onClick={(e) => e.stopPropagation()}
+      aria-label="Select all rows"
+    />
+  );
+}
+
 function CopyIdButton({ id, onCopy }) {
   const [copied, setCopied] = useState(false);
   return (

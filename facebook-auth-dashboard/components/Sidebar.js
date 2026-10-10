@@ -3,8 +3,8 @@ import { useRouter } from "next/router";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import styles from "@/styles/Home.module.css";
-import { getSidebarCollapsed, setSidebarCollapsed } from "@/lib/clientStorage";
-import { FileTextIcon, TargetIcon, DatabaseIcon, ListIcon, ChartIcon, PanelIcon, LogoutIcon } from "./icons";
+import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/lib/clientStorage";
+import { FileTextIcon, TargetIcon, DatabaseIcon, ListIcon, ChartIcon, PanelIcon, LogoutIcon, SunIcon, MoonIcon } from "./icons";
 
 const LINKS = [
   { href: "/report", label: "Handover Report", icon: FileTextIcon },
@@ -24,17 +24,36 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(true);
   const [hovering, setHovering] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     const saved = getSidebarCollapsed();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a per-device localStorage preference on mount, not derivable from props/state
     if (saved != null) setCollapsed(saved);
+    // Reflects whichever theme pages/_document.js's bootstrap script (or, with
+    // no stored preference, the OS) already applied to <html> before this
+    // mounted — not derived from props/state, so this can't just be computed
+    // inline during render.
+    setIsDark(document.documentElement.getAttribute("data-theme") === "dark");
   }, []);
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
       const next = !prev;
       setSidebarCollapsed(next);
+      return next;
+    });
+  }
+
+  function toggleTheme() {
+    setIsDark((prev) => {
+      const next = !prev;
+      setThemePreference(next ? "dark" : "light");
+      if (next) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
       return next;
     });
   }
@@ -102,6 +121,14 @@ export default function Sidebar() {
           )}
         </div>
         {expanded && <span className={styles.appSidebarUserName}>{name || "Account"}</span>}
+        <button
+          type="button"
+          className={styles.appSidebarIconBtn}
+          onClick={toggleTheme}
+          title={isDark ? "Switch to light theme" : "Switch to dark theme"}
+        >
+          {isDark ? <SunIcon size={16} /> : <MoonIcon size={16} />}
+        </button>
         <button
           type="button"
           className={styles.appSidebarIconBtn}

@@ -1,6 +1,11 @@
 const LAST_ACCOUNT_KEY = "fb-dashboard:last-account-id";
 const DEFAULT_RANGE_KEY = "fb-dashboard:default-range-preset";
 const VALID_DEFAULT_RANGES = ["today", "last_7d", "last_30d"];
+// Same literal key string is duplicated in pages/_document.js's inline
+// bootstrap script (which runs before any module, including this one, can
+// load) — keep the two in sync if this ever changes.
+const THEME_KEY = "fb-dashboard:theme";
+const VALID_THEMES = ["light", "dark"];
 
 export function getLastAccountId() {
   try {
@@ -158,5 +163,27 @@ export function setCustomMetrics(metrics) {
     localStorage.setItem(CUSTOM_METRICS_KEY, JSON.stringify(metrics));
   } catch {
     // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}
+
+// Explicit light/dark override, set via the Sidebar's theme toggle. `null`
+// means "no override" — the app follows the device's OS-level preference
+// instead (pages/_document.js's bootstrap script and pages/_app.js's
+// useSyncThemeWithOs both fall back to that exact same rule).
+export function getThemePreference() {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return VALID_THEMES.includes(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setThemePreference(theme) {
+  try {
+    if (theme === null) localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
   }
 }
