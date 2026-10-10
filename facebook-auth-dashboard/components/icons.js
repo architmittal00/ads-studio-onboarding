@@ -179,3 +179,20 @@ export function MoonIcon(props) {
     </Svg>
   );
 }
+
+export function PauseIcon(props) {
+  return (
+    <Svg {...props}>
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </Svg>
+  );
+}
+
+export function PlayIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M6 3v18l15-9z" />
+    </Svg>
+  );
+}

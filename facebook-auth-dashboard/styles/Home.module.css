@@ -141,6 +141,53 @@
   background: rgba(var(--purple-rgb), 0.08);
 }
 
+/* ── Explore: row-level actions (pause/activate, change budget) ── */
+.rowActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--t1);
+  background: rgba(var(--surface-tint-rgb), 0.05);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rowActionBtn:hover {
+  background: rgba(var(--purple-rgb), 0.1);
+  border-color: rgba(var(--purple-rgb), 0.3);
+}
+.rowActionMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 140px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.rowActionMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.rowActionMenuItem:hover {
+  background: rgba(var(--purple-rgb), 0.08);
+}
+
 /* ── Badges / pills ── */
 .pill {
   display: inline-flex;
