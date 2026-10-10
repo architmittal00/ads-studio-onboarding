@@ -644,11 +644,14 @@ button.stat:hover {
 /* ── Tabs (e.g. CBO / ABO switch) ── */
 .tabGroup {
   display: inline-flex;
+  flex-wrap: wrap;
+  row-gap: 4px;
   background: rgba(var(--surface-tint-rgb), 0.03);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 3px;
   width: fit-content;
+  max-width: 100%;
 }
 .tab {
   padding: 7px 16px;
@@ -659,6 +662,7 @@ button.stat:hover {
   background: none;
   border: 1px solid transparent;
   cursor: pointer;
+  white-space: nowrap;
 }
 .tabActive {
   background: rgba(var(--purple-rgb), 0.15);
@@ -693,4 +697,77 @@ button.stat:hover {
     position: static;
     max-height: none;
   }
+}
+
+/* ── Explore: "?" hover hint, replacing an always-visible explanatory
+   paragraph under a section heading (saves vertical space in the narrow
+   query panel while keeping the full explanation one hover away) ── */
+.helpHint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  color: var(--t3);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+  flex-shrink: 0;
+  user-select: none;
+}
+.helpHint:hover,
+.helpHint:focus-visible {
+  border-color: var(--purple);
+  color: var(--purple);
+  outline: none;
+}
+
+/* ── Explore: empty-state shown before a view has ever been run ── */
+.exploreEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+  padding: 48px 28px;
+}
+.exploreEmptyIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--purple-rgb), 0.12);
+  color: var(--purple);
+}
+.exploreEmptySteps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  max-width: 340px;
+  width: 100%;
+}
+.exploreEmptyStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--t2);
+}
+.exploreEmptyStepNum {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(var(--surface-tint-rgb), 0.08);
+  color: var(--t2);
 }
