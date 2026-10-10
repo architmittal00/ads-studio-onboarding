@@ -485,8 +485,13 @@ function HelpHint({ text }) {
 }
 
 function SectionHeading({ children, hint }) {
+  // position: relative here (not on .helpHint itself) is what the tooltip
+  // positions against — see .helpHintTooltip's comment for why: anchoring to
+  // this full-width row instead of the small "?" icon keeps the tooltip's
+  // left edge at a consistent, always-in-bounds spot regardless of how far
+  // right the icon ends up sitting after a long heading.
   return (
-    <h2 className={styles.h2} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <h2 className={styles.h2} style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
       {children}
       {hint && <HelpHint text={hint} />}
     </h2>
@@ -1584,13 +1589,17 @@ export default function Explore() {
                       ))}
                     </div>
                     <div style={{ marginTop: 14 }}>
-                      <p className={styles.muted} style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                      <p
+                        className={styles.muted}
+                        style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6, position: "relative" }}
+                      >
                         Custom ratio metric
                         <HelpHint text={'Define your own ratio metric (e.g. Revenue ÷ Purchases) from any two metrics above — it\'s saved on this device and shows up as a pill in every view, under "Custom".'} />
                       </p>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         <select
                           className={styles.select}
+                          style={{ maxWidth: "100%" }}
                           value={customMetricNumerator}
                           onChange={(e) => setCustomMetricNumerator(e.target.value)}
                         >
@@ -1604,6 +1613,7 @@ export default function Explore() {
                         <span className={styles.muted}>÷</span>
                         <select
                           className={styles.select}
+                          style={{ maxWidth: "100%" }}
                           value={customMetricDenominator}
                           onChange={(e) => setCustomMetricDenominator(e.target.value)}
                         >
