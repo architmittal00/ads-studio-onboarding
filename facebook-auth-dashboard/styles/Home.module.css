@@ -773,6 +773,15 @@ button.stat:hover {
   border: 1px solid rgba(var(--purple-rgb), 0.3);
   color: var(--purple);
 }
+/* Without this, a disabled .tab (e.g. Explore's "Compare to previous
+   period" On button when daily/weekly grouping is selected) looks and
+   behaves identically to an enabled one — same opacity, same pointer
+   cursor — so clicking it appears to silently do nothing instead of
+   visibly being unavailable. Matches .btnPrimary:disabled's treatment. */
+.tab:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 /* ── Explore: result content + collapsible query/filters panel ──
    Only rendered as a grid when the panel is expanded (pages/explore.js
