@@ -8,10 +8,17 @@ import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
-import { CloseIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { getExploreViews, setExploreViews, getCustomMetrics, setCustomMetrics } from "@/lib/clientStorage";
+import {
+  getExploreViews,
+  setExploreViews,
+  getCustomMetrics,
+  setCustomMetrics,
+  getExploreQueryPanelCollapsed,
+  setExploreQueryPanelCollapsed,
+} from "@/lib/clientStorage";
 import {
   LEVEL_OPTIONS,
   BREAKDOWN_GROUPS,
@@ -419,6 +426,23 @@ function describeQuery(view) {
   return `Updating — ${parts.join(" · ")}…`;
 }
 
+// One-line recap shown in place of the query form while the panel is
+// collapsed — just enough to tell which query produced what's on screen
+// without having to expand the panel to check.
+function summarizeQuery(view, adAccounts) {
+  const accountNames = view.accountIds.map((id) => adAccounts.find((a) => a.id === id)?.name).filter(Boolean);
+  const accountLabel =
+    accountNames.length === 0
+      ? "No account selected"
+      : accountNames.length === 1
+      ? accountNames[0]
+      : `${accountNames.length} accounts`;
+  const rangeLabel = RANGE_PRESETS.find((p) => p.key === view.rangePreset)?.label || view.rangePreset;
+  const levelLabel = LEVEL_OPTIONS.find((l) => l.value === view.level)?.label;
+  const metricCount = view.metricKeys.length;
+  return `${accountLabel} · ${rangeLabel} · ${levelLabel} level · ${metricCount} metric${metricCount === 1 ? "" : "s"}`;
+}
+
 export default function Explore() {
   const { adAccounts, accountsError, selectedAccountId } = useAccounts();
 
@@ -430,6 +454,25 @@ export default function Explore() {
   // of its label — at most one at a time, cleared on commit/cancel/blur.
   const [renamingViewId, setRenamingViewId] = useState(null);
   const [renameDraft, setRenameDraft] = useState("");
+
+  // Collapsed by default (per-device, like the app sidebar) so the result
+  // table/chart — not the query form that produced it — is the first thing
+  // the user sees; expanding shows the form side-by-side with the result
+  // rather than covering it. See `queryPanelExpanded` below for the one
+  // exception (a view with nothing fetched yet forces this open).
+  const [queryPanelCollapsed, setQueryPanelCollapsedState] = useState(true);
+  useEffect(() => {
+    const saved = getExploreQueryPanelCollapsed();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a per-device localStorage preference on mount, not derivable from props/state
+    if (saved != null) setQueryPanelCollapsedState(saved);
+  }, []);
+  function toggleQueryPanel() {
+    setQueryPanelCollapsedState((prev) => {
+      const next = !prev;
+      setExploreQueryPanelCollapsed(next);
+      return next;
+    });
+  }
 
   function startRenaming(view, fallbackIndex) {
     setRenamingViewId(view.id);
@@ -708,6 +751,12 @@ export default function Explore() {
     : [];
   const isRerun = activeView.loading && !!result;
 
+  // The collapsed preference only ever applies once there's a result to show
+  // instead — a brand-new (or still-loading-for-the-first-time) view has
+  // nothing else on screen, so the form it needs to run a query stays open
+  // regardless of the stored preference.
+  const queryPanelExpanded = !result || !queryPanelCollapsed;
+
   // Post-query pivot filters applied instantly, client-side, to whatever's
   // already in `result` — never a re-fetch. Everything downstream (table,
   // chart, CSV export, the row-count line) reads this instead of
@@ -812,13 +861,227 @@ export default function Explore() {
     downloadCsv(`explore-${slug || "report"}-${result.meta.since}-to-${result.meta.until}.csv`, csv);
   }
 
+  // Shown in both layouts below (side-by-side with the query panel when
+  // expanded, full-width under the collapsed-panel toolbar otherwise) — kept
+  // as one value rather than duplicated JSX so there's exactly one copy of
+  // this fairly large block to keep in sync.
+  const resultArea = (
+    <>
+      {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
+      {activeView.loading && !result && <Loader label="Running your query…" />}
+
+      {result && (
+        <section className={styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 16 }}>
+          {isRerun && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 14,
+                background: "rgba(10,9,20,.72)",
+                backdropFilter: "blur(2px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 20,
+              }}
+            >
+              <Loader label={describeQuery(activeView)} />
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
+                Export CSV
+              </button>
+              <div className={styles.tabGroup}>
+                <button
+                  className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => updateActive({ viewMode: "table" })}
+                >
+                  Table
+                </button>
+                <button
+                  className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => updateActive({ viewMode: "chart" })}
+                >
+                  Chart
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {result.meta.accountErrors?.length > 0 && (
+            <div className={styles.error}>
+              {/* An account here may have zero rows (its only/every request failed) or still have partial
+                  data (one of several chunked date-range requests failed, the rest succeeded) — this note
+                  doesn't distinguish the two, just flags that something didn't come back clean. */}
+              Some data may be missing or incomplete —{" "}
+              {result.meta.accountErrors
+                .map((e) => `${adAccounts.find((a) => a.id === e.accountId)?.name || e.accountId} (${e.message})`)
+                .join(", ")}
+              .
+            </div>
+          )}
+
+          <p className={styles.sub}>
+            {result.meta.since} → {result.meta.until}
+            {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
+            {" · "}
+            {filteredRows.length === result.meta.rowCount
+              ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
+              : `${filteredRows.length} of ${result.meta.rowCount} rows (filtered)`}
+            {result.meta.excludedByNameCount > 0 &&
+              ` · ${result.meta.excludedByNameCount} excluded by name filter`}
+          </p>
+          {result.meta.excludedMetrics?.length > 0 && (
+            <p className={styles.sub}>
+              {result.meta.excludedMetrics.map((k) => effectiveCatalog.find((m) => m.key === k)?.label || k).join(", ")} not
+              shown — a name filter required combining finer-grained data, and those can&apos;t be correctly
+              combined across entities.
+            </p>
+          )}
+
+          {/* Post-query pivot filters — applied to `result` already sitting in state, no re-fetch.
+              Metric conditions are a local draft until "Apply Filters" is clicked, so typing a
+              value doesn't re-filter the table on every keystroke; Status checkboxes (below)
+              stay instant since a checkbox click has no typing-jank to smooth over. */}
+          <div className={styles.card} style={{ padding: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span className={styles.muted} style={{ fontWeight: 600 }}>
+                Filter results
+              </span>
+              <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
+                + Metric filter
+              </button>
+              {(draftConditions.length > 0 || hasPendingMetricChanges) && (
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  disabled={!hasPendingMetricChanges}
+                  onClick={applyMetricFilters}
+                >
+                  Apply Filters
+                </button>
+              )}
+            </div>
+
+            {draftConditions.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                {draftConditions.map((c) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <select
+                      className={styles.select}
+                      value={c.metricKey}
+                      onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}
+                    >
+                      {result.meta.metricKeys
+                        .filter((k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text")
+                        .map((k) => (
+                          <option key={k} value={k}>
+                            {effectiveCatalog.find((m) => m.key === k)?.label || k}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      className={styles.select}
+                      value={c.operator}
+                      onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}
+                    >
+                      {METRIC_FILTER_OPERATORS.map((op) => (
+                        <option key={op.value} value={op.value}>
+                          {op.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      className={styles.select}
+                      style={{ width: 110 }}
+                      value={c.value}
+                      onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                      onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
+                    />
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      onClick={() => removeDraftCondition(c.id)}
+                      aria-label="Remove filter"
+                    >
+                      <CloseIcon size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {result.meta.statusAvailable && availableStatuses.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
+                <span className={styles.muted}>Status</span>
+                {availableStatuses.map((s) => (
+                  <label key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+                    <input
+                      type="checkbox"
+                      checked={!activeView.resultFilters.statusValues || activeView.resultFilters.statusValues.includes(s)}
+                      onChange={() => toggleStatus(s)}
+                    />
+                    {humanizeStatus(s)}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span className={styles.muted}>Chart metric</span>
+              <select
+                className={styles.select}
+                value={activeView.chartMetricKey || ""}
+                onChange={(e) => updateActive({ chartMetricKey: e.target.value })}
+              >
+                {chartableMetricKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {effectiveCatalog.find((m) => m.key === key)?.label || key}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeView.viewMode === "table" ? (
+            <ExploreResultsTable
+              rows={filteredRows}
+              meta={result.meta}
+              adAccounts={adAccounts}
+              currencyByAccountId={currencyByAccountId}
+              effectiveCatalog={effectiveCatalog}
+            />
+          ) : activeView.chartMetricKey ? (
+            <ExploreChart
+              rows={chartRows}
+              meta={result.meta}
+              chartMetricKey={activeView.chartMetricKey}
+              currency={chartCurrency}
+              effectiveCatalog={effectiveCatalog}
+            />
+          ) : (
+            <p className={styles.sub}>No chartable metric selected — quality rankings are table-only.</p>
+          )}
+        </section>
+      )}
+    </>
+  );
+
   return (
     <Layout>
       <Head>
         <title>Explore · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
           <h1 className={styles.h1}>Explore</h1>
           <p className={styles.sub} style={{ marginTop: -8 }}>
             Build any view of Facebook Ads data — pick an account, a date range (up to 90 days), a level, a
@@ -928,591 +1191,431 @@ export default function Explore() {
             </button>
           </div>
 
-          <section className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 0, borderTopLeftRadius: 0 }}>
-            <div>
-              <h2 className={styles.h2}>Account</h2>
-              <p className={styles.sub} style={{ marginBottom: 10 }}>
-                Pick one or more accounts — results from all of them come back merged into this one view, tagged
-                with which account each row came from (up to {MAX_ACCOUNTS_PER_VIEW} at a time).
-              </p>
-              <AccountSelect
-                multiple
-                accounts={adAccounts}
-                values={activeView.accountIds}
-                onChange={(ids) => updateActive({ accountIds: ids })}
-                maxSelected={MAX_ACCOUNTS_PER_VIEW}
-                style={{ width: "100%", maxWidth: 420 }}
-              />
-            </div>
+          {queryPanelExpanded ? (
+            <div className={styles.exploreLayout}>
+              <div className={styles.exploreContent}>{resultArea}</div>
 
-            <div>
-              <h2 className={styles.h2}>Date range</h2>
-              <div className={styles.tabGroup} style={{ marginBottom: 10 }}>
-                {RANGE_PRESETS.map((p) => (
-                  <button
-                    key={p.key}
-                    className={activeView.rangePreset === p.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => updateActive({ rangePreset: p.key })}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              {activeView.rangePreset === "custom" && (
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <input
-                    type="date"
-                    className={styles.select}
-                    value={activeView.customSince}
-                    max={activeView.customUntil || isoDate(todayUTC())}
-                    onChange={(e) => updateActive({ customSince: e.target.value })}
-                  />
-                  <span className={styles.muted}>to</span>
-                  <input
-                    type="date"
-                    className={styles.select}
-                    value={activeView.customUntil}
-                    min={activeView.customSince || undefined}
-                    max={
-                      activeView.customSince
-                        ? [addDaysUTC(activeView.customSince, MAX_RANGE_DAYS - 1), isoDate(todayUTC())].sort()[0]
-                        : isoDate(todayUTC())
-                    }
-                    onChange={(e) => updateActive({ customUntil: e.target.value })}
-                  />
-                </div>
-              )}
-              {range && !rangeValid && (
-                <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
-                  Date range cannot exceed {MAX_RANGE_DAYS} days (currently {rangeDays}).
-                </p>
-              )}
-            </div>
-
-            <div>
-              <h2 className={styles.h2}>Level</h2>
-              <div className={styles.tabGroup}>
-                {LEVEL_OPTIONS.map((l) => (
-                  <button
-                    key={l.value}
-                    className={activeView.level === l.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => updateActive({ level: l.value })}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h2 className={styles.h2}>Breakdown</h2>
-              <p className={styles.sub} style={{ marginBottom: 10 }}>
-                One breakdown at a time — Meta restricts which dimensions can combine, so these are pre-combined,
-                known-good groups rather than a free pick-any-combination list.
-              </p>
-              <select
-                className={styles.select}
-                style={{ width: "100%", maxWidth: 420 }}
-                value={activeView.breakdownGroup}
-                onChange={(e) => updateActive({ breakdownGroup: e.target.value })}
-              >
-                {BREAKDOWN_GROUPS.map((g) => (
-                  <option key={g.value} value={g.value}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <h2 className={styles.h2}>Exclude rows by name</h2>
-              <p className={styles.sub} style={{ marginBottom: 10 }}>
-                Exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above,
-                not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals,
-                and that campaign&apos;s numbers come out of the total, not just off the screen. Add as many as you
-                like; takes effect next time you run the query.
-              </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <select className={styles.select} value={newFilterField} onChange={(e) => setNewFilterField(e.target.value)}>
-                  {NAME_FILTER_FIELDS.map((f) => (
-                    <option key={f.field} value={f.field}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-                <span className={styles.muted}>contains</span>
-                <input
-                  type="text"
-                  className={styles.select}
-                  placeholder="e.g. ABCD"
-                  value={newFilterValue}
-                  onChange={(e) => setNewFilterValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") addNameFilter();
-                  }}
-                  style={{ width: 200 }}
-                />
-                <button type="button" className={styles.btnSecondary} disabled={!newFilterValue.trim()} onClick={addNameFilter}>
-                  + Exclude
-                </button>
-              </div>
-              {(activeView.nameFilters || []).length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                  {activeView.nameFilters.map((f) => (
-                    <span key={f.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {NAME_FILTER_FIELDS.find((o) => o.field === f.field)?.label || f.field}: &quot;{f.value}&quot;
+              <aside className={styles.exploreQueryPanel}>
+                <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
+                      <SettingsIcon size={15} />
+                      Query &amp; Filters
+                    </span>
+                    {/* No collapse control until there's a result to fall back to showing instead —
+                        collapsing here would leave the page with nothing on it at all. */}
+                    {!!result && (
                       <button
                         type="button"
-                        onClick={() => removeNameFilter(f.id)}
-                        title="Remove filter"
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
+                        className={styles.appSidebarIconBtn}
+                        onClick={toggleQueryPanel}
+                        title="Collapse — focus on the result"
                       >
-                        <CloseIcon size={10} />
+                        <ChevronIcon direction="right" size={15} />
                       </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              {willRollup && (
-                <p className={styles.sub} style={{ marginTop: 8 }}>
-                  A filter above needs finer-grained data than {LEVEL_OPTIONS.find((l) => l.value === activeView.level)?.label}{" "}
-                  level shows — results will be fetched at the finer level and combined back up, excluding the
-                  matching entities entirely. Reach, Frequency, CPP, and Unique CTR won&apos;t be available in this
-                  result: Facebook&apos;s reach/unique-click counts can&apos;t be correctly combined across entities.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <h2 className={styles.h2}>Group by time</h2>
-              <div className={styles.tabGroup}>
-                {TIME_GROUPING_OPTIONS.map((o) => (
-                  <button
-                    key={o.value}
-                    className={activeView.timeIncrement === o.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => updateActive({ timeIncrement: o.value })}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h2 className={styles.h2}>Metrics</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {metricGroups.map((group) => (
-                  <div key={group}>
-                    <p className={styles.muted} style={{ marginBottom: 6 }}>
-                      {group}
-                    </p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {effectiveCatalog.filter((m) => m.group === group).map((m) => {
-                        const selected = activeView.metricKeys.includes(m.key);
-                        // Still toggleable (so an already-selected one can be
-                        // turned off), but visually flagged — it'll be
-                        // silently absent from the result anyway once a
-                        // filter forces a rollup, see the note below.
-                        const unavailable = willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key);
-                        return (
-                          <button
-                            key={m.key}
-                            type="button"
-                            onClick={() => toggleMetric(m.key)}
-                            title={unavailable ? "Not available while a name filter requires combining finer-grained data" : undefined}
-                            className={selected ? styles.badgeInfo : styles.pill}
-                            style={
-                              selected
-                                ? { cursor: "pointer", opacity: unavailable ? 0.5 : 1 }
-                                : {
-                                    cursor: "pointer",
-                                    background: "transparent",
-                                    border: "1px dashed var(--border)",
-                                    color: "var(--t2)",
-                                    opacity: unavailable ? 0.5 : 1,
-                                  }
-                            }
-                          >
-                            {selected ? "✓ " : "+ "}
-                            {m.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    )}
                   </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <p className={styles.sub} style={{ marginBottom: 6 }}>
-                  Not finding a field above? Add any raw Facebook Insights field name (comma-separated) — anything
-                  Meta exposes, passed straight through.
-                </p>
-                <input
-                  type="text"
-                  className={styles.select}
-                  style={{ width: "100%" }}
-                  placeholder="e.g. website_ctr, mobile_app_purchase_roas"
-                  value={activeView.customFieldsText}
-                  onChange={(e) => updateActive({ customFieldsText: e.target.value })}
-                />
-              </div>
 
-              <div style={{ marginTop: 14 }}>
-                <p className={styles.sub} style={{ marginBottom: 6 }}>
-                  Define your own ratio metric (e.g. Revenue ÷ Purchases) from any two metrics above — it&apos;s saved
-                  on this device and shows up as a pill in every view, under &quot;Custom&quot;.
-                </p>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <select
-                    className={styles.select}
-                    value={customMetricNumerator}
-                    onChange={(e) => setCustomMetricNumerator(e.target.value)}
-                  >
-                    <option value="">Numerator…</option>
-                    {METRIC_CATALOG.map((m) => (
-                      <option key={m.key} value={m.key}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className={styles.muted}>÷</span>
-                  <select
-                    className={styles.select}
-                    value={customMetricDenominator}
-                    onChange={(e) => setCustomMetricDenominator(e.target.value)}
-                  >
-                    <option value="">Denominator…</option>
-                    {METRIC_CATALOG.map((m) => (
-                      <option key={m.key} value={m.key}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    className={styles.select}
-                    placeholder="Label, e.g. AOV"
-                    value={customMetricLabel}
-                    onChange={(e) => setCustomMetricLabel(e.target.value)}
-                    style={{ width: 160 }}
-                  />
-                  <button
-                    type="button"
-                    className={styles.btnSecondary}
-                    disabled={!customMetricLabel.trim() || !customMetricNumerator || !customMetricDenominator}
-                    onClick={createCustomMetric}
-                  >
-                    Save Custom Metric
-                  </button>
-                </div>
-                {customMetrics.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                    {customMetrics.map((cm) => (
-                      <span key={cm.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {cm.label}
+                  <div>
+                    <h2 className={styles.h2}>Account</h2>
+                    <p className={styles.sub} style={{ marginBottom: 10 }}>
+                      Pick one or more accounts — results from all of them come back merged into this one view, tagged
+                      with which account each row came from (up to {MAX_ACCOUNTS_PER_VIEW} at a time).
+                    </p>
+                    <AccountSelect
+                      multiple
+                      accounts={adAccounts}
+                      values={activeView.accountIds}
+                      onChange={(ids) => updateActive({ accountIds: ids })}
+                      maxSelected={MAX_ACCOUNTS_PER_VIEW}
+                      style={{ width: "100%", maxWidth: 420 }}
+                    />
+                  </div>
+
+                  <div>
+                    <h2 className={styles.h2}>Date range</h2>
+                    <div className={styles.tabGroup} style={{ marginBottom: 10 }}>
+                      {RANGE_PRESETS.map((p) => (
                         <button
-                          type="button"
-                          onClick={() => deleteCustomMetric(cm.id)}
-                          title={`Delete ${cm.label}`}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
+                          key={p.key}
+                          className={activeView.rangePreset === p.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                          onClick={() => updateActive({ rangePreset: p.key })}
                         >
-                          <CloseIcon size={10} />
+                          {p.label}
                         </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <h2 className={styles.h2}>Compare to previous period</h2>
-              <p className={styles.sub} style={{ marginBottom: 10 }}>
-                By default, shows each row&apos;s change against the immediately preceding period of equal length —
-                a 7-day range compares week-over-week. Pick any other starting date below instead; the comparison
-                period is always the same length as the one you selected above, only its start date is your choice.
-                {compareDisabled && " Not available together with daily/weekly grouping."}
-              </p>
-              <div className={styles.tabGroup}>
-                <button
-                  className={!activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => updateActive({ compareToPrevious: false })}
-                >
-                  Off
-                </button>
-                <button
-                  className={activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => updateActive({ compareToPrevious: true })}
-                  disabled={compareDisabled}
-                >
-                  On
-                </button>
-              </div>
-              {activeView.compareToPrevious && !compareDisabled && (
-                <div style={{ marginTop: 10 }}>
-                  <div className={styles.tabGroup} style={{ marginBottom: 10 }}>
-                    <button
-                      className={!activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                      onClick={() => updateActive({ compareCustomSince: "" })}
-                    >
-                      Immediately preceding (default)
-                    </button>
-                    <button
-                      className={activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                      onClick={() =>
-                        updateActive((v) => ({
-                          compareCustomSince: v.compareCustomSince || (range && rangeDays ? addDaysUTC(range.since, -rangeDays) : ""),
-                        }))
-                      }
-                    >
-                      Custom start date
-                    </button>
-                  </div>
-                  {activeView.compareCustomSince && (
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                      <input
-                        type="date"
-                        className={styles.select}
-                        value={activeView.compareCustomSince}
-                        max={isoDate(todayUTC())}
-                        onChange={(e) => updateActive({ compareCustomSince: e.target.value })}
-                      />
-                      {rangeDays && (
-                        <span className={styles.muted}>
-                          → {addDaysUTC(activeView.compareCustomSince, rangeDays - 1)} ({rangeDays} day
-                          {rangeDays === 1 ? "" : "s"}, matching the selected period)
-                        </span>
-                      )}
+                      ))}
                     </div>
-                  )}
-                  {customPrevious && !customPreviousValid && (
-                    <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
-                      Comparison period can&apos;t extend into the future.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className={styles.btnPrimary}
-                disabled={!canRunQuery || activeView.loading}
-                onClick={() => runQueryForView(activeView, false)}
-              >
-                {activeView.loading ? "Updating…" : "Update This View"}
-              </button>
-              <button type="button" className={styles.btnSecondary} disabled={!canRunQuery} onClick={createNewViewFromActive}>
-                + Create New View
-              </button>
-            </div>
-          </section>
-
-          {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
-          {activeView.loading && !result && <Loader label="Running your query…" />}
-
-          {result && (
-            <section className={styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 16 }}>
-              {isRerun && (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: 14,
-                    background: "rgba(10,9,20,.72)",
-                    backdropFilter: "blur(2px)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 20,
-                  }}
-                >
-                  <Loader label={describeQuery(activeView)} />
-                </div>
-              )}
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-                <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
-                    Export CSV
-                  </button>
-                  <div className={styles.tabGroup}>
-                    <button
-                      className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                      onClick={() => updateActive({ viewMode: "table" })}
-                    >
-                      Table
-                    </button>
-                    <button
-                      className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                      onClick={() => updateActive({ viewMode: "chart" })}
-                    >
-                      Chart
-                    </button>
+                    {activeView.rangePreset === "custom" && (
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <input
+                          type="date"
+                          className={styles.select}
+                          value={activeView.customSince}
+                          max={activeView.customUntil || isoDate(todayUTC())}
+                          onChange={(e) => updateActive({ customSince: e.target.value })}
+                        />
+                        <span className={styles.muted}>to</span>
+                        <input
+                          type="date"
+                          className={styles.select}
+                          value={activeView.customUntil}
+                          min={activeView.customSince || undefined}
+                          max={
+                            activeView.customSince
+                              ? [addDaysUTC(activeView.customSince, MAX_RANGE_DAYS - 1), isoDate(todayUTC())].sort()[0]
+                              : isoDate(todayUTC())
+                          }
+                          onChange={(e) => updateActive({ customUntil: e.target.value })}
+                        />
+                      </div>
+                    )}
+                    {range && !rangeValid && (
+                      <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
+                        Date range cannot exceed {MAX_RANGE_DAYS} days (currently {rangeDays}).
+                      </p>
+                    )}
                   </div>
-                </div>
-              </div>
 
-              {result.meta.accountErrors?.length > 0 && (
-                <div className={styles.error}>
-                  {/* An account here may have zero rows (its only/every request failed) or still have partial
-                      data (one of several chunked date-range requests failed, the rest succeeded) — this note
-                      doesn't distinguish the two, just flags that something didn't come back clean. */}
-                  Some data may be missing or incomplete —{" "}
-                  {result.meta.accountErrors
-                    .map((e) => `${adAccounts.find((a) => a.id === e.accountId)?.name || e.accountId} (${e.message})`)
-                    .join(", ")}
-                  .
-                </div>
-              )}
+                  <div>
+                    <h2 className={styles.h2}>Level</h2>
+                    <div className={styles.tabGroup}>
+                      {LEVEL_OPTIONS.map((l) => (
+                        <button
+                          key={l.value}
+                          className={activeView.level === l.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                          onClick={() => updateActive({ level: l.value })}
+                        >
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <p className={styles.sub}>
-                {result.meta.since} → {result.meta.until}
-                {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
-                {" · "}
-                {filteredRows.length === result.meta.rowCount
-                  ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
-                  : `${filteredRows.length} of ${result.meta.rowCount} rows (filtered)`}
-                {result.meta.excludedByNameCount > 0 &&
-                  ` · ${result.meta.excludedByNameCount} excluded by name filter`}
-              </p>
-              {result.meta.excludedMetrics?.length > 0 && (
-                <p className={styles.sub}>
-                  {result.meta.excludedMetrics.map((k) => effectiveCatalog.find((m) => m.key === k)?.label || k).join(", ")} not
-                  shown — a name filter required combining finer-grained data, and those can&apos;t be correctly
-                  combined across entities.
-                </p>
-              )}
-
-              {/* Post-query pivot filters — applied to `result` already sitting in state, no re-fetch.
-                  Metric conditions are a local draft until "Apply Filters" is clicked, so typing a
-                  value doesn't re-filter the table on every keystroke; Status checkboxes (below)
-                  stay instant since a checkbox click has no typing-jank to smooth over. */}
-              <div className={styles.card} style={{ padding: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span className={styles.muted} style={{ fontWeight: 600 }}>
-                    Filter results
-                  </span>
-                  <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
-                    + Metric filter
-                  </button>
-                  {(draftConditions.length > 0 || hasPendingMetricChanges) && (
-                    <button
-                      type="button"
-                      className={styles.btnPrimary}
-                      disabled={!hasPendingMetricChanges}
-                      onClick={applyMetricFilters}
+                  <div>
+                    <h2 className={styles.h2}>Breakdown</h2>
+                    <p className={styles.sub} style={{ marginBottom: 10 }}>
+                      One breakdown at a time — Meta restricts which dimensions can combine, so these are pre-combined,
+                      known-good groups rather than a free pick-any-combination list.
+                    </p>
+                    <select
+                      className={styles.select}
+                      style={{ width: "100%", maxWidth: 420 }}
+                      value={activeView.breakdownGroup}
+                      onChange={(e) => updateActive({ breakdownGroup: e.target.value })}
                     >
-                      Apply Filters
-                    </button>
-                  )}
-                </div>
+                      {BREAKDOWN_GROUPS.map((g) => (
+                        <option key={g.value} value={g.value}>
+                          {g.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {draftConditions.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                    {draftConditions.map((c) => (
-                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div>
+                    <h2 className={styles.h2}>Exclude rows by name</h2>
+                    <p className={styles.sub} style={{ marginBottom: 10 }}>
+                      Exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above,
+                      not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals,
+                      and that campaign&apos;s numbers come out of the total, not just off the screen. Add as many as you
+                      like; takes effect next time you run the query.
+                    </p>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <select className={styles.select} value={newFilterField} onChange={(e) => setNewFilterField(e.target.value)}>
+                        {NAME_FILTER_FIELDS.map((f) => (
+                          <option key={f.field} value={f.field}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className={styles.muted}>contains</span>
+                      <input
+                        type="text"
+                        className={styles.select}
+                        placeholder="e.g. ABCD"
+                        value={newFilterValue}
+                        onChange={(e) => setNewFilterValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addNameFilter();
+                        }}
+                        style={{ width: 200 }}
+                      />
+                      <button type="button" className={styles.btnSecondary} disabled={!newFilterValue.trim()} onClick={addNameFilter}>
+                        + Exclude
+                      </button>
+                    </div>
+                    {(activeView.nameFilters || []).length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                        {activeView.nameFilters.map((f) => (
+                          <span key={f.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {NAME_FILTER_FIELDS.find((o) => o.field === f.field)?.label || f.field}: &quot;{f.value}&quot;
+                            <button
+                              type="button"
+                              onClick={() => removeNameFilter(f.id)}
+                              title="Remove filter"
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
+                            >
+                              <CloseIcon size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {willRollup && (
+                      <p className={styles.sub} style={{ marginTop: 8 }}>
+                        A filter above needs finer-grained data than {LEVEL_OPTIONS.find((l) => l.value === activeView.level)?.label}{" "}
+                        level shows — results will be fetched at the finer level and combined back up, excluding the
+                        matching entities entirely. Reach, Frequency, CPP, and Unique CTR won&apos;t be available in this
+                        result: Facebook&apos;s reach/unique-click counts can&apos;t be correctly combined across entities.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h2 className={styles.h2}>Group by time</h2>
+                    <div className={styles.tabGroup}>
+                      {TIME_GROUPING_OPTIONS.map((o) => (
+                        <button
+                          key={o.value}
+                          className={activeView.timeIncrement === o.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                          onClick={() => updateActive({ timeIncrement: o.value })}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className={styles.h2}>Metrics</h2>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {metricGroups.map((group) => (
+                        <div key={group}>
+                          <p className={styles.muted} style={{ marginBottom: 6 }}>
+                            {group}
+                          </p>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {effectiveCatalog.filter((m) => m.group === group).map((m) => {
+                              const selected = activeView.metricKeys.includes(m.key);
+                              // Still toggleable (so an already-selected one can be
+                              // turned off), but visually flagged — it'll be
+                              // silently absent from the result anyway once a
+                              // filter forces a rollup, see the note below.
+                              const unavailable = willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key);
+                              return (
+                                <button
+                                  key={m.key}
+                                  type="button"
+                                  onClick={() => toggleMetric(m.key)}
+                                  title={unavailable ? "Not available while a name filter requires combining finer-grained data" : undefined}
+                                  className={selected ? styles.badgeInfo : styles.pill}
+                                  style={
+                                    selected
+                                      ? { cursor: "pointer", opacity: unavailable ? 0.5 : 1 }
+                                      : {
+                                          cursor: "pointer",
+                                          background: "transparent",
+                                          border: "1px dashed var(--border)",
+                                          color: "var(--t2)",
+                                          opacity: unavailable ? 0.5 : 1,
+                                        }
+                                  }
+                                >
+                                  {selected ? "✓ " : "+ "}
+                                  {m.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 14 }}>
+                      <p className={styles.sub} style={{ marginBottom: 6 }}>
+                        Not finding a field above? Add any raw Facebook Insights field name (comma-separated) — anything
+                        Meta exposes, passed straight through.
+                      </p>
+                      <input
+                        type="text"
+                        className={styles.select}
+                        style={{ width: "100%" }}
+                        placeholder="e.g. website_ctr, mobile_app_purchase_roas"
+                        value={activeView.customFieldsText}
+                        onChange={(e) => updateActive({ customFieldsText: e.target.value })}
+                      />
+                    </div>
+
+                    <div style={{ marginTop: 14 }}>
+                      <p className={styles.sub} style={{ marginBottom: 6 }}>
+                        Define your own ratio metric (e.g. Revenue ÷ Purchases) from any two metrics above — it&apos;s saved
+                        on this device and shows up as a pill in every view, under &quot;Custom&quot;.
+                      </p>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         <select
                           className={styles.select}
-                          value={c.metricKey}
-                          onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}
+                          value={customMetricNumerator}
+                          onChange={(e) => setCustomMetricNumerator(e.target.value)}
                         >
-                          {result.meta.metricKeys
-                            .filter((k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text")
-                            .map((k) => (
-                              <option key={k} value={k}>
-                                {effectiveCatalog.find((m) => m.key === k)?.label || k}
-                              </option>
-                            ))}
+                          <option value="">Numerator…</option>
+                          {METRIC_CATALOG.map((m) => (
+                            <option key={m.key} value={m.key}>
+                              {m.label}
+                            </option>
+                          ))}
                         </select>
+                        <span className={styles.muted}>÷</span>
                         <select
                           className={styles.select}
-                          value={c.operator}
-                          onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}
+                          value={customMetricDenominator}
+                          onChange={(e) => setCustomMetricDenominator(e.target.value)}
                         >
-                          {METRIC_FILTER_OPERATORS.map((op) => (
-                            <option key={op.value} value={op.value}>
-                              {op.label}
+                          <option value="">Denominator…</option>
+                          {METRIC_CATALOG.map((m) => (
+                            <option key={m.key} value={m.key}>
+                              {m.label}
                             </option>
                           ))}
                         </select>
                         <input
-                          type="number"
+                          type="text"
                           className={styles.select}
-                          style={{ width: 110 }}
-                          value={c.value}
-                          onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
-                          onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
+                          placeholder="Label, e.g. AOV"
+                          value={customMetricLabel}
+                          onChange={(e) => setCustomMetricLabel(e.target.value)}
+                          style={{ width: 160 }}
                         />
                         <button
                           type="button"
                           className={styles.btnSecondary}
-                          onClick={() => removeDraftCondition(c.id)}
-                          aria-label="Remove filter"
+                          disabled={!customMetricLabel.trim() || !customMetricNumerator || !customMetricDenominator}
+                          onClick={createCustomMetric}
                         >
-                          <CloseIcon size={12} />
+                          Save Custom Metric
                         </button>
                       </div>
-                    ))}
+                      {customMetrics.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                          {customMetrics.map((cm) => (
+                            <span key={cm.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              {cm.label}
+                              <button
+                                type="button"
+                                onClick={() => deleteCustomMetric(cm.id)}
+                                title={`Delete ${cm.label}`}
+                                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}
+                              >
+                                <CloseIcon size={10} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
 
-                {result.meta.statusAvailable && availableStatuses.length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
-                    <span className={styles.muted}>Status</span>
-                    {availableStatuses.map((s) => (
-                      <label key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-                        <input
-                          type="checkbox"
-                          checked={!activeView.resultFilters.statusValues || activeView.resultFilters.statusValues.includes(s)}
-                          onChange={() => toggleStatus(s)}
-                        />
-                        {humanizeStatus(s)}
-                      </label>
-                    ))}
+                  <div>
+                    <h2 className={styles.h2}>Compare to previous period</h2>
+                    <p className={styles.sub} style={{ marginBottom: 10 }}>
+                      By default, shows each row&apos;s change against the immediately preceding period of equal length —
+                      a 7-day range compares week-over-week. Pick any other starting date below instead; the comparison
+                      period is always the same length as the one you selected above, only its start date is your choice.
+                      {compareDisabled && " Not available together with daily/weekly grouping."}
+                    </p>
+                    <div className={styles.tabGroup}>
+                      <button
+                        className={!activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                        onClick={() => updateActive({ compareToPrevious: false })}
+                      >
+                        Off
+                      </button>
+                      <button
+                        className={activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                        onClick={() => updateActive({ compareToPrevious: true })}
+                        disabled={compareDisabled}
+                      >
+                        On
+                      </button>
+                    </div>
+                    {activeView.compareToPrevious && !compareDisabled && (
+                      <div style={{ marginTop: 10 }}>
+                        <div className={styles.tabGroup} style={{ marginBottom: 10 }}>
+                          <button
+                            className={!activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                            onClick={() => updateActive({ compareCustomSince: "" })}
+                          >
+                            Immediately preceding (default)
+                          </button>
+                          <button
+                            className={activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                            onClick={() =>
+                              updateActive((v) => ({
+                                compareCustomSince: v.compareCustomSince || (range && rangeDays ? addDaysUTC(range.since, -rangeDays) : ""),
+                              }))
+                            }
+                          >
+                            Custom start date
+                          </button>
+                        </div>
+                        {activeView.compareCustomSince && (
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                            <input
+                              type="date"
+                              className={styles.select}
+                              value={activeView.compareCustomSince}
+                              max={isoDate(todayUTC())}
+                              onChange={(e) => updateActive({ compareCustomSince: e.target.value })}
+                            />
+                            {rangeDays && (
+                              <span className={styles.muted}>
+                                → {addDaysUTC(activeView.compareCustomSince, rangeDays - 1)} ({rangeDays} day
+                                {rangeDays === 1 ? "" : "s"}, matching the selected period)
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {customPrevious && !customPreviousValid && (
+                          <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
+                            Comparison period can&apos;t extend into the future.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className={styles.muted}>Chart metric</span>
-                  <select
-                    className={styles.select}
-                    value={activeView.chartMetricKey || ""}
-                    onChange={(e) => updateActive({ chartMetricKey: e.target.value })}
-                  >
-                    {chartableMetricKeys.map((key) => (
-                      <option key={key} value={key}>
-                        {effectiveCatalog.find((m) => m.key === key)?.label || key}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      disabled={!canRunQuery || activeView.loading}
+                      onClick={() => runQueryForView(activeView, false)}
+                    >
+                      {activeView.loading ? "Updating…" : "Update This View"}
+                    </button>
+                    <button type="button" className={styles.btnSecondary} disabled={!canRunQuery} onClick={createNewViewFromActive}>
+                      + Create New View
+                    </button>
+                  </div>
                 </div>
-              )}
-
-              {activeView.viewMode === "table" ? (
-                <ExploreResultsTable
-                  rows={filteredRows}
-                  meta={result.meta}
-                  adAccounts={adAccounts}
-                  currencyByAccountId={currencyByAccountId}
-                  effectiveCatalog={effectiveCatalog}
-                />
-              ) : activeView.chartMetricKey ? (
-                <ExploreChart
-                  rows={chartRows}
-                  meta={result.meta}
-                  chartMetricKey={activeView.chartMetricKey}
-                  currency={chartCurrency}
-                  effectiveCatalog={effectiveCatalog}
-                />
-              ) : (
-                <p className={styles.sub}>No chartable metric selected — quality rankings are table-only.</p>
-              )}
-            </section>
+              </aside>
+            </div>
+          ) : (
+            <div className={styles.exploreContent}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                <p className={styles.sub} style={{ margin: 0 }}>
+                  {summarizeQuery(activeView, adAccounts)}
+                </p>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={toggleQueryPanel}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <SettingsIcon size={13} />
+                  Edit Query
+                  <ChevronIcon direction="left" size={12} />
+                </button>
+              </div>
+              {resultArea}
+            </div>
           )}
         </main>
       </div>
