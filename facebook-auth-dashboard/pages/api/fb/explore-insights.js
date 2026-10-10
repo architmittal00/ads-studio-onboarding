@@ -334,6 +334,7 @@ export default async function handler(req, res) {
     metricKeys,
     customFields,
     customMetrics,
+    customEvents,
     nameFilters,
     idFilter,
     since,
@@ -392,6 +393,28 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: `Custom metric "${cm.id}" cannot reference another custom metric` });
       }
       cleanCustomMetrics.push({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey });
+    }
+  }
+
+  // customEvents carries the full definition for any discovered custom
+  // conversion present in metricKeys (fetched via
+  // /api/fb/custom-conversions — this route has no way to look it up itself,
+  // same reasoning as customMetrics above). Each entry's accountId must be
+  // one of this request's own accountIds — rejects a mismatched/forged
+  // entry up front rather than letting it silently resolve to nothing.
+  const cleanCustomEvents = [];
+  if (customEvents !== undefined) {
+    if (!Array.isArray(customEvents)) {
+      return res.status(400).json({ error: "customEvents must be an array" });
+    }
+    for (const ce of customEvents) {
+      if (!ce || typeof ce.id !== "string" || typeof ce.accountId !== "string" || typeof ce.actionType !== "string") {
+        return res.status(400).json({ error: "Each customEvents entry needs id, accountId, and actionType" });
+      }
+      if (!accountIds.includes(ce.accountId)) {
+        return res.status(400).json({ error: `customEvents entry "${ce.id}" references an account not in accountIds` });
+      }
+      cleanCustomEvents.push({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType });
     }
   }
 
@@ -474,7 +497,7 @@ export default async function handler(req, res) {
   const cleanCustomFields = Array.isArray(customFields) ? customFields.map((f) => String(f).trim()).filter(Boolean) : [];
   const outputCustomFields = needsRollup ? [] : cleanCustomFields;
   const group = getBreakdownGroup(breakdownGroup);
-  const fields = resolveGraphFields(metricKeys, cleanCustomFields, fetchLevel, cleanCustomMetrics).join(",");
+  const fields = resolveGraphFields(metricKeys, cleanCustomFields, fetchLevel, cleanCustomMetrics, cleanCustomEvents).join(",");
   const token = session.accessToken;
 
   const baseParams = {
@@ -614,6 +637,15 @@ export default async function handler(req, res) {
   for (const accountId of accountIds) {
     let { current, previous } = byAccount.get(accountId);
 
+    // Only this account's own custom conversions apply to its rows — a
+    // custom conversion's action_type is meaningless outside the Facebook
+    // account that owns it, so a metric key for account X's custom
+    // conversion must resolve to 0/absent on every other account's rows
+    // rather than accidentally picking up a same-id coincidence. Every
+    // entry's accountId was already checked against this request's
+    // accountIds above (see cleanCustomEvents validation).
+    const accountCustomEvents = cleanCustomEvents.filter((ce) => ce.accountId === accountId);
+
     // Applied before anything else touches these rows — dropping a
     // filtered-out entity here means it never contributes to a rollup's sum
     // below, the same as if Facebook had never returned it. Counted (not
@@ -658,7 +690,7 @@ export default async function handler(req, res) {
     }
 
     for (const row of current) {
-      const metrics = deriveRowMetrics(row, effectiveMetricKeys, outputCustomFields, cleanCustomMetrics);
+      const metrics = deriveRowMetrics(row, effectiveMetricKeys, outputCustomFields, cleanCustomMetrics, accountCustomEvents);
       const out = {
         accountId,
         label: rowLabel(row, level, breakdownGroup),
@@ -686,7 +718,9 @@ export default async function handler(req, res) {
 
       if (compareToPrevious) {
         const prevRow = previousByKey.get(rowIdentityKey(row, level, breakdownGroup));
-        const prevMetrics = prevRow ? deriveRowMetrics(prevRow, effectiveMetricKeys, outputCustomFields, cleanCustomMetrics) : null;
+        const prevMetrics = prevRow
+          ? deriveRowMetrics(prevRow, effectiveMetricKeys, outputCustomFields, cleanCustomMetrics, accountCustomEvents)
+          : null;
         out._previous = prevMetrics;
         out._deltaPct = {};
         for (const key of allKeys) {

@@ -317,14 +317,21 @@ export function getMetric(key) {
 // Merges the built-in catalog with a caller-supplied list of user-defined
 // ratio metrics (`{id, label, numeratorKey, denominatorKey, format}`,
 // persisted via lib/clientStorage.js's getCustomMetrics/setCustomMetrics)
-// into one array shaped like ordinary catalog entries — everything built
-// against METRIC_CATALOG for *display* (the metric-picker pills, the chart
-// metric dropdown, the results table's column lookup) works unchanged
-// against custom metrics as long as it's handed this merged list instead.
-// Custom entries have no `fields`/`extract` of their own (unlike a real
-// catalog entry) — resolveGraphFields/deriveRowMetrics below resolve them
-// via their numeratorKey/denominatorKey instead.
-export function buildEffectiveCatalog(customMetrics) {
+// and a caller-supplied list of per-account discovered custom conversions
+// (`{id, name, accountId, actionType}`, fetched via
+// /api/fb/custom-conversions — see pages/explore.js) into one array shaped
+// like ordinary catalog entries — everything built against METRIC_CATALOG
+// for *display* (the metric-picker pills, the chart metric dropdown, the
+// results table's column lookup) works unchanged against either kind of
+// addition as long as it's handed this merged list instead. Neither kind of
+// entry has `fields`/`extract` of its own (unlike a real catalog entry) —
+// resolveGraphFields/deriveRowMetrics below resolve them separately: ratio
+// metrics via their numeratorKey/denominatorKey, custom conversions via
+// their actionType. Custom conversions get their own "Custom Conversions"
+// group, distinct from ratio metrics' "Custom" group, so the two (one
+// user-authored, one discovered from the account) aren't confused in the
+// picker.
+export function buildEffectiveCatalog(customMetrics, customEvents) {
   const customEntries = (customMetrics || []).map((cm) => ({
     key: cm.id,
     label: cm.label,
@@ -333,7 +340,13 @@ export function buildEffectiveCatalog(customMetrics) {
     numeratorKey: cm.numeratorKey,
     denominatorKey: cm.denominatorKey,
   }));
-  return [...METRIC_CATALOG, ...customEntries];
+  const eventEntries = (customEvents || []).map((ce) => ({
+    key: ce.id,
+    label: ce.name,
+    group: "Custom Conversions",
+    format: "number",
+  }));
+  return [...METRIC_CATALOG, ...customEntries, ...eventEntries];
 }
 
 // Shared number formatting for a metric's table cell/chart tooltip, driven
@@ -378,12 +391,16 @@ export function isChartableMetric(key) {
 // passthrough field names typed into the "custom field" escape hatch, plus
 // — for a selected user-defined ratio metric (`customMetrics`, keyed by
 // `key`/`id` and matched against `metricKeys` the same way a built-in metric
-// is) — whatever its numerator/denominator metrics themselves need. A custom
-// metric has no `fields` of its own; its Graph-field needs are always
-// whichever two built-in metrics (or raw field names) it references.
-export function resolveGraphFields(metricKeys, customFields, level, customMetrics = []) {
+// is) — whatever its numerator/denominator metrics themselves need, plus —
+// for a selected discovered custom conversion (`customEvents`, same
+// id-matching convention) — the `actions` field its value lives in. A custom
+// metric/event has no `fields` of its own: a ratio metric's Graph-field needs
+// are always whichever two built-in metrics (or raw field names) it
+// references, and a custom conversion's is always `actions`.
+export function resolveGraphFields(metricKeys, customFields, level, customMetrics = [], customEvents = []) {
   const fieldSet = new Set(LEVEL_EXTRA_FIELDS[level] || []);
   const customById = new Map(customMetrics.map((cm) => [cm.id, cm]));
+  const eventById = new Map(customEvents.map((ce) => [ce.id, ce]));
   for (const key of metricKeys || []) {
     const builtin = getMetric(key);
     if (builtin) {
@@ -397,7 +414,9 @@ export function resolveGraphFields(metricKeys, customFields, level, customMetric
         if (m) m.fields.forEach((f) => fieldSet.add(f));
         else fieldSet.add(k);
       });
+      continue;
     }
+    if (eventById.has(key)) fieldSet.add("actions");
   }
   for (const field of customFields || []) {
     if (field) fieldSet.add(field.trim());
@@ -408,19 +427,27 @@ export function resolveGraphFields(metricKeys, customFields, level, customMetric
 // Flattens one raw Graph API insights row into `{ [metricKey]: value }` for
 // every chosen catalog metric, plus `{ [rawFieldName]: value }` for every
 // raw custom field, plus `{ [customMetricId]: value }` for every selected
-// user-defined ratio metric — so the client never needs to know Facebook's
-// actual response shape, just `row[key]`. Two passes: built-ins (and raw
-// custom fields) first, straight from the raw row; then custom ratios,
-// which read their numerator/denominator out of what pass one already
-// produced (falling back to the raw row for a raw-custom-field operand).
-// A zero/missing/non-numeric denominator — or numerator — yields `null`
+// user-defined ratio metric, plus `{ [customEventId]: value }` for every
+// selected discovered custom conversion — so the client never needs to know
+// Facebook's actual response shape, just `row[key]`. Two passes: built-ins
+// (and raw custom fields) first, straight from the raw row; then custom
+// ratios, which read their numerator/denominator out of what pass one
+// already produced (falling back to the raw row for a raw-custom-field
+// operand). Custom conversions don't need a second pass — like every other
+// "Conversions" catalog entry, their value comes straight out of the raw
+// row's own `actions` array via pickAnyActionValue, keyed by the specific
+// action_type this account's custom conversion was assigned. A zero/missing/
+// non-numeric denominator — or numerator — on a ratio metric yields `null`
 // (not `0` or `Infinity`), matching this catalog's hook_rate/hold_rate
-// convention, so it renders as "—" rather than a misleading number.
-export function deriveRowMetrics(rawRow, metricKeys, customFields, customMetrics = []) {
+// convention; a custom conversion simply yields `0` when absent, the normal
+// "no conversions this period" case, same as Leads/Add to Cart.
+export function deriveRowMetrics(rawRow, metricKeys, customFields, customMetrics = [], customEvents = []) {
   const result = {};
   const customById = new Map(customMetrics.map((cm) => [cm.id, cm]));
-  const builtinKeys = (metricKeys || []).filter((k) => !customById.has(k));
+  const eventById = new Map(customEvents.map((ce) => [ce.id, ce]));
+  const builtinKeys = (metricKeys || []).filter((k) => !customById.has(k) && !eventById.has(k));
   const customKeys = (metricKeys || []).filter((k) => customById.has(k));
+  const eventKeys = (metricKeys || []).filter((k) => eventById.has(k));
 
   for (const key of builtinKeys) {
     const metric = getMetric(key);
@@ -434,6 +461,9 @@ export function deriveRowMetrics(rawRow, metricKeys, customFields, customMetrics
     const num = result[cm.numeratorKey] ?? rawRow[cm.numeratorKey];
     const den = result[cm.denominatorKey] ?? rawRow[cm.denominatorKey];
     result[key] = typeof num === "number" && typeof den === "number" && den !== 0 ? num / den : null;
+  }
+  for (const key of eventKeys) {
+    result[key] = pickAnyActionValue(rawRow.actions, [eventById.get(key).actionType]);
   }
   return result;
 }

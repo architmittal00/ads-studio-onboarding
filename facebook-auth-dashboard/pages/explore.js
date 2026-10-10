@@ -36,6 +36,12 @@ const ExploreChart = dynamic(() => import("@/components/ExploreChart"), { ssr: f
 const MAX_RANGE_DAYS = 90;
 const EXPLORE_CACHE_PREFIX = "explore:";
 const EXPLORE_CACHE_MAX_ENTRIES = 50;
+// Per-account-set cache of discovered Custom Conversions (see
+// /api/fb/custom-conversions and the fetch effect below) — keyed by a
+// view's own sorted accountIds, same convention as EXPLORE_CACHE_PREFIX,
+// separate from it since this caches account metadata, not a query result.
+const CUSTOM_EVENTS_CACHE_PREFIX = "explore-custom-conversions:";
+const CUSTOM_EVENTS_CACHE_MAX_ENTRIES = 20;
 const MAX_VIEWS = 15;
 
 const RANGE_PRESETS = [
@@ -357,6 +363,18 @@ function buildQuerySpecFromView(view, customMetrics) {
   const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const customPrevious = customPreviousRangeFor(view, rangeDays);
+  // Unlike customMetrics (global, from localStorage, usable identically in
+  // every view), a view's discovered Custom Conversions are tied to *that
+  // view's own* accountIds, and this function runs for every open tab (e.g.
+  // rehydrating each tab's cached result on mount), not just the active one.
+  // Reading the cache directly here — instead of threading a customEvents
+  // param through every call site — works for the active view (the fetch
+  // effect below just populated it) and for any other view that was ever
+  // activated before in this browser; a tab whose accounts were never
+  // activated simply resolves its custom-conversion keys to nothing until
+  // visited (renders "—", never wrong data).
+  const knownCustomEvents =
+    getCachedEntry(CUSTOM_EVENTS_CACHE_PREFIX + JSON.stringify([...view.accountIds].sort()))?.data?.customEvents || [];
   return {
     // Sorted so picking the same accounts in a different order (the
     // multi-select doesn't guarantee pick order survives) still produces the
@@ -368,6 +386,9 @@ function buildQuerySpecFromView(view, customMetrics) {
     customMetrics: (customMetrics || [])
       .filter((cm) => view.metricKeys.includes(cm.id))
       .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey })),
+    customEvents: knownCustomEvents
+      .filter((ce) => view.metricKeys.includes(ce.id))
+      .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType })),
     // Only filters with real text to match on travel in the request — an
     // in-progress, not-yet-"+ Exclude"d entry never reaches `nameFilters` in
     // the first place (see addNameFilter below), but this stays defensive
@@ -599,7 +620,70 @@ export default function Explore() {
   // metric-picker pills, the chart-metric dropdown, and the results table's
   // column lookup all work against custom metrics with no further changes.
   const [customMetrics, setCustomMetricsState] = useState(() => getCustomMetrics());
-  const effectiveCatalog = useMemo(() => buildEffectiveCatalog(customMetrics), [customMetrics]);
+
+  // Account-discovered Custom Conversions (Events Manager-formalized CAPI/
+  // pixel custom events — see /api/fb/custom-conversions) for the ACTIVE
+  // view's own account selection. Unlike customMetrics above, this isn't a
+  // user preference — it's metadata about the account, re-fetched (or read
+  // from cache) whenever the active view's accountIds change, following the
+  // same async-fetch-in-effect + localStorage-cache pattern
+  // components/AccountProvider.js's load() already uses.
+  const [customEvents, setCustomEvents] = useState([]);
+  const [customEventsLoading, setCustomEventsLoading] = useState(false);
+  const activeAccountIdsKey = JSON.stringify([...activeView.accountIds].sort());
+  useEffect(() => {
+    const ids = JSON.parse(activeAccountIdsKey);
+    if (ids.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing stale events from a previously-active view's accounts, not derivable from props/state
+      setCustomEvents([]);
+      return;
+    }
+    const cacheKey = CUSTOM_EVENTS_CACHE_PREFIX + JSON.stringify(ids);
+    const cached = getCachedEntry(cacheKey);
+    if (cached) {
+      setCustomEvents(cached.data.customEvents || []);
+      return;
+    }
+    let cancelled = false;
+    setCustomEventsLoading(true);
+    fetch(`/api/fb/custom-conversions?accountIds=${ids.join(",")}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (cancelled) return;
+        if (json.error) {
+          setCustomEvents([]);
+          return;
+        }
+        setCustomEvents(json.customEvents || []);
+        setCachedEntry(cacheKey, json, { prefix: CUSTOM_EVENTS_CACHE_PREFIX, maxEntriesForPrefix: CUSTOM_EVENTS_CACHE_MAX_ENTRIES });
+      })
+      .catch(() => {
+        if (!cancelled) setCustomEvents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCustomEventsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountIdsKey]);
+
+  // Same-named custom conversions on different accounts need to stay
+  // distinguishable once more than one account is selected — reuses the
+  // exact "<Account Name> — <label>" pattern already used for multi-account
+  // chart labels below (see the chartRows memo).
+  const labeledCustomEvents = useMemo(() => {
+    if (activeView.accountIds.length <= 1) return customEvents;
+    return customEvents.map((ce) => ({
+      ...ce,
+      name: `${adAccounts.find((a) => a.id === ce.accountId)?.name || ce.accountId} — ${ce.name}`,
+    }));
+  }, [customEvents, activeView.accountIds, adAccounts]);
+
+  const effectiveCatalog = useMemo(
+    () => buildEffectiveCatalog(customMetrics, labeledCustomEvents),
+    [customMetrics, labeledCustomEvents]
+  );
   const metricGroups = useMemo(() => [...new Set(effectiveCatalog.map((m) => m.group))], [effectiveCatalog]);
 
   // Custom-metric creation form fields — restricted to METRIC_CATALOG (the
@@ -1568,6 +1652,11 @@ export default function Explore() {
 
                   <div>
                     <h2 className={styles.h2}>Metrics</h2>
+                    {customEventsLoading && (
+                      <p className={styles.sub} style={{ marginTop: -4, marginBottom: 8 }}>
+                        Checking for custom conversions…
+                      </p>
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {metricGroups.map((group) => (
                         <div key={group}>
