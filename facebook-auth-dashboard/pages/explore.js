@@ -8,9 +8,10 @@ import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
+import RowActions from "@/components/RowActions";
 import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon, ChartIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
-import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
+import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
 import {
   getExploreViews,
   setExploreViews,
@@ -738,6 +739,26 @@ export default function Explore() {
     updateView(activeViewId, patch);
   }
 
+  // Applied after a row action (pause/activate/change budget, see
+  // components/RowActions.js) succeeds on Facebook's side — patches every
+  // row in the CURRENT view's already-fetched result that points at the
+  // same entity (a breakdown can repeat one entity across several rows, all
+  // of which should reflect the change), so the table shows the new
+  // status/budget immediately without needing to re-run the query. Also
+  // drops this view's cache entry for its current query spec, so a later
+  // cache-hit (e.g. switching tabs and back) can't resurrect the
+  // pre-action data — this view's own "Hard Refresh" already exists for
+  // anyone who wants a fully fresh fetch instead of trusting the patch.
+  function applyEntityActionPatch(entityId, patch) {
+    clearCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(activeView, customMetrics)));
+    updateActive((v) => {
+      if (!v.result) return {};
+      return {
+        result: { ...v.result, rows: v.result.rows.map((r) => (r.entityId === entityId ? { ...r, ...patch } : r)) },
+      };
+    });
+  }
+
   function runQueryForView(view, force) {
     if (!isViewRunnable(view, effectiveCatalog)) return;
     const spec = buildQuerySpecFromView(view, customMetrics);
@@ -1161,6 +1182,7 @@ export default function Explore() {
               adAccounts={adAccounts}
               currencyByAccountId={currencyByAccountId}
               effectiveCatalog={effectiveCatalog}
+              onActionApplied={applyEntityActionPatch}
             />
           ) : activeView.chartMetricKey ? (
             <ExploreChart
@@ -1811,7 +1833,7 @@ function leadingColumnDefs(meta) {
   return defs;
 }
 
-function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog }) {
+function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog, onActionApplied }) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
   // Lets someone spot a few problem rows here, grab their IDs, and paste
@@ -1913,6 +1935,22 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
         },
       };
     }),
+    ...(selectableRows.length > 0
+      ? [
+          {
+            key: "__actions",
+            label: "Actions",
+            render: (row) => (
+              <RowActions
+                row={row}
+                level={meta.level}
+                currency={currencyByAccountId.get(row.accountId)}
+                onActionApplied={onActionApplied}
+              />
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (

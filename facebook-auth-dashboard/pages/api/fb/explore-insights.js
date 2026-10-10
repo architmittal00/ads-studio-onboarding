@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetInsights } from "@/lib/facebookGraph";
 import { chunk } from "@/lib/adCreativeDetails";
+import { toMajorUnits } from "@/lib/reportShared";
 import {
   LEVEL_OPTIONS,
   LEVEL_ID_FIELD,
@@ -161,6 +162,38 @@ async function fetchEntityStatuses(ids, token) {
   }
 
   return statusById;
+}
+
+// Same batched-lookup shape as fetchEntityStatuses above, for the budget
+// fields the Explore row-actions feature needs to know what's even
+// adjustable from a given row. Only ever called for campaign/adset ids (see
+// canHaveBudget below) — `daily_budget`/`lifetime_budget` aren't Ad fields.
+// Facebook sets at most one of the two, and only when THIS entity owns a
+// budget at all: a campaign has neither when it's ABO (budget lives on its
+// ad sets instead), and an ad set has neither when its campaign is CBO
+// (budget lives on the campaign instead) — so "does this row have a
+// non-null budget field" doubles as the CBO/ABO check, with no separate
+// campaign_budget_optimization field needed (Facebook doesn't expose one;
+// pages/api/fb/report/core.js infers it the same way).
+async function fetchEntityBudgets(ids, token) {
+  const budgetById = {};
+  if (ids.length === 0) return budgetById;
+
+  const batches = chunk(ids, 50);
+  const results = await Promise.allSettled(
+    batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: "daily_budget,lifetime_budget" }))
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(result.value || {})) {
+      const dailyBudget = toMajorUnits(obj.daily_budget);
+      const lifetimeBudget = toMajorUnits(obj.lifetime_budget);
+      if (dailyBudget != null || lifetimeBudget != null) budgetById[id] = { dailyBudget, lifetimeBudget };
+    }
+  }
+
+  return budgetById;
 }
 
 // Sums one actions-shaped field (an array of `{action_type, value}`) across
@@ -573,6 +606,9 @@ export default async function handler(req, res) {
   // require `!needsRollup`.
   const statusIdField = LEVEL_ID_FIELD[level];
   const canHaveStatus = !!statusIdField;
+  // Budget is never an Ad-level concept (only campaigns/ad sets carry one),
+  // unlike status/entityId which are meaningful at every non-account level.
+  const canHaveBudget = canHaveStatus && (level === "campaign" || level === "adset");
 
   const rows = [];
   for (const accountId of accountIds) {
@@ -685,6 +721,27 @@ export default async function handler(req, res) {
     }
   }
 
+  // Same one-lookup-for-everything shape as the status block above, powering
+  // the Explore row-actions "Change Budget" option — a row only gets it when
+  // the entity it points at actually owns a budget (see canHaveBudget and
+  // fetchEntityBudgets' own comment for the CBO/ABO reasoning).
+  if (canHaveBudget) {
+    const idsNeeded = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
+    let budgetById = {};
+    try {
+      budgetById = await fetchEntityBudgets(idsNeeded, token);
+    } catch {
+      // Soft-fail — same reasoning as the status lookup: a failed budget
+      // lookup just means no "Change Budget" action is offered, not a
+      // failed query.
+    }
+    for (const row of rows) {
+      const budget = budgetById[row.entityId];
+      row.dailyBudget = budget?.dailyBudget ?? null;
+      row.lifetimeBudget = budget?.lifetimeBudget ?? null;
+    }
+  }
+
   res.status(200).json({
     rows,
     meta: {
@@ -715,6 +772,13 @@ export default async function handler(req, res) {
       // filter is worth showing at all — false only at the account level,
       // which has no single entity to check.
       statusAvailable: canHaveStatus,
+      // Tells the client whether rows carry real `dailyBudget`/`lifetimeBudget`
+      // fields worth checking for the "Change Budget" row action — false at
+      // the account level and the Ad level, where a budget action never makes
+      // sense; true at Campaign/Ad Set level even though any individual row
+      // there might still come back with neither field set (ABO campaign /
+      // CBO-parented ad set, respectively — see fetchEntityBudgets).
+      budgetAvailable: canHaveBudget,
     },
   });
 }
