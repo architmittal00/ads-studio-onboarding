@@ -25,22 +25,23 @@ const CHUNK_DAYS = 28;
 const VALID_LEVELS = LEVEL_OPTIONS.map((l) => l.value);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// "Exclude rows by name" is deliberately independent of the selected `level`
-// — a user viewing Account totals can still say "exclude any campaign named
-// X," and the resulting account total must have that campaign's numbers
-// genuinely removed from the sum, not just hidden from a table that was
-// already pre-aggregated by Facebook before we ever saw it. So whenever an
-// active filter targets a finer entity than `level`, this fetches at that
-// finer level instead (where the name is actually visible), drops the
-// matching entities, and re-aggregates ("rolls up") what's left back into
-// `level`-shaped rows — see rollupRows()/mergeRawRows() below.
+// "Filter rows by name" (exclude, or include-only) is deliberately
+// independent of the selected `level` — a user viewing Account totals can
+// still say "exclude any campaign named X" (or "only include campaigns
+// named Y"), and the resulting account total must genuinely reflect that,
+// not just hide/show a table row that was already pre-aggregated by
+// Facebook before we ever saw it. So whenever an active filter targets a
+// finer entity than `level`, this fetches at that finer level instead
+// (where the name is actually visible), drops the non-matching entities,
+// and re-aggregates ("rolls up") what's left back into `level`-shaped rows
+// — see rollupRows()/mergeRawRows() below.
 const LEVEL_RANK = { account: 0, campaign: 1, adset: 2, ad: 3 };
 const NAME_FILTER_FIELD_LEVEL = { campaignName: "campaign", adsetName: "adset", adName: "ad" };
 const NAME_FILTER_RAW_FIELD = { campaignName: "campaign_name", adsetName: "adset_name", adName: "ad_name" };
 const VALID_NAME_FILTER_FIELDS = Object.keys(NAME_FILTER_FIELD_LEVEL);
 
-// "Only show these IDs" — the inclusion counterpart to the exclude-by-name
-// filter above, for jumping straight to specific entities spotted elsewhere
+// "Only show these IDs" — an id-based always-include-only filter, for
+// jumping straight to specific entities spotted elsewhere
 // (e.g. in a different date range) instead of hunting for them again by
 // name. Same finer-level-fetch-then-rollup mechanism: a Campaign ID filter
 // applied while viewing Account totals fetches at the campaign level, keeps
@@ -103,23 +104,32 @@ function splitRangeIntoChunks(since, until, maxDays) {
   return chunks;
 }
 
-// Drops any raw Graph API row whose corresponding name field matches one of
-// the active filters (case-insensitive substring) — run before anything else
-// touches these rows, so an excluded entity never contributes to a later
-// rollup's sum. A row missing the field entirely (e.g. an "Ad name" filter
-// applied to a row fetched at the Campaign level) just never matches, same
-// as the original client-side version of this filter.
+// Drops any raw Graph API row that doesn't pass every active name filter —
+// run before anything else touches these rows, so an excluded entity never
+// contributes to a later rollup's sum. Exclude filters are ANDed together
+// (a row is dropped if it matches ANY of them — "not X and not Y"); include
+// filters are ORed together (a row is kept only if it matches AT LEAST ONE
+// of them, when there's at least one — "must be A or B"), the usual
+// allow-list-vs-blocklist combination. A row missing the field entirely
+// (e.g. an "Ad name" filter applied to a row fetched at the Campaign level)
+// just never matches, same as the original client-side version of this
+// filter.
 function applyNameFilters(rows, filters) {
   if (!filters.length) return rows;
-  return rows.filter(
-    (row) => !filters.some((f) => String(row[NAME_FILTER_RAW_FIELD[f.field]] ?? "").toLowerCase().includes(f.value))
-  );
+  const excludes = filters.filter((f) => f.mode !== "include");
+  const includes = filters.filter((f) => f.mode === "include");
+  const matches = (row, f) => String(row[NAME_FILTER_RAW_FIELD[f.field]] ?? "").toLowerCase().includes(f.value);
+  return rows.filter((row) => {
+    if (excludes.some((f) => matches(row, f))) return false;
+    if (includes.length > 0 && !includes.some((f) => matches(row, f))) return false;
+    return true;
+  });
 }
 
-// Keeps only rows whose raw id field is one of the pasted IDs — the
-// inclusion counterpart to applyNameFilters above (exclude-by-contains vs.
-// include-only-exact-match), same "run before rollup" placement so an
-// unmatched entity never contributes to a rolled-up sum.
+// Keeps only rows whose raw id field is one of the pasted IDs — always
+// include-only-exact-match, unlike applyNameFilters above (which can do
+// either). Same "run before rollup" placement so an unmatched entity never
+// contributes to a rolled-up sum.
 function applyIdFilter(rows, idFilter) {
   if (!idFilter) return rows;
   const wanted = new Set(idFilter.values);
@@ -352,21 +362,30 @@ export default async function handler(req, res) {
     }
   }
 
-  // {field, value} — field names which name column to match (Campaign/Ad
-  // Set/Ad name), value is a case-insensitive "contains" match. An entry
-  // with an empty/whitespace-only value is dropped rather than rejected —
-  // mirrors the client only ever sending filters it considers "active".
+  // {field, value, mode} — field names which name column to match (Campaign/
+  // Ad Set/Ad name), value is a case-insensitive "contains" match, mode is
+  // "exclude" (default — drop any matching row) or "include" (keep only
+  // matching rows, see applyNameFilters above). An entry with an empty/
+  // whitespace-only value is dropped rather than rejected — mirrors the
+  // client only ever sending filters it considers "active".
   const cleanNameFilters = [];
   if (nameFilters !== undefined) {
     if (!Array.isArray(nameFilters)) {
       return res.status(400).json({ error: "nameFilters must be an array" });
     }
     for (const f of nameFilters) {
-      if (!f || !VALID_NAME_FILTER_FIELDS.includes(f.field) || typeof f.value !== "string") {
-        return res.status(400).json({ error: `Each nameFilters entry needs a field (${VALID_NAME_FILTER_FIELDS.join(", ")}) and a string value` });
+      if (
+        !f ||
+        !VALID_NAME_FILTER_FIELDS.includes(f.field) ||
+        typeof f.value !== "string" ||
+        (f.mode !== undefined && f.mode !== "include" && f.mode !== "exclude")
+      ) {
+        return res
+          .status(400)
+          .json({ error: `Each nameFilters entry needs a field (${VALID_NAME_FILTER_FIELDS.join(", ")}), a string value, and an optional mode ("include" or "exclude")` });
       }
       const value = f.value.trim().toLowerCase();
-      if (value) cleanNameFilters.push({ field: f.field, value });
+      if (value) cleanNameFilters.push({ field: f.field, value, mode: f.mode === "include" ? "include" : "exclude" });
     }
   }
 
@@ -540,7 +559,7 @@ export default async function handler(req, res) {
   }
 
   const allKeys = [...effectiveMetricKeys, ...outputCustomFields];
-  let excludedByNameCount = 0;
+  let filteredByNameCount = 0;
 
   // Whether a row can meaningfully have its own status/id at all: only false
   // at the account level, which has no single entity to point at (every row
@@ -559,20 +578,20 @@ export default async function handler(req, res) {
   for (const accountId of accountIds) {
     let { current, previous } = byAccount.get(accountId);
 
-    // Applied before anything else touches these rows — dropping an excluded
-    // entity here means it never contributes to a rollup's sum below, the
-    // same as if Facebook had never returned it. Counted (not excluded.length
-    // directly) since this runs per account and compareToPrevious doubles the
-    // per-account row count without doubling the number of *entities* a user
-    // would think of as "excluded".
+    // Applied before anything else touches these rows — dropping a
+    // filtered-out entity here means it never contributes to a rollup's sum
+    // below, the same as if Facebook had never returned it. Counted (not
+    // removed.length directly) since this runs per account and
+    // compareToPrevious doubles the per-account row count without doubling
+    // the number of *entities* a user would think of as filtered out.
     const preFilterCount = current.length;
     current = applyNameFilters(current, cleanNameFilters);
     previous = applyNameFilters(previous, cleanNameFilters);
-    excludedByNameCount += preFilterCount - current.length;
+    filteredByNameCount += preFilterCount - current.length;
 
     // Applied as its own, separate narrowing step (not folded into the
-    // exclude-by-name count above, which is specifically about that filter)
-    // — "only show these IDs" and "exclude by name" can both be active at
+    // name-filter count above, which is specifically about that filter) —
+    // "only show these IDs" and the name filters above can both be active at
     // once, each independently shrinking the set before it's rolled up.
     if (cleanIdFilter) {
       current = applyIdFilter(current, cleanIdFilter);
@@ -686,12 +705,12 @@ export default async function handler(req, res) {
       // a finer level than requested and rolling the result back up (and, if
       // so, which requested metrics got dropped because they can't be
       // correctly re-aggregated — see REACH_DEPENDENT_KEYS), and how many
-      // underlying entities a filter actually excluded.
+      // underlying entities a filter (exclude or include) actually filtered out.
       nameFiltersApplied: cleanNameFilters.length > 0,
       idFilterApplied: !!cleanIdFilter,
       rollupApplied: needsRollup,
       excludedMetrics,
-      excludedByNameCount,
+      filteredByNameCount,
       // Tells the client whether rows carry a real `status` and the Status
       // filter is worth showing at all — false only at the account level,
       // which has no single entity to check.
