@@ -9,14 +9,19 @@ export const LEVEL_OPTIONS = [
 
 // Fields always pulled in for a given level so a result row is labelable
 // even if the user picked zero fields that happen to include a name — not
-// exposed as metrics themselves, just identity/display plumbing.
+// exposed as metrics themselves, just identity/display plumbing. Parent-
+// entity ids (campaign_id at the adset level; adset_id/campaign_id at the ad
+// level) ride along for free in the same insights row Facebook already
+// returns — included here so pages/api/fb/explore-insights.js's "only show
+// these IDs" filter can match on them at any level, the same way it already
+// could for parent names.
 export const LEVEL_ID_FIELD = { account: null, campaign: "campaign_id", adset: "adset_id", ad: "ad_id" };
 const LEVEL_NAME_FIELD = { account: null, campaign: "campaign_name", adset: "adset_name", ad: "ad_name" };
 const LEVEL_EXTRA_FIELDS = {
   account: [],
   campaign: ["campaign_id", "campaign_name"],
-  adset: ["adset_id", "adset_name", "campaign_name"],
-  ad: ["ad_id", "ad_name", "adset_name", "campaign_name"],
+  adset: ["adset_id", "adset_name", "campaign_id", "campaign_name"],
+  ad: ["ad_id", "ad_name", "adset_id", "adset_name", "campaign_id", "campaign_name"],
 };
 
 // Curated, known-good single-select breakdown combinations — not a free
