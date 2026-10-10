@@ -1811,6 +1811,15 @@ function DeltaBadge({ value }) {
   );
 }
 
+// Default column widths per metric format — a currency value formatted with
+// an Intl symbol+grouping ("₹1,23,456.78") needs more room than a percent
+// ("12.34%") or a plain rounded count, and a "text" metric (quality
+// rankings like "Below Average") needs the most. Anything without a format
+// in this map (shouldn't happen — every catalog/custom-metric entry sets
+// one) falls back to the "number" width. Per-row values still wrap/ellipsize
+// via SortableTable's own clamp if a particular value runs long regardless.
+const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 100, text: 150 };
+
 // The leading, non-metric columns a result can have — shared between the
 // on-screen table (which wants per-column render/sortValue/maxWidth) and the
 // CSV export (which just wants `{key, label}` to read `row[key]` through). A
@@ -1912,7 +1921,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
         ]
       : []),
     ...leadingColumns,
-    ...(meta.statusAvailable ? [{ key: "status", label: "Status", render: (row) => humanizeStatus(row.status) }] : []),
+    ...(meta.statusAvailable ? [{ key: "status", label: "Status", maxWidth: 110, render: (row) => humanizeStatus(row.status) }] : []),
     ...allKeys.map((key) => {
       const metric = effectiveCatalog.find((m) => m.key === key);
       const format = metric?.format || "number";
@@ -1922,6 +1931,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
         key,
         label,
         align: "right",
+        maxWidth: METRIC_COLUMN_WIDTH[format] || METRIC_COLUMN_WIDTH.number,
         sortValue: (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
         render: (row) => {
           const value = formatMetricValue(row[key], format, currencyByAccountId.get(row.accountId));
@@ -1940,6 +1950,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
           {
             key: "__actions",
             label: "Actions",
+            maxWidth: 170,
             render: (row) => (
               <RowActions
                 row={row}
