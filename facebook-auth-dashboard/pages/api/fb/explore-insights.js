@@ -39,6 +39,24 @@ const NAME_FILTER_FIELD_LEVEL = { campaignName: "campaign", adsetName: "adset", 
 const NAME_FILTER_RAW_FIELD = { campaignName: "campaign_name", adsetName: "adset_name", adName: "ad_name" };
 const VALID_NAME_FILTER_FIELDS = Object.keys(NAME_FILTER_FIELD_LEVEL);
 
+// "Only show these IDs" — the inclusion counterpart to the exclude-by-name
+// filter above, for jumping straight to specific entities spotted elsewhere
+// (e.g. in a different date range) instead of hunting for them again by
+// name. Same finer-level-fetch-then-rollup mechanism: a Campaign ID filter
+// applied while viewing Account totals fetches at the campaign level, keeps
+// only the matching campaigns, and rolls the rest back up.
+const ID_FILTER_FIELD_LEVEL = { campaignId: "campaign", adsetId: "adset", adId: "ad" };
+const ID_FILTER_RAW_FIELD = { campaignId: "campaign_id", adsetId: "adset_id", adId: "ad_id" };
+const VALID_ID_FILTER_FIELDS = Object.keys(ID_FILTER_FIELD_LEVEL);
+const MAX_ID_FILTER_VALUES = 50;
+
+// Splits on commas, whitespace, or newlines — matches however someone pastes
+// a handful of IDs copied from the results table (one at a time, comma-
+// joined, one per line, …) — then dedupes and drops anything blank.
+function parseIdList(text) {
+  return [...new Set(String(text || "").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean))];
+}
+
 // Metrics that can't be correctly re-derived once rows from several entities
 // get summed together, so they're dropped from the output whenever a rollup
 // actually happens (see needsRollup below) rather than silently showing a
@@ -96,6 +114,16 @@ function applyNameFilters(rows, filters) {
   return rows.filter(
     (row) => !filters.some((f) => String(row[NAME_FILTER_RAW_FIELD[f.field]] ?? "").toLowerCase().includes(f.value))
   );
+}
+
+// Keeps only rows whose raw id field is one of the pasted IDs — the
+// inclusion counterpart to applyNameFilters above (exclude-by-contains vs.
+// include-only-exact-match), same "run before rollup" placement so an
+// unmatched entity never contributes to a rolled-up sum.
+function applyIdFilter(rows, idFilter) {
+  if (!idFilter) return rows;
+  const wanted = new Set(idFilter.values);
+  return rows.filter((row) => wanted.has(String(row[ID_FILTER_RAW_FIELD[idFilter.field]] || "")));
 }
 
 // Campaign/ad set/ad `effective_status` (Active/Paused/etc.) isn't an
@@ -267,6 +295,7 @@ export default async function handler(req, res) {
     customFields,
     customMetrics,
     nameFilters,
+    idFilter,
     since,
     until,
     timeIncrement,
@@ -344,16 +373,36 @@ export default async function handler(req, res) {
     }
   }
 
-  // The finest level any active filter needs to even see its own name field
-  // at, vs. the level actually requested — whichever is finer wins, since
-  // that's the only way to both know which entities to exclude AND still be
-  // able to roll the rest back up to what was asked for. See the comment on
-  // REACH_DEPENDENT_KEYS above and rollupRows()/mergeRawRows() below for what
-  // "rolling up" actually involves.
-  const requiredLevel = cleanNameFilters.reduce(
+  // {field, value} — field names which id column to match exactly (Campaign/
+  // Ad Set/Ad ID), value is a raw string of one or more IDs (comma/whitespace/
+  // newline separated, see parseIdList). Empty after parsing (e.g. blank or
+  // whitespace-only) is treated as "no filter", same as an empty nameFilters
+  // value above.
+  let cleanIdFilter = null;
+  if (idFilter !== undefined && idFilter !== null) {
+    if (typeof idFilter !== "object" || !VALID_ID_FILTER_FIELDS.includes(idFilter.field) || typeof idFilter.value !== "string") {
+      return res.status(400).json({ error: `idFilter needs a field (${VALID_ID_FILTER_FIELDS.join(", ")}) and a string value` });
+    }
+    const values = parseIdList(idFilter.value);
+    if (values.length > MAX_ID_FILTER_VALUES) {
+      return res.status(400).json({ error: `idFilter cannot list more than ${MAX_ID_FILTER_VALUES} IDs (got ${values.length})` });
+    }
+    if (values.length > 0) cleanIdFilter = { field: idFilter.field, values };
+  }
+
+  // The finest level any active filter needs to even see its own name/id
+  // field at, vs. the level actually requested — whichever is finer wins,
+  // since that's the only way to both know which entities to keep/exclude
+  // AND still be able to roll the rest back up to what was asked for. See
+  // the comment on REACH_DEPENDENT_KEYS above and rollupRows()/
+  // mergeRawRows() below for what "rolling up" actually involves.
+  let requiredLevel = cleanNameFilters.reduce(
     (lvl, f) => (LEVEL_RANK[NAME_FILTER_FIELD_LEVEL[f.field]] > LEVEL_RANK[lvl] ? NAME_FILTER_FIELD_LEVEL[f.field] : lvl),
     level
   );
+  if (cleanIdFilter && LEVEL_RANK[ID_FILTER_FIELD_LEVEL[cleanIdFilter.field]] > LEVEL_RANK[requiredLevel]) {
+    requiredLevel = ID_FILTER_FIELD_LEVEL[cleanIdFilter.field];
+  }
   const fetchLevel = LEVEL_RANK[requiredLevel] > LEVEL_RANK[level] ? requiredLevel : level;
   const needsRollup = fetchLevel !== level;
 
@@ -519,6 +568,15 @@ export default async function handler(req, res) {
     previous = applyNameFilters(previous, cleanNameFilters);
     excludedByNameCount += preFilterCount - current.length;
 
+    // Applied as its own, separate narrowing step (not folded into the
+    // exclude-by-name count above, which is specifically about that filter)
+    // — "only show these IDs" and "exclude by name" can both be active at
+    // once, each independently shrinking the set before it's rolled up.
+    if (cleanIdFilter) {
+      current = applyIdFilter(current, cleanIdFilter);
+      previous = applyIdFilter(previous, cleanIdFilter);
+    }
+
     // Rolls the (already filtered) finer-grained rows back up to `level` —
     // e.g. every remaining campaign's rows become one Account-level total
     // per date/breakdown, with the excluded campaigns' numbers genuinely
@@ -561,10 +619,14 @@ export default async function handler(req, res) {
         ...metrics,
       };
       if (row.date_start) out.date = row.date_start;
-      // Temporary — read by the status lookup below, then stripped before
-      // the response is sent. Not merged into the `out` object literal above
-      // since it must never leak into the client payload as-is.
-      if (canHaveStatus) out.__entityId = row[statusIdField] || null;
+      // The row's own id at `level` — read by the status lookup below, and
+      // also sent to the client as-is so the results table can offer a
+      // "copy ID" action (for jumping straight to this exact entity in
+      // another view/date range via the "only show these IDs" filter).
+      // Same gating as status: absent whenever there's no single entity to
+      // point at (account level, or a rolled-up row representing several
+      // entities merged together).
+      if (canHaveStatus) out.entityId = row[statusIdField] || null;
 
       if (compareToPrevious) {
         const prevRow = previousByKey.get(rowIdentityKey(row, level, breakdownGroup));
@@ -588,7 +650,7 @@ export default async function handler(req, res) {
   // id used by several rows (e.g. the same campaign appearing once per
   // breakdown value) is only ever fetched once.
   if (canHaveStatus) {
-    const idsNeeded = [...new Set(rows.map((r) => r.__entityId).filter(Boolean))];
+    const idsNeeded = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
     let statusById = {};
     try {
       statusById = await fetchEntityStatuses(idsNeeded, token);
@@ -599,8 +661,7 @@ export default async function handler(req, res) {
       // the whole query.
     }
     for (const row of rows) {
-      row.status = statusById[row.__entityId] || null;
-      delete row.__entityId;
+      row.status = statusById[row.entityId] || null;
     }
   }
 
@@ -626,6 +687,7 @@ export default async function handler(req, res) {
       // correctly re-aggregated — see REACH_DEPENDENT_KEYS), and how many
       // underlying entities a filter actually excluded.
       nameFiltersApplied: cleanNameFilters.length > 0,
+      idFilterApplied: !!cleanIdFilter,
       rollupApplied: needsRollup,
       excludedMetrics,
       excludedByNameCount,

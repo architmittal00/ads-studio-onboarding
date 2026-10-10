@@ -8,7 +8,7 @@ import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
-import { CloseIcon, SettingsIcon, ChevronIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import {
@@ -103,6 +103,27 @@ const NAME_FILTER_FIELDS = [
 ];
 const LEVEL_RANK = { account: 0, campaign: 1, adset: 2, ad: 3 };
 
+// "Only show these IDs" — the inclusion counterpart to "Exclude rows by
+// name" above, for jumping straight to specific entities spotted elsewhere
+// (e.g. a different date range, or a different filter combination) instead
+// of re-finding them by name. Same independent-of-Level, same-rank/rollup
+// shape as NAME_FILTER_FIELDS — see pages/api/fb/explore-insights.js's
+// mirrored ID_FILTER_FIELD_LEVEL for the matching backend side.
+const ID_FILTER_FIELDS = [
+  { field: "campaignId", label: "Campaign ID", level: "campaign", rank: 1 },
+  { field: "adsetId", label: "Ad Set ID", level: "adset", rank: 2 },
+  { field: "adId", label: "Ad ID", level: "ad", rank: 3 },
+];
+const ALL_FILTER_FIELD_DEFS = [...NAME_FILTER_FIELDS, ...ID_FILTER_FIELDS];
+
+// Splits on commas, whitespace, or newlines, dedupes, drops blanks — mirrors
+// pages/api/fb/explore-insights.js's own parseIdList exactly (kept as a
+// separate copy here since this one only needs to produce a quick client-side
+// count, not parse an actual request body).
+function parseIdList(text) {
+  return [...new Set(String(text || "").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean))];
+}
+
 // Mirrors the backend's own REACH_DEPENDENT_KEYS exactly (same reasoning:
 // Facebook's own deduplicated Reach/Unique Clicks counts — and everything
 // derived from them — can't be correctly reconstructed once rows from
@@ -119,7 +140,7 @@ const REACH_DEPENDENT_METRIC_KEYS = new Set(["reach", "frequency", "cpp", "uniqu
 // query rather than only after.
 function wouldNeedRollup(level, activeFilters) {
   return activeFilters.some((f) => {
-    const def = NAME_FILTER_FIELDS.find((d) => d.field === f.field);
+    const def = ALL_FILTER_FIELD_DEFS.find((d) => d.field === f.field);
     return def && def.rank > LEVEL_RANK[level];
   });
 }
@@ -231,6 +252,12 @@ function createBlankView(seedAccountId = "") {
     // row. Takes effect next time the query runs, same as every other field
     // on this view (Level, Breakdown, Metrics, …) — not applied instantly.
     nameFilters: [],
+    // "Only show these IDs" — the inclusion counterpart to nameFilters above,
+    // same treatment (part of the query spec, takes effect next time the
+    // query runs, independent of Level). `field` always has a value so the
+    // dropdown has something selected even before any ID is pasted; an empty
+    // `value` means the filter isn't active (see buildQuerySpecFromView).
+    idFilter: { field: "campaignId", value: "" },
     // Post-query pivot-style filtering — unlike nameFilters above, these
     // never travel to the backend (not part of buildQuerySpecFromView/the
     // cache key) and apply instantly, client-side, to whatever's already in
@@ -353,6 +380,11 @@ function buildQuerySpecFromView(view, customMetrics) {
     // the first place (see addNameFilter below), but this stays defensive
     // against any other path that might someday add one with a blank value.
     nameFilters: (view.nameFilters || []).filter((f) => f.value.trim()).map((f) => ({ field: f.field, value: f.value.trim() })),
+    // Omitted (not `null` — JSON.stringify keeps a `null` key but drops an
+    // `undefined` one) when nothing's pasted, so a view that's never touched
+    // this feature produces the exact same cache key / request body as
+    // before it existed, same reasoning as previousSince/previousUntil below.
+    idFilter: view.idFilter?.value?.trim() ? { field: view.idFilter.field, value: view.idFilter.value.trim() } : undefined,
     since: range?.since,
     until: range?.until,
     timeIncrement: view.timeIncrement || null,
@@ -590,6 +622,7 @@ export default function Explore() {
         ...v,
         accountIds,
         nameFilters: v.nameFilters || [],
+        idFilter: v.idFilter || { field: "campaignId", value: "" },
         compareCustomSince: v.compareCustomSince || "",
         resultFilters: v.resultFilters || { metricConditions: [], statusValues: null },
       };
@@ -732,7 +765,12 @@ export default function Explore() {
   // result back up — shown as a heads-up before running the query, and used
   // to explain why Reach-derived metrics won't be in the result.
   const activeNameFilters = useMemo(() => (activeView.nameFilters || []).filter((f) => f.value.trim()), [activeView.nameFilters]);
-  const willRollup = wouldNeedRollup(activeView.level, activeNameFilters);
+  const activeIdFilters = useMemo(
+    () => (activeView.idFilter?.value?.trim() ? [{ field: activeView.idFilter.field, value: activeView.idFilter.value }] : []),
+    [activeView.idFilter]
+  );
+  const activeIdFilterCount = useMemo(() => parseIdList(activeView.idFilter?.value).length, [activeView.idFilter]);
+  const willRollup = wouldNeedRollup(activeView.level, [...activeNameFilters, ...activeIdFilters]);
 
   function addNameFilter() {
     const value = newFilterValue.trim();
@@ -1360,6 +1398,52 @@ export default function Explore() {
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  <div>
+                    <h2 className={styles.h2}>Only show these IDs</h2>
+                    <p className={styles.sub} style={{ marginBottom: 10 }}>
+                      Paste one or more Campaign/Ad Set/Ad IDs (comma, space, or newline separated) to scope this
+                      view to exactly those entities — works at any Level above, not just the matching one, same as
+                      &quot;Exclude rows by name&quot;. Handy for jumping straight to specific campaigns or ads you
+                      spotted elsewhere (e.g. in a different date range) — see the copy icon next to each row&apos;s
+                      name in the results table below once you have one.
+                    </p>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                      <select
+                        className={styles.select}
+                        value={activeView.idFilter.field}
+                        onChange={(e) => updateActive((v) => ({ idFilter: { ...v.idFilter, field: e.target.value } }))}
+                      >
+                        {ID_FILTER_FIELDS.map((f) => (
+                          <option key={f.field} value={f.field}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+                      <textarea
+                        className={styles.select}
+                        style={{ flex: 1, minWidth: 220, minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+                        placeholder="e.g. 120218997000010, 120218997000020"
+                        value={activeView.idFilter.value}
+                        onChange={(e) => updateActive((v) => ({ idFilter: { ...v.idFilter, value: e.target.value } }))}
+                      />
+                      {activeView.idFilter.value.trim() && (
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => updateActive((v) => ({ idFilter: { ...v.idFilter, value: "" } }))}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {activeIdFilterCount > 0 && (
+                      <p className={styles.sub} style={{ marginTop: 8 }}>
+                        {activeIdFilterCount} ID{activeIdFilterCount === 1 ? "" : "s"} — takes effect next time you
+                        run the query.
+                      </p>
+                    )}
                     {willRollup && (
                       <p className={styles.sub} style={{ marginTop: 8 }}>
                         A filter above needs finer-grained data than {LEVEL_OPTIONS.find((l) => l.value === activeView.level)?.label}{" "}
@@ -1664,15 +1748,70 @@ function leadingColumnDefs(meta) {
 function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog }) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
+  // Lets someone spot a few problem rows here, grab their IDs, and paste
+  // them into "Only show these IDs" on a different view/date range instead
+  // of re-finding each one by name. Local to this one render of the table —
+  // resets whenever the query re-runs, same as SortableTable's own sort/
+  // search state; there's no reason a selection should survive a new result.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const selectableRows = rows.filter((r) => r.entityId);
+
+  function toggleSelected(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function copyText(text) {
+    navigator.clipboard?.writeText(text).catch(() => {});
+  }
+
   const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
   const LEADING_MAX_WIDTH = { accountId: 200, date: 120, entityLabel: 240, breakdownLabel: 200, label: 160 };
-  const leadingColumns = leadingColumnDefs(meta).map((def) =>
-    def.key === "accountId"
-      ? { ...def, maxWidth: LEADING_MAX_WIDTH.accountId, render: accountName, sortValue: accountName }
-      : { ...def, maxWidth: LEADING_MAX_WIDTH[def.key] }
-  );
+  const leadingColumns = leadingColumnDefs(meta).map((def) => {
+    if (def.key === "accountId") {
+      return { ...def, maxWidth: LEADING_MAX_WIDTH.accountId, render: accountName, sortValue: accountName };
+    }
+    if (def.key === "entityLabel" || def.key === "label") {
+      return {
+        ...def,
+        maxWidth: LEADING_MAX_WIDTH[def.key],
+        render: (row) =>
+          row.entityId ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row[def.key]}</span>
+              <CopyIdButton id={row.entityId} onCopy={copyText} />
+            </span>
+          ) : (
+            row[def.key]
+          ),
+      };
+    }
+    return { ...def, maxWidth: LEADING_MAX_WIDTH[def.key] };
+  });
 
   const columns = [
+    ...(selectableRows.length > 0
+      ? [
+          {
+            key: "__select",
+            label: "",
+            maxWidth: 28,
+            render: (row) =>
+              row.entityId ? (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(row.entityId)}
+                  onChange={() => toggleSelected(row.entityId)}
+                  aria-label="Select row"
+                />
+              ) : null,
+          },
+        ]
+      : []),
     ...leadingColumns,
     ...(meta.statusAvailable ? [{ key: "status", label: "Status", render: (row) => humanizeStatus(row.status) }] : []),
     ...allKeys.map((key) => {
@@ -1700,17 +1839,67 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
   ];
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <SortableTable
-        rows={rows}
-        columns={columns}
-        defaultSortKey={meta.metricKeys[0] || "label"}
-        maxHeight={480}
-        searchable={rows.length > 6}
-        searchKeys={leadingColumns.map((c) => c.key)}
-        searchPlaceholder="Search rows…"
-      />
+    <div>
+      {selectedIds.size > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <span className={styles.muted}>
+            {selectedIds.size} selected
+          </span>
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={() => copyText([...selectedIds].join(", "))}
+          >
+            Copy {selectedIds.size} ID{selectedIds.size === 1 ? "" : "s"}
+          </button>
+          <button type="button" className={styles.btnSecondary} onClick={() => setSelectedIds(new Set())}>
+            Clear selection
+          </button>
+        </div>
+      )}
+      <div style={{ overflowX: "auto" }}>
+        <SortableTable
+          rows={rows}
+          columns={columns}
+          defaultSortKey={meta.metricKeys[0] || "label"}
+          maxHeight={480}
+          searchable={rows.length > 6}
+          searchKeys={leadingColumns.map((c) => c.key)}
+          searchPlaceholder="Search rows…"
+        />
+      </div>
     </div>
+  );
+}
+
+// Small inline "copy this one ID" control used in the results table's
+// leading name column — flashes a checkmark for a moment so clicking it
+// gives some feedback beyond the silent clipboard write.
+function CopyIdButton({ id, onCopy }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onCopy(id);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title={`Copy ID (${id})`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        background: "none",
+        border: "none",
+        padding: 2,
+        cursor: "pointer",
+        color: copied ? "var(--green)" : "var(--t3)",
+        flexShrink: 0,
+      }}
+    >
+      {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+    </button>
   );
 }
 
