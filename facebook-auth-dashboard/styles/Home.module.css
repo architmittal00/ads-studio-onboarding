@@ -703,6 +703,7 @@ button.stat:hover {
    paragraph under a section heading (saves vertical space in the narrow
    query panel while keeping the full explanation one hover away) ── */
 .helpHint {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -722,6 +723,38 @@ button.stat:hover {
   border-color: var(--purple);
   color: var(--purple);
   outline: none;
+}
+/* Custom hover bubble (see pages/explore.js's HelpHint) instead of the
+   native `title` attribute, whose fixed browser-level show delay reads as
+   sluggish here. Fast opacity-only transition — no delay before it starts
+   appearing, just a very quick fade so it doesn't feel like it's just
+   snapping into place. */
+.helpHintTooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  max-width: 240px;
+  background: var(--t1);
+  color: var(--bg);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.08s ease;
+  z-index: 30;
+  text-align: left;
+  white-space: normal;
+}
+.helpHint:hover .helpHintTooltip,
+.helpHint:focus-visible .helpHintTooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* ── Explore: empty-state shown before a view has ever been run ── */

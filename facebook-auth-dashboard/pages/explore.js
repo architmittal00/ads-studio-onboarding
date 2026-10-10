@@ -86,10 +86,11 @@ function isChartableForView(key, catalog, accountCount) {
 
 const MAX_ACCOUNTS_PER_VIEW = 10;
 
-// "Exclude rows by name" is intentionally independent of the selected Level
-// — filtering by Campaign name while viewing Account-level totals is exactly
-// the point (exclude that campaign's numbers from the total, not just hide a
-// row), so every field is always offered regardless of `view.level`. The
+// "Filter rows by name" (include or exclude) is intentionally independent
+// of the selected Level — filtering by Campaign name while viewing
+// Account-level totals is exactly the point (exclude/keep-only that
+// campaign's numbers in the total, not just hide a row), so every field is
+// always offered regardless of `view.level`. The
 // backend (pages/api/fb/explore-insights.js) fetches at whatever level is
 // actually needed to see the filtered-on name and re-aggregates back up to
 // the requested level; `rank` mirrors its LEVEL_RANK so the client can tell
@@ -235,7 +236,6 @@ function createBlankView(seedAccountId = "") {
     breakdownGroup: "none",
     timeIncrement: "",
     metricKeys: ["spend", "impressions", "clicks", "ctr"],
-    customFieldsText: "",
     compareToPrevious: false,
     // Null (not an empty string) means "no custom comparison start date" —
     // compareToPrevious then defaults to the immediately-preceding period of
@@ -332,13 +332,6 @@ function inclusiveDayCount(since, until) {
   return Math.round((new Date(`${until}T00:00:00Z`) - new Date(`${since}T00:00:00Z`)) / 86400000) + 1;
 }
 
-function parseCustomFields(text) {
-  return text
-    .split(",")
-    .map((f) => f.trim())
-    .filter(Boolean);
-}
-
 // A custom comparison period is always the same length as the primary range
 // — only its *start* is the user's choice, mirroring the backend's own
 // enforcement of this in pages/api/fb/explore-insights.js. Returns null
@@ -371,7 +364,6 @@ function buildQuerySpecFromView(view, customMetrics) {
     level: view.level,
     breakdownGroup: view.breakdownGroup,
     metricKeys: view.metricKeys,
-    customFields: parseCustomFields(view.customFieldsText),
     customMetrics: (customMetrics || [])
       .filter((cm) => view.metricKeys.includes(cm.id))
       .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey })),
@@ -379,7 +371,9 @@ function buildQuerySpecFromView(view, customMetrics) {
     // in-progress, not-yet-"+ Exclude"d entry never reaches `nameFilters` in
     // the first place (see addNameFilter below), but this stays defensive
     // against any other path that might someday add one with a blank value.
-    nameFilters: (view.nameFilters || []).filter((f) => f.value.trim()).map((f) => ({ field: f.field, value: f.value.trim() })),
+    nameFilters: (view.nameFilters || [])
+      .filter((f) => f.value.trim())
+      .map((f) => ({ field: f.field, value: f.value.trim(), mode: f.mode === "include" ? "include" : "exclude" })),
     // Omitted (not `null` — JSON.stringify keeps a `null` key but drops an
     // `undefined` one) when nothing's pasted, so a view that's never touched
     // this feature produces the exact same cache key / request body as
@@ -479,9 +473,13 @@ function summarizeQuery(view, adAccounts) {
 // for a native-tooltip hover — keeps the (narrow) query panel scannable while
 // still putting the full explanation one hover away.
 function HelpHint({ text }) {
+  // A custom hover bubble, not the native `title` attribute — browsers only
+  // show a `title` tooltip after a fixed, un-stylable delay (roughly a
+  // second), which reads as sluggish for something meant to be a quick,
+  // on-demand explanation.
   return (
-    <span className={styles.helpHint} title={text} tabIndex={0} role="note" aria-label={text}>
-      ?
+    <span className={styles.helpHint} tabIndex={0} role="note" aria-label={text}>
+      ?<span className={styles.helpHintTooltip}>{text}</span>
     </span>
   );
 }
@@ -627,10 +625,11 @@ export default function Explore() {
     setCustomMetricDenominator("");
   }
 
-  // "Exclude rows by name" creation form — always offers all three fields
+  // "Filter rows by name" creation form — always offers all three fields
   // regardless of the active view's level (see NAME_FILTER_FIELDS above).
   const [newFilterField, setNewFilterField] = useState("campaignName");
   const [newFilterValue, setNewFilterValue] = useState("");
+  const [newFilterMode, setNewFilterMode] = useState("exclude");
 
   function deleteCustomMetric(id) {
     const next = customMetrics.filter((cm) => cm.id !== id);
@@ -672,12 +671,14 @@ export default function Explore() {
       // `compareCustomSince` — a view saved before those fields existed has
       // neither, and several render paths below call `.length`/`.filter` on
       // `nameFilters` with no further fallback, so this is where it has to
-      // be backfilled, not just wherever it's read.
+      // be backfilled, not just wherever it's read. A `nameFilters` entry
+      // saved before "include" mode existed has no `mode` of its own either
+      // — it was always exclude-only back then, so that's the default here.
       const accountIds = v.accountIds ?? (v.accountId ? [v.accountId] : []);
       const migrated = {
         ...v,
         accountIds,
-        nameFilters: v.nameFilters || [],
+        nameFilters: (v.nameFilters || []).map((f) => ({ ...f, mode: f.mode === "include" ? "include" : "exclude" })),
         idFilter: v.idFilter || { field: "campaignId", value: "" },
         compareCustomSince: v.compareCustomSince || "",
         resultFilters: v.resultFilters || { metricConditions: [], statusValues: null },
@@ -814,8 +815,6 @@ export default function Explore() {
   const customPreviousValid = !customPrevious || customPrevious.until <= isoDate(todayUTC());
   const canRunQuery = activeView.accountIds.length > 0 && rangeValid && metricsResolve && customPreviousValid;
 
-  const customFields = useMemo(() => parseCustomFields(activeView.customFieldsText), [activeView.customFieldsText]);
-
   // Whether running this exact view, as currently configured, would make the
   // backend fetch at a finer level than `activeView.level` and roll the
   // result back up — shown as a heads-up before running the query, and used
@@ -831,7 +830,9 @@ export default function Explore() {
   function addNameFilter() {
     const value = newFilterValue.trim();
     if (!value) return;
-    updateActive((v) => ({ nameFilters: [...(v.nameFilters || []), { id: newViewId(), field: newFilterField, value }] }));
+    updateActive((v) => ({
+      nameFilters: [...(v.nameFilters || []), { id: newViewId(), field: newFilterField, value, mode: newFilterMode }],
+    }));
     setNewFilterValue("");
   }
 
@@ -1030,8 +1031,8 @@ export default function Explore() {
             {filteredRows.length === result.meta.rowCount
               ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
               : `${filteredRows.length} of ${result.meta.rowCount} rows (filtered)`}
-            {result.meta.excludedByNameCount > 0 &&
-              ` · ${result.meta.excludedByNameCount} excluded by name filter`}
+            {result.meta.filteredByNameCount > 0 &&
+              ` · ${result.meta.filteredByNameCount} filtered out by name filter`}
           </p>
           {result.meta.excludedMetrics?.length > 0 && (
             <p className={styles.sub}>
@@ -1407,9 +1408,25 @@ export default function Explore() {
                   </div>
 
                   <div>
-                    <SectionHeading hint="Exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above, not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals, and that campaign's numbers come out of the total, not just off the screen. Add as many as you like; takes effect next time you run the query.">
-                      Exclude rows by name
+                    <SectionHeading hint="Include or exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above, not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals, and that campaign's numbers come out of the total, not just off the screen. Add as many as you like, mixing include and exclude; takes effect next time you run the query.">
+                      Filter rows by name
                     </SectionHeading>
+                    <div className={styles.tabGroup} style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className={newFilterMode === "exclude" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                        onClick={() => setNewFilterMode("exclude")}
+                      >
+                        Exclude
+                      </button>
+                      <button
+                        type="button"
+                        className={newFilterMode === "include" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                        onClick={() => setNewFilterMode("include")}
+                      >
+                        Include only
+                      </button>
+                    </div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <select className={styles.select} value={newFilterField} onChange={(e) => setNewFilterField(e.target.value)}>
                         {NAME_FILTER_FIELDS.map((f) => (
@@ -1431,14 +1448,19 @@ export default function Explore() {
                         style={{ width: 200 }}
                       />
                       <button type="button" className={styles.btnSecondary} disabled={!newFilterValue.trim()} onClick={addNameFilter}>
-                        + Exclude
+                        {newFilterMode === "include" ? "+ Include" : "+ Exclude"}
                       </button>
                     </div>
                     {(activeView.nameFilters || []).length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
                         {activeView.nameFilters.map((f) => (
-                          <span key={f.id} className={styles.pill} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            {NAME_FILTER_FIELDS.find((o) => o.field === f.field)?.label || f.field}: &quot;{f.value}&quot;
+                          <span
+                            key={f.id}
+                            className={f.mode === "include" ? styles.badgeGood : styles.badgeDanger}
+                            style={{ display: "flex", alignItems: "center", gap: 6 }}
+                          >
+                            {f.mode === "include" ? "Include" : "Exclude"} — {NAME_FILTER_FIELDS.find((o) => o.field === f.field)?.label || f.field}:
+                            &quot;{f.value}&quot;
                             <button
                               type="button"
                               onClick={() => removeNameFilter(f.id)}
@@ -1454,7 +1476,7 @@ export default function Explore() {
                   </div>
 
                   <div>
-                    <SectionHeading hint={'Paste one or more Campaign/Ad Set/Ad IDs (comma, space, or newline separated) to scope this view to exactly those entities — works at any Level above, not just the matching one, same as "Exclude rows by name". Handy for jumping straight to specific campaigns or ads you spotted elsewhere (e.g. in a different date range) — see the copy icon next to each row\'s name in the results table once you have one.'}>
+                    <SectionHeading hint={'Paste one or more Campaign/Ad Set/Ad IDs (comma, space, or newline separated) to scope this view to exactly those entities — works at any Level above, not just the matching one, same as "Filter rows by name". Handy for jumping straight to specific campaigns or ads you spotted elsewhere (e.g. in a different date range) — see the copy icon next to each row\'s name in the results table once you have one.'}>
                       Only show these IDs
                     </SectionHeading>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -1561,21 +1583,6 @@ export default function Explore() {
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: 14 }}>
-                      <p className={styles.muted} style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                        Custom raw fields
-                        <HelpHint text="Not finding a field above? Add any raw Facebook Insights field name (comma-separated) — anything Meta exposes, passed straight through." />
-                      </p>
-                      <input
-                        type="text"
-                        className={styles.select}
-                        style={{ width: "100%" }}
-                        placeholder="e.g. website_ctr, mobile_app_purchase_roas"
-                        value={activeView.customFieldsText}
-                        onChange={(e) => updateActive({ customFieldsText: e.target.value })}
-                      />
-                    </div>
-
                     <div style={{ marginTop: 14 }}>
                       <p className={styles.muted} style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                         Custom ratio metric
