@@ -145,6 +145,8 @@
 .pill {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 3px 10px;
   border-radius: 20px;
   font-size: 10px;
@@ -266,6 +268,8 @@ button.stat:hover {
 .badgeGood {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 3px 10px;
   border-radius: 20px;
   font-size: 10px;
@@ -278,6 +282,8 @@ button.stat:hover {
 .badgeWarn {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 3px 10px;
   border-radius: 20px;
   font-size: 10px;
@@ -295,6 +301,8 @@ button.stat:hover {
 .badgeDanger {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 3px 10px;
   border-radius: 20px;
   font-size: 10px;
@@ -360,6 +368,8 @@ button.stat:hover {
 .badgeInfo {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 3px 10px;
   border-radius: 20px;
   font-size: 10px;
@@ -684,6 +694,17 @@ button.stat:hover {
   min-width: 0;
 }
 .exploreQueryPanel {
+  /* A grid item's default min-width is "auto" (its content's own min-content
+     size), which can win over the track's 380px and silently push this
+     column wider — e.g. an unconstrained <select> full of long metric names,
+     or several filter controls on one row. min-width: 0 makes 380px (set on
+     .exploreLayout's grid-template-columns) the hard, actual constraint, so
+     everything inside is forced to wrap/shrink to fit it instead. overflow-x
+     is a hard backstop on top of that — this panel should never need a
+     horizontal scrollbar; if something still doesn't fit, clip it rather
+     than let the whole panel's content get draggable sideways. */
+  min-width: 0;
+  overflow-x: hidden;
   position: sticky;
   top: 20px;
   max-height: calc(100vh - 40px);
@@ -703,7 +724,16 @@ button.stat:hover {
    paragraph under a section heading (saves vertical space in the narrow
    query panel while keeping the full explanation one hover away) ── */
 .helpHint {
-  position: relative;
+  /* Not position: relative — .helpHintTooltip positions against the row
+     that renders this (SectionHeading's <h2>, or the "Custom ratio metric"
+     <p>, both given position: relative inline in pages/explore.js), not
+     against this icon itself. Anchoring to the icon put the tooltip's left
+     edge wherever the icon happened to land, which for a long heading
+     (e.g. "Compare to previous period") was far enough right that a
+     240px-wide tooltip ran past the (fixed-width) query panel's right edge
+     and got clipped. The row always starts at the same left edge no matter
+     how long its heading text is, so anchoring there instead keeps the
+     tooltip fully in bounds everywhere it's used. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -726,10 +756,14 @@ button.stat:hover {
 }
 /* Custom hover bubble (see pages/explore.js's HelpHint) instead of the
    native `title` attribute, whose fixed browser-level show delay reads as
-   sluggish here. Fast opacity-only transition — no delay before it starts
-   appearing, just a very quick fade so it doesn't feel like it's just
-   snapping into place. */
+   sluggish here — this appears the instant you hover/focus, no delay.
+   `display: none` (not opacity/visibility) when hidden: an absolutely
+   positioned element still counts toward its scrolling ancestor's
+   scrollWidth even while invisible via opacity/visibility, which was
+   silently forcing the (fixed-width) query panel into horizontal overflow
+   — `display: none` removes it from layout entirely until shown. */
 .helpHintTooltip {
+  display: none;
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
@@ -743,18 +777,13 @@ button.stat:hover {
   padding: 8px 10px;
   border-radius: 8px;
   box-shadow: var(--shadow-md);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.08s ease;
   z-index: 30;
   text-align: left;
   white-space: normal;
 }
 .helpHint:hover .helpHintTooltip,
 .helpHint:focus-visible .helpHintTooltip {
-  opacity: 1;
-  visibility: visible;
+  display: block;
 }
 
 /* ── Explore: empty-state shown before a view has ever been run ── */
