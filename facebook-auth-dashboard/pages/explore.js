@@ -152,15 +152,27 @@ function compareMetricValue(rowValue, operator, threshold) {
 // user removed that metric from the view (Metrics picker) — without this, a
 // stale condition's `row[key]` would be `undefined` on every row, which
 // compareMetricValue correctly treats as "doesn't match", silently hiding
-// every single row instead of just no-op'ing the dangling condition.
+// every single row instead of just no-op'ing the dangling condition. A
+// condition whose value was cleared mid-edit (e.g. the number input is
+// momentarily blank) is guarded the same way, for the same reason — it
+// shouldn't blank the whole table just because one threshold isn't a valid
+// number yet.
 function applyResultFilters(rows, resultFilters, availableMetricKeys) {
   if (!rows) return rows;
   let out = rows;
-  const conditions = (resultFilters?.metricConditions || []).filter((c) => availableMetricKeys.includes(c.metricKey));
+  const conditions = (resultFilters?.metricConditions || []).filter(
+    (c) => availableMetricKeys.includes(c.metricKey) && typeof c.value === "number" && !isNaN(c.value)
+  );
   if (conditions.length > 0) {
     out = out.filter((row) => conditions.every((c) => compareMetricValue(row[c.metricKey], c.operator, c.value)));
   }
-  if (resultFilters?.statusValues && resultFilters.statusValues.length > 0) {
+  // `statusValues` is `null` for "no filter" (every status counts) vs. an
+  // array for "only these statuses" — including an EMPTY array, which means
+  // every status checkbox was explicitly unchecked and nothing should match.
+  // `.length > 0` here used to treat that as indistinguishable from `null`,
+  // so unchecking every box silently brought every row back instead of
+  // showing none.
+  if (resultFilters?.statusValues) {
     out = out.filter((row) => resultFilters.statusValues.includes(row.status));
   }
   return out;
@@ -1386,7 +1398,7 @@ export default function Explore() {
                   <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
                     + Metric filter
                   </button>
-                  {draftConditions.length > 0 && (
+                  {(draftConditions.length > 0 || hasPendingMetricChanges) && (
                     <button
                       type="button"
                       className={styles.btnPrimary}
