@@ -125,6 +125,10 @@ export default function Launch() {
   const [destination, setDestination] = useState(null); // "new" | "existing"
   const [existingCampaign, setExistingCampaign] = useState(null);
   const [sourceAdsetName, setSourceAdsetName] = useState(null);
+  // Ads to re-create under the new ad set once it exists — each one's
+  // existing creative is reused by id (see pages/api/fb/adsets-list.js's
+  // ?adsetId= detail fetch), not null outside the duplicate path.
+  const [duplicateAds, setDuplicateAds] = useState([]);
 
   const [campaignFields, setCampaignFields] = useState(defaultCampaignFields);
   const [adsetFields, setAdsetFields] = useState(defaultAdsetFields);
@@ -208,6 +212,7 @@ export default function Launch() {
     setDestination(null);
     setExistingCampaign(null);
     setSourceAdsetName(null);
+    setDuplicateAds([]);
     setCampaignFields(defaultCampaignFields());
     setAdsetFields(defaultAdsetFields());
     setBudgetType("DAILY");
@@ -248,6 +253,7 @@ export default function Launch() {
         }
         setAdsetFields(json.fields);
         setSourceAdsetName(a.name);
+        setDuplicateAds(json.ads || []);
         setScreen("pick_destination");
       })
       .catch((err) => setAdsetsError(err.message))
@@ -377,6 +383,8 @@ export default function Launch() {
               </h2>
               <p className={styles.sub} style={{ marginBottom: 14 }}>
                 Duplicating &ldquo;{sourceAdsetName}&rdquo; — its settings are pre-filled below, still fully editable.
+                {duplicateAds.length > 0 &&
+                  ` Its ${duplicateAds.length} ad${duplicateAds.length > 1 ? "s" : ""} will be duplicated into the new ad set too, using the same creative.`}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
                 <EntryCard title="New Campaign" description="Create a new campaign for this ad set." onClick={startNewCampaign} />
@@ -460,6 +468,7 @@ export default function Launch() {
                 budgetType={budgetType}
                 budgetAmount={budgetAmount}
                 adset={adsetFields}
+                duplicateAds={duplicateAds}
                 onBack={resetFlow}
               />
             </div>

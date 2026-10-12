@@ -80,8 +80,24 @@ export default async function handler(req, res) {
 
   try {
     if (adsetId) {
-      const adset = await graphGet(`/${adsetId}`, token, { fields: DETAIL_FIELDS });
-      res.status(200).json({ campaignObjective: adset.campaign?.objective || null, fields: toFormFields(adset) });
+      // "Duplicate an ad set" means the ads in it too, not just its
+      // targeting settings — fetched alongside the ad set's own detail so
+      // the duplicate path has both in one round trip. Each ad's existing
+      // `creative.id` is reused as-is on the new ad (`{creative_id}` is all
+      // a new Ad object needs to point at it) rather than re-creating the
+      // creative itself — Meta creatives are standalone, reusable objects
+      // referenced by id, not owned 1:1 by one ad, and re-deriving a
+      // creative's full spec (image hashes, carousels, dynamic creative,
+      // asset_feed_spec…) to clone it is a much larger, riskier surface than
+      // this needs for "the new ad set shows the same ads".
+      const [adset, adsResult] = await Promise.all([
+        graphGet(`/${adsetId}`, token, { fields: DETAIL_FIELDS }),
+        graphGetAllPages(`/${adsetId}/ads`, token, { fields: "id,name,status,creative{id}", limit: 200 }),
+      ]);
+      const ads = (adsResult.data || [])
+        .filter((a) => a.creative?.id)
+        .map((a) => ({ name: `${a.name} - Copy`, creativeId: a.creative.id }));
+      res.status(200).json({ campaignObjective: adset.campaign?.objective || null, fields: toFormFields(adset), ads });
       return;
     }
     if (accountId) {
