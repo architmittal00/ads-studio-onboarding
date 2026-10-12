@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetInsights } from "@/lib/facebookGraph";
-import { chunk } from "@/lib/adCreativeDetails";
+import { chunk, fetchAdDetails } from "@/lib/adCreativeDetails";
 import { toMajorUnits } from "@/lib/reportShared";
 import {
   LEVEL_OPTIONS,
@@ -337,6 +337,7 @@ export default async function handler(req, res) {
     customEvents,
     nameFilters,
     idFilter,
+    includeCreative,
     since,
     until,
     timeIncrement,
@@ -773,6 +774,27 @@ export default async function handler(req, res) {
       const budget = budgetById[row.entityId];
       row.dailyBudget = budget?.dailyBudget ?? null;
       row.lifetimeBudget = budget?.lifetimeBudget ?? null;
+    }
+  }
+
+  // Same one-lookup-for-everything shape as the status/budget blocks above —
+  // opt-in (only components/EntityDrillDown.js's per-ad RCA list asks for
+  // this today, via `includeCreative`) since it's an extra Graph round trip
+  // per ad that most Explore queries never need. Only meaningful at the ad
+  // level — campaigns/ad sets have no creative of their own.
+  if (includeCreative && level === "ad") {
+    const idsNeeded = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
+    let detailsByAdId = {};
+    try {
+      detailsByAdId = await fetchAdDetails(idsNeeded, token);
+    } catch {
+      // Soft-fail — same reasoning as status/budget: a failed creative lookup
+      // just means no thumbnail/preview data on any row, not a failed query.
+    }
+    for (const row of rows) {
+      const details = detailsByAdId[row.entityId];
+      row.thumbnailUrl = details?.thumbnailUrl ?? null;
+      row.isVideo = !!details?.videoId;
     }
   }
 
