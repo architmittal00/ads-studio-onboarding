@@ -1,9 +1,26 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGetAllPages } from "@/lib/facebookGraph";
+import { graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
+import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 
 const MAX_ACCOUNTS = 10;
 const VALID_HOURS = [24, 72, 168, 720];
+// Bounds how many changes get a performance-impact lookup — each one needs
+// up to 2 extra Insights calls (before + after), on top of the per-account
+// activity fetches, so this is the lever that keeps total Graph call volume
+// (and wall-clock time) in check. The feed itself still shows every matching
+// change; only the impact column is capped, and the UI says so when it is.
+const MAX_IMPACT_CHANGES = 30;
+
+function isoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDaysUTC(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return isoDate(d);
+}
 
 // Which Facebook Activity Log object_types count as "campaign or adset
 // related" for this feed — ad-level and account-level activity (and
@@ -66,6 +83,34 @@ function parseExtraData(raw) {
   } catch {
     return null;
   }
+}
+
+// Facebook's Insights `time_range` only supports whole-day {since, until}
+// windows (YYYY-MM-DD), not arbitrary sub-day timestamps — there's no way to
+// ask for "the 24 hours immediately before/after 14:32" the way a change's
+// own event_time is precise to the second. So the comparison is day-level
+// instead: the single full calendar day immediately before the change's own
+// day, vs. the single full calendar day immediately after it. "Too recent"
+// means that *after* day hasn't fully elapsed yet (the change happened today
+// or yesterday) — comparing against a still-in-progress partial day would be
+// misleading, so it's skipped entirely rather than shown as a real number.
+function impactWindowFor(eventTimeIso) {
+  const changeDay = isoDate(new Date(eventTimeIso));
+  const dayBefore = addDaysUTC(changeDay, -1);
+  const dayAfter = addDaysUTC(changeDay, 1);
+  return { dayBefore, dayAfter, tooRecent: dayAfter >= isoDate(new Date()) };
+}
+
+// Spend/Purchases/ROAS — the same three values lib/insightsMetrics.js's own
+// catalog already surfaces for these exact metrics, reusing lib/metrics.js's
+// helpers rather than re-deriving extraction logic. `row` is undefined when
+// Facebook returned no data row at all for that single day (no delivery),
+// which is a real zero, not a failure — callers pass a zeroed stand-in row
+// in that case so this doesn't need to special-case it.
+function extractImpactMetrics(row) {
+  const { spend, roas } = roasFromRow(row);
+  const purchases = pickPurchaseCount(row.actions);
+  return { spend, purchases, roas };
 }
 
 function describeChange(category, extraData, translatedEventType) {
@@ -159,8 +204,58 @@ export default async function handler(req, res) {
 
   changes.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime));
 
+  // Performance impact only computed for the N most recent changes — see
+  // MAX_IMPACT_CHANGES. The feed above already has every matching change;
+  // this just bounds how many get the extra before/after Insights lookups.
+  const truncated = changes.length > MAX_IMPACT_CHANGES;
+  const impactEligible = changes.slice(0, MAX_IMPACT_CHANGES).filter((c) => c.eventTime);
+
+  const impactPlan = [];
+  const impactCalls = [];
+  for (const c of impactEligible) {
+    const { dayBefore, dayAfter, tooRecent } = impactWindowFor(c.eventTime);
+    c.tooRecent = tooRecent;
+    if (tooRecent) continue;
+    for (const [period, day] of [["before", dayBefore], ["after", dayAfter]]) {
+      impactCalls.push(
+        graphGetInsights(`/${c.objectId}/insights`, token, {
+          time_range: { since: day, until: day },
+          fields: "spend,actions,action_values,purchase_roas",
+        })
+      );
+      impactPlan.push({ change: c, period });
+    }
+  }
+
+  const impactSettled = await Promise.allSettled(impactCalls);
+  const beforeByChangeId = new Map();
+  const afterByChangeId = new Map();
+  impactSettled.forEach((result, i) => {
+    const { change, period } = impactPlan[i];
+    const target = period === "before" ? beforeByChangeId : afterByChangeId;
+    if (result.status !== "fulfilled") {
+      target.set(change.id, null); // soft-fail this one side — "—" in the UI, not a failed response
+      return;
+    }
+    // An empty data array means no delivery that day — a real zero, not a
+    // missing value, so a zeroed stand-in row flows through the normal
+    // extraction path rather than needing its own special case.
+    const row = (result.value.data || [])[0] || { spend: "0", actions: [], action_values: [], purchase_roas: [] };
+    target.set(change.id, extractImpactMetrics(row));
+  });
+
+  for (const c of changes) {
+    if (c.tooRecent) {
+      c.impact = null;
+    } else if (beforeByChangeId.has(c.id) || afterByChangeId.has(c.id)) {
+      c.impact = { before: beforeByChangeId.get(c.id) ?? null, after: afterByChangeId.get(c.id) ?? null };
+    } else {
+      c.impact = null; // beyond MAX_IMPACT_CHANGES
+    }
+  }
+
   res.status(200).json({
     changes,
-    meta: { accountIds, accountErrors, hours, rowCount: changes.length },
+    meta: { accountIds, accountErrors, hours, rowCount: changes.length, truncated },
   });
 }
