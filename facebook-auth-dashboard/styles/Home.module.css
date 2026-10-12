@@ -584,6 +584,41 @@ button.stat:hover {
   font-weight: 600;
 }
 
+/* ── Right-side drawer (e.g. Recent Changes' Investigate panel) — a
+   docked, full-height side panel rather than a centered modal, for content
+   that wants more room (a multi-column table) than a centered card
+   comfortably gives without feeling like a wall blocking the whole screen. */
+.drawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 800;
+}
+@keyframes drawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawerPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(760px, 100vw);
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  overflow-y: auto;
+  padding: 28px;
+  animation: drawerSlideIn 0.18s ease-out;
+}
+.drawerSinceChangeCol {
+  background: rgba(var(--purple-rgb), 0.06);
+}
+
 /* ── App shell: persistent sidebar + scrollable content ── */
 .appShell {
   display: flex;
