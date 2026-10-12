@@ -1,27 +1,10 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
-import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
+import { graphGetAllPages } from "@/lib/facebookGraph";
+import { MAX_IMPACT_CHANGES, impactWindowFor } from "@/lib/recentChangesImpact";
 
 const MAX_ACCOUNTS = 10;
 const VALID_HOURS = [24, 72, 168, 720];
-// Bounds how many changes get a performance-impact lookup — each one needs
-// up to 2 extra Insights calls (before + after), on top of the per-account
-// activity fetches, so this is the lever that keeps total Graph call volume
-// (and wall-clock time) in check. The feed itself still shows every matching
-// change; only the impact column is capped, and the UI says so when it is
-// (both in a top-of-list notice and, per row, via `impactCapped` below).
-const MAX_IMPACT_CHANGES = 50;
-
-function isoDate(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDaysUTC(dateStr, days) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return isoDate(d);
-}
 
 // Which Facebook Activity Log object_types count as "campaign or adset
 // related" for this feed — ad-level and account-level activity (and
@@ -104,34 +87,6 @@ function parseExtraData(raw) {
   } catch {
     return null;
   }
-}
-
-// Facebook's Insights `time_range` only supports whole-day {since, until}
-// windows (YYYY-MM-DD), not arbitrary sub-day timestamps — there's no way to
-// ask for "the 24 hours immediately before/after 14:32" the way a change's
-// own event_time is precise to the second. So the comparison is day-level
-// instead: the single full calendar day immediately before the change's own
-// day, vs. the single full calendar day immediately after it. "Too recent"
-// means that *after* day hasn't fully elapsed yet (the change happened today
-// or yesterday) — comparing against a still-in-progress partial day would be
-// misleading, so it's skipped entirely rather than shown as a real number.
-function impactWindowFor(eventTimeIso) {
-  const changeDay = isoDate(new Date(eventTimeIso));
-  const dayBefore = addDaysUTC(changeDay, -1);
-  const dayAfter = addDaysUTC(changeDay, 1);
-  return { dayBefore, dayAfter, tooRecent: dayAfter >= isoDate(new Date()) };
-}
-
-// Spend/Purchases/ROAS — the same three values lib/insightsMetrics.js's own
-// catalog already surfaces for these exact metrics, reusing lib/metrics.js's
-// helpers rather than re-deriving extraction logic. `row` is undefined when
-// Facebook returned no data row at all for that single day (no delivery),
-// which is a real zero, not a failure — callers pass a zeroed stand-in row
-// in that case so this doesn't need to special-case it.
-function extractImpactMetrics(row) {
-  const { spend, roas } = roasFromRow(row);
-  const purchases = pickPurchaseCount(row.actions);
-  return { spend, purchases, roas };
 }
 
 function describeChange(translatedEventType, categoryLabel) {
@@ -218,60 +173,30 @@ export default async function handler(req, res) {
 
   changes.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime));
 
-  // Performance impact only computed for the N most recent changes — see
-  // MAX_IMPACT_CHANGES. The feed above already has every matching change;
-  // this just bounds how many get the extra before/after Insights lookups.
+  // Performance impact (Spend/Purchases/ROAS before vs. after) used to be
+  // computed right here, inline, for every eligible change before this
+  // endpoint ever responded — up to MAX_IMPACT_CHANGES * 2 extra Insights
+  // calls, which meant the whole page stayed blank until all of them
+  // finished (very noticeable on "Last 7 Days", where there are often many
+  // more eligible changes). This endpoint now only decides *eligibility*
+  // (cheap date math + a cap, zero extra Graph calls) and returns
+  // immediately; pages/recent-changes.js fetches impact for the eligible
+  // changes itself, in small batches, via
+  // pages/api/fb/recent-changes/impact.js, right after this list renders —
+  // so the list shows up first and quick-signal badges fill in
+  // progressively as each batch resolves instead of blocking first paint.
   const truncated = changes.length > MAX_IMPACT_CHANGES;
   const impactEligible = changes.slice(0, MAX_IMPACT_CHANGES).filter((c) => c.eventTime);
   const impactEligibleIds = new Set(impactEligible.map((c) => c.id));
-
-  const impactPlan = [];
-  const impactCalls = [];
   for (const c of impactEligible) {
-    const { dayBefore, dayAfter, tooRecent } = impactWindowFor(c.eventTime);
-    c.tooRecent = tooRecent;
-    if (tooRecent) continue;
-    for (const [period, day] of [["before", dayBefore], ["after", dayAfter]]) {
-      impactCalls.push(
-        graphGetInsights(`/${c.objectId}/insights`, token, {
-          time_range: { since: day, until: day },
-          fields: "spend,actions,action_values,purchase_roas",
-        })
-      );
-      impactPlan.push({ change: c, period });
-    }
+    c.tooRecent = impactWindowFor(c.eventTime).tooRecent;
   }
-
-  const impactSettled = await Promise.allSettled(impactCalls);
-  const beforeByChangeId = new Map();
-  const afterByChangeId = new Map();
-  impactSettled.forEach((result, i) => {
-    const { change, period } = impactPlan[i];
-    const target = period === "before" ? beforeByChangeId : afterByChangeId;
-    if (result.status !== "fulfilled") {
-      target.set(change.id, null); // soft-fail this one side — "—" in the UI, not a failed response
-      return;
-    }
-    // An empty data array means no delivery that day — a real zero, not a
-    // missing value, so a zeroed stand-in row flows through the normal
-    // extraction path rather than needing its own special case.
-    const row = (result.value.data || [])[0] || { spend: "0", actions: [], action_values: [], purchase_roas: [] };
-    target.set(change.id, extractImpactMetrics(row));
-  });
-
   for (const c of changes) {
-    if (c.tooRecent) {
-      c.impact = null;
-    } else if (beforeByChangeId.has(c.id) || afterByChangeId.has(c.id)) {
-      c.impact = { before: beforeByChangeId.get(c.id) ?? null, after: afterByChangeId.get(c.id) ?? null };
-    } else {
-      // Beyond MAX_IMPACT_CHANGES (or, rarely, missing an eventTime to
-      // compute a window from) — flagged explicitly so the UI can say why
-      // this row has no quick signal instead of silently showing nothing,
-      // which read as a bug rather than the documented, deliberate cap.
-      c.impact = null;
-      c.impactCapped = !impactEligibleIds.has(c.id);
-    }
+    // Beyond MAX_IMPACT_CHANGES (or, rarely, missing an eventTime to compute
+    // a window from) — flagged explicitly so the UI can say why this row has
+    // no quick signal instead of silently showing nothing, which read as a
+    // bug rather than the documented, deliberate cap.
+    if (!impactEligibleIds.has(c.id)) c.impactCapped = true;
   }
 
   res.status(200).json({
