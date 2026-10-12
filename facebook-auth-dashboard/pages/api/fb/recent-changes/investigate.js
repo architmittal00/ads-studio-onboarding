@@ -3,7 +3,11 @@ import { authOptions } from "../../auth/[...nextauth]";
 import { graphGetInsights } from "@/lib/facebookGraph";
 import { resolveGraphFields, deriveRowMetrics } from "@/lib/insightsMetrics";
 
-const VALID_LEVELS = ["campaign", "adset"];
+// "ad" is reachable only via components/EntityDrillDown.js's own per-row
+// comparison table (RCA on the ads inside a changed ad set/campaign) — the
+// top-level change itself is always logged against a campaign or ad set, per
+// VALID_LEVELS' original two entries.
+const VALID_LEVELS = ["campaign", "adset", "ad"];
 
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
