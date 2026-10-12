@@ -145,6 +145,24 @@ export const METRIC_CATALOG = [
   { key: "cpc", label: "CPC", group: "Cost", format: "currency", fields: ["cpc"], extract: (r) => parseFloat(r.cpc || 0) },
   { key: "cpm", label: "CPM", group: "Cost", format: "currency", fields: ["cpm"], extract: (r) => parseFloat(r.cpm || 0) },
   { key: "cpp", label: "CPP", group: "Cost", format: "currency", fields: ["cpp"], extract: (r) => parseFloat(r.cpp || 0) },
+  // Meta's own "Cost per Result" is tied to whatever a campaign's
+  // optimization goal is (purchases, leads, …), which isn't tracked
+  // per-campaign anywhere in this app — this standardizes on purchases as
+  // "the result," consistent with Purchases/ROAS/Purchase Value already
+  // being this catalog's dominant conversion metrics. `null` (not `0` or
+  // `Infinity`) on zero purchases, same convention as Hook Rate/Hold Rate.
+  {
+    key: "cost_per_purchase",
+    label: "Cost Per Purchase (CPR)",
+    group: "Cost",
+    format: "currency",
+    fields: ["spend", "actions"],
+    extract: (r) => {
+      const purchases = pickPurchaseCount(r.actions);
+      const spend = parseFloat(r.spend || 0);
+      return purchases > 0 ? spend / purchases : null;
+    },
+  },
 
   // Conversions
   {
@@ -380,6 +398,16 @@ export function formatMetricValue(value, format, currency) {
 // Only these formats are plottable as a numeric axis — "text" rankings
 // (quality_ranking etc.) are table-only.
 const CHARTABLE_FORMATS = new Set(["number", "currency", "percent", "decimal"]);
+
+// `format: "currency"` mixes two different shapes: a genuine period total
+// (Spend, Purchase Value — sums meaningfully across a longer window) and a
+// per-unit rate (CPC/CPM/CPP, Cost Per Purchase — already "cost ÷ something,"
+// not something that should be divided again by how many days the window
+// spans). Anything that needs to tell those apart — e.g. a view comparing
+// windows of different lengths, where a total needs dividing by day-count to
+// stay comparable but a rate must not be — should check this set rather than
+// assuming every currency-format metric is additive.
+export const RATE_METRIC_KEYS = new Set(["cpc", "cpm", "cpp", "cost_per_purchase"]);
 
 export function isChartableMetric(key) {
   const metric = getMetric(key);
