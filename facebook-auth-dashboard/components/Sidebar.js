@@ -7,9 +7,9 @@ import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/
 import { FileTextIcon, TargetIcon, DatabaseIcon, ListIcon, ChartIcon, PanelIcon, LogoutIcon, SunIcon, MoonIcon } from "./icons";
 
 const LINKS = [
-  { href: "/report", label: "Handover Report", icon: FileTextIcon },
+  { href: "/report", label: "Audit Report", icon: FileTextIcon },
   { href: "/strategy", label: "Figure Out Strategy", icon: TargetIcon },
-  { href: "/explore", label: "Explore", icon: ChartIcon },
+  { href: "/explore", label: "Custom Views", icon: ChartIcon },
   { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
   { href: "/logs", label: "API Logs", icon: ListIcon },
 ];
