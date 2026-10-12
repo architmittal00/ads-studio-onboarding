@@ -167,6 +167,30 @@ export function setRecentChangesViews(data) {
   }
 }
 
+const RECENT_CHANGES_QUERY_PANEL_COLLAPSED_KEY = "fb-dashboard:recent-changes-query-panel-collapsed";
+
+// Collapsed (results front and center) vs expanded (accounts/time-window
+// panel visible alongside the results) state of Recent Changes' side panel —
+// same per-device preference pattern as Explore's own query-panel collapse.
+// `null` means "never set on this device"; the page itself decides the
+// default (collapsed) rather than assuming a stored "false".
+export function getRecentChangesQueryPanelCollapsed() {
+  try {
+    const value = localStorage.getItem(RECENT_CHANGES_QUERY_PANEL_COLLAPSED_KEY);
+    return value == null ? null : value === "1";
+  } catch {
+    return null;
+  }
+}
+
+export function setRecentChangesQueryPanelCollapsed(collapsed) {
+  try {
+    localStorage.setItem(RECENT_CHANGES_QUERY_PANEL_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
+
 const CUSTOM_METRICS_KEY = "fb-dashboard:explore-custom-metrics";
 
 // User-defined ratio metrics for Explore (numerator metric ÷ denominator

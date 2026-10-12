@@ -7,10 +7,15 @@ import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import AccountSelect from "@/components/AccountSelect";
 import InvestigateDrawer from "@/components/InvestigateDrawer";
-import { CloseIcon, HistoryIcon } from "@/components/icons";
+import { CloseIcon, HistoryIcon, SettingsIcon, ChevronIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { getRecentChangesViews, setRecentChangesViews } from "@/lib/clientStorage";
+import {
+  getRecentChangesViews,
+  setRecentChangesViews,
+  getRecentChangesQueryPanelCollapsed,
+  setRecentChangesQueryPanelCollapsed,
+} from "@/lib/clientStorage";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
 import styles from "@/styles/Home.module.css";
 
@@ -46,6 +51,28 @@ function QuickSignal({ label, before, after }) {
     <span className={badgeClass}>
       {label} {arrow} {Math.abs(pct).toFixed(0)}%
     </span>
+  );
+}
+
+// Toggle chip for the Action Type / Changed By filters — same selected
+// (solid badge) vs. unselected (dashed, muted pill) treatment as
+// InvestigateDrawer's own metric picker, instead of a plain checkbox+label
+// row.
+function FilterChip({ label, selected, onClick, colorClass }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={selected ? colorClass || styles.badgeInfo : styles.pill}
+      style={{
+        cursor: "pointer",
+        border: selected ? undefined : "1px dashed var(--border)",
+        background: selected ? undefined : "transparent",
+        color: selected ? undefined : "var(--t2)",
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -106,6 +133,16 @@ function viewTitle(view, adAccounts, fallbackIndex) {
   return `${names[0]} +${names.length - 1} more`;
 }
 
+// One-line recap shown in place of the accounts/time-window panel while it's
+// collapsed — mirrors pages/explore.js's own summarizeQuery.
+function summarizeView(view, adAccounts) {
+  const accountNames = view.accountIds.map((id) => adAccounts.find((a) => a.id === id)?.name).filter(Boolean);
+  const accountLabel =
+    accountNames.length === 0 ? "No account selected" : accountNames.length === 1 ? accountNames[0] : `${accountNames.length} accounts`;
+  const hoursLabel = HOURS_PRESETS.find((p) => p.value === view.hours)?.label || `${view.hours}h`;
+  return `${accountLabel} · ${hoursLabel}`;
+}
+
 // Shown before a tab has ever been run — mirrors pages/explore.js's own
 // ExploreEmptyState, reusing the same CSS classes (generic empty-state
 // layout, not Explore-specific).
@@ -153,6 +190,24 @@ export default function RecentChanges() {
   const [renameDraft, setRenameDraft] = useState("");
 
   const [investigatingChange, setInvestigatingChange] = useState(null);
+
+  // Collapsed by default (per-device, like Explore's own panel) so a tab
+  // with results already loaded doesn't keep the accounts/time-window panel
+  // permanently in the way — see `queryPanelExpanded` below for the one
+  // exception (a tab with nothing fetched yet forces this open).
+  const [queryPanelCollapsed, setQueryPanelCollapsedState] = useState(true);
+  useEffect(() => {
+    const saved = getRecentChangesQueryPanelCollapsed();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a per-device localStorage preference on mount, not derivable from props/state
+    if (saved != null) setQueryPanelCollapsedState(saved);
+  }, []);
+  function toggleQueryPanel() {
+    setQueryPanelCollapsedState((prev) => {
+      const next = !prev;
+      setRecentChangesQueryPanelCollapsed(next);
+      return next;
+    });
+  }
 
   function startRenaming(view, fallbackIndex) {
     setRenamingViewId(view.id);
@@ -321,6 +376,12 @@ export default function RecentChanges() {
     });
   }, [result, activeView.filters]);
 
+  // The collapsed preference only ever applies once there's a result to show
+  // instead — a brand-new (or still-loading-for-the-first-time) tab has
+  // nothing else on screen, so the accounts/time-window panel it needs stays
+  // open regardless of the stored preference.
+  const queryPanelExpanded = !result || !queryPanelCollapsed;
+
   const resultArea = (
     <>
       {activeView.error && (
@@ -368,35 +429,32 @@ export default function RecentChanges() {
 
       {result && result.changes.length > 0 && (
         <>
-          <div className={styles.card} style={{ padding: 12, marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-              <span className={styles.muted} style={{ fontWeight: 600 }}>
+          <div className={styles.card} style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span className={styles.muted} style={{ fontWeight: 700, fontSize: 11, minWidth: 82 }}>
                 Action Type
               </span>
               {availableCategories.map((c) => (
-                <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-                  <input
-                    type="checkbox"
-                    checked={!activeView.filters.categories || activeView.filters.categories.includes(c.key)}
-                    onChange={() => toggleCategoryFilter(c.key)}
-                  />
-                  {c.label}
-                </label>
+                <FilterChip
+                  key={c.key}
+                  label={c.label}
+                  colorClass={styles[CATEGORY_BADGE[c.key]]}
+                  selected={!activeView.filters.categories || activeView.filters.categories.includes(c.key)}
+                  onClick={() => toggleCategoryFilter(c.key)}
+                />
               ))}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
-              <span className={styles.muted} style={{ fontWeight: 600 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span className={styles.muted} style={{ fontWeight: 700, fontSize: 11, minWidth: 82 }}>
                 Changed By
               </span>
               {availableActors.map((name) => (
-                <label key={name} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-                  <input
-                    type="checkbox"
-                    checked={!activeView.filters.actors || activeView.filters.actors.includes(name)}
-                    onChange={() => toggleActorFilter(name)}
-                  />
-                  {name}
-                </label>
+                <FilterChip
+                  key={name}
+                  label={name}
+                  selected={!activeView.filters.actors || activeView.filters.actors.includes(name)}
+                  onClick={() => toggleActorFilter(name)}
+                />
               ))}
             </div>
           </div>
@@ -446,8 +504,8 @@ export default function RecentChanges() {
                     )}
                     <button
                       type="button"
-                      className={styles.btnSecondary}
-                      style={{ padding: "4px 10px", fontSize: 11, marginLeft: "auto" }}
+                      className={styles.btnPrimary}
+                      style={{ padding: "5px 12px", fontSize: 11, marginLeft: "auto", boxShadow: "none" }}
                       onClick={() => setInvestigatingChange(c)}
                     >
                       Investigate
@@ -578,46 +636,90 @@ export default function RecentChanges() {
             </button>
           </div>
 
-          <div className={styles.exploreLayout}>
-            <div className={styles.exploreContent}>{resultArea}</div>
+          {queryPanelExpanded ? (
+            <div className={styles.exploreLayout}>
+              <div className={styles.exploreContent}>{resultArea}</div>
 
-            <aside className={styles.exploreQueryPanel}>
-              <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <h2 className={styles.h2}>Accounts</h2>
-                <AccountSelect
-                  accounts={adAccounts}
-                  multiple
-                  values={activeView.accountIds}
-                  onChange={(ids) => updateActive({ accountIds: ids })}
-                  maxSelected={10}
-                  placeholder="Select one or more accounts…"
-                />
+              <aside className={styles.exploreQueryPanel}>
+                <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
+                      <SettingsIcon size={15} />
+                      Accounts &amp; Time Window
+                    </span>
+                    {/* No collapse control until there's a result to fall back to showing instead —
+                        collapsing here would leave the page with nothing on it at all. */}
+                    {!!result && (
+                      <button
+                        type="button"
+                        className={styles.appSidebarIconBtn}
+                        onClick={toggleQueryPanel}
+                        title="Collapse — focus on the results"
+                      >
+                        <ChevronIcon direction="right" size={15} />
+                      </button>
+                    )}
+                  </div>
 
-                <h2 className={styles.h2}>Time Window</h2>
-                <div className={styles.tabGroup} style={{ flexWrap: "wrap" }}>
-                  {HOURS_PRESETS.map((p) => (
-                    <button
-                      key={p.value}
-                      type="button"
-                      className={activeView.hours === p.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                      onClick={() => updateActive({ hours: p.value })}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+                  <div>
+                    <h2 className={styles.h2}>Accounts</h2>
+                    <AccountSelect
+                      accounts={adAccounts}
+                      multiple
+                      values={activeView.accountIds}
+                      onChange={(ids) => updateActive({ accountIds: ids })}
+                      maxSelected={10}
+                      placeholder="Select one or more accounts…"
+                    />
+                  </div>
+
+                  <div>
+                    <h2 className={styles.h2}>Time Window</h2>
+                    <div className={styles.tabGroup} style={{ flexWrap: "wrap" }}>
+                      {HOURS_PRESETS.map((p) => (
+                        <button
+                          key={p.value}
+                          type="button"
+                          className={activeView.hours === p.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                          onClick={() => updateActive({ hours: p.value })}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={styles.btnPrimary}
+                    onClick={() => runQueryForView(activeView, false)}
+                    disabled={!runnable || activeView.loading}
+                  >
+                    {activeView.loading ? "Loading…" : "Check Recent Changes"}
+                  </button>
                 </div>
-
+              </aside>
+            </div>
+          ) : (
+            <div className={styles.exploreContent}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                <p className={styles.sub} style={{ margin: 0 }}>
+                  {summarizeView(activeView, adAccounts)}
+                </p>
                 <button
                   type="button"
-                  className={styles.btnPrimary}
-                  onClick={() => runQueryForView(activeView, false)}
-                  disabled={!runnable || activeView.loading}
+                  className={styles.btnSecondary}
+                  onClick={toggleQueryPanel}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
                 >
-                  {activeView.loading ? "Loading…" : "Check Recent Changes"}
+                  <SettingsIcon size={13} />
+                  Edit Accounts
+                  <ChevronIcon direction="left" size={12} />
                 </button>
               </div>
-            </aside>
-          </div>
+              {resultArea}
+            </div>
+          )}
         </main>
       </div>
 
