@@ -20,6 +20,20 @@ function dayCount(since, until) {
   return Math.round((new Date(`${until}T00:00:00Z`) - new Date(`${since}T00:00:00Z`)) / 86400000) + 1;
 }
 
+// `customMetrics`/`customEvents` travel as JSON-encoded query params (this
+// endpoint is a GET, unlike pages/api/fb/explore-insights.js's POST body) —
+// same per-entry shape Explore's own buildQuerySpecFromView sends:
+// `{id, numeratorKey, denominatorKey}` / `{id, accountId, actionType}`.
+function parseJsonArrayParam(raw) {
+  if (!raw || typeof raw !== "string") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 // Six comparison windows for one entity around one change — three anchored
 // to the change itself (always fully in the past, never unavailable), one
 // that grows with how long ago the change happened, and two anchored to
@@ -36,13 +50,23 @@ function buildWindows(eventTimeIso) {
   const sinceChangeStart = addDaysUTC(changeDay, 1);
   const sinceChangeAvailable = sinceChangeStart <= yesterday;
 
+  const last3DaysSince = addDaysUTC(today, -3);
+  const last7DaysSince = addDaysUTC(today, -7);
+
   return {
     sevenDaysBefore: { since: addDaysUTC(changeDay, -7), until: addDaysUTC(changeDay, -1) },
     threeDaysBefore: { since: addDaysUTC(changeDay, -3), until: addDaysUTC(changeDay, -1) },
     oneDayBefore: { since: addDaysUTC(changeDay, -1), until: addDaysUTC(changeDay, -1) },
     sinceChange: sinceChangeAvailable ? { since: sinceChangeStart, until: yesterday } : null,
-    last3Days: { since: addDaysUTC(today, -3), until: yesterday },
-    last7Days: { since: addDaysUTC(today, -7), until: yesterday },
+    // `overlapsChange` flags a now-anchored window whose start falls on or
+    // before the change's own day — it mixes pre-change and post-change
+    // delivery into one number, which would misleadingly read as a clean
+    // "since the change" value. Only possible for a change more recent than
+    // the window is long (e.g. a change from 2 days ago inside a "Last 7
+    // Days" window) — components/InvestigateDrawer.js shows a muted
+    // explanation instead of the number when this is set.
+    last3Days: { since: last3DaysSince, until: yesterday, overlapsChange: last3DaysSince <= changeDay },
+    last7Days: { since: last7DaysSince, until: yesterday, overlapsChange: last7DaysSince <= changeDay },
   };
 }
 
@@ -77,9 +101,11 @@ export default async function handler(req, res) {
   if (metricKeys.length === 0) {
     return res.status(400).json({ error: "At least one metric is required" });
   }
+  const customMetrics = parseJsonArrayParam(req.query.customMetrics);
+  const customEvents = parseJsonArrayParam(req.query.customEvents);
 
   const token = session.accessToken;
-  const fields = resolveGraphFields(metricKeys, [], level, [], []).join(",");
+  const fields = resolveGraphFields(metricKeys, [], level, customMetrics, customEvents).join(",");
   const windows = buildWindows(eventTime);
 
   const windowNames = Object.keys(windows).filter((name) => windows[name] !== null);
@@ -92,16 +118,16 @@ export default async function handler(req, res) {
   const results = {};
   settled.forEach((result, i) => {
     const name = windowNames[i];
-    const { since, until } = windows[name];
+    const { since, until, overlapsChange } = windows[name];
     const days = dayCount(since, until);
     if (result.status !== "fulfilled") {
-      results[name] = { since, until, days, metrics: null, error: result.reason?.message || "Request failed" };
+      results[name] = { since, until, days, overlapsChange, metrics: null, error: result.reason?.message || "Request failed" };
       return;
     }
     // An empty data array means no delivery that window — a real zero, not
     // a missing value, same convention as the bulk impact computation.
     const row = (result.value.data || [])[0] || {};
-    results[name] = { since, until, days, metrics: deriveRowMetrics(row, metricKeys, [], [], []) };
+    results[name] = { since, until, days, overlapsChange, metrics: deriveRowMetrics(row, metricKeys, [], customMetrics, customEvents) };
   });
   if (windows.sinceChange === null) {
     results.sinceChange = { since: null, until: null, days: 0, metrics: null, tooRecent: true };

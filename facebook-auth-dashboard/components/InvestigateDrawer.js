@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Loader from "./Loader";
 import { CloseIcon, ChevronIcon } from "./icons";
-import { METRIC_CATALOG, RATE_METRIC_KEYS, formatMetricValue } from "@/lib/insightsMetrics";
+import {
+  RATE_METRIC_KEYS,
+  LOWER_IS_BETTER_METRIC_KEYS,
+  isUnitMetric,
+  buildEffectiveCatalog,
+  formatMetricValue,
+} from "@/lib/insightsMetrics";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
+import { getCustomMetrics } from "@/lib/clientStorage";
+import { fetchCustomEvents } from "@/lib/customEvents";
 import styles from "@/styles/Home.module.css";
 
 const CACHE_PREFIX = "recent-changes-investigate:";
@@ -70,6 +78,30 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
   const [error, setError] = useState(null);
   const [rawOpen, setRawOpen] = useState(false);
 
+  // User-defined ratio metrics (global, same lib/clientStorage.js list
+  // Explore's own metric picker reads) and this change's own account's
+  // discovered CAPI/pixel Custom Conversions (see lib/customEvents.js) —
+  // merged into the metric picker and the comparison table the same way
+  // pages/explore.js already does, so a metric set up there is selectable
+  // here too, not just the built-in catalog.
+  const [customMetrics] = useState(() => getCustomMetrics());
+  const [customEvents, setCustomEvents] = useState([]);
+  useEffect(() => {
+    if (!change?.accountId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing stale events from a previously-investigated change's account, not derivable from props/state
+      setCustomEvents([]);
+      return;
+    }
+    let cancelled = false;
+    fetchCustomEvents([change.accountId]).then((events) => {
+      if (!cancelled) setCustomEvents(events);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [change?.accountId]);
+  const effectiveCatalog = useMemo(() => buildEffectiveCatalog(customMetrics, customEvents), [customMetrics, customEvents]);
+
   useEffect(() => {
     if (!change) return;
     function handleKey(e) {
@@ -100,6 +132,18 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
       eventTime: change.eventTime,
       metricKeys: sortedKeys.join(","),
     });
+    // The backend has no localStorage/account access of its own — a selected
+    // custom metric or custom event's full definition (not just its id)
+    // has to travel with the request, same as Explore's own
+    // buildQuerySpecFromView does for its POST body.
+    const selectedCustomMetrics = customMetrics
+      .filter((cm) => sortedKeys.includes(cm.id))
+      .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey }));
+    if (selectedCustomMetrics.length > 0) params.set("customMetrics", JSON.stringify(selectedCustomMetrics));
+    const selectedCustomEvents = customEvents
+      .filter((ce) => sortedKeys.includes(ce.id))
+      .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
+    if (selectedCustomEvents.length > 0) params.set("customEvents", JSON.stringify(selectedCustomEvents));
     fetch(`/api/fb/recent-changes/investigate?${params.toString()}`)
       .then((res) => res.json())
       .then((json) => {
@@ -112,7 +156,7 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [change, selectedKeys]);
+  }, [change, selectedKeys, customMetrics, customEvents]);
 
   if (!change) return null;
 
@@ -190,7 +234,7 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
             Metrics
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {METRIC_CATALOG.map((m) => {
+            {effectiveCatalog.map((m) => {
               const selected = selectedKeys.includes(m.key);
               return (
                 <button
@@ -243,12 +287,46 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
               </thead>
               <tbody>
                 {selectedKeys.map((key) => {
-                  const metric = METRIC_CATALOG.find((m) => m.key === key);
+                  const metric = effectiveCatalog.find((m) => m.key === key);
                   if (!metric) return null;
+                  const unit = isUnitMetric(metric);
+                  const lowerIsBetter = LOWER_IS_BETTER_METRIC_KEYS.has(metric.key);
+
+                  // Pre-compute every window's displayed value once, so the
+                  // best/worst comparison below (unit metrics only — see
+                  // lib/insightsMetrics.js's isUnitMetric comment for why an
+                  // additive total like Spend isn't a fair apples-to-apples
+                  // comparison across different-length windows the way a
+                  // rate like ROAS/CPR is) reads the exact same numbers the
+                  // cells render, never a second, possibly-divergent one. A
+                  // window that's too recent or overlaps the change (mixes
+                  // pre- and post-change delivery — see buildWindows' own
+                  // comment in the API route) is excluded from the
+                  // comparison entirely, the same way it's excluded from the
+                  // rendered value.
+                  const cellValues = WINDOW_ORDER.map((name) => {
+                    const w = data?.windows[name];
+                    if (!w || w.tooRecent || w.overlapsChange) return null;
+                    return normalizedValue(metric, w.metrics?.[key], w.days);
+                  });
+                  let bestValue = null;
+                  let worstValue = null;
+                  if (unit && !loading) {
+                    const numeric = cellValues.filter((v) => typeof v === "number" && !isNaN(v));
+                    if (numeric.length > 1) {
+                      const max = Math.max(...numeric);
+                      const min = Math.min(...numeric);
+                      if (max !== min) {
+                        bestValue = lowerIsBetter ? min : max;
+                        worstValue = lowerIsBetter ? max : min;
+                      }
+                    }
+                  }
+
                   return (
                     <tr key={key}>
                       <td>{metric.label}</td>
-                      {WINDOW_ORDER.map((name) => {
+                      {WINDOW_ORDER.map((name, i) => {
                         const cellClass = name === "sinceChange" ? styles.drawerSinceChangeCol : undefined;
                         if (loading) {
                           return (
@@ -266,10 +344,21 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
                             </td>
                           );
                         }
-                        const raw = w.metrics?.[key];
-                        const value = normalizedValue(metric, raw, w.days);
+                        if (w.overlapsChange) {
+                          return (
+                            <td
+                              key={name}
+                              className={`${styles.muted} ${cellClass || ""}`}
+                              title="This window spans both before and after the change, so it isn't a clean post-change read."
+                            >
+                              Includes pre-change days
+                            </td>
+                          );
+                        }
+                        const value = cellValues[i];
+                        const tone = value === bestValue ? "var(--green)" : value === worstValue ? "var(--red)" : undefined;
                         return (
-                          <td key={name} className={cellClass}>
+                          <td key={name} className={cellClass} style={tone ? { color: tone, fontWeight: 700 } : undefined}>
                             {formatMetricValue(value, metric.format, currency)}
                           </td>
                         );
