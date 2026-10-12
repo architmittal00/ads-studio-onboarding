@@ -9,8 +9,9 @@ const VALID_HOURS = [24, 72, 168, 720];
 // up to 2 extra Insights calls (before + after), on top of the per-account
 // activity fetches, so this is the lever that keeps total Graph call volume
 // (and wall-clock time) in check. The feed itself still shows every matching
-// change; only the impact column is capped, and the UI says so when it is.
-const MAX_IMPACT_CHANGES = 30;
+// change; only the impact column is capped, and the UI says so when it is
+// (both in a top-of-list notice and, per row, via `impactCapped` below).
+const MAX_IMPACT_CHANGES = 50;
 
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
@@ -204,6 +205,7 @@ export default async function handler(req, res) {
   // this just bounds how many get the extra before/after Insights lookups.
   const truncated = changes.length > MAX_IMPACT_CHANGES;
   const impactEligible = changes.slice(0, MAX_IMPACT_CHANGES).filter((c) => c.eventTime);
+  const impactEligibleIds = new Set(impactEligible.map((c) => c.id));
 
   const impactPlan = [];
   const impactCalls = [];
@@ -245,7 +247,12 @@ export default async function handler(req, res) {
     } else if (beforeByChangeId.has(c.id) || afterByChangeId.has(c.id)) {
       c.impact = { before: beforeByChangeId.get(c.id) ?? null, after: afterByChangeId.get(c.id) ?? null };
     } else {
-      c.impact = null; // beyond MAX_IMPACT_CHANGES
+      // Beyond MAX_IMPACT_CHANGES (or, rarely, missing an eventTime to
+      // compute a window from) — flagged explicitly so the UI can say why
+      // this row has no quick signal instead of silently showing nothing,
+      // which read as a bug rather than the documented, deliberate cap.
+      c.impact = null;
+      c.impactCapped = !impactEligibleIds.has(c.id);
     }
   }
 
