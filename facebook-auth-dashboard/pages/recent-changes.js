@@ -6,7 +6,7 @@ import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import AccountSelect from "@/components/AccountSelect";
-import InvestigateModal from "@/components/InvestigateModal";
+import InvestigateDrawer from "@/components/InvestigateDrawer";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
@@ -233,7 +233,7 @@ export default function RecentChanges() {
         </main>
       </div>
 
-      <InvestigateModal
+      <InvestigateDrawer
         change={investigatingChange}
         onClose={() => setInvestigatingChange(null)}
         currency={investigatingChange ? currencyByAccountId.get(investigatingChange.accountId) : undefined}
