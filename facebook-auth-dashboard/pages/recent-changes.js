@@ -6,9 +6,9 @@ import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import AccountSelect from "@/components/AccountSelect";
+import InvestigateModal from "@/components/InvestigateModal";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { formatMetricValue } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
 const CACHE_PREFIX = "recent-changes:";
@@ -22,32 +22,21 @@ const HOURS_PRESETS = [
 // the truncation notice's wording, not sent in any request.
 const MAX_IMPACT_CHANGES = 30;
 
-// Small, self-contained — duplicated from (not imported from)
-// pages/explore.js's own DeltaBadge rather than sharing a module between two
-// otherwise-unrelated pages for something this size.
-function DeltaBadge({ before, after }) {
+// Compact up/down signal for one metric — replaces the old spelled-out
+// "Spend: ₹X → ₹Y [badge]" line with a single scannable chip (e.g.
+// "Spend ▲73%"), reusing the existing badgeGood/badgeDanger pill treatment
+// instead of inventing new color CSS. The full before/after numbers live in
+// the Investigate modal instead of cluttering every row.
+function QuickSignal({ label, before, after }) {
   if (typeof before !== "number" || typeof after !== "number") return null;
   if (before === 0 && after === 0) return null;
   const pct = before !== 0 ? ((after - before) / Math.abs(before)) * 100 : 100;
-  const color = pct > 0 ? "var(--green)" : pct < 0 ? "var(--red)" : "var(--t2)";
+  const badgeClass = pct > 0 ? styles.badgeGood : pct < 0 ? styles.badgeDanger : styles.badgeInfo;
   const arrow = pct > 0 ? "▲" : pct < 0 ? "▼" : "";
   return (
-    <span style={{ fontSize: 11, color, marginLeft: 6 }}>
-      {arrow} {Math.abs(pct).toFixed(0)}%
+    <span className={badgeClass}>
+      {label} {arrow} {Math.abs(pct).toFixed(0)}%
     </span>
-  );
-}
-
-function ImpactStat({ label, before, after, format, currency }) {
-  if (before == null && after == null) return null;
-  return (
-    <div style={{ fontSize: 12 }}>
-      <span className={styles.muted}>{label}: </span>
-      <strong>{formatMetricValue(before, format, currency)}</strong>
-      <span className={styles.muted}> → </span>
-      <strong>{formatMetricValue(after, format, currency)}</strong>
-      <DeltaBadge before={before} after={after} />
-    </div>
   );
 }
 
@@ -79,6 +68,7 @@ export default function RecentChanges() {
   const [fetchedAt, setFetchedAt] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [investigatingChange, setInvestigatingChange] = useState(null);
 
   const runnable = accountIds.length > 0;
 
@@ -213,33 +203,41 @@ export default function RecentChanges() {
                       {relativeTime(c.eventTime)}
                     </span>
                   </div>
-                  <p className={styles.sub} style={{ marginBottom: 2 }}>
+                  <p className={styles.sub} style={{ marginBottom: 6 }}>
                     {c.description}
                   </p>
-                  <p className={styles.muted} style={{ marginBottom: c.tooRecent || c.impact ? 8 : 0 }}>
-                    By {c.actorName}
-                  </p>
 
-                  {c.tooRecent && <p className={styles.muted}>Too recent to measure impact (day-after-change isn&apos;t over yet).</p>}
-                  {!c.tooRecent && c.impact && (
-                    <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                      <ImpactStat
-                        label="Spend"
-                        before={c.impact.before?.spend}
-                        after={c.impact.after?.spend}
-                        format="currency"
-                        currency={currencyByAccountId.get(c.accountId)}
-                      />
-                      <ImpactStat label="Purchases" before={c.impact.before?.purchases} after={c.impact.after?.purchases} format="number" />
-                      <ImpactStat label="ROAS" before={c.impact.before?.roas} after={c.impact.after?.roas} format="decimal" />
-                    </div>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span className={styles.muted}>By {c.actorName}</span>
+                    {c.tooRecent && <span className={styles.muted}>· Too recent to measure</span>}
+                    {!c.tooRecent && c.impact && (
+                      <>
+                        <QuickSignal label="Spend" before={c.impact.before?.spend} after={c.impact.after?.spend} />
+                        <QuickSignal label="Purchases" before={c.impact.before?.purchases} after={c.impact.after?.purchases} />
+                        <QuickSignal label="ROAS" before={c.impact.before?.roas} after={c.impact.after?.roas} />
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.btnSecondary}
+                      style={{ padding: "4px 10px", fontSize: 11, marginLeft: "auto" }}
+                      onClick={() => setInvestigatingChange(c)}
+                    >
+                      Investigate
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </main>
       </div>
+
+      <InvestigateModal
+        change={investigatingChange}
+        onClose={() => setInvestigatingChange(null)}
+        currency={investigatingChange ? currencyByAccountId.get(investigatingChange.accountId) : undefined}
+      />
     </Layout>
   );
 }
