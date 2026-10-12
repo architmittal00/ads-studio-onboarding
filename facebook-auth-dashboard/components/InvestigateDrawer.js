@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import Loader from "./Loader";
 import EntityDrillDown from "./EntityDrillDown";
+import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowComparisonTable";
 import { CloseIcon, ChevronIcon } from "./icons";
-import {
-  RATE_METRIC_KEYS,
-  LOWER_IS_BETTER_METRIC_KEYS,
-  isUnitMetric,
-  buildEffectiveCatalog,
-  formatMetricValue,
-} from "@/lib/insightsMetrics";
+import { buildEffectiveCatalog } from "@/lib/insightsMetrics";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { getCustomMetrics } from "@/lib/clientStorage";
@@ -17,36 +11,7 @@ import styles from "@/styles/Home.module.css";
 
 const CACHE_PREFIX = "recent-changes-investigate:";
 
-const DEFAULT_METRIC_KEYS = ["spend", "purchases", "cost_per_purchase", "roas"];
-
-// Most recent → least recent, left to right: the two "right now" snapshots
-// first, then the change's own cumulative total (which can be short or very
-// long depending on how long ago the change happened), then progressively
-// further back in time relative to the change itself.
-const WINDOW_ORDER = ["last3Days", "last7Days", "sinceChange", "oneDayBefore", "threeDaysBefore", "sevenDaysBefore"];
-const WINDOW_LABEL = {
-  last3Days: "Last 3 Days",
-  last7Days: "Last 7 Days",
-  sinceChange: "Since Change",
-  oneDayBefore: "1 Day Before",
-  threeDaysBefore: "3 Days Before",
-  sevenDaysBefore: "7 Days Before",
-};
-
-// Additive metrics (a genuine total over the window — Spend, Purchases, …)
-// need dividing by the window's own day-count before two different-length
-// windows are actually comparable at a glance — a 7-day Spend total next to
-// a 1-day one is 7x larger for no interesting reason. Rate/ratio metrics
-// (percent/decimal format — ROAS, CTR — plus the currency-format ones in
-// RATE_METRIC_KEYS, like Cost Per Purchase, which are already "cost ÷
-// something" and would get silently diluted by a second division) are
-// window-independent and shown as-is.
-function normalizedValue(metric, rawValue, days) {
-  if (rawValue == null) return null;
-  const isAdditiveTotal = (metric.format === "number" || metric.format === "currency") && !RATE_METRIC_KEYS.has(metric.key);
-  if (isAdditiveTotal && days > 1) return rawValue / days;
-  return rawValue;
-}
+const DEFAULT_METRIC_KEYS = DEFAULT_COMPARISON_METRIC_KEYS;
 
 function levelParam(level) {
   return level === "Campaign" ? "campaign" : "adset";
@@ -270,105 +235,14 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
         )}
 
         {!error && selectedKeys.length > 0 && (
-          <div style={{ overflowX: "auto", marginTop: 16 }}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Metric</th>
-                  {WINDOW_ORDER.map((name) => {
-                    const w = data?.windows[name];
-                    return (
-                      <th key={name} className={name === "sinceChange" ? styles.drawerSinceChangeCol : undefined}>
-                        {WINDOW_LABEL[name]}
-                        {w && !w.tooRecent && <span className={styles.muted}> ({w.days}d)</span>}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {selectedKeys.map((key) => {
-                  const metric = effectiveCatalog.find((m) => m.key === key);
-                  if (!metric) return null;
-                  const unit = isUnitMetric(metric);
-                  const lowerIsBetter = LOWER_IS_BETTER_METRIC_KEYS.has(metric.key);
-
-                  // Pre-compute every window's displayed value once, so the
-                  // best/worst comparison below (unit metrics only — see
-                  // lib/insightsMetrics.js's isUnitMetric comment for why an
-                  // additive total like Spend isn't a fair apples-to-apples
-                  // comparison across different-length windows the way a
-                  // rate like ROAS/CPR is) reads the exact same numbers the
-                  // cells render, never a second, possibly-divergent one. A
-                  // window that's too recent or overlaps the change (mixes
-                  // pre- and post-change delivery — see buildWindows' own
-                  // comment in the API route) is excluded from the
-                  // comparison entirely, the same way it's excluded from the
-                  // rendered value.
-                  const cellValues = WINDOW_ORDER.map((name) => {
-                    const w = data?.windows[name];
-                    if (!w || w.tooRecent || w.overlapsChange) return null;
-                    return normalizedValue(metric, w.metrics?.[key], w.days);
-                  });
-                  let bestValue = null;
-                  let worstValue = null;
-                  if (unit && !loading) {
-                    const numeric = cellValues.filter((v) => typeof v === "number" && !isNaN(v));
-                    if (numeric.length > 1) {
-                      const max = Math.max(...numeric);
-                      const min = Math.min(...numeric);
-                      if (max !== min) {
-                        bestValue = lowerIsBetter ? min : max;
-                        worstValue = lowerIsBetter ? max : min;
-                      }
-                    }
-                  }
-
-                  return (
-                    <tr key={key}>
-                      <td>{metric.label}</td>
-                      {WINDOW_ORDER.map((name, i) => {
-                        const cellClass = name === "sinceChange" ? styles.drawerSinceChangeCol : undefined;
-                        if (loading) {
-                          return (
-                            <td key={name} className={cellClass}>
-                              <Loader inline />
-                            </td>
-                          );
-                        }
-                        const w = data?.windows[name];
-                        if (!w) return <td key={name} className={cellClass}>—</td>;
-                        if (w.tooRecent) {
-                          return (
-                            <td key={name} className={`${styles.muted} ${cellClass || ""}`}>
-                              Not enough time yet
-                            </td>
-                          );
-                        }
-                        if (w.overlapsChange) {
-                          return (
-                            <td
-                              key={name}
-                              className={`${styles.muted} ${cellClass || ""}`}
-                              title="This window spans both before and after the change, so it isn't a clean post-change read."
-                            >
-                              Includes pre-change days
-                            </td>
-                          );
-                        }
-                        const value = cellValues[i];
-                        const tone = value === bestValue ? "var(--green)" : value === worstValue ? "var(--red)" : undefined;
-                        return (
-                          <td key={name} className={cellClass} style={tone ? { color: tone, fontWeight: 700 } : undefined}>
-                            {formatMetricValue(value, metric.format, currency)}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div style={{ marginTop: 16 }}>
+            <WindowComparisonTable
+              windows={data?.windows}
+              metricKeys={selectedKeys}
+              catalog={effectiveCatalog}
+              loading={loading}
+              currency={currency}
+            />
           </div>
         )}
 
@@ -379,6 +253,7 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
           parentLevel={levelParam(change.level)}
           parentObjectId={change.objectId}
           parentLabel={change.objectName || change.objectId}
+          eventTime={change.eventTime}
         />
       </div>
     </div>
