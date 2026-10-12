@@ -1,5 +1,7 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import Loader from "./Loader";
+import Thumb from "./Thumb";
+import CreativeLightbox from "./CreativeLightbox";
 import { ChevronIcon } from "./icons";
 import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowComparisonTable";
 import { formatMetricValue, buildEffectiveCatalog } from "@/lib/insightsMetrics";
@@ -78,6 +80,9 @@ async function fetchChildren({ accountId, level, idField, parentId }) {
       breakdownGroup: "none",
       metricKeys: ["spend", "roas"],
       idFilter: { field: idField, value: parentId },
+      // Ads have a creative to show a thumbnail for; campaigns/ad sets don't
+      // — see pages/api/fb/explore-insights.js's own includeCreative gate.
+      includeCreative: level === "ad",
       since,
       until,
     }),
@@ -112,17 +117,22 @@ async function fetchRowWindows({ entityId, level, eventTime }) {
   return json.windows;
 }
 
-// A breadcrumb trail of "children of X" tables — components/InvestigateDrawer.js
+// A breadcrumb trail of "children of X" cards — components/InvestigateDrawer.js
 // mounts this with `key={change.id}` so switching to a different change
 // remounts it fresh rather than carrying over a previous change's drilled-in
 // state. `stack[i]` is one fetched level: `{ level, parentId, parentLabel,
-// rows, loading, error, sort, visibleCount, expandedId, rowWindows }`; only
-// the last entry's table is shown, with earlier entries available as
-// clickable breadcrumb labels. `rowWindows` caches each row's own fetched
-// comparison data (`{ [entityId]: { loading, error, windows } }`) so
-// collapsing and re-expanding a row doesn't always refetch.
+// rows, loading, error, sort, visibleCount, collapsedIds, rowWindows }`;
+// only the last entry's cards are shown, with earlier entries available as
+// clickable breadcrumb labels. Every visible row's RCA comparison is open by
+// default (`collapsedIds` tracks the rare row someone explicitly collapsed,
+// an opt-OUT set rather than opt-in) so a reviewer sees every ad's own
+// before/after at a glance instead of having to expand each one by hand.
+// `rowWindows` caches each row's own fetched comparison data
+// (`{ [entityId]: { loading, error, windows } }`) so collapsing and
+// re-expanding a row doesn't always refetch.
 export default function EntityDrillDown({ accountId, currency, parentLevel, parentObjectId, parentLabel, eventTime }) {
   const [stack, setStack] = useState([]);
+  const [lightboxItem, setLightboxItem] = useState(null);
 
   function pushLevel(level, forParentId, forParentLabel) {
     setStack((prev) => [
@@ -136,13 +146,14 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
         error: null,
         sort: "spend_desc",
         visibleCount: PAGE_SIZE,
-        expandedId: null,
+        collapsedIds: new Set(),
         rowWindows: {},
       },
     ]);
     fetchChildren({ accountId, level, idField: CHILD_ID_FILTER_FIELD[level], parentId: forParentId })
       .then((rows) => {
         setStack((prev) => prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, rows, loading: false } : entry)));
+        loadRowWindows(level, sortRows(rows, "spend_desc").slice(0, PAGE_SIZE));
       })
       .catch((err) => {
         setStack((prev) => prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, error: err.message, loading: false } : entry)));
@@ -153,37 +164,59 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
     setStack((prev) => prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, ...patch } : entry)));
   }
 
+  // Kicks off (and caches) the before/after fetch for whichever rows just
+  // became visible/expanded and don't have it yet — called after the
+  // initial load, every "Load 10 more", every sort change, and whenever a
+  // previously-collapsed row is re-expanded. Always targets the current
+  // (last) stack entry, same convention as the rest of this component.
+  function loadRowWindows(level, rows) {
+    const pending = rows.filter((r) => r.entityId);
+    if (pending.length === 0) return;
+    setStack((prev) =>
+      prev.map((e, i) =>
+        i === prev.length - 1
+          ? {
+              ...e,
+              rowWindows: {
+                ...e.rowWindows,
+                ...Object.fromEntries(
+                  pending.filter((r) => !e.rowWindows[r.entityId]).map((r) => [r.entityId, { loading: true, error: null, windows: null }])
+                ),
+              },
+            }
+          : e
+      )
+    );
+    for (const row of pending) {
+      fetchRowWindows({ entityId: row.entityId, level, eventTime })
+        .then((windows) => {
+          setStack((prev) =>
+            prev.map((e, i) =>
+              i === prev.length - 1 ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: null, windows } } } : e
+            )
+          );
+        })
+        .catch((err) => {
+          setStack((prev) =>
+            prev.map((e, i) =>
+              i === prev.length - 1
+                ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: err.message, windows: null } } }
+                : e
+            )
+          );
+        });
+    }
+  }
+
   function toggleRow(entry, row) {
     const entityId = row.entityId;
     if (!entityId) return;
-    if (entry.expandedId === entityId) {
-      updateCurrent({ expandedId: null });
-      return;
-    }
-    updateCurrent({ expandedId: entityId });
-    if (entry.rowWindows[entityId]) return;
-    setStack((prev) =>
-      prev.map((e, i) =>
-        i === prev.length - 1 ? { ...e, rowWindows: { ...e.rowWindows, [entityId]: { loading: true, error: null, windows: null } } } : e
-      )
-    );
-    fetchRowWindows({ entityId, level: entry.level, eventTime })
-      .then((windows) => {
-        setStack((prev) =>
-          prev.map((e, i) =>
-            i === prev.length - 1 ? { ...e, rowWindows: { ...e.rowWindows, [entityId]: { loading: false, error: null, windows } } } : e
-          )
-        );
-      })
-      .catch((err) => {
-        setStack((prev) =>
-          prev.map((e, i) =>
-            i === prev.length - 1
-              ? { ...e, rowWindows: { ...e.rowWindows, [entityId]: { loading: false, error: err.message, windows: null } } }
-              : e
-          )
-        );
-      });
+    const wasCollapsed = entry.collapsedIds.has(entityId);
+    const nextCollapsed = new Set(entry.collapsedIds);
+    if (wasCollapsed) nextCollapsed.delete(entityId);
+    else nextCollapsed.add(entityId);
+    updateCurrent({ collapsedIds: nextCollapsed });
+    if (wasCollapsed && !entry.rowWindows[entityId]) loadRowWindows(entry.level, [row]);
   }
 
   if (stack.length === 0) {
@@ -206,6 +239,17 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
   const childLevel = CHILD_LEVEL[current.level];
   const sortedRows = current.rows ? sortRows(current.rows, current.sort) : [];
   const visibleRows = sortedRows.slice(0, current.visibleCount);
+
+  function handleSortChange(sortKey) {
+    updateCurrent({ sort: sortKey, visibleCount: PAGE_SIZE });
+    loadRowWindows(current.level, sortRows(current.rows || [], sortKey).slice(0, PAGE_SIZE));
+  }
+
+  function handleLoadMore() {
+    const nextVisibleCount = current.visibleCount + PAGE_SIZE;
+    updateCurrent({ visibleCount: nextVisibleCount });
+    loadRowWindows(current.level, sortedRows.slice(0, nextVisibleCount));
+  }
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -231,7 +275,7 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
         })}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
         <p className={styles.muted} style={{ margin: 0 }}>
           {CHILD_LEVEL_PLURAL[current.level]} · Last 30 Days
         </p>
@@ -241,7 +285,7 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
               key={opt.key}
               type="button"
               className={current.sort === opt.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-              onClick={() => updateCurrent({ sort: opt.key, visibleCount: PAGE_SIZE })}
+              onClick={() => handleSortChange(opt.key)}
             >
               {opt.label}
             </button>
@@ -257,88 +301,86 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
 
       {!current.loading && !current.error && sortedRows.length > 0 && (
         <>
-          <div style={{ overflowX: "auto" }}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>Name</th>
-                  <th>Spend</th>
-                  <th>ROAS</th>
-                  {childLevel && <th></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.map((row) => {
-                  const entityId = row.entityId;
-                  const isExpanded = entityId && current.expandedId === entityId;
-                  const rowWindowState = entityId ? current.rowWindows[entityId] : null;
-                  const numCols = 4 + (childLevel ? 1 : 0);
-                  return (
-                    <Fragment key={entityId || row.entityLabel}>
-                      <tr>
-                        <td style={{ width: 28 }}>
-                          {entityId && (
-                            <button
-                              type="button"
-                              onClick={() => toggleRow(current, row)}
-                              aria-label={isExpanded ? "Collapse RCA breakdown" : "Expand RCA breakdown"}
-                              title="Compare this entity's own before/after metrics around the change"
-                              style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--t2)", display: "flex" }}
-                            >
-                              <ChevronIcon direction={isExpanded ? "down" : "right"} size={11} />
-                            </button>
-                          )}
-                        </td>
-                        <td>{row.entityLabel || "—"}</td>
-                        <td>{formatMetricValue(row.spend, "currency", currency)}</td>
-                        <td>{formatMetricValue(row.roas, "decimal", currency)}</td>
-                        {childLevel && (
-                          <td>
-                            {entityId && (
-                              <button
-                                type="button"
-                                className={styles.btnSecondary}
-                                style={{ padding: "3px 8px", fontSize: 10.5 }}
-                                onClick={() => pushLevel(childLevel, entityId, row.entityLabel || entityId)}
-                              >
-                                View {CHILD_LEVEL_PLURAL[childLevel]}
-                              </button>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={numCols} style={{ background: "rgba(var(--surface-tint-rgb), 0.04)", padding: "12px 10px" }}>
-                            {rowWindowState?.loading && <Loader label="Loading before/after comparison…" />}
-                            {rowWindowState?.error && <div className={styles.error}>{rowWindowState.error}</div>}
-                            {rowWindowState && !rowWindowState.loading && !rowWindowState.error && (
-                              <WindowComparisonTable
-                                windows={rowWindowState.windows}
-                                metricKeys={DEFAULT_COMPARISON_METRIC_KEYS}
-                                catalog={DRILLDOWN_CATALOG}
-                                loading={false}
-                                currency={currency}
-                              />
-                            )}
-                          </td>
-                        </tr>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {visibleRows.map((row) => {
+              const entityId = row.entityId;
+              const isExpanded = !!entityId && !current.collapsedIds.has(entityId);
+              const rowWindowState = entityId ? current.rowWindows[entityId] : null;
+              return (
+                <div key={entityId || row.entityLabel} className={styles.card} style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {current.level === "ad" && (
+                      <Thumb
+                        src={row.thumbnailUrl}
+                        isVideo={row.isVideo}
+                        size={36}
+                        onClick={
+                          entityId
+                            ? () =>
+                                setLightboxItem({
+                                  id: entityId,
+                                  name: row.entityLabel || entityId,
+                                  thumbnailUrl: row.thumbnailUrl,
+                                  isVideo: row.isVideo,
+                                })
+                            : undefined
+                        }
+                      />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, fontSize: 13.5, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {row.entityLabel || "—"}
+                      </p>
+                      <p className={styles.muted} style={{ margin: 0, fontSize: 12 }}>
+                        Spend: <strong>{formatMetricValue(row.spend, "currency", currency)}</strong> · ROAS:{" "}
+                        <strong>{formatMetricValue(row.roas, "decimal", currency)}</strong>
+                      </p>
+                    </div>
+                    {childLevel && entityId && (
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        style={{ padding: "3px 8px", fontSize: 10.5, flexShrink: 0 }}
+                        onClick={() => pushLevel(childLevel, entityId, row.entityLabel || entityId)}
+                      >
+                        View {CHILD_LEVEL_PLURAL[childLevel]}
+                      </button>
+                    )}
+                    {entityId && (
+                      <button
+                        type="button"
+                        onClick={() => toggleRow(current, row)}
+                        aria-label={isExpanded ? "Collapse RCA breakdown" : "Expand RCA breakdown"}
+                        title="Compare this entity's own before/after metrics around the change"
+                        style={{ background: "none", border: "none", padding: 4, cursor: "pointer", color: "var(--t2)", display: "flex", flexShrink: 0 }}
+                      >
+                        <ChevronIcon direction={isExpanded ? "down" : "right"} size={12} />
+                      </button>
+                    )}
+                  </div>
+                  {isExpanded && (
+                    <div>
+                      {rowWindowState?.loading && <Loader label="Loading before/after comparison…" />}
+                      {rowWindowState?.error && <div className={styles.error}>{rowWindowState.error}</div>}
+                      {rowWindowState && !rowWindowState.loading && !rowWindowState.error && (
+                        <WindowComparisonTable
+                          windows={rowWindowState.windows}
+                          metricKeys={DEFAULT_COMPARISON_METRIC_KEYS}
+                          catalog={DRILLDOWN_CATALOG}
+                          loading={false}
+                          currency={currency}
+                        />
                       )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {current.visibleCount < sortedRows.length ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-              <button
-                type="button"
-                className={styles.btnSecondary}
-                onClick={() => updateCurrent({ visibleCount: current.visibleCount + PAGE_SIZE })}
-              >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16 }}>
+              <button type="button" className={styles.btnSecondary} onClick={handleLoadMore}>
                 Load 10 more
               </button>
               <span className={styles.muted}>
@@ -347,13 +389,15 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
             </div>
           ) : (
             sortedRows.length > PAGE_SIZE && (
-              <p className={styles.muted} style={{ marginTop: 10 }}>
+              <p className={styles.muted} style={{ marginTop: 16 }}>
                 All {sortedRows.length} shown
               </p>
             )
           )}
         </>
       )}
+
+      <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
     </div>
   );
 }
