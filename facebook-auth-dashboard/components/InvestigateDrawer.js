@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Loader from "./Loader";
+import EntityDrillDown from "./EntityDrillDown";
 import { CloseIcon, ChevronIcon } from "./icons";
 import {
   RATE_METRIC_KEYS,
@@ -370,6 +371,15 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
             </table>
           </div>
         )}
+
+        <EntityDrillDown
+          key={change.id}
+          accountId={change.accountId}
+          currency={currency}
+          parentLevel={levelParam(change.level)}
+          parentObjectId={change.objectId}
+          parentLabel={change.objectName || change.objectId}
+        />
       </div>
     </div>
   );
