@@ -10,7 +10,53 @@ import AdSetFields, { OPTIMIZATION_GOALS_BY_OBJECTIVE } from "@/components/AdSet
 import LaunchReview from "@/components/LaunchReview";
 import { useAccounts } from "@/components/AccountProvider";
 import { RocketIcon, ChevronIcon } from "@/components/icons";
+import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
+
+// Flattened once for a bare optimization_goal -> human label lookup (the
+// campaign/ad-set pickers show an existing object's goal without already
+// knowing which objective category it came from, unlike AdSetFields.js's
+// own dropdown which is scoped to one objective at a time). OFFSITE_CONVERSIONS
+// appears under Sales/Leads/App Promotion with a different label each time —
+// Object.fromEntries keeps the LAST occurrence for a repeated key, so the
+// objectives are reversed first to make Sales's "Conversions" (the common
+// case) win over App Promotion's "In-app events", rather than the reverse.
+const OPTIMIZATION_GOAL_LABELS = Object.fromEntries(
+  Object.values(OPTIMIZATION_GOALS_BY_OBJECTIVE)
+    .reverse()
+    .flat()
+    .map((g) => [g.value, g.label])
+);
+
+function formatMoney(amount, currency) {
+  if (amount == null) return null;
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: currency || "INR", maximumFractionDigits: 0 }).format(amount);
+  } catch {
+    return `${amount.toFixed(0)} ${currency || ""}`;
+  }
+}
+
+function budgetLabel(entity, currency) {
+  if (entity.daily_budget) return `${formatMoney(toMajorUnits(entity.daily_budget), currency)}/day`;
+  if (entity.lifetime_budget) return `${formatMoney(toMajorUnits(entity.lifetime_budget), currency)} lifetime`;
+  return "No budget at this level";
+}
+
+// Last-30-day spend/purchases/ROAS, when the picker's insights call
+// succeeded — the whole reason these pickers got metadata at all (a long
+// list of similarly-named objects gives no basis to pick one over another
+// without it). `null` performance (insights call failed) renders nothing
+// rather than a misleading "no spend".
+function PerformanceLine({ performance, currency }) {
+  if (!performance) return null;
+  if (!performance.spend) return <span className={styles.muted}>No spend in the last 30 days</span>;
+  return (
+    <span className={styles.muted}>
+      {formatMoney(performance.spend, currency)} spent · {performance.purchases} purchases · {performance.roas.toFixed(1)}x ROAS (30d)
+    </span>
+  );
+}
 
 // Indian-D2C-sensible starting point for every new ad set — all of it stays
 // editable in components/AdSetFields.js. See the plan's defaults table for
@@ -72,6 +118,7 @@ function PickerList({ loading, error, items, query, onQueryChange, renderRow, em
 
 export default function Launch() {
   const { adAccounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
+  const currency = adAccounts.find((a) => a.id === selectedAccountId)?.currency;
 
   // screen: entry | pick_campaign | pick_adset | pick_destination | form | review
   const [screen, setScreen] = useState("entry");
@@ -271,11 +318,16 @@ export default function Launch() {
                     onClick={() => pickCampaign(c)}
                     style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}
                   >
-                    <div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</div>
-                      <span className={styles.muted}>{c.objective}</span>
+                      <span className={styles.muted}>
+                        {CAMPAIGN_OBJECTIVES.find((o) => o.value === c.objective)?.label || c.objective} · {budgetLabel(c, currency)}
+                      </span>
+                      <PerformanceLine performance={c.performance} currency={currency} />
                     </div>
-                    <span className={styles.badgeInfo}>{c.effective_status}</span>
+                    <span className={styles.badgeInfo} style={{ flexShrink: 0 }}>
+                      {c.effective_status}
+                    </span>
                   </div>
                 )}
               />
@@ -299,10 +351,18 @@ export default function Launch() {
                   <div
                     key={a.id}
                     onClick={() => pickSourceAdset(a)}
-                    style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                    style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}
                   >
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
-                    <span className={styles.muted}>{a.campaign?.name}</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
+                      <span className={styles.muted}>
+                        {a.campaign?.name} · {OPTIMIZATION_GOAL_LABELS[a.optimization_goal] || a.optimization_goal} · {budgetLabel(a, currency)}
+                      </span>
+                      <PerformanceLine performance={a.performance} currency={currency} />
+                    </div>
+                    <span className={styles.badgeInfo} style={{ flexShrink: 0 }}>
+                      {a.status}
+                    </span>
                   </div>
                 )}
               />
