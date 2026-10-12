@@ -53,18 +53,20 @@ function categorize(eventType, translatedEventType) {
   return { key: "other", label: "Other" };
 }
 
-// extra_data is a JSON *string* (not an object) carrying old/new values for
-// many event types — exact key names aren't verified against a live account,
-// so this tries several plausible pairs (same "try a few known variants"
-// defensiveness lib/insightsMetrics.js already uses for uncertain action-type
-// strings) and falls back to null when nothing matches, rather than guessing.
-const VALUE_KEY_PAIRS = [
-  ["old_value", "new_value"],
-  ["value_old", "value_new"],
-  ["old_budget", "new_budget"],
-  ["budget_value_old", "budget_value"],
-  ["old_status", "new_status"],
-];
+// extra_data is a JSON *string* carrying additional detail for many event
+// types. Confirmed live: for a budget change, the old/new fields under keys
+// like old_value/new_value are themselves OBJECTS (e.g. an amount+currency
+// shape), not plain numbers or strings — interpolating one directly into a
+// template string prints the literal text "[object Object]", which is
+// exactly the bug a live account surfaced. Rather than guess at the nested
+// shape (budget's own old/new keys aren't the only ones this would need to
+// get right, and getting it wrong risks confidently showing a *wrong*
+// number, worse than not showing one), the one-line description always uses
+// Meta's own translated_event_type — a human-readable string Meta provides
+// specifically for display, so it's never an object. The raw extra_data
+// still travels to the client as `rawExtraData` for a future "Investigate"
+// detail view to show as-is, which is also how a real shape ever gets
+// confirmed instead of guessed at again.
 
 // Most Graph API time fields come back as ISO8601 strings (e.g.
 // "2024-01-15T10:30:00+0000"), not Unix timestamps — but this isn't verified
@@ -113,16 +115,8 @@ function extractImpactMetrics(row) {
   return { spend, purchases, roas };
 }
 
-function describeChange(category, extraData, translatedEventType) {
-  if (extraData) {
-    for (const [fromKey, toKey] of VALUE_KEY_PAIRS) {
-      if (extraData[fromKey] !== undefined && extraData[toKey] !== undefined) {
-        const fieldLabel = category === "budget" ? "Budget" : category === "status" ? "Status" : category === "name" ? "Name" : "Value";
-        return `${fieldLabel}: ${extraData[fromKey]} → ${extraData[toKey]}`;
-      }
-    }
-  }
-  return translatedEventType || "Change made";
+function describeChange(translatedEventType, categoryLabel) {
+  return translatedEventType || categoryLabel || "Change made";
 }
 
 // Team-wide "what changed recently" feed, backed by Facebook's own Activity
@@ -193,7 +187,8 @@ export default async function handler(req, res) {
         eventTime: eventTimeToIso(entry.event_time),
         category,
         categoryLabel,
-        description: describeChange(category, extraData, entry.translated_event_type),
+        description: describeChange(entry.translated_event_type, categoryLabel),
+        rawExtraData: extraData,
       });
     }
   });
