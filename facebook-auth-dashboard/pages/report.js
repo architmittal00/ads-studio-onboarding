@@ -652,12 +652,12 @@ export default function Report() {
   return (
     <Layout>
       <Head>
-        <title>Account Handover Report · Facebook Auth Dashboard</title>
+        <title>Account Audit Report · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1440, margin: "0 auto" }}>
           <div className={styles.sectionRow}>
-            <h1 className={styles.h1}>Account Handover Report</h1>
+            <h1 className={styles.h1}>Account Audit Report</h1>
             {accounts.length > 0 && (
               <AccountSelect accounts={accounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 240 }} />
             )}

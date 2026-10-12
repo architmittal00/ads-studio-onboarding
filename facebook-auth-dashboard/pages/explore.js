@@ -1287,11 +1287,11 @@ export default function Explore() {
   return (
     <Layout>
       <Head>
-        <title>Explore · Facebook Auth Dashboard</title>
+        <title>Custom Views · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Explore</h1>
+          <h1 className={styles.h1}>Custom Views</h1>
           <p className={styles.sub} style={{ marginTop: -8 }}>
             Build any view of Facebook Ads data — pick an account, a date range (up to 90 days), a level, a
             breakdown, and whatever metrics you want, then view it as a table or chart. Keep several views open at
