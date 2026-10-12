@@ -18,6 +18,7 @@ import {
   setRecentChangesQueryPanelCollapsed,
 } from "@/lib/clientStorage";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
+import { MAX_IMPACT_CHANGES, IMPACT_BATCH_SIZE } from "@/lib/recentChangesImpact";
 import styles from "@/styles/Home.module.css";
 
 const CACHE_PREFIX = "recent-changes:";
@@ -29,9 +30,6 @@ const HOURS_PRESETS = [
   { value: 720, label: "Last 30 Days" },
 ];
 const MAX_VIEWS = 15;
-// Matches pages/api/fb/recent-changes.js's own MAX_IMPACT_CHANGES — just for
-// the truncation notice's wording, not sent in any request.
-const MAX_IMPACT_CHANGES = 50;
 
 function newViewId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -265,6 +263,60 @@ export default function RecentChanges() {
     updateView(activeViewId, patch);
   }
 
+  // Fetches performance-impact (Spend/Purchases/ROAS before vs. after) for
+  // the changes pages/api/fb/recent-changes.js flagged as eligible, in small
+  // concurrent batches via pages/api/fb/recent-changes/impact.js, instead of
+  // one request covering every eligible change — the list has already
+  // rendered by the time this runs, so each batch that comes back just fills
+  // in that many rows' quick-signal badges in place, rather than the whole
+  // page waiting on every change's impact before showing anything.
+  // `initialResult` is the exact object this view's `result` was just set
+  // to, so the final cache write (once every batch has settled) can build
+  // off it directly instead of re-reading possibly-stale React state.
+  function fetchImpactProgressively(viewId, cacheKey, initialResult) {
+    const pending = initialResult.changes.filter((c) => c.eventTime && !c.tooRecent && !c.impactCapped);
+    if (pending.length === 0) {
+      setCachedEntry(cacheKey, initialResult, { prefix: CACHE_PREFIX, maxEntriesForPrefix: RECENT_CHANGES_CACHE_MAX_ENTRIES });
+      return;
+    }
+
+    const chunks = [];
+    for (let i = 0; i < pending.length; i += IMPACT_BATCH_SIZE) chunks.push(pending.slice(i, i + IMPACT_BATCH_SIZE));
+
+    const impactById = {};
+    let remaining = chunks.length;
+
+    function applyBatch(batchImpact) {
+      Object.assign(impactById, batchImpact);
+      updateView(viewId, (v) => {
+        if (!v.result) return {};
+        return {
+          result: { ...v.result, changes: v.result.changes.map((c) => (c.id in batchImpact ? { ...c, impact: batchImpact[c.id] } : c)) },
+        };
+      });
+      remaining -= 1;
+      if (remaining === 0) {
+        const finalChanges = initialResult.changes.map((c) => (c.id in impactById ? { ...c, impact: impactById[c.id] } : c));
+        setCachedEntry(
+          cacheKey,
+          { ...initialResult, changes: finalChanges },
+          { prefix: CACHE_PREFIX, maxEntriesForPrefix: RECENT_CHANGES_CACHE_MAX_ENTRIES }
+        );
+      }
+    }
+
+    chunks.forEach((chunk) => {
+      fetch("/api/fb/recent-changes/impact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ changes: chunk.map((c) => ({ id: c.id, objectId: c.objectId, eventTime: c.eventTime })) }),
+      })
+        .then((res) => res.json())
+        .then((json) => applyBatch(json.impact || {}))
+        .catch(() => applyBatch({}));
+    });
+  }
+
   function runQueryForView(view, force) {
     if (view.accountIds.length === 0) return;
     const sortedIds = [...view.accountIds].sort();
@@ -286,8 +338,10 @@ export default function RecentChanges() {
           updateView(view.id, { error: json.error });
           return;
         }
+        // Shows the list immediately — impact badges are fetched and merged
+        // in afterward, progressively, by fetchImpactProgressively below.
         updateView(view.id, { result: json, resultFetchedAt: Date.now(), error: null });
-        setCachedEntry(cacheKey, json, { prefix: CACHE_PREFIX, maxEntriesForPrefix: RECENT_CHANGES_CACHE_MAX_ENTRIES });
+        fetchImpactProgressively(view.id, cacheKey, json);
       })
       .catch((err) => updateView(view.id, { error: err.message }))
       .finally(() => updateView(view.id, { loading: false }));
@@ -469,6 +523,7 @@ export default function RecentChanges() {
                         · Not computed for this change
                       </span>
                     )}
+                    {!c.tooRecent && !c.impactCapped && !c.impact && <Loader inline label="Loading impact…" />}
                     {!c.tooRecent && c.impact && (
                       <>
                         <QuickSignal label="Spend" before={c.impact.before?.spend} after={c.impact.after?.spend} />
