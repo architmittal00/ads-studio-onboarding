@@ -196,3 +196,13 @@ export function PlayIcon(props) {
     </Svg>
   );
 }
+
+export function HistoryIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M3 3v6h6" />
+      <path d="M3.5 13a9 9 0 1 0 2.2-8.9L3 9" />
+      <path d="M12 7v5l4 2" />
+    </Svg>
+  );
+}
