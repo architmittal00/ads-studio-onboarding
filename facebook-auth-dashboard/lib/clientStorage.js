@@ -143,6 +143,30 @@ export function setExploreViews(data) {
   }
 }
 
+const RECENT_CHANGES_VIEWS_KEY = "fb-dashboard:recent-changes-views";
+
+// The Recent Changes page's open tabs — same shape/purpose as
+// getExploreViews/setExploreViews above: each tab's query spec (accounts,
+// time window, filters — never its fetched result, which is ephemeral and
+// re-derived from lib/clientCache.js's own cache on restore) plus which one
+// was active.
+export function getRecentChangesViews() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_CHANGES_VIEWS_KEY) || "null");
+    return parsed && Array.isArray(parsed.views) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setRecentChangesViews(data) {
+  try {
+    localStorage.setItem(RECENT_CHANGES_VIEWS_KEY, JSON.stringify(data));
+  } catch {
+    // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}
+
 const CUSTOM_METRICS_KEY = "fb-dashboard:explore-custom-metrics";
 
 // User-defined ratio metrics for Explore (numerator metric ÷ denominator
