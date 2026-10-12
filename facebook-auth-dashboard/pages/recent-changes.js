@@ -263,6 +263,22 @@ export default function RecentChanges() {
     updateView(activeViewId, patch);
   }
 
+  // `activeView` above falls back to `views[0]` whenever `activeViewId`
+  // doesn't match any current tab, which keeps the page from crashing but
+  // only papers over the real problem: `updateActive` (every filter toggle,
+  // account change, time-window change) still writes to the now-missing id
+  // and silently no-ops, while the screen keeps showing `views[0]` — the tab
+  // bar and the actually-active tab drift apart, so a tab can look selected
+  // yet refuse to respond to anything. Re-pointing `activeViewId` at a real
+  // tab the moment that happens keeps both in sync instead of leaving a
+  // dangling reference around for an unrelated click to land on.
+  useEffect(() => {
+    if (views.length > 0 && !views.some((v) => v.id === activeViewId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- correcting a derived id that fell out of sync with the tabs it's supposed to reference, not state owned by this render
+      setActiveViewId(views[0].id);
+    }
+  }, [views, activeViewId]);
+
   // Changing which accounts or time window a tab queries must also drop
   // whatever it last fetched — otherwise the account/time-window panel (and
   // any tab label derived from it) shows the new selection while the list
@@ -316,14 +332,24 @@ export default function RecentChanges() {
     }
 
     chunks.forEach((chunk) => {
+      // A batch that fails outright (network error, a non-OK response, a
+      // timed-out serverless function returning something res.json() can't
+      // parse) used to call applyBatch({}) — an empty map that leaves every
+      // change in the chunk without a `c.impact` entry at all. Since the row
+      // only shows "Loading impact…" while `c.impact` is still `undefined`,
+      // that left the spinner spinning forever with no way to tell it had
+      // actually failed. Falling back to an explicit `null` per change marks
+      // it as "tried, couldn't measure" instead, which the row below renders
+      // as "Impact unavailable" — still resolved, just not successfully.
+      const explicitFailure = Object.fromEntries(chunk.map((c) => [c.id, null]));
       fetch("/api/fb/recent-changes/impact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ changes: chunk.map((c) => ({ id: c.id, objectId: c.objectId, eventTime: c.eventTime })) }),
       })
         .then((res) => res.json())
-        .then((json) => applyBatch(json.impact || {}))
-        .catch(() => applyBatch({}));
+        .then((json) => applyBatch(json.impact || explicitFailure))
+        .catch(() => applyBatch(explicitFailure));
     });
   }
 
@@ -364,12 +390,19 @@ export default function RecentChanges() {
   }
 
   function closeView(id) {
-    if (views.length <= 1) return;
-    const idx = views.findIndex((v) => v.id === id);
-    if (idx === -1) return;
-    const next = views.filter((v) => v.id !== id);
-    setViews(next);
-    if (id === activeViewId) setActiveViewId(next[Math.max(0, idx - 1)].id);
+    // Reads `prev` from the setState updater rather than the `views` closure
+    // above — closing two tabs in quick succession (e.g. a fast double
+    // click) can otherwise run both closures against the same pre-close
+    // `views` snapshot, each computing `next`/`idx` as if the other close
+    // hadn't happened yet.
+    setViews((prev) => {
+      if (prev.length <= 1) return prev;
+      const idx = prev.findIndex((v) => v.id === id);
+      if (idx === -1) return prev;
+      const next = prev.filter((v) => v.id !== id);
+      if (id === activeViewId) setActiveViewId(next[Math.max(0, idx - 1)].id);
+      return next;
+    });
   }
 
   const accountName = (id) => adAccounts.find((a) => a.id === id)?.name || id;
@@ -533,7 +566,12 @@ export default function RecentChanges() {
                         · Not computed for this change
                       </span>
                     )}
-                    {!c.tooRecent && !c.impactCapped && !c.impact && <Loader inline label="Loading impact…" />}
+                    {!c.tooRecent && !c.impactCapped && c.impact === undefined && <Loader inline label="Loading impact…" />}
+                    {!c.tooRecent && !c.impactCapped && c.impact === null && (
+                      <span className={styles.muted} title="Couldn't load a performance signal for this change — use Investigate instead.">
+                        · Impact unavailable
+                      </span>
+                    )}
                     {!c.tooRecent && c.impact && (
                       <>
                         <QuickSignal label="Spend" before={c.impact.before?.spend} after={c.impact.after?.spend} />
