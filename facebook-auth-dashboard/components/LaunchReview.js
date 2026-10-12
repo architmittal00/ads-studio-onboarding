@@ -7,7 +7,18 @@ import styles from "@/styles/Home.module.css";
 // than imported since the data shape differs: one campaign at most instead
 // of a strategy's several, no audience-auto-create steps), posting to the
 // new pages/api/fb/launch-campaign.js instead of launch-strategy.js.
-export default function LaunchReview({ accountId, campaign, existingCampaignId, existingCampaignName, budgetStrategy, budgetType, budgetAmount, adset, onBack }) {
+export default function LaunchReview({
+  accountId,
+  campaign,
+  existingCampaignId,
+  existingCampaignName,
+  budgetStrategy,
+  budgetType,
+  budgetAmount,
+  adset,
+  duplicateAds = [],
+  onBack,
+}) {
   const [status, setStatus] = useState("PAUSED");
   const [launching, setLaunching] = useState(false);
   const [currentStep, setCurrentStep] = useState(null);
@@ -32,6 +43,7 @@ export default function LaunchReview({ accountId, campaign, existingCampaignId, 
           budgetType,
           budgetAmount,
           adset,
+          duplicateAds,
           status,
         }),
       });
@@ -67,8 +79,8 @@ export default function LaunchReview({ accountId, campaign, existingCampaignId, 
 
   function adsManagerUrl(kind, id) {
     const numericId = accountId.replace(/^act_/, "");
-    const path = kind === "campaign" ? "campaigns" : "adsets";
-    const param = kind === "campaign" ? "selected_campaign_ids" : "selected_adset_ids";
+    const path = kind === "campaign" ? "campaigns" : kind === "adset" ? "adsets" : "ads";
+    const param = kind === "campaign" ? "selected_campaign_ids" : kind === "adset" ? "selected_adset_ids" : "selected_ad_ids";
     return `https://www.facebook.com/adsmanager/manage/${path}?act=${numericId}&${param}=${id}`;
   }
 
@@ -89,6 +101,11 @@ export default function LaunchReview({ accountId, campaign, existingCampaignId, 
             {budgetAmount ? `₹${budgetAmount}` : <span style={{ color: "var(--red)" }}>not set</span>}
           </li>
           <li className={styles.listItem}>New ad set: {adset.name || "(unnamed)"}</li>
+          {duplicateAds.length > 0 && (
+            <li className={styles.listItem}>
+              {duplicateAds.length} ad{duplicateAds.length > 1 ? "s" : ""} duplicated into it, same creative
+            </li>
+          )}
         </ul>
       </div>
 
@@ -128,6 +145,7 @@ function LaunchResult({ result, onBack, adsManagerUrl }) {
   const steps = result.steps || [];
   const campaignStep = steps.find((s) => s.type === "campaign");
   const adsetStep = steps.find((s) => s.type === "adset");
+  const adSteps = steps.filter((s) => s.type === "ad");
   const activationStep = steps.find((s) => s.type === "activation");
 
   return (
@@ -140,6 +158,9 @@ function LaunchResult({ result, onBack, adsManagerUrl }) {
 
       {campaignStep && <StepRow step={campaignStep} kind="campaign" adsManagerUrl={adsManagerUrl} />}
       {adsetStep && <StepRow step={adsetStep} kind="adset" adsManagerUrl={adsManagerUrl} />}
+      {adSteps.map((s, i) => (
+        <StepRow key={s.id || i} step={s} kind="ad" adsManagerUrl={adsManagerUrl} />
+      ))}
       {activationStep && <StepRow step={activationStep} />}
 
       <button type="button" className={styles.btnSecondary} onClick={onBack} style={{ alignSelf: "flex-start" }}>

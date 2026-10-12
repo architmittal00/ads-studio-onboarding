@@ -7,12 +7,16 @@ import { buildGenericCampaignPayload, buildGenericAdsetPayload, toMinorUnits } f
 // from pages/api/fb/launch-strategy.js (which stays hardwired to the fixed
 // STRATEGIES list for the Figure Out Strategy flow) so neither path can
 // break the other. Exactly one of `campaign` (create a new one) or
-// `existingCampaignId` (attach the new ad set to it) is provided — the
-// "duplicate an existing ad set" entry point on the Launch tab is handled
-// entirely client-side (pages/api/fb/adsets-list.js?adsetId= pre-fills the
-// same `adset` fields this endpoint takes from a source ad set's live
-// settings instead of the Indian-D2C defaults), so this endpoint never needs
-// to know a launch came from a duplicate.
+// `existingCampaignId` (attach the new ad set to it) is provided. The
+// "duplicate an existing ad set" entry point mostly lives client-side —
+// pages/api/fb/adsets-list.js's ?adsetId= detail fetch pre-fills the same
+// `adset` fields this endpoint takes from a source ad set's live settings
+// instead of the Indian-D2C defaults, so this endpoint never needs to know a
+// launch *started* from a duplicate — except for `duplicateAds`: the source
+// ad set's own ads (also resolved by that same detail fetch), re-created
+// here under the new ad set once it exists, each pointing at its original
+// creative by id rather than a freshly re-created one (see adsets-list.js's
+// comment for why).
 //
 // Same safety pattern as launch-strategy.js: everything is created PAUSED
 // first regardless of the requested final status, only flipped to ACTIVE in
@@ -30,7 +34,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, campaign, existingCampaignId, budgetStrategy, budgetType, budgetAmount, adset, status } = req.body || {};
+  const { accountId, campaign, existingCampaignId, budgetStrategy, budgetType, budgetAmount, adset, duplicateAds, status } = req.body || {};
+  const adsToCreate = Array.isArray(duplicateAds) ? duplicateAds.filter((a) => a?.creativeId) : [];
 
   if (!accountId || !adset?.name || !adset?.optimizationGoal) {
     return res.status(400).json({ error: "accountId and adset (with name, optimizationGoal) are required" });
@@ -113,6 +118,32 @@ export default async function handler(req, res) {
     steps.push({ type: "adset", label: "Ad set", name: adsetPayload.name, campaignId, success: false, error: err.message });
   }
 
+  // "Duplicate an ad set" means its ads too (pages/api/fb/adsets-list.js's
+  // ?adsetId= detail fetch already resolved each one's existing creative id)
+  // — each new Ad just points at that same creative by id rather than
+  // re-creating it; see that file's comment for why. Can't run without a
+  // real ad set id, so skipped entirely if the ad set itself failed above.
+  const createdAdIds = [];
+  if (adsetId && adsToCreate.length > 0) {
+    for (let i = 0; i < adsToCreate.length; i++) {
+      const ad = adsToCreate[i];
+      progress(`Creating ad ${i + 1} of ${adsToCreate.length}: ${ad.name}…`);
+      try {
+        const json = await graphPost(`/${accountId}/ads`, token, {
+          name: ad.name,
+          adset_id: adsetId,
+          creative: { creative_id: ad.creativeId },
+          status: "PAUSED",
+        });
+        createdAdIds.push(json.id);
+        steps.push({ type: "ad", label: "Ad", name: ad.name, success: true, id: json.id });
+      } catch (err) {
+        overallSuccess = false;
+        steps.push({ type: "ad", label: "Ad", name: ad.name, success: false, error: err.message });
+      }
+    }
+  }
+
   if (finalStatus === "ACTIVE" && overallSuccess) {
     progress("Activating…");
     try {
@@ -120,6 +151,7 @@ export default async function handler(req, res) {
       // what this request itself created.
       if (weCreatedCampaign) await graphPost(`/${campaignId}`, token, { status: "ACTIVE" });
       await graphPost(`/${adsetId}`, token, { status: "ACTIVE" });
+      await Promise.all(createdAdIds.map((id) => graphPost(`/${id}`, token, { status: "ACTIVE" })));
       steps.push({ type: "activation", label: "Activated", success: true });
     } catch (err) {
       overallSuccess = false;
