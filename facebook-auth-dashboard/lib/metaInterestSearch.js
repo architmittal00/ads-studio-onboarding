@@ -5,7 +5,18 @@ import { graphGet } from "./facebookGraph";
 // search-as-you-type picker and the AI-recommendation matching step, both of
 // which need the full result set, not just one chosen id.
 export async function searchAdInterests(token, query, { limit = 25 } = {}) {
-  const json = await graphGet("/search", token, { type: "adinterest", q: query, limit });
+  return searchTargeting(token, "adinterest", query, { limit });
+}
+
+// Meta's `/search` endpoint is one generic targeting-search primitive shared
+// across every targeting dimension it exposes search for — `type=adinterest`
+// (interests, above), `type=adgeolocation` (countries/regions/cities, needs
+// `location_types`), `type=adlocale` (languages) all go through the exact
+// same shape. Added for the Launch tab's Location/Language pickers
+// (pages/api/fb/targeting-search.js) without touching the interest-specific
+// wrapper above, which the Strategy flow already depends on.
+export async function searchTargeting(token, type, query, { limit = 25, ...extraParams } = {}) {
+  const json = await graphGet("/search", token, { type, q: query, limit, ...extraParams });
   return json.data || [];
 }
 
