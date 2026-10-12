@@ -59,18 +59,32 @@ function addDaysUTC(dateStr, days) {
   return isoDateUTC(d);
 }
 
-// A fixed, always-available "recent performance" window — deliberately not
-// tied to the change being investigated (which can be anywhere from today
-// to months ago, and whose own "Since Change" window can be as short as a
-// single day), so this always shows a stable, comparable 30 days no matter
-// which change led here.
+// A fixed, always-available fallback window — only used when the change
+// being investigated happened too recently for "Since Change" below to
+// cover any full day yet (so "highest spend"/"highest performer" would
+// otherwise have nothing to rank by).
 function last30DaysRange() {
   const until = addDaysUTC(isoDateUTC(new Date()), -1);
   return { since: addDaysUTC(until, -29), until };
 }
 
-async function fetchChildren({ accountId, level, idField, parentId }) {
-  const { since, until } = last30DaysRange();
+// Mirrors pages/api/fb/recent-changes/investigate.js's own buildWindows()
+// sinceChange calculation exactly, so "highest spend"/"highest performer"
+// here means the same thing as the "Since Change" column in every
+// comparison table on this page — performance strictly after the change,
+// not a change-agnostic trailing window. Returns null when the change
+// happened today (no full day has elapsed yet to rank by).
+function sinceChangeRange(eventTime) {
+  const changeDay = isoDateUTC(new Date(eventTime));
+  const yesterday = addDaysUTC(isoDateUTC(new Date()), -1);
+  const since = addDaysUTC(changeDay, 1);
+  if (since > yesterday) return null;
+  return { since, until: yesterday };
+}
+
+async function fetchChildren({ accountId, level, idField, parentId, eventTime }) {
+  const sinceChange = sinceChangeRange(eventTime);
+  const { since, until } = sinceChange || last30DaysRange();
   const res = await fetch("/api/fb/explore-insights", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -89,7 +103,7 @@ async function fetchChildren({ accountId, level, idField, parentId }) {
   });
   const json = await res.json();
   if (json.error) throw new Error(json.error);
-  return json.rows || [];
+  return { rows: json.rows || [], usedFallback: !sinceChange };
 }
 
 // Fetches the same 6-window before/after comparison components/InvestigateDrawer.js
@@ -148,11 +162,14 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
         visibleCount: PAGE_SIZE,
         collapsedIds: new Set(),
         rowWindows: {},
+        usedFallbackWindow: false,
       },
     ]);
-    fetchChildren({ accountId, level, idField: CHILD_ID_FILTER_FIELD[level], parentId: forParentId })
-      .then((rows) => {
-        setStack((prev) => prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, rows, loading: false } : entry)));
+    fetchChildren({ accountId, level, idField: CHILD_ID_FILTER_FIELD[level], parentId: forParentId, eventTime })
+      .then(({ rows, usedFallback }) => {
+        setStack((prev) =>
+          prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, rows, loading: false, usedFallbackWindow: usedFallback } : entry))
+        );
         loadRowWindows(level, sortRows(rows, "spend_desc").slice(0, PAGE_SIZE));
       })
       .catch((err) => {
@@ -276,8 +293,8 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        <p className={styles.muted} style={{ margin: 0 }}>
-          {CHILD_LEVEL_PLURAL[current.level]} · Last 30 Days
+        <p className={styles.muted} style={{ margin: 0 }} title={current.usedFallbackWindow ? "The change happened too recently for a since-change window yet, so this falls back to the last 30 days." : undefined}>
+          {CHILD_LEVEL_PLURAL[current.level]} · {current.usedFallbackWindow ? "Last 30 Days" : "Since Change"}
         </p>
         <div className={styles.tabGroup}>
           {SORT_OPTIONS.map((opt) => (
@@ -296,7 +313,9 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
       {current.loading && <Loader label={`Loading ${CHILD_LEVEL_PLURAL[current.level].toLowerCase()}…`} />}
       {current.error && <div className={styles.error}>{current.error}</div>}
       {!current.loading && !current.error && sortedRows.length === 0 && (
-        <p className={styles.sub}>No {CHILD_LEVEL_PLURAL[current.level].toLowerCase()} with delivery in the last 30 days.</p>
+        <p className={styles.sub}>
+          No {CHILD_LEVEL_PLURAL[current.level].toLowerCase()} with delivery {current.usedFallbackWindow ? "in the last 30 days" : "since the change"}.
+        </p>
       )}
 
       {!current.loading && !current.error && sortedRows.length > 0 && (
