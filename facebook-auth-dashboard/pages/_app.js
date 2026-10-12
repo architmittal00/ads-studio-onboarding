@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { SessionProvider } from "next-auth/react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AccountProvider } from "@/components/AccountProvider";
+import ApiLogsFab from "@/components/ApiLogsFab";
 import { getThemePreference } from "@/lib/clientStorage";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -47,6 +48,7 @@ export default function App({
       <AccountProvider>
         <main className={plusJakartaSans.variable} style={{ fontFamily: "var(--font-studio)" }}>
           <Component {...pageProps} />
+          <ApiLogsFab />
         </main>
       </AccountProvider>
     </SessionProvider>
