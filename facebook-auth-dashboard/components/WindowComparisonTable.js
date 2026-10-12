@@ -44,13 +44,29 @@ export function normalizedValue(metric, rawValue, days) {
 // shape returned by pages/api/fb/recent-changes/investigate.js; `catalog` is
 // the metric catalog to resolve `metricKeys` labels/formats against.
 export default function WindowComparisonTable({ windows, metricKeys, catalog, loading, currency }) {
+  // Drops a window entirely (header and every metric's cell) rather than
+  // rendering a column of "—" when its fetch outright failed — `metrics` is
+  // only ever null on a rejected Graph call (see
+  // pages/api/fb/recent-changes/investigate.js), never on a genuine zero
+  // (an ad with no delivery that window still gets real 0-valued metrics).
+  // `tooRecent` keeps its own column — it already renders an explanatory
+  // message instead of a dash. While still loading, every window is kept so
+  // the skeleton doesn't jump once data arrives.
+  const visibleWindowNames = loading
+    ? WINDOW_ORDER
+    : WINDOW_ORDER.filter((name) => {
+        const w = windows?.[name];
+        if (!w) return false;
+        return w.tooRecent || w.metrics != null;
+      });
+
   return (
     <div style={{ overflowX: "auto" }}>
       <table className={styles.table}>
         <thead>
           <tr>
             <th>Metric</th>
-            {WINDOW_ORDER.map((name) => {
+            {visibleWindowNames.map((name) => {
               const w = windows?.[name];
               return (
                 <th key={name} className={name === "sinceChange" ? styles.drawerSinceChangeCol : undefined}>
@@ -75,7 +91,7 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
             // overlaps the change (mixes pre- and post-change delivery) is
             // excluded from the comparison entirely, the same way it's
             // excluded from the rendered value.
-            const cellValues = WINDOW_ORDER.map((name) => {
+            const cellValues = visibleWindowNames.map((name) => {
               const w = windows?.[name];
               if (!w || w.tooRecent || w.overlapsChange) return null;
               return normalizedValue(metric, w.metrics?.[key], w.days);
@@ -97,7 +113,7 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
             return (
               <tr key={key}>
                 <td>{metric.label}</td>
-                {WINDOW_ORDER.map((name, i) => {
+                {visibleWindowNames.map((name, i) => {
                   const cellClass = name === "sinceChange" ? styles.drawerSinceChangeCol : undefined;
                   if (loading) {
                     return (
