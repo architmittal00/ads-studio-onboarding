@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import AccountSelect from "@/components/AccountSelect";
+import FilterDropdown from "@/components/FilterDropdown";
 import InvestigateDrawer from "@/components/InvestigateDrawer";
 import { CloseIcon, HistoryIcon, SettingsIcon, ChevronIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
@@ -51,28 +52,6 @@ function QuickSignal({ label, before, after }) {
     <span className={badgeClass}>
       {label} {arrow} {Math.abs(pct).toFixed(0)}%
     </span>
-  );
-}
-
-// Toggle chip for the Action Type / Changed By filters — same selected
-// (solid badge) vs. unselected (dashed, muted pill) treatment as
-// InvestigateDrawer's own metric picker, instead of a plain checkbox+label
-// row.
-function FilterChip({ label, selected, onClick, colorClass }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={selected ? colorClass || styles.badgeInfo : styles.pill}
-      style={{
-        cursor: "pointer",
-        border: selected ? undefined : "1px dashed var(--border)",
-        background: selected ? undefined : "transparent",
-        color: selected ? undefined : "var(--t2)",
-      }}
-    >
-      {label}
-    </button>
   );
 }
 
@@ -429,34 +408,21 @@ export default function RecentChanges() {
 
       {result && result.changes.length > 0 && (
         <>
-          <div className={styles.card} style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span className={styles.muted} style={{ fontWeight: 700, fontSize: 11, minWidth: 82 }}>
-                Action Type
-              </span>
-              {availableCategories.map((c) => (
-                <FilterChip
-                  key={c.key}
-                  label={c.label}
-                  colorClass={styles[CATEGORY_BADGE[c.key]]}
-                  selected={!activeView.filters.categories || activeView.filters.categories.includes(c.key)}
-                  onClick={() => toggleCategoryFilter(c.key)}
-                />
-              ))}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span className={styles.muted} style={{ fontWeight: 700, fontSize: 11, minWidth: 82 }}>
-                Changed By
-              </span>
-              {availableActors.map((name) => (
-                <FilterChip
-                  key={name}
-                  label={name}
-                  selected={!activeView.filters.actors || activeView.filters.actors.includes(name)}
-                  onClick={() => toggleActorFilter(name)}
-                />
-              ))}
-            </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+            <FilterDropdown
+              label="Action Type"
+              options={availableCategories.map((c) => ({ key: c.key, label: c.label }))}
+              selected={activeView.filters.categories}
+              onToggle={toggleCategoryFilter}
+              style={{ minWidth: 200 }}
+            />
+            <FilterDropdown
+              label="Changed By"
+              options={availableActors.map((name) => ({ key: name, label: name }))}
+              selected={activeView.filters.actors}
+              onToggle={toggleActorFilter}
+              style={{ minWidth: 200 }}
+            />
           </div>
 
           {filteredChanges.length !== result.changes.length && (
