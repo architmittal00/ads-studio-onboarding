@@ -1,7 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet, graphGetAllPages } from "@/lib/facebookGraph";
+import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { ATTRIBUTION_SPECS } from "@/lib/campaignLaunch";
+import { lastNDaysRange } from "@/lib/adCreativeDetails";
+import { roasFromRow, pickPurchaseCount } from "@/lib/metrics";
 
 const DETAIL_FIELDS =
   "name,campaign_id,campaign{objective},optimization_goal,bid_strategy,daily_budget,lifetime_budget,targeting,promoted_object,status,attribution_spec";
@@ -83,11 +85,42 @@ export default async function handler(req, res) {
       return;
     }
     if (accountId) {
-      const json = await graphGetAllPages(`/${accountId}/adsets`, token, {
-        fields: "id,name,status,campaign{id,name}",
-        limit: 200,
-      });
-      res.status(200).json({ adsets: json.data || [] });
+      // Name + parent campaign alone isn't enough to decide which ad set to
+      // duplicate (the screenshot that prompted this: a long list of
+      // similarly-named ad sets with nothing to tell them apart) — status,
+      // budget, and optimization goal come from the same list call; last-
+      // 30-day spend/purchases/ROAS needs one extra account-wide insights
+      // call (one call for every ad set's numbers, not one per ad set). A
+      // failed insights call still returns the list, just without
+      // performance data (Promise.allSettled).
+      const [listResult, insightsResult] = await Promise.allSettled([
+        graphGetAllPages(`/${accountId}/adsets`, token, {
+          fields: "id,name,status,daily_budget,lifetime_budget,optimization_goal,campaign{id,name}",
+          limit: 200,
+        }),
+        graphGetInsights(`/${accountId}/insights`, token, {
+          level: "adset",
+          fields: "adset_id,spend,actions,action_values,purchase_roas",
+          time_range: lastNDaysRange(30, new Date()),
+          limit: 500,
+        }),
+      ]);
+
+      if (listResult.status !== "fulfilled") throw listResult.reason;
+
+      const performanceByAdsetId = new Map();
+      if (insightsResult.status === "fulfilled") {
+        for (const row of insightsResult.value.data || []) {
+          const { spend, roas } = roasFromRow(row);
+          performanceByAdsetId.set(row.adset_id, { spend, purchases: pickPurchaseCount(row.actions), roas });
+        }
+      }
+
+      const adsets = (listResult.value.data || []).map((a) => ({
+        ...a,
+        performance: performanceByAdsetId.get(a.id) || null,
+      }));
+      res.status(200).json({ adsets });
       return;
     }
     res.status(400).json({ error: "accountId or adsetId is required" });
