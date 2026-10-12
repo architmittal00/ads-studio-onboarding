@@ -162,3 +162,137 @@ export async function resolveInterestId(token, query) {
 export function toMinorUnits(amount) {
   return Math.round(amount * 100);
 }
+
+// ── Generic Launch tab payload builders ──
+// The strategy-flow builders above take a funnel/strategy-shaped input — the
+// Launch tab lets the user set every field directly instead, so these take
+// an already-assembled field object (this app's own form state) and are
+// intentionally independent of the STRATEGIES model. Nothing above is
+// changed or reused beyond toMinorUnits/HARDCODED_COUNTRY/BID_STRATEGY.
+
+// Advantage+ Shopping Campaigns are flagged via `smart_promotion_type` as of
+// the pinned v23.0 Graph API (see lib/facebookGraph.js's GRAPH_API_VERSION
+// comment — this field is being phased out from v24, so this is a
+// best-effort flag for the version this app currently targets). A rejection
+// here surfaces Facebook's own error through the normal per-step error
+// handling in pages/api/fb/launch-campaign.js rather than failing silently.
+export function buildGenericCampaignPayload(fields) {
+  const payload = {
+    name: fields.name,
+    objective: fields.objective,
+    status: "PAUSED", // always created paused — flipped after, see launch-campaign.js
+    special_ad_categories: [],
+    bid_strategy: fields.bidStrategy || BID_STRATEGY,
+  };
+  if (fields.advantagePlus) payload.smart_promotion_type = "AUTOMATED_SHOPPING_ADS";
+  if (fields.budgetStrategy === "CBO" && fields.budgetAmountMinorUnits) {
+    if (fields.budgetType === "LIFETIME") payload.lifetime_budget = fields.budgetAmountMinorUnits;
+    else payload.daily_budget = fields.budgetAmountMinorUnits;
+  }
+  return payload;
+}
+
+const GENDER_MAP = { all: [], male: [1], female: [2] };
+
+// Assembles the `targeting` object from the Launch form's flat field set.
+// Only one audience mechanism is set at a time (Advantage+ audience,
+// interests, or a saved/custom/lookalike audience chosen via
+// components/CustomAudiencePicker.js — Meta returns lookalikes as just
+// another customaudiences subtype, so one picker covers both without a
+// separate lookalike code path) — same one-targeting-mechanism-per-adset
+// shape as buildAdsetPayload above, just driven by `fields.audienceType`
+// instead of a fixed strategy adset type.
+// `fields.locations` is whatever components/TargetingSearchPicker.js's
+// `type=adgeolocation` search returned and the user picked from — a mix of
+// country/region/city results, each shaped like `{key, name, type}`. Meta's
+// `geo_locations` wants these split into separate sub-keys by granularity
+// (`countries` as plain ISO codes, `regions`/`cities` as `{key}` objects) —
+// NOT one array of picker objects, which Facebook rejects outright.
+function buildGeoLocations(locations) {
+  if (!locations?.length) return { countries: [HARDCODED_COUNTRY] };
+  const geo = {};
+  for (const loc of locations) {
+    if (loc.type === "region") (geo.regions ??= []).push({ key: loc.key });
+    else if (loc.type === "city") (geo.cities ??= []).push({ key: loc.key });
+    else (geo.countries ??= []).push(loc.key);
+  }
+  return geo;
+}
+
+function buildTargeting(fields) {
+  const targeting = {
+    geo_locations: buildGeoLocations(fields.countries),
+    age_min: fields.ageMin ?? 18,
+    age_max: fields.ageMax ?? 65,
+  };
+  const genders = GENDER_MAP[fields.gender] ?? [];
+  if (genders.length) targeting.genders = genders;
+  if (fields.languages?.length) targeting.locales = fields.languages.map((l) => l.key);
+
+  if (fields.audienceType === "advantage_plus") {
+    targeting.targeting_automation = { advantage_audience: 1 };
+  } else if (fields.audienceType === "interest" && fields.interests?.length) {
+    targeting.flexible_spec = [{ interests: fields.interests.map((i) => ({ id: i.id })) }];
+  } else if (fields.audienceType === "custom_audience" && fields.customAudiences?.length) {
+    targeting.custom_audiences = fields.customAudiences.map((a) => ({ id: a.id }));
+  }
+
+  if (fields.placementType === "MANUAL") {
+    targeting.publisher_platforms = fields.publisherPlatforms?.length ? fields.publisherPlatforms : ["facebook", "instagram"];
+    if (fields.facebookPositions?.length) targeting.facebook_positions = fields.facebookPositions;
+    if (fields.instagramPositions?.length) targeting.instagram_positions = fields.instagramPositions;
+  }
+  // Omitting publisher_platforms/positions entirely (the Advantage+/
+  // automatic-placements default) is itself how Meta enables Advantage+
+  // Placements — there's no explicit "on" flag to set.
+
+  return targeting;
+}
+
+// Common attribution-window choices exposed in the Ad Set form — mapped to
+// Meta's `attribution_spec` shape. Best-effort: some ad accounts have this
+// locked at the account-level Unified Attribution Setting instead, in which
+// case Facebook rejects or ignores this field — same graceful-degradation
+// handling as the Advantage+ flag above, not something worth blocking the
+// rest of the launch over.
+export const ATTRIBUTION_SPECS = {
+  "7D_CLICK_1D_VIEW": [
+    { event_type: "CLICK_THROUGH", window_days: 7 },
+    { event_type: "VIEW_THROUGH", window_days: 1 },
+  ],
+  "1D_CLICK": [{ event_type: "CLICK_THROUGH", window_days: 1 }],
+  "1D_CLICK_1D_VIEW": [
+    { event_type: "CLICK_THROUGH", window_days: 1 },
+    { event_type: "VIEW_THROUGH", window_days: 1 },
+  ],
+  "7D_CLICK": [{ event_type: "CLICK_THROUGH", window_days: 7 }],
+};
+
+export function buildGenericAdsetPayload(fields) {
+  const payload = {
+    name: fields.name,
+    campaign_id: fields.campaignId,
+    status: "PAUSED", // always created paused — flipped after, see launch-campaign.js
+    billing_event: "IMPRESSIONS",
+    optimization_goal: fields.optimizationGoal,
+    destination_type: "WEBSITE",
+    targeting: buildTargeting(fields),
+    bid_strategy: fields.bidStrategy || BID_STRATEGY,
+  };
+  if (fields.pixelId && (fields.optimizationGoal === "OFFSITE_CONVERSIONS" || fields.optimizationGoal === "LANDING_PAGE_VIEWS")) {
+    payload.promoted_object =
+      fields.optimizationGoal === "LANDING_PAGE_VIEWS"
+        ? { pixel_id: fields.pixelId }
+        : { pixel_id: fields.pixelId, custom_event_type: fields.customEventType || "PURCHASE" };
+  }
+  if (fields.attributionSetting && ATTRIBUTION_SPECS[fields.attributionSetting]) {
+    payload.attribution_spec = ATTRIBUTION_SPECS[fields.attributionSetting];
+  }
+  // Only set on ABO (ad-set-level budget) — a CBO campaign carries the
+  // budget itself and rejects daily_budget/lifetime_budget on its ad sets.
+  if (fields.budgetStrategy === "ABO" && fields.budgetAmountMinorUnits) {
+    if (fields.budgetType === "LIFETIME") payload.lifetime_budget = fields.budgetAmountMinorUnits;
+    else payload.daily_budget = fields.budgetAmountMinorUnits;
+  }
+  return payload;
+}
