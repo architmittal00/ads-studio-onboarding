@@ -4,12 +4,13 @@ import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/lib/clientStorage";
-import { FileTextIcon, TargetIcon, DatabaseIcon, ListIcon, ChartIcon, PanelIcon, LogoutIcon, SunIcon, MoonIcon } from "./icons";
+import { FileTextIcon, TargetIcon, DatabaseIcon, ListIcon, ChartIcon, PanelIcon, LogoutIcon, SunIcon, MoonIcon, HistoryIcon } from "./icons";
 
 const LINKS = [
   { href: "/report", label: "Audit Report", icon: FileTextIcon },
   { href: "/strategy", label: "Figure Out Strategy", icon: TargetIcon },
   { href: "/explore", label: "Custom Views", icon: ChartIcon },
+  { href: "/recent-changes", label: "Recent Changes", icon: HistoryIcon },
   { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
   { href: "/logs", label: "API Logs", icon: ListIcon },
 ];
