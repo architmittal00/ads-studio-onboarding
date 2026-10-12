@@ -254,6 +254,10 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
           parentObjectId={change.objectId}
           parentLabel={change.objectName || change.objectId}
           eventTime={change.eventTime}
+          metricKeys={selectedKeys}
+          catalog={effectiveCatalog}
+          customMetrics={customMetrics}
+          customEvents={customEvents}
         />
       </div>
     </div>

@@ -263,6 +263,16 @@ export default function RecentChanges() {
     updateView(activeViewId, patch);
   }
 
+  // Changing which accounts or time window a tab queries must also drop
+  // whatever it last fetched — otherwise the account/time-window panel (and
+  // any tab label derived from it) shows the new selection while the list
+  // below keeps displaying changes from the *previous* one, with nothing on
+  // screen indicating they no longer match. Reverting to the empty state
+  // forces a fresh "Check Recent Changes" before anything is shown again.
+  function updateQuerySpec(patch) {
+    updateActive({ ...patch, result: null, resultFetchedAt: null, error: null });
+  }
+
   // Fetches performance-impact (Spend/Purchases/ROAS before vs. after) for
   // the changes pages/api/fb/recent-changes.js flagged as eligible, in small
   // concurrent batches via pages/api/fb/recent-changes/impact.js, instead of
@@ -696,7 +706,7 @@ export default function RecentChanges() {
                       accounts={adAccounts}
                       multiple
                       values={activeView.accountIds}
-                      onChange={(ids) => updateActive({ accountIds: ids })}
+                      onChange={(ids) => updateQuerySpec({ accountIds: ids })}
                       maxSelected={10}
                       placeholder="Select one or more accounts…"
                     />
@@ -710,7 +720,7 @@ export default function RecentChanges() {
                           key={p.value}
                           type="button"
                           className={activeView.hours === p.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                          onClick={() => updateActive({ hours: p.value })}
+                          onClick={() => updateQuerySpec({ hours: p.value })}
                         >
                           {p.label}
                         </button>
