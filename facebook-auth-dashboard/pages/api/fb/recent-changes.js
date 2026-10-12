@@ -33,9 +33,27 @@ function isCampaignOrAdSet(objectType) {
   return normalized === "CAMPAIGN" || normalized === "ADSET";
 }
 
-function levelLabel(objectType) {
+// Confirmed live: Facebook's Activity Log object_type isn't always reliable
+// for a budget change specifically — one entry came back with
+// object_type "CAMPAIGN" while its own translated_event_type read "Ad set
+// budget updated" and the edited entity was, in fact, an ad set. Showing
+// "Campaign" in that case isn't just a cosmetic label mismatch: the
+// Investigate drawer's "View Ad Sets in this Campaign" drill-down
+// (components/EntityDrillDown.js) then queries explore-insights for ad
+// sets whose campaign_id equals this object's id — but the id is really an
+// ad set's own id, so that query matches nothing and the drill-down looks
+// broken. Meta's human-readable text is generated from the same underlying
+// event it shows the user in Ads Manager, so when it unambiguously names
+// one level and disagrees with the structural object_type, trust the text.
+function resolveLevel(objectType, eventType, translatedEventType) {
   const normalized = String(objectType || "").toUpperCase().replace(/_/g, "");
-  return normalized === "CAMPAIGN" ? "Campaign" : "Ad Set";
+  const structural = normalized === "CAMPAIGN" ? "Campaign" : "Ad Set";
+  const haystack = `${eventType || ""} ${translatedEventType || ""}`.toLowerCase();
+  const mentionsAdSet = /\bad ?set\b/.test(haystack);
+  const mentionsCampaign = /\bcampaign\b/.test(haystack);
+  if (structural === "Campaign" && mentionsAdSet && !mentionsCampaign) return "Ad Set";
+  if (structural === "Ad Set" && mentionsCampaign && !mentionsAdSet) return "Campaign";
+  return structural;
 }
 
 // Cosmetic-only bucketing (icon/badge), never a hard filter — anything that
@@ -183,7 +201,7 @@ export default async function handler(req, res) {
         accountId,
         objectId: entry.object_id,
         objectName: entry.object_name,
-        level: levelLabel(entry.object_type),
+        level: resolveLevel(entry.object_type, entry.event_type, entry.translated_event_type),
         actorName: entry.actor_name || "Unknown",
         eventTime: eventTimeToIso(entry.event_time),
         category,
