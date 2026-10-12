@@ -31,7 +31,7 @@ const HOURS_PRESETS = [
 const MAX_VIEWS = 15;
 // Matches pages/api/fb/recent-changes.js's own MAX_IMPACT_CHANGES — just for
 // the truncation notice's wording, not sent in any request.
-const MAX_IMPACT_CHANGES = 30;
+const MAX_IMPACT_CHANGES = 50;
 
 function newViewId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -461,6 +461,14 @@ export default function RecentChanges() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span className={styles.muted}>By {c.actorName}</span>
                     {c.tooRecent && <span className={styles.muted}>· Too recent to measure</span>}
+                    {c.impactCapped && (
+                      <span
+                        className={styles.muted}
+                        title={`Only the ${MAX_IMPACT_CHANGES} most recent changes get a quick performance signal here — use Investigate to see this one's performance.`}
+                      >
+                        · Not computed for this change
+                      </span>
+                    )}
                     {!c.tooRecent && c.impact && (
                       <>
                         <QuickSignal label="Spend" before={c.impact.before?.spend} after={c.impact.after?.spend} />
