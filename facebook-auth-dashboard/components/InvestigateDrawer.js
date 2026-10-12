@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Loader from "./Loader";
 import { CloseIcon, ChevronIcon } from "./icons";
 import { METRIC_CATALOG, RATE_METRIC_KEYS, formatMetricValue } from "@/lib/insightsMetrics";
+import { describeChangeDetail } from "@/lib/activityChangeDetail";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
 
@@ -40,33 +41,6 @@ function normalizedValue(metric, rawValue, days) {
 
 function levelParam(level) {
   return level === "Campaign" ? "campaign" : "adset";
-}
-
-// extra_data's old/new fields turned out to be objects for a budget change
-// (see pages/api/fb/recent-changes.js's own comment — this was the
-// "[object Object]" bug), so this only ever renders a clean "X → Y" line
-// when BOTH sides resolved to an actual primitive — never stringifying an
-// object into something that looks like a real value but isn't one. When
-// that's not possible, the raw JSON is still offered (collapsed) below, so
-// the actual data is at least visible instead of silently absent.
-const VALUE_KEY_PAIRS = [
-  ["old_value", "new_value"],
-  ["value_old", "value_new"],
-  ["old_budget", "new_budget"],
-  ["budget_value_old", "budget_value"],
-  ["old_status", "new_status"],
-];
-
-function extractPrimitivePair(extraData) {
-  if (!extraData) return null;
-  for (const [fromKey, toKey] of VALUE_KEY_PAIRS) {
-    const from = extraData[fromKey];
-    const to = extraData[toKey];
-    if (from !== undefined && to !== undefined && typeof from !== "object" && typeof to !== "object") {
-      return { from, to };
-    }
-  }
-  return null;
 }
 
 function relativeAndAbsolute(iso) {
@@ -147,7 +121,7 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
   }
 
   const { relative, absolute } = relativeAndAbsolute(change.eventTime);
-  const primitivePair = extractPrimitivePair(change.rawExtraData);
+  const changeDetail = describeChangeDetail(change.rawExtraData);
   const accent = CATEGORY_ACCENT[change.category] || CATEGORY_ACCENT.other;
 
   return (
@@ -173,13 +147,13 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
           </button>
         </div>
 
-        {primitivePair && (
+        {changeDetail && (
           <p className={styles.sub} style={{ marginTop: 12 }}>
-            Changed: <strong>{String(primitivePair.from)}</strong> → <strong>{String(primitivePair.to)}</strong>
+            Changed: <strong>{changeDetail.from}</strong> → <strong>{changeDetail.to}</strong>
           </p>
         )}
 
-        {!primitivePair && change.rawExtraData && (
+        {!changeDetail && change.rawExtraData && (
           <div style={{ marginTop: 12 }}>
             <button
               type="button"
