@@ -77,6 +77,18 @@ const ADD_PAYMENT_INFO_TYPES = [
   "offsite_conversion.fb_pixel_add_payment_info",
 ];
 
+// Shared null-on-zero-denominator convention for every funnel-step ratio
+// below, same as cost_per_purchase/hook_rate/hold_rate elsewhere in this
+// file — `null` (not `0` or `Infinity`) when the previous funnel step never
+// happened, since "0%" would misleadingly read as a measured rate rather
+// than "not computable".
+function safePercent(numerator, denominator) {
+  return denominator > 0 ? (numerator / denominator) * 100 : null;
+}
+function safeRatio(numerator, denominator) {
+  return denominator > 0 ? numerator / denominator : null;
+}
+
 // A single "video watched to X%" field is itself an actions-shaped array
 // (`[{action_type: "video_view", value: "123"}]`) rather than a plain
 // number — this reads the one entry out of it.
@@ -228,6 +240,87 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["actions"],
     extract: (r) => pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES),
+  },
+
+  // Funnel — step-over-step conversion rates, each a ratio of two of the
+  // Conversions metrics above (re-derived from the same raw actions/
+  // action_values arrays rather than referencing another catalog entry's
+  // own `extract`, same self-contained-per-entry convention cost_per_purchase
+  // already follows).
+  {
+    key: "lpv_rate",
+    label: "LPV %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["inline_link_clicks", "actions"],
+    extract: (r) => safePercent(pickAnyActionValue(r.actions, ["landing_page_view"]), parseFloat(r.inline_link_clicks || 0)),
+  },
+  {
+    key: "cart_rate",
+    label: "Cart Rate %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["actions"],
+    extract: (r) =>
+      safePercent(pickAnyActionValue(r.actions, ADD_TO_CART_TYPES), pickAnyActionValue(r.actions, ["landing_page_view"])),
+  },
+  {
+    key: "click_to_atc_rate",
+    label: "Click to ATC %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["inline_link_clicks", "actions"],
+    extract: (r) => safePercent(pickAnyActionValue(r.actions, ADD_TO_CART_TYPES), parseFloat(r.inline_link_clicks || 0)),
+  },
+  {
+    key: "ic_rate",
+    label: "IC %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["actions"],
+    extract: (r) =>
+      safePercent(pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES), pickAnyActionValue(r.actions, ["landing_page_view"])),
+  },
+  {
+    key: "ic_to_purchase_rate",
+    label: "IC to Pur %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["actions"],
+    extract: (r) => safePercent(pickPurchaseCount(r.actions), pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES)),
+  },
+  {
+    key: "cvr_rate",
+    label: "CVR %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["actions"],
+    extract: (r) => safePercent(pickPurchaseCount(r.actions), pickAnyActionValue(r.actions, ["landing_page_view"])),
+  },
+  {
+    key: "pi_rate",
+    label: "PI %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["actions"],
+    extract: (r) =>
+      safePercent(pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES), pickAnyActionValue(r.actions, ["landing_page_view"])),
+  },
+  {
+    key: "pi_to_purchase_rate",
+    label: "PI/Purchase %",
+    group: "Funnel",
+    format: "percent",
+    fields: ["actions"],
+    extract: (r) => safePercent(pickPurchaseCount(r.actions), pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES)),
+  },
+  {
+    key: "aov",
+    label: "AOV",
+    group: "Funnel",
+    format: "currency",
+    fields: ["actions", "action_values"],
+    extract: (r) => safeRatio(pickPurchaseValue(r.action_values), pickPurchaseCount(r.actions)),
   },
 
   // Video
@@ -401,13 +494,13 @@ const CHARTABLE_FORMATS = new Set(["number", "currency", "percent", "decimal"]);
 
 // `format: "currency"` mixes two different shapes: a genuine period total
 // (Spend, Purchase Value — sums meaningfully across a longer window) and a
-// per-unit rate (CPC/CPM/CPP, Cost Per Purchase — already "cost ÷ something,"
-// not something that should be divided again by how many days the window
-// spans). Anything that needs to tell those apart — e.g. a view comparing
-// windows of different lengths, where a total needs dividing by day-count to
-// stay comparable but a rate must not be — should check this set rather than
-// assuming every currency-format metric is additive.
-export const RATE_METRIC_KEYS = new Set(["cpc", "cpm", "cpp", "cost_per_purchase"]);
+// per-unit rate (CPC/CPM/CPP, Cost Per Purchase, AOV — already "X ÷
+// something," not something that should be divided again by how many days
+// the window spans). Anything that needs to tell those apart — e.g. a view
+// comparing windows of different lengths, where a total needs dividing by
+// day-count to stay comparable but a rate must not be — should check this
+// set rather than assuming every currency-format metric is additive.
+export const RATE_METRIC_KEYS = new Set(["cpc", "cpm", "cpp", "cost_per_purchase", "aov"]);
 
 // A "unit" metric (ROAS, CTR, Hook/Hold Rate, and every RATE_METRIC_KEYS
 // entry) is already a per-unit rate — directly comparable across windows of
