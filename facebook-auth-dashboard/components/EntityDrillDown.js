@@ -1,17 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Loader from "./Loader";
 import Thumb from "./Thumb";
 import CreativeLightbox from "./CreativeLightbox";
 import { ChevronIcon } from "./icons";
-import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowComparisonTable";
-import { formatMetricValue, buildEffectiveCatalog } from "@/lib/insightsMetrics";
+import WindowComparisonTable from "./WindowComparisonTable";
+import { formatMetricValue } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
 
-// Built-ins only (no account-specific custom metrics/custom conversions
-// here) — keeps each row's RCA table a single, fast, uncustomizable fetch
-// instead of a second metric picker nested inside an already-nested drawer.
-const DRILLDOWN_CATALOG = buildEffectiveCatalog([], []);
 const DRILLDOWN_CACHE_PREFIX = "recent-changes-drilldown-investigate:";
 
 const PAGE_SIZE = 10;
@@ -109,21 +105,27 @@ async function fetchChildren({ accountId, level, idField, parentId, eventTime })
 // Fetches the same 6-window before/after comparison components/InvestigateDrawer.js
 // shows for the top-level changed entity, but for one child row (an ad set or
 // ad found inside it) — anchored to that same original change's `eventTime`,
-// so "Since Change"/"N Days Before" line up with the change being
-// investigated rather than each row picking its own reference point. Cached
-// client-side the same way InvestigateDrawer's own fetch is, keyed by entity
-// + eventTime (metric set here is fixed, so it doesn't need to be part of
-// the key).
-async function fetchRowWindows({ entityId, level, eventTime }) {
-  const cacheKey = `${DRILLDOWN_CACHE_PREFIX}${entityId}:${eventTime}`;
+// and over the SAME metric selection the Investigate drawer's own picker
+// currently has (so a metric added/removed up there shows up down here too,
+// and vice versa — these were two independently-maintained sets before,
+// which meant a custom/opt-in metric selected up top silently never
+// appeared in any child row). Cached client-side the same way
+// InvestigateDrawer's own fetch is, keyed by entity + eventTime + the exact
+// metric selection (sorted, so selection order doesn't matter).
+async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customMetrics, customEvents }) {
+  const sortedKeys = [...metricKeys].sort();
+  const cacheKey = `${DRILLDOWN_CACHE_PREFIX}${entityId}:${eventTime}:${sortedKeys.join(",")}`;
   const cached = getCachedEntry(cacheKey);
   if (cached) return cached.data.windows;
-  const params = new URLSearchParams({
-    objectId: entityId,
-    level,
-    eventTime,
-    metricKeys: DEFAULT_COMPARISON_METRIC_KEYS.join(","),
-  });
+  const params = new URLSearchParams({ objectId: entityId, level, eventTime, metricKeys: sortedKeys.join(",") });
+  const selectedCustomMetrics = customMetrics
+    .filter((cm) => sortedKeys.includes(cm.id))
+    .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey }));
+  if (selectedCustomMetrics.length > 0) params.set("customMetrics", JSON.stringify(selectedCustomMetrics));
+  const selectedCustomEvents = customEvents
+    .filter((ce) => sortedKeys.includes(ce.id))
+    .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
+  if (selectedCustomEvents.length > 0) params.set("customEvents", JSON.stringify(selectedCustomEvents));
   const res = await fetch(`/api/fb/recent-changes/investigate?${params.toString()}`);
   const json = await res.json();
   if (json.error) throw new Error(json.error);
@@ -134,19 +136,109 @@ async function fetchRowWindows({ entityId, level, eventTime }) {
 // A breadcrumb trail of "children of X" cards — components/InvestigateDrawer.js
 // mounts this with `key={change.id}` so switching to a different change
 // remounts it fresh rather than carrying over a previous change's drilled-in
-// state. `stack[i]` is one fetched level: `{ level, parentId, parentLabel,
-// rows, loading, error, sort, visibleCount, collapsedIds, rowWindows }`;
-// only the last entry's cards are shown, with earlier entries available as
-// clickable breadcrumb labels. Every visible row's RCA comparison is open by
-// default (`collapsedIds` tracks the rare row someone explicitly collapsed,
-// an opt-OUT set rather than opt-in) so a reviewer sees every ad's own
-// before/after at a glance instead of having to expand each one by hand.
-// `rowWindows` caches each row's own fetched comparison data
-// (`{ [entityId]: { loading, error, windows } }`) so collapsing and
-// re-expanding a row doesn't always refetch.
-export default function EntityDrillDown({ accountId, currency, parentLevel, parentObjectId, parentLabel, eventTime }) {
+// state, and passes its own current metric selection (`metricKeys`/`catalog`/
+// `customMetrics`/`customEvents`) straight through so both levels of this
+// drawer always show the exact same metrics. `stack[i]` is one fetched
+// level: `{ level, parentId, parentLabel, rows, loading, error, sort,
+// visibleCount, collapsedIds, rowWindows }`; only the last entry's cards are
+// shown, with earlier entries available as clickable breadcrumb labels.
+// Every visible row's RCA comparison is open by default (`collapsedIds`
+// tracks the rare row someone explicitly collapsed, an opt-OUT set rather
+// than opt-in) so a reviewer sees every ad's own before/after at a glance
+// instead of having to expand each one by hand. `rowWindows` caches each
+// row's own fetched comparison data (`{ [entityId]: { loading, error,
+// windows } }`) so collapsing and re-expanding a row doesn't always refetch.
+export default function EntityDrillDown({
+  accountId,
+  currency,
+  parentLevel,
+  parentObjectId,
+  parentLabel,
+  eventTime,
+  metricKeys,
+  catalog,
+  customMetrics,
+  customEvents,
+}) {
   const [stack, setStack] = useState([]);
   const [lightboxItem, setLightboxItem] = useState(null);
+
+  // Kicks off (and caches) the before/after fetch for whichever rows just
+  // became visible/expanded and don't have it yet — called after the
+  // initial load, every "Load 10 more", every sort change, a metric
+  // selection change (see the effect below), and whenever a
+  // previously-collapsed row is re-expanded. Always targets the current
+  // (last) stack entry, same convention as the rest of this component.
+  function loadRowWindows(level, rows) {
+    const pending = rows.filter((r) => r.entityId);
+    if (pending.length === 0) return;
+    setStack((prev) =>
+      prev.map((e, i) =>
+        i === prev.length - 1
+          ? {
+              ...e,
+              rowWindows: {
+                ...e.rowWindows,
+                ...Object.fromEntries(
+                  pending.filter((r) => !e.rowWindows[r.entityId]).map((r) => [r.entityId, { loading: true, error: null, windows: null }])
+                ),
+              },
+            }
+          : e
+      )
+    );
+    for (const row of pending) {
+      fetchRowWindows({ entityId: row.entityId, level, eventTime, metricKeys, customMetrics, customEvents })
+        .then((windows) => {
+          setStack((prev) =>
+            prev.map((e, i) =>
+              i === prev.length - 1 ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: null, windows } } } : e
+            )
+          );
+        })
+        .catch((err) => {
+          setStack((prev) =>
+            prev.map((e, i) =>
+              i === prev.length - 1
+                ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: err.message, windows: null } } }
+                : e
+            )
+          );
+        });
+    }
+  }
+
+  // The Investigate drawer's own metric picker can change at any time while
+  // a drill-down is already open (no remount — `key={change.id}` only
+  // resets this component when the *change* itself changes) — when it does,
+  // every row's already-fetched comparison was computed for the old metric
+  // set and needs to be thrown away and re-fetched for the currently
+  // visible, non-collapsed rows under the new one.
+  const metricKeysSignature = [...metricKeys].sort().join(",");
+  const prevMetricKeysSignatureRef = useRef(metricKeysSignature);
+  useEffect(() => {
+    if (prevMetricKeysSignatureRef.current === metricKeysSignature) return;
+    prevMetricKeysSignatureRef.current = metricKeysSignature;
+    if (stack.length === 0) return;
+    const idx = stack.length - 1;
+    const entry = stack[idx];
+    // Clearing the now-stale (wrong metric set) cached comparisons and
+    // kicking off a fresh fetch for them are both genuine reactions to an
+    // external input (the drawer's own metric picker) changing — not state
+    // derivable from props/state on render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStack((prev) => prev.map((e, i) => (i === idx ? { ...e, rowWindows: {} } : e)));
+    const sorted = sortRows(entry.rows || [], entry.sort);
+    const visible = sorted.slice(0, entry.visibleCount);
+    loadRowWindows(
+      entry.level,
+      visible.filter((r) => r.entityId && !entry.collapsedIds.has(r.entityId))
+    );
+    // Only the metric selection itself should re-trigger this — `stack`
+    // changing (sorting, paging, expanding) is handled by its own call
+    // sites below, not this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metricKeysSignature]);
 
   function pushLevel(level, forParentId, forParentLabel) {
     setStack((prev) => [
@@ -179,50 +271,6 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
 
   function updateCurrent(patch) {
     setStack((prev) => prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, ...patch } : entry)));
-  }
-
-  // Kicks off (and caches) the before/after fetch for whichever rows just
-  // became visible/expanded and don't have it yet — called after the
-  // initial load, every "Load 10 more", every sort change, and whenever a
-  // previously-collapsed row is re-expanded. Always targets the current
-  // (last) stack entry, same convention as the rest of this component.
-  function loadRowWindows(level, rows) {
-    const pending = rows.filter((r) => r.entityId);
-    if (pending.length === 0) return;
-    setStack((prev) =>
-      prev.map((e, i) =>
-        i === prev.length - 1
-          ? {
-              ...e,
-              rowWindows: {
-                ...e.rowWindows,
-                ...Object.fromEntries(
-                  pending.filter((r) => !e.rowWindows[r.entityId]).map((r) => [r.entityId, { loading: true, error: null, windows: null }])
-                ),
-              },
-            }
-          : e
-      )
-    );
-    for (const row of pending) {
-      fetchRowWindows({ entityId: row.entityId, level, eventTime })
-        .then((windows) => {
-          setStack((prev) =>
-            prev.map((e, i) =>
-              i === prev.length - 1 ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: null, windows } } } : e
-            )
-          );
-        })
-        .catch((err) => {
-          setStack((prev) =>
-            prev.map((e, i) =>
-              i === prev.length - 1
-                ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: err.message, windows: null } } }
-                : e
-            )
-          );
-        });
-    }
   }
 
   function toggleRow(entry, row) {
@@ -377,15 +425,15 @@ export default function EntityDrillDown({ accountId, currency, parentLevel, pare
                       </button>
                     )}
                   </div>
-                  {isExpanded && (
+                  {isExpanded && metricKeys.length > 0 && (
                     <div>
                       {rowWindowState?.loading && <Loader label="Loading before/after comparison…" />}
                       {rowWindowState?.error && <div className={styles.error}>{rowWindowState.error}</div>}
                       {rowWindowState && !rowWindowState.loading && !rowWindowState.error && (
                         <WindowComparisonTable
                           windows={rowWindowState.windows}
-                          metricKeys={DEFAULT_COMPARISON_METRIC_KEYS}
-                          catalog={DRILLDOWN_CATALOG}
+                          metricKeys={metricKeys}
+                          catalog={catalog}
                           loading={false}
                           currency={currency}
                         />
