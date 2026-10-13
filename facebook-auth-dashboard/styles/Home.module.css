@@ -429,6 +429,20 @@ button.stat:hover {
   width: 2px;
   left: 3.5px;
 }
+
+/* ── Column drag-to-reorder: grip handle in a header cell's label, and a
+   highlighted leading edge on whichever column is the current drop target
+   (see SortableTable's drag handlers) ── */
+.colDragHandle {
+  display: inline-flex;
+  margin-right: 4px;
+  vertical-align: middle;
+  color: var(--t3);
+  cursor: grab;
+}
+.colDragOver {
+  box-shadow: inset 2px 0 0 var(--purple);
+}
 .table td {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);

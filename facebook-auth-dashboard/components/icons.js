@@ -207,6 +207,28 @@ export function HistoryIcon(props) {
   );
 }
 
+export function GripIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="9" cy="6" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="18" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="6" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="18" r="1.5" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
+export function PinIcon(props) {
+  return (
+    <Svg {...props}>
+      <line x1="12" y1="17" x2="12" y2="22" />
+      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+    </Svg>
+  );
+}
+
 export function RocketIcon(props) {
   return (
     <Svg {...props}>
