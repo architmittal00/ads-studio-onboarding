@@ -33,12 +33,13 @@ import styles from "@/styles/Home.module.css";
 // only ever operate on the top-level `rows` array), so a caller doing its
 // own nested-row expansion keeps that state and gets it rendered in the
 // right place without this component needing to know anything about it.
-// `onSortChange(sortKey, sortDir)`/`onSearchChange(search)`, if given, fire
-// whenever this table's own (otherwise fully internal) sort/search state
-// changes, including once on mount with its initial value — letting a
-// caller that's rendering its own extra rows via `renderRowExtra` mirror the
-// same sort/search the visible top-level rows are under, instead of those
-// extra rows silently ignoring it.
+// `onSortChange(sortKey, sortDir)`/`onSearchChange(search)`/
+// `onFreezeChange(frozenKey)`, if given, fire whenever this table's own
+// (otherwise fully internal) sort/search/freeze state changes, including
+// once on mount with its initial value — letting a caller that's rendering
+// its own extra rows via `renderRowExtra` mirror the same sort/search/freeze
+// the visible top-level rows are under, instead of those extra rows silently
+// ignoring it. `frozenKey` is `null` when nothing's pinned.
 export default function SortableTable({
   columns,
   rows,
@@ -55,6 +56,7 @@ export default function SortableTable({
   renderRowExtra,
   onSortChange,
   onSearchChange,
+  onFreezeChange,
 }) {
   const [sortKey, setSortKey] = useState(defaultSortKey || columns[0]?.key);
   const [sortDir, setSortDir] = useState(defaultSortDir);
@@ -93,6 +95,20 @@ export default function SortableTable({
     const newOnes = columns.filter((c) => !colOrder.includes(c.key));
     return [...known, ...newOnes];
   }, [columns, colOrder]);
+
+  // Mirrors which column (if any) is currently pinned — same convention as
+  // onSortChange/onSearchChange above — so a caller rendering its own extra
+  // rows via renderRowExtra (e.g. Explore's drill-down children, which don't
+  // create a new column for campaign/ad set/ad name) can freeze the matching
+  // cell in those rows too, instead of only the ones SortableTable renders
+  // itself.
+  const activeFrozenKey = firstColFrozen
+    ? (orderedColumns.find((c) => !c.freezeExempt) || orderedColumns[0])?.key ?? null
+    : null;
+  useEffect(() => {
+    onFreezeChange?.(activeFrozenKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFrozenKey]);
 
   function handleColumnDrop(targetKey) {
     if (!dragKey || dragKey === targetKey) return;
@@ -175,13 +191,6 @@ export default function SortableTable({
     return <p className={styles.sub}>{emptyMessage}</p>;
   }
 
-  // The freezable column defaults to whichever is first — except a column
-  // marked `freezeExempt` (a narrow bulk-select checkbox column, say), which
-  // is never worth pinning in place of the real content next to it. Falls
-  // back to the true first column if every column happens to be exempt,
-  // so freezing never silently targets nothing.
-  const firstColKey = (orderedColumns.find((c) => !c.freezeExempt) || orderedColumns[0])?.key;
-
   return (
     <div>
       {(searchable || orderedColumns.length > 1) && (
@@ -248,7 +257,7 @@ export default function SortableTable({
             <thead>
               <tr>
                 {orderedColumns.map((col) => {
-                  const isFrozen = firstColFrozen && col.key === firstColKey;
+                  const isFrozen = col.key === activeFrozenKey;
                   return (
                     <th
                       key={col.key}
@@ -357,7 +366,7 @@ export default function SortableTable({
                     {orderedColumns.map((col) => {
                       const content = col.render ? col.render(row) : row[col.key];
                       const width = resizableColumns ? columnWidth(col) : col.maxWidth;
-                      const isFrozen = firstColFrozen && col.key === firstColKey;
+                      const isFrozen = col.key === activeFrozenKey;
                       const frozenStyle = isFrozen
                         ? {
                             position: "sticky",

@@ -49,10 +49,12 @@ const MAX_VIEWS = 15;
 const RANGE_PRESETS = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
+  { key: "last_3d", label: "Last 3 Days" },
   { key: "last_7d", label: "Last 7 Days" },
   { key: "last_14d", label: "Last 14 Days" },
   { key: "last_30d", label: "Last 30 Days" },
   { key: "last_90d", label: "Last 90 Days" },
+  { key: "this_month", label: "This Month" },
   { key: "custom", label: "Custom" },
 ];
 
@@ -322,6 +324,8 @@ function computeRange(preset, customSince, customUntil) {
       const y = addDaysUTC(isoDate(today), -1);
       return { since: y, until: y };
     }
+    case "last_3d":
+      return lastNDaysRangeExcludingToday(3, today);
     case "last_7d":
       return lastNDaysRangeExcludingToday(7, today);
     case "last_14d":
@@ -330,6 +334,13 @@ function computeRange(preset, customSince, customUntil) {
       return lastNDaysRangeExcludingToday(30, today);
     case "last_90d":
       return lastNDaysRangeExcludingToday(90, today);
+    // Unlike every "Last N Days" preset above, month-to-date includes today
+    // — the natural reading of "This Month" is "so far," not "excluding
+    // whatever's still accumulating," the way a trailing N-day window is.
+    case "this_month": {
+      const todayIso = isoDate(today);
+      return { since: `${todayIso.slice(0, 7)}-01`, until: todayIso };
+    }
     case "custom":
       return customSince && customUntil ? { since: customSince, until: customUntil } : null;
     default:
@@ -741,6 +752,26 @@ export default function Explore() {
   const hasSeededInitialAccountRef = useRef(false);
   const hasRestoredRef = useRef(false);
   const queryPanelRef = useRef(null);
+  const tabsRowRef = useRef(null);
+
+  // The view-tabs row above is sticky at `top: 0`; when the query panel is
+  // collapsed, the "Edit Query" summary row right below it needs to be
+  // sticky too (it was scrolling away with the result table, forcing a
+  // scroll back up just to tweak the query) — pinned directly under the
+  // tabs row rather than at `top: 0` itself, which would stack the two on
+  // top of each other. The tabs row's height isn't a fixed constant (a
+  // couple of long view names can wrap it to two lines), so it's measured
+  // live instead of guessed.
+  const [tabsRowHeight, setTabsRowHeight] = useState(0);
+  useEffect(() => {
+    const el = tabsRowRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      setTabsRowHeight(entries[0].contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // One-time restore of previously-open tabs from localStorage — replaces
   // the single deterministic blank tab wholesale. Pre-populates each
@@ -1346,6 +1377,7 @@ export default function Explore() {
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
           <div
+            ref={tabsRowRef}
             style={{
               display: "flex",
               alignItems: "flex-end",
@@ -1911,7 +1943,22 @@ export default function Explore() {
             </div>
           ) : (
             <div className={styles.exploreContent}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  marginBottom: 14,
+                  position: "sticky",
+                  top: tabsRowHeight,
+                  zIndex: 4,
+                  background: "var(--bg)",
+                  paddingTop: 8,
+                  paddingBottom: 8,
+                }}
+              >
                 <p className={styles.sub} style={{ margin: 0 }}>
                   {summarizeQuery(activeView, adAccounts)}
                 </p>
@@ -2052,6 +2099,12 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
   // those always showing in raw API order with every status/filter ignored.
   const [childSort, setChildSort] = useState({ key: null, dir: "desc" });
   const [childSearch, setChildSearch] = useState("");
+  // Mirrors which column the parent table currently has frozen — a
+  // drilled-into row never creates its own "Campaign"/"Ad Set" column (it
+  // reuses the same leading name column, just indented), so without this a
+  // frozen Campaign column stayed pinned for top-level rows but not for the
+  // child rows underneath it. `null` when nothing's frozen.
+  const [childFrozenKey, setChildFrozenKey] = useState(null);
 
   function applyChildRowOrdering(childRows) {
     let out = applyResultFilters(childRows, resultFilters, meta.metricKeys);
@@ -2285,20 +2338,30 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
   function renderDataRow(row, level, depth) {
     const childLevel = CHILD_LEVEL[level];
     const isOpen = !!expansions[row.entityId]?.open;
+    // Mirrors SortableTable's own frozen-cell styling exactly (see
+    // components/SortableTable.js) — a drilled-into row's cells are plain
+    // <td>s rendered outside SortableTable's own body loop (via
+    // renderRowExtra), so the pinned column has to be reapplied here by key
+    // rather than inherited.
+    function frozenStyle(col) {
+      return col.key === childFrozenKey
+        ? { position: "sticky", left: 0, zIndex: 1, background: "var(--bg)", boxShadow: "1px 0 0 var(--border2)" }
+        : null;
+    }
     return (
       <tr key={row.entityId}>
         {columns.map((col) => {
-          if (col.key === "__select") return <td key={col.key} />;
+          if (col.key === "__select") return <td key={col.key} style={frozenStyle(col)} />;
           if (col.key === "__actions") {
             return (
-              <td key={col.key}>
+              <td key={col.key} style={frozenStyle(col)}>
                 <RowActions row={row} level={level} currency={currencyByAccountId.get(row.accountId)} onActionApplied={applyChildActionPatch} />
               </td>
             );
           }
           if (col.key === "entityLabel" || col.key === "label") {
             return (
-              <td key={col.key}>
+              <td key={col.key} style={frozenStyle(col)}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: depth * 20, minWidth: 0 }}>
                   {childLevel ? (
                     <button
@@ -2348,7 +2411,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
             );
           }
           return (
-            <td key={col.key} style={{ textAlign: col.align || "left" }}>
+            <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle(col) }}>
               {col.render ? col.render(row) : row[col.key]}
             </td>
           );
@@ -2460,6 +2523,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
           renderRowExtra={drillDownEnabled ? renderRowExtra : undefined}
           onSortChange={(key, dir) => setChildSort({ key, dir })}
           onSearchChange={setChildSearch}
+          onFreezeChange={setChildFrozenKey}
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
@@ -2503,15 +2567,18 @@ function CopyIdButton({ id, onCopy }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
+        gap: 4,
         background: "none",
         border: "none",
         padding: 2,
         cursor: "pointer",
         color: copied ? "var(--green)" : "var(--t3)",
         flexShrink: 0,
+        whiteSpace: "nowrap",
       }}
     >
       {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+      {copied && <span style={{ fontSize: 10.5, fontWeight: 700 }}>Copied</span>}
     </button>
   );
 }
