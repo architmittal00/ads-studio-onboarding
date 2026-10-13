@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-13**, by Claude, right after merging PR #140.
+> Last updated: **2026-10-13**, by Claude, right after merging PR #142.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`5beae5c`** — "Explore: fix column order on refresh, add %-change filter, frozen-column/header collision, ad thumbnails, Open New prominence, Total row placement" (PR #140, merged 2026-10-13).
+Latest commit as of this writing: **`56a7b15`** — "Explore: fix filtered-out chart data getting invisibly bridged, always show table search, fix stuck query-panel height, add Last Month preset" (PR #142, merged 2026-10-13).
 
 No open PRs. Everything described below is merged and live.
 
@@ -79,17 +79,23 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (this session, 2026-10-13)
 
-Shipped **PR #140** against `origin/main`, addressing a batch of 7 Explore-tab requests from the user (verbatim ask: column ordering, quick loader on filter, %-change filter, frozen column/header collision, ad thumbnails, "+Open New" prominence, Total row placement). All 7 are done:
+### PR #142 — chart filtering visibility, stuck query-panel height, always-on search, Last Month preset
 
-1. **Column order reconciliation fixed** (`components/SortableTable.js`) — previously, when a view's column set changed (e.g. a breakdown just got turned on) while re-running "Update This View" without a page reload, the new column always got appended at the very end instead of its natural position, making the table look broken until a manual reload. Fixed by reconciling `colOrder` against the live `columns` prop by natural position, not just appending unknowns.
-2. **Quick ~0.2s loading pulse** shown over the table while a metric/status filter is being applied (`ExploreResultsTable`'s `filterPulse` state + a CSS spinner overlay).
-3. **%-change filter basis** — metric-threshold filter conditions (`resultFilters.metricConditions`) can now target `basis: "change"` (the row's `_deltaPct`) instead of just raw value, shown as a "Value / % Change" dropdown that only appears when Compare-to-Previous-Period is active.
-4. **Frozen column vs. sticky header z-index collision fixed** (`styles/Home.module.css`) — the sticky header row and a frozen column's body cells both used `z-index: 1`; since `<tbody>` comes after `<thead>` in the DOM, ties resolved in the body's favor and a frozen column visibly painted over the header on vertical scroll. Fixed by bumping the header to `z-index: 3`. (The user's original request said "refer to screenshot" but no image was actually attached — this was root-caused and reproduced directly via a mocked preview harness instead of guessed at.)
-5. **Thumbnails missing on direct Ad-level queries** — a top-level query at Ad level (not reached via drill-down) never set `includeCreative: true` in the request, and the top-level row renderer never rendered a `<Thumb>` at all (only the drill-down child renderer did). Both fixed.
-6. **"+ Open New" CTA prominence** — moved to be the first button in the row-selection action bar, with a pulsing box-shadow animation and a rocket icon, so it's the obvious next click after selecting rows.
-7. **Total row placement** — moved from pinned-at-top to rendered after the real rows (footer-style), plus a "Show Total row" checkbox to hide/show it.
+Shipped against another batch of 5 user-reported Explore issues:
 
-All verified via a disposable mocked preview harness (`pages/explore-part3-preview.js`, deleted before commit — see the convention note below) before shipping; `npm run lint` and `npm run build` both clean.
+1. **"Applying filters don't work in charts"** — root-caused to `connectNulls` on the time-series `<Line>` in `components/ExploreChart.js`: a row excluded by the "Filter results" panel just got smoothed over into an invisible gap instead of a visible break, so filtering a chart could look like it did nothing even though the underlying data array genuinely shrank (verified directly: dot/row counts dropped, the line just didn't show it). Fixed by building the time-series x-axis from every calendar day in the query's actual date range (not just whichever days still have a surviving row) and removing `connectNulls`, so a filtered-out (or genuinely missing) day now renders as a real break in the line.
+2. **"Search option disappears"** — `SortableTable`'s search box in Explore was gated on `rows.length > 6`; any result/drill-down with 6 or fewer rows silently lost its search box. Now always shown.
+3. **"Query box keeps on expanding"** — the Query & Filters panel's max-height recompute (on scroll/resize) used a `requestAnimationFrame` "skip while one's already pending" latch (`if (frame) return; frame = requestAnimationFrame(recompute)`). If that one pending frame is ever dropped/delayed — confirmed directly: a real viewport resize left the computed max-height frozen at its old value, with the panel's bottom edge measured running 200px past the actual new viewport bottom — every later scroll/resize is silently ignored for the rest of that panel's lifetime. Fixed by switching to cancel-and-reschedule (`if (frame) cancelAnimationFrame(frame); frame = requestAnimationFrame(recompute)`), which can't wedge itself permanently.
+4. **"Last Month" preset** added to `RANGE_PRESETS` (full previous calendar month, distinct from "This Month"'s month-to-date).
+5. **Custom start/end date picker** — the user asked for this under "while setting custom date range"; it **already existed** (two native `<input type="date">` fields under the "Custom" range option) and was verified working as-is. No code change.
+
+**Testing-environment gotcha found while diagnosing #3, worth knowing for next time:** in this session's Browser-tool pane, neither a programmatic `el.scrollTop = n` assignment nor a `resize_window` viewport change reliably fires a native `scroll`/`resize` DOM event (confirmed by attaching a bare, unrelated listener and seeing it never fire either) — this is a quirk of the CDP-based automation/emulation, not of this app. A real mouse-wheel scroll via the `computer` tool's `scroll` action is the correct way to test scroll-driven behavior here, but repeatedly failed in this session with "Browser pane is currently hidden" — a recurring tool limitation this session hit, not something fixable from the app side. When it recurs, fall back to reasoning about the fix's correctness from the code plus whatever partial signal `javascript_tool` can get (it can still read computed styles/geometry after a change, just can't always *trigger* a trusted scroll/resize event itself).
+
+### PR #140 — column order, quick loader, %-change filter, frozen-header collision, ad thumbnails, Open New prominence, Total row placement
+
+A prior batch of 7 items, all shipped: column-order reconciliation on "Update This View" (`SortableTable.js`), a brief loading pulse during filter apply, a "Value / % Change" basis option for metric-threshold filters, a sticky-header-vs-frozen-column z-index fix, thumbnails on direct Ad-level queries, "+ Open New" moved first/pulsing in the selection bar, and the Total row moved to render after real rows with a show/hide toggle. Full detail is in PR #140's own description and commit message if needed — compressed here since it's fully shipped and superseded by #142 for anything overlapping (the frozen-column header fix from #140 and the always-on search from #142 both touch the same table, for instance).
+
+Both rounds verified via a disposable mocked preview harness (deleted before commit — see the convention note below); `npm run lint` and `npm run build` clean for both.
 
 ### The mocked-preview-harness convention (use this for any Explore UI verification)
 
@@ -139,7 +145,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Nothing is currently queued.** The last batch of user-requested Explore fixes (§5) is fully shipped. There is no known open task, bug, or plan waiting to be picked up as of 2026-10-13.
+**Nothing is currently queued.** The last two batches of user-requested Explore fixes (§5) are fully shipped. There is no known open task, bug, or plan waiting to be picked up as of 2026-10-13.
 
 When new work comes in:
 1. Read this whole file first, then skim `README.md` for the relevant feature area.
