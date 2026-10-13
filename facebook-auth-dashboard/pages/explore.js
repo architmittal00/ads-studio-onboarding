@@ -2311,14 +2311,17 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
             label: "Actions",
             maxWidth: 170,
             freezeExempt: true,
-            render: (row) => (
-              <RowActions
-                row={row}
-                level={meta.level}
-                currency={currencyByAccountId.get(row.accountId)}
-                onActionApplied={onActionApplied}
-              />
-            ),
+            // No entity (the pinned Total row, see totalsRow below) means
+            // nothing to Pause/Activate/Change Budget.
+            render: (row) =>
+              row.entityId ? (
+                <RowActions
+                  row={row}
+                  level={meta.level}
+                  currency={currencyByAccountId.get(row.accountId)}
+                  onActionApplied={onActionApplied}
+                />
+              ) : null,
           },
         ]
       : []),
@@ -2524,6 +2527,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
           onSortChange={(key, dir) => setChildSort({ key, dir })}
           onSearchChange={setChildSearch}
           onFreezeChange={setChildFrozenKey}
+          pinnedRow={meta.totalsRow || undefined}
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />

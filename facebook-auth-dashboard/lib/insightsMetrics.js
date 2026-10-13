@@ -89,6 +89,14 @@ function safeRatio(numerator, denominator) {
   return denominator > 0 ? numerator / denominator : null;
 }
 
+// Sums one raw field/expression across a set of raw rows — the building
+// block every catalog entry's `aggregate` (see below) combines into a
+// correct multi-row total, instead of a totals row naively summing (or
+// averaging) each row's own already-computed ratio.
+function sumBy(rows, extract) {
+  return rows.reduce((total, r) => total + (extract(r) || 0), 0);
+}
+
 // A single "video watched to X%" field is itself an actions-shaped array
 // (`[{action_type: "video_view", value: "123"}]`) rather than a plain
 // number — this reads the one entry out of it.
@@ -103,10 +111,26 @@ function firstActionValue(entries) {
 // metric before the real request is made); `extract` reads it back out of
 // one raw insights row. `format` drives both table number formatting and
 // which metrics Phase 5's chart view can plot (only number/currency/percent/
-// decimal are chartable — "text" rankings are table-only).
+// decimal are chartable — "text" rankings are table-only). `aggregate(rows)`,
+// when present, combines an array of raw rows into this metric's correct
+// multi-row total (e.g. a rate's total is its numerator's sum over its
+// denominator's sum, not an average of each row's own rate) — powers the
+// Explore results table's Total row (see aggregateRowMetrics below). Omitted
+// entirely for a metric with no honest way to combine rows (Reach/Unique
+// Clicks/Unique CTR are Facebook's own deduplicated, overlap-prone counts;
+// Frequency/CPP derive from Reach; the Quality rankings are categorical) —
+// its total then renders as "—", same as a genuinely inapplicable value.
 export const METRIC_CATALOG = [
   // Delivery
-  { key: "spend", label: "Spend", group: "Delivery", format: "currency", fields: ["spend"], extract: (r) => parseFloat(r.spend || 0) },
+  {
+    key: "spend",
+    label: "Spend",
+    group: "Delivery",
+    format: "currency",
+    fields: ["spend"],
+    extract: (r) => parseFloat(r.spend || 0),
+    aggregate: (rows) => sumBy(rows, (r) => parseFloat(r.spend || 0)),
+  },
   {
     key: "impressions",
     label: "Impressions",
@@ -114,8 +138,19 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["impressions"],
     extract: (r) => parseFloat(r.impressions || 0),
+    aggregate: (rows) => sumBy(rows, (r) => parseFloat(r.impressions || 0)),
   },
+  // No `aggregate` — Reach is Facebook's own deduplicated "distinct people"
+  // count per entity; the same person reached by two campaigns counts once
+  // in each campaign's own Reach, so summing several campaigns' Reach
+  // double-counts them. There's no field available here that corrects for
+  // the overlap, so a combined Reach total renders as "—" rather than a
+  // plausible-looking but wrong number — same reasoning this app already
+  // applies when a rollup would otherwise merge several entities' Reach
+  // (see REACH_DEPENDENT_KEYS in pages/api/fb/explore-insights.js).
   { key: "reach", label: "Reach", group: "Delivery", format: "number", fields: ["reach"], extract: (r) => parseFloat(r.reach || 0) },
+  // No `aggregate` — Frequency (impressions ÷ Reach) inherits Reach's own
+  // non-aggregatable overlap problem.
   {
     key: "frequency",
     label: "Frequency",
@@ -126,7 +161,17 @@ export const METRIC_CATALOG = [
   },
 
   // Engagement
-  { key: "clicks", label: "Clicks", group: "Engagement", format: "number", fields: ["clicks"], extract: (r) => parseFloat(r.clicks || 0) },
+  {
+    key: "clicks",
+    label: "Clicks",
+    group: "Engagement",
+    format: "number",
+    fields: ["clicks"],
+    extract: (r) => parseFloat(r.clicks || 0),
+    aggregate: (rows) => sumBy(rows, (r) => parseFloat(r.clicks || 0)),
+  },
+  // No `aggregate` — Unique Clicks is a deduplicated "distinct people who
+  // clicked" count, same overlap problem as Reach above.
   {
     key: "unique_clicks",
     label: "Unique Clicks",
@@ -148,7 +193,10 @@ export const METRIC_CATALOG = [
     format: "percent",
     fields: ["inline_link_clicks", "impressions"],
     extract: (r) => safePercent(parseFloat(r.inline_link_clicks || 0), parseFloat(r.impressions || 0)),
+    aggregate: (rows) =>
+      safePercent(sumBy(rows, (r) => parseFloat(r.inline_link_clicks || 0)), sumBy(rows, (r) => parseFloat(r.impressions || 0))),
   },
+  // No `aggregate` — derived from Unique Clicks, same overlap problem.
   {
     key: "unique_ctr",
     label: "Unique CTR",
@@ -164,6 +212,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["inline_link_clicks"],
     extract: (r) => parseFloat(r.inline_link_clicks || 0),
+    aggregate: (rows) => sumBy(rows, (r) => parseFloat(r.inline_link_clicks || 0)),
   },
 
   // Cost efficiency
@@ -177,8 +226,25 @@ export const METRIC_CATALOG = [
     format: "currency",
     fields: ["spend", "inline_link_clicks"],
     extract: (r) => safeRatio(parseFloat(r.spend || 0), parseFloat(r.inline_link_clicks || 0)),
+    aggregate: (rows) => safeRatio(sumBy(rows, (r) => parseFloat(r.spend || 0)), sumBy(rows, (r) => parseFloat(r.inline_link_clicks || 0))),
   },
-  { key: "cpm", label: "CPM", group: "Cost", format: "currency", fields: ["cpm"], extract: (r) => parseFloat(r.cpm || 0) },
+  {
+    key: "cpm",
+    label: "CPM",
+    group: "Cost",
+    format: "currency",
+    fields: ["cpm"],
+    extract: (r) => parseFloat(r.cpm || 0),
+    // Re-derived from spend/impressions rather than averaging each row's own
+    // `cpm` field — the two agree exactly when every row has equal
+    // impressions, and diverge (correctly favoring the higher-impression
+    // rows) otherwise.
+    aggregate: (rows) => {
+      const impressions = sumBy(rows, (r) => parseFloat(r.impressions || 0));
+      return impressions > 0 ? (sumBy(rows, (r) => parseFloat(r.spend || 0)) / impressions) * 1000 : null;
+    },
+  },
+  // No `aggregate` — CPP (spend ÷ Reach) inherits Reach's own overlap problem.
   { key: "cpp", label: "CPP", group: "Cost", format: "currency", fields: ["cpp"], extract: (r) => parseFloat(r.cpp || 0) },
   // Meta's own "Cost per Result" is tied to whatever a campaign's
   // optimization goal is (purchases, leads, …), which isn't tracked
@@ -197,6 +263,10 @@ export const METRIC_CATALOG = [
       const spend = parseFloat(r.spend || 0);
       return purchases > 0 ? spend / purchases : null;
     },
+    aggregate: (rows) => {
+      const purchases = sumBy(rows, (r) => pickPurchaseCount(r.actions));
+      return purchases > 0 ? sumBy(rows, (r) => parseFloat(r.spend || 0)) / purchases : null;
+    },
   },
 
   // Conversions
@@ -207,6 +277,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["actions"],
     extract: (r) => pickPurchaseCount(r.actions),
+    aggregate: (rows) => sumBy(rows, (r) => pickPurchaseCount(r.actions)),
   },
   {
     key: "revenue",
@@ -215,6 +286,7 @@ export const METRIC_CATALOG = [
     format: "currency",
     fields: ["action_values"],
     extract: (r) => pickPurchaseValue(r.action_values),
+    aggregate: (rows) => sumBy(rows, (r) => pickPurchaseValue(r.action_values)),
   },
   {
     key: "roas",
@@ -223,6 +295,12 @@ export const METRIC_CATALOG = [
     format: "decimal",
     fields: ["spend", "action_values", "purchase_roas"],
     extract: (r) => roasFromRow(r).roas,
+    // Re-derived from summed revenue/spend rather than averaging each row's
+    // own ROAS, same reasoning as every other rate metric here.
+    aggregate: (rows) => {
+      const spend = sumBy(rows, (r) => parseFloat(r.spend || 0));
+      return spend > 0 ? sumBy(rows, (r) => pickPurchaseValue(r.action_values)) / spend : null;
+    },
   },
   {
     key: "add_to_cart",
@@ -231,6 +309,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["actions"],
     extract: (r) => pickAnyActionValue(r.actions, ADD_TO_CART_TYPES),
+    aggregate: (rows) => sumBy(rows, (r) => pickAnyActionValue(r.actions, ADD_TO_CART_TYPES)),
   },
   {
     key: "leads",
@@ -239,6 +318,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["actions"],
     extract: (r) => pickAnyActionValue(r.actions, LEAD_TYPES),
+    aggregate: (rows) => sumBy(rows, (r) => pickAnyActionValue(r.actions, LEAD_TYPES)),
   },
   {
     key: "landing_page_views",
@@ -247,6 +327,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["actions"],
     extract: (r) => pickAnyActionValue(r.actions, ["landing_page_view"]),
+    aggregate: (rows) => sumBy(rows, (r) => pickAnyActionValue(r.actions, ["landing_page_view"])),
   },
   {
     key: "initiate_checkout",
@@ -255,6 +336,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["actions"],
     extract: (r) => pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES),
+    aggregate: (rows) => sumBy(rows, (r) => pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES)),
   },
   {
     key: "add_payment_info",
@@ -263,13 +345,15 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["actions"],
     extract: (r) => pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES),
+    aggregate: (rows) => sumBy(rows, (r) => pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES)),
   },
 
   // Funnel — step-over-step conversion rates, each a ratio of two of the
   // Conversions metrics above (re-derived from the same raw actions/
   // action_values arrays rather than referencing another catalog entry's
   // own `extract`, same self-contained-per-entry convention cost_per_purchase
-  // already follows).
+  // already follows). Each `aggregate` mirrors its own `extract`'s formula,
+  // just summing both sides across every row first.
   {
     key: "lpv_rate",
     label: "LPV %",
@@ -277,6 +361,11 @@ export const METRIC_CATALOG = [
     format: "percent",
     fields: ["inline_link_clicks", "actions"],
     extract: (r) => safePercent(pickAnyActionValue(r.actions, ["landing_page_view"]), parseFloat(r.inline_link_clicks || 0)),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ["landing_page_view"])),
+        sumBy(rows, (r) => parseFloat(r.inline_link_clicks || 0))
+      ),
   },
   {
     key: "cart_rate",
@@ -286,6 +375,11 @@ export const METRIC_CATALOG = [
     fields: ["actions"],
     extract: (r) =>
       safePercent(pickAnyActionValue(r.actions, ADD_TO_CART_TYPES), pickAnyActionValue(r.actions, ["landing_page_view"])),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ADD_TO_CART_TYPES)),
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ["landing_page_view"]))
+      ),
   },
   {
     key: "click_to_atc_rate",
@@ -294,6 +388,11 @@ export const METRIC_CATALOG = [
     format: "percent",
     fields: ["inline_link_clicks", "actions"],
     extract: (r) => safePercent(pickAnyActionValue(r.actions, ADD_TO_CART_TYPES), parseFloat(r.inline_link_clicks || 0)),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ADD_TO_CART_TYPES)),
+        sumBy(rows, (r) => parseFloat(r.inline_link_clicks || 0))
+      ),
   },
   {
     key: "ic_rate",
@@ -303,6 +402,11 @@ export const METRIC_CATALOG = [
     fields: ["actions"],
     extract: (r) =>
       safePercent(pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES), pickAnyActionValue(r.actions, ["landing_page_view"])),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES)),
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ["landing_page_view"]))
+      ),
   },
   {
     key: "ic_to_purchase_rate",
@@ -311,6 +415,11 @@ export const METRIC_CATALOG = [
     format: "percent",
     fields: ["actions"],
     extract: (r) => safePercent(pickPurchaseCount(r.actions), pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES)),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickPurchaseCount(r.actions)),
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, INITIATE_CHECKOUT_TYPES))
+      ),
   },
   {
     key: "cvr_rate",
@@ -319,6 +428,11 @@ export const METRIC_CATALOG = [
     format: "percent",
     fields: ["actions"],
     extract: (r) => safePercent(pickPurchaseCount(r.actions), pickAnyActionValue(r.actions, ["landing_page_view"])),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickPurchaseCount(r.actions)),
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ["landing_page_view"]))
+      ),
   },
   {
     key: "pi_rate",
@@ -328,6 +442,11 @@ export const METRIC_CATALOG = [
     fields: ["actions"],
     extract: (r) =>
       safePercent(pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES), pickAnyActionValue(r.actions, ["landing_page_view"])),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES)),
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ["landing_page_view"]))
+      ),
   },
   {
     key: "pi_to_purchase_rate",
@@ -336,6 +455,11 @@ export const METRIC_CATALOG = [
     format: "percent",
     fields: ["actions"],
     extract: (r) => safePercent(pickPurchaseCount(r.actions), pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES)),
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => pickPurchaseCount(r.actions)),
+        sumBy(rows, (r) => pickAnyActionValue(r.actions, ADD_PAYMENT_INFO_TYPES))
+      ),
   },
   {
     key: "aov",
@@ -344,6 +468,11 @@ export const METRIC_CATALOG = [
     format: "currency",
     fields: ["actions", "action_values"],
     extract: (r) => safeRatio(pickPurchaseValue(r.action_values), pickPurchaseCount(r.actions)),
+    aggregate: (rows) =>
+      safeRatio(
+        sumBy(rows, (r) => pickPurchaseValue(r.action_values)),
+        sumBy(rows, (r) => pickPurchaseCount(r.actions))
+      ),
   },
 
   // Video
@@ -354,6 +483,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["video_p25_watched_actions"],
     extract: (r) => firstActionValue(r.video_p25_watched_actions),
+    aggregate: (rows) => sumBy(rows, (r) => firstActionValue(r.video_p25_watched_actions)),
   },
   {
     key: "video_p50",
@@ -362,6 +492,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["video_p50_watched_actions"],
     extract: (r) => firstActionValue(r.video_p50_watched_actions),
+    aggregate: (rows) => sumBy(rows, (r) => firstActionValue(r.video_p50_watched_actions)),
   },
   {
     key: "video_p75",
@@ -370,6 +501,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["video_p75_watched_actions"],
     extract: (r) => firstActionValue(r.video_p75_watched_actions),
+    aggregate: (rows) => sumBy(rows, (r) => firstActionValue(r.video_p75_watched_actions)),
   },
   {
     key: "video_p100",
@@ -378,6 +510,7 @@ export const METRIC_CATALOG = [
     format: "number",
     fields: ["video_p100_watched_actions"],
     extract: (r) => firstActionValue(r.video_p100_watched_actions),
+    aggregate: (rows) => sumBy(rows, (r) => firstActionValue(r.video_p100_watched_actions)),
   },
   // Hook/Hold Rate are this catalog's first metrics derived from two raw
   // Graph fields read directly in `extract` (roas is the closest existing
@@ -396,6 +529,11 @@ export const METRIC_CATALOG = [
       const impressions = parseFloat(r.impressions || 0);
       return impressions > 0 ? (plays / impressions) * 100 : null;
     },
+    aggregate: (rows) =>
+      safePercent(
+        sumBy(rows, (r) => firstActionValue(r.video_play_actions)),
+        sumBy(rows, (r) => parseFloat(r.impressions || 0))
+      ),
   },
   {
     key: "hold_rate",
@@ -414,6 +552,14 @@ export const METRIC_CATALOG = [
       const plays = firstActionValue(r.video_play_actions);
       const thruplays = firstActionValue(r.video_thruplay_watched_actions);
       return plays > 0 ? (thruplays / plays) * 100 : null;
+    },
+    aggregate: (rows) => {
+      const withThruplay = rows.filter((r) => r.video_thruplay_watched_actions);
+      if (withThruplay.length === 0) return null;
+      return safePercent(
+        sumBy(withThruplay, (r) => firstActionValue(r.video_thruplay_watched_actions)),
+        sumBy(withThruplay, (r) => firstActionValue(r.video_play_actions))
+      );
     },
   },
 
@@ -639,6 +785,63 @@ export function deriveRowMetrics(rawRow, metricKeys, customFields, customMetrics
   }
   for (const key of eventKeys) {
     result[key] = pickAnyActionValue(rawRow.actions, [eventById.get(key).actionType]);
+  }
+  return result;
+}
+
+// The Explore results table's "Total" row (only shown at a non-account
+// level, where several rows exist to total up) — combines many raw rows
+// into one `{ [metricKey]: value }` object the same shape deriveRowMetrics
+// produces for a single row, so every existing column `render` function
+// works on it unchanged. Deliberately NOT "run deriveRowMetrics on each row
+// and sum/average the results" — a rate metric's own total has to be
+// recomputed from its *summed* numerator and denominator (see each catalog
+// entry's own `aggregate`), not summed or averaged itself, or a metric like
+// LPV % would read as a meaningless, misleading number instead of this
+// level's own true combined rate.
+//
+// `entries` is `[{ row, customEvents }]` rather than a plain row array
+// because a custom conversion's action_type is only meaningful for the
+// specific Facebook account that owns it — each entry carries whichever
+// account's custom-event definitions its own `row` should be read against
+// (see pages/api/fb/explore-insights.js, which builds this per account
+// before combining every account's entries into one list here). Raw custom
+// fields (the free-text "custom field" escape hatch) have no declared type
+// this function could aggregate correctly, so — same as a rollup merging
+// several entities' rows — they're left out of the total entirely rather
+// than guessed at.
+export function aggregateRowMetrics(entries, metricKeys, customMetrics = []) {
+  const result = {};
+  const rows = entries.map((e) => e.row);
+  const customById = new Map(customMetrics.map((cm) => [cm.id, cm]));
+  const eventIdsPresent = new Set(entries.flatMap((e) => (e.customEvents || []).map((ce) => ce.id)));
+  const customKeys = (metricKeys || []).filter((k) => customById.has(k));
+  const eventKeys = (metricKeys || []).filter((k) => eventIdsPresent.has(k));
+  const customOperandKeys = customKeys.flatMap((key) => {
+    const cm = customById.get(key);
+    return [cm.numeratorKey, cm.denominatorKey];
+  });
+  const builtinKeys = [
+    ...new Set([...(metricKeys || []).filter((k) => !customById.has(k) && !eventIdsPresent.has(k)), ...customOperandKeys]),
+  ];
+
+  for (const key of builtinKeys) {
+    const metric = getMetric(key);
+    if (metric?.aggregate) result[key] = metric.aggregate(rows);
+  }
+  for (const key of customKeys) {
+    const cm = customById.get(key);
+    const num = result[cm.numeratorKey];
+    const den = result[cm.denominatorKey];
+    result[key] = typeof num === "number" && typeof den === "number" && den !== 0 ? num / den : null;
+  }
+  for (const key of eventKeys) {
+    let total = 0;
+    for (const entry of entries) {
+      const ce = (entry.customEvents || []).find((e) => e.id === key);
+      if (ce) total += pickAnyActionValue(entry.row.actions, [ce.actionType]);
+    }
+    result[key] = total;
   }
   return result;
 }

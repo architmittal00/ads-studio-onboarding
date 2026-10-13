@@ -9,6 +9,7 @@ import {
   getBreakdownGroup,
   resolveGraphFields,
   deriveRowMetrics,
+  aggregateRowMetrics,
   rowIdentityKey,
   rowLabel,
   rowEntityLabel,
@@ -641,6 +642,14 @@ export default async function handler(req, res) {
   const canHaveBudget = canHaveStatus && (level === "campaign" || level === "adset");
 
   const rows = [];
+  // Every account's own (already filtered + rolled-up) raw rows, paired with
+  // that account's own custom-conversion definitions — collected here so the
+  // Total row below (see aggregateRowMetrics) can combine every account's
+  // rows together while still resolving each row's custom conversions
+  // against the right account, the same scoping `accountCustomEvents` below
+  // already applies to the per-row output loop.
+  const allCurrentEntries = [];
+  const allPreviousEntries = [];
   for (const accountId of accountIds) {
     let { current, previous } = byAccount.get(accountId);
 
@@ -683,6 +692,11 @@ export default async function handler(req, res) {
     if (needsRollup) {
       current = rollupRows(current, level, breakdownGroup, cleanCustomFields);
       previous = rollupRows(previous, level, breakdownGroup, cleanCustomFields);
+    }
+
+    for (const row of current) allCurrentEntries.push({ row, customEvents: accountCustomEvents });
+    if (compareToPrevious) {
+      for (const row of previous) allPreviousEntries.push({ row, customEvents: accountCustomEvents });
     }
 
     // Scoped to this one account's own current/previous pair — at the
@@ -740,6 +754,35 @@ export default async function handler(req, res) {
         }
       }
       rows.push(out);
+    }
+  }
+
+  // A "Total" row for the client to pin above/below the real rows — only at
+  // a non-account level, where several rows actually exist to total up (an
+  // Account-level result is already one row per account, nothing to sum).
+  // Shaped exactly like a normal output row (down to `_previous`/
+  // `_deltaPct`, the comparison-mode shape every column render function
+  // already knows how to read) so the client needs no special-casing beyond
+  // recognizing this one extra row. Built from the exact same `allKeys` the
+  // per-row comparison loop above uses, over every account's full (filtered,
+  // rolled-up, but NOT client-side status/search-filtered — this endpoint
+  // has no visibility into that) current/previous rows.
+  let totalsRow = null;
+  if (level !== "account" && allCurrentEntries.length > 0) {
+    const totals = aggregateRowMetrics(allCurrentEntries, effectiveMetricKeys, cleanCustomMetrics);
+    totalsRow = { label: "Total", entityLabel: "Total", ...totals };
+    if (compareToPrevious) {
+      const previousTotals = aggregateRowMetrics(allPreviousEntries, effectiveMetricKeys, cleanCustomMetrics);
+      totalsRow._previous = previousTotals;
+      totalsRow._deltaPct = {};
+      for (const key of allKeys) {
+        const curVal = totals[key];
+        const prevVal = previousTotals[key];
+        totalsRow._deltaPct[key] =
+          typeof curVal === "number" && typeof prevVal === "number" && prevVal !== 0
+            ? ((curVal - prevVal) / Math.abs(prevVal)) * 100
+            : null;
+      }
     }
   }
 
@@ -841,6 +884,10 @@ export default async function handler(req, res) {
       // there might still come back with neither field set (ABO campaign /
       // CBO-parented ad set, respectively — see fetchEntityBudgets).
       budgetAvailable: canHaveBudget,
+      // A pinned "Total" row the client renders outside normal sort/search/
+      // pagination (see pages/explore.js) — `null` at the account level,
+      // where there's nothing to total (one row per account already).
+      totalsRow,
     },
   });
 }
