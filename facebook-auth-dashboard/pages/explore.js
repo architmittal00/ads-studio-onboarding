@@ -1,7 +1,7 @@
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import { getServerSession } from "next-auth/next";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
@@ -740,6 +740,7 @@ export default function Explore() {
 
   const hasSeededInitialAccountRef = useRef(false);
   const hasRestoredRef = useRef(false);
+  const queryPanelRef = useRef(null);
 
   // One-time restore of previously-open tabs from localStorage — replaces
   // the single deterministic blank tab wholesale. Pre-populates each
@@ -963,6 +964,46 @@ export default function Explore() {
   // nothing else on screen, so the form it needs to run a query stays open
   // regardless of the stored preference.
   const queryPanelExpanded = !result || !queryPanelCollapsed;
+
+  // `.exploreQueryPanel`'s CSS caps it at `calc(100vh - 40px)` assuming its
+  // own top edge sits at the `top: 20px` it's pinned to once sticky engages
+  // — true only after scrolling the page down past the title/tabs above it.
+  // Before that, the panel renders at its normal (taller) in-flow offset, so
+  // that same height budget lets its bottom run past the viewport, hiding
+  // the "Update This View" footer until you scroll. Recomputing the cap from
+  // the panel's *current* on-screen top — whether stuck or not — keeps its
+  // bottom edge pinned just above the viewport bottom at every scroll
+  // position instead, so the footer never needs scrolling the page to reach.
+  const [queryPanelMaxHeight, setQueryPanelMaxHeight] = useState(null);
+  useLayoutEffect(() => {
+    if (!queryPanelExpanded) return;
+    const PANEL_BOTTOM_MARGIN = 20;
+    const PANEL_MIN_HEIGHT = 240;
+    let frame = null;
+    function recompute() {
+      frame = null;
+      const el = queryPanelRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setQueryPanelMaxHeight(Math.max(PANEL_MIN_HEIGHT, window.innerHeight - top - PANEL_BOTTOM_MARGIN));
+    }
+    function onScrollOrResize() {
+      if (frame) return;
+      frame = requestAnimationFrame(recompute);
+    }
+    recompute();
+    // capture: true — this app's global CSS makes <body>, not the document,
+    // the actual scrolling element (see styles/globals.css), and a native
+    // "scroll" event doesn't bubble, so a plain window listener would never
+    // fire. A capturing listener on window still sees it on the way down.
+    window.addEventListener("scroll", onScrollOrResize, { passive: true, capture: true });
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, { capture: true });
+      window.removeEventListener("resize", onScrollOrResize);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [queryPanelExpanded]);
 
   // Post-query pivot filters applied instantly, client-side, to whatever's
   // already in `result` — never a re-fetch. Everything downstream (table,
@@ -1408,7 +1449,11 @@ export default function Explore() {
             <div className={styles.exploreLayout}>
               <div className={styles.exploreContent}>{resultArea}</div>
 
-              <aside className={styles.exploreQueryPanel}>
+              <aside
+                ref={queryPanelRef}
+                className={styles.exploreQueryPanel}
+                style={queryPanelMaxHeight ? { maxHeight: queryPanelMaxHeight } : undefined}
+              >
                 <div className={`${styles.card} ${styles.exploreQueryCard}`}>
                   <div className={styles.exploreQueryHeader}>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
