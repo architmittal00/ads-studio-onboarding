@@ -26,6 +26,14 @@ const SERIES_COLORS = [
   "#fb923c",
 ];
 
+// Short, human date label for the previous/current comparison bars below —
+// "Sep 13" or "Sep 13 – Oct 12", never the bare ISO strings.
+function formatDateRangeLabel(since, until) {
+  if (!since || !until) return null;
+  const fmt = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return since === until ? fmt(since) : `${fmt(since)} – ${fmt(until)}`;
+}
+
 // Every "possible combination" this app's query builder can produce reduces
 // to one of four shapes, each wanting a different chart. The dimension that
 // actually matters for "one series vs several" isn't literally "is a
@@ -35,24 +43,47 @@ const SERIES_COLORS = [
 // account name before handing rows here whenever more than one account is
 // selected) or a breakdown, or both at once — same pivot-by-label logic
 // handles all three:
-//  - time-grouped, single entity: one row per date -> a plain line/trend.
+//  - time-grouped, single entity: one row per date -> a plain line/trend,
+//    optionally with a second metric's own line (secondaryMetricKey).
 //  - time-grouped, multiple entities: one row per (date, entity) -> a
-//    multi-line chart, one line per entity, pivoted by date.
+//    multi-line chart, one line per entity, pivoted by date — "the" series
+//    is already spoken for by that pivot, so secondaryMetricKey/xAxisKey
+//    (both about customizing a single metric's own axes) don't apply here.
 //  - multiple entities, not time-grouped: one row per entity, no date -> a
-//    bar chart ranked by the chosen metric, capped to the top N.
+//    bar chart ranked by the chosen metric, capped to the top N. `xAxisKey`
+//    picks which row field categorizes the bars (default: the combined
+//    name/breakdown `label`); `secondaryMetricKey` adds a second bar per
+//    entity on its own right-hand axis.
 //  - single entity, no time grouping (one aggregate row): nothing to plot as
 //    a trend/category chart — only meaningful when comparing to the previous
-//    period, as a 2-bar "then vs now" — otherwise there's truly only one
+//    period, as a 2-bar "then vs now" (labeled with the real date ranges,
+//    not just "Previous"/"This period") — otherwise there's truly only one
 //    number, so the table is the right place for it, not a chart.
-function buildChartSpec({ rows, chartMetricKey, timeIncrement, multiEntity, compareToPrevious }) {
+function buildChartSpec({
+  rows,
+  chartMetricKey,
+  secondaryMetricKey,
+  xAxisKey,
+  timeIncrement,
+  multiEntity,
+  compareToPrevious,
+  since,
+  until,
+  previousSince,
+  previousUntil,
+}) {
   const hasTime = !!timeIncrement;
+  const secondarySeriesFields = secondaryMetricKey ? [secondaryMetricKey] : [];
 
   if (hasTime && !multiEntity) {
-    const data = [...rows].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map((r) => ({
-      x: r.date,
-      [chartMetricKey]: r[chartMetricKey],
-    }));
-    return { type: "line", data, series: [chartMetricKey] };
+    const data = [...rows]
+      .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+      .map((r) => ({
+        x: r.date,
+        [chartMetricKey]: r[chartMetricKey],
+        ...(secondaryMetricKey ? { [secondaryMetricKey]: r[secondaryMetricKey] } : {}),
+      }));
+    return { type: "line", data, series: [chartMetricKey, ...secondarySeriesFields] };
   }
 
   if (hasTime && multiEntity) {
@@ -73,8 +104,12 @@ function buildChartSpec({ rows, chartMetricKey, timeIncrement, multiEntity, comp
     const top = sorted.slice(0, MAX_CHART_ROWS);
     return {
       type: "bar",
-      data: top.map((r) => ({ x: r.label, [chartMetricKey]: r[chartMetricKey] })),
-      series: [chartMetricKey],
+      data: top.map((r) => ({
+        x: xAxisKey && r[xAxisKey] != null && r[xAxisKey] !== "" ? r[xAxisKey] : r.label,
+        [chartMetricKey]: r[chartMetricKey],
+        ...(secondaryMetricKey ? { [secondaryMetricKey]: r[secondaryMetricKey] } : {}),
+      })),
+      series: [chartMetricKey, ...secondarySeriesFields],
       truncatedRows: sorted.length > MAX_CHART_ROWS ? sorted.length : null,
     };
   }
@@ -84,8 +119,8 @@ function buildChartSpec({ rows, chartMetricKey, timeIncrement, multiEntity, comp
     return {
       type: "bar",
       data: [
-        { x: "Previous period", value: row._previous ? row._previous[chartMetricKey] : null },
-        { x: "This period", value: row[chartMetricKey] },
+        { x: formatDateRangeLabel(previousSince, previousUntil) || "Previous period", value: row._previous ? row._previous[chartMetricKey] : null },
+        { x: formatDateRangeLabel(since, until) || "This period", value: row[chartMetricKey] },
       ],
       series: ["value"],
     };
@@ -95,26 +130,45 @@ function buildChartSpec({ rows, chartMetricKey, timeIncrement, multiEntity, comp
 }
 
 // `rows`/`meta` are the raw response from /api/fb/explore-insights;
-// `chartMetricKey` is the one metric the user picked to plot (metrics/
-// breakdown values can both be numerous — plotting exactly one keeps every
-// shape above legible rather than attempting every metric at once).
-// `effectiveCatalog` is the built-in catalog merged with the user's own
-// custom metrics (lib/insightsMetrics.js's buildEffectiveCatalog) — passed
-// in rather than imported directly so a custom metric's label/format
-// resolve here the same way a built-in one's does.
-export default function ExploreChart({ rows, meta, chartMetricKey, currency, effectiveCatalog }) {
+// `chartMetricKey` is the primary metric plotted on the left Y axis.
+// `secondaryMetricKey` (optional) adds a second series on its own right-hand
+// Y axis — only where there's a single series already in play for the
+// primary metric (see buildChartSpec's comment above for which shapes that
+// is); silently ignored otherwise, with a note shown so picking it never
+// looks like it simply did nothing. `xAxisKey` (optional) picks which row
+// field categorizes a non-time bar chart's bars, instead of the default
+// combined name/breakdown `label`. `effectiveCatalog` is the built-in
+// catalog merged with the user's own custom metrics (lib/insightsMetrics.js's
+// buildEffectiveCatalog) — passed in rather than imported directly so a
+// custom metric's label/format resolve here the same way a built-in one's
+// does.
+export default function ExploreChart({ rows, meta, chartMetricKey, secondaryMetricKey, xAxisKey, currency, effectiveCatalog }) {
   const metric = effectiveCatalog.find((m) => m.key === chartMetricKey);
   if (!rows || rows.length === 0 || !metric) {
     return <p className={styles.sub}>No data to chart.</p>;
   }
 
   const multiEntity = new Set(rows.map((r) => r.label)).size > 1;
+  const hasTime = !!meta.timeIncrement;
+  const shapeSupportsSecondaryAxis = (hasTime && !multiEntity) || (!hasTime && multiEntity);
+  const shapeSupportsXAxisChoice = !hasTime && multiEntity;
+
+  const effectiveSecondaryKey = shapeSupportsSecondaryAxis ? secondaryMetricKey : null;
+  const secondaryMetric = effectiveSecondaryKey ? effectiveCatalog.find((m) => m.key === effectiveSecondaryKey) : null;
+  const effectiveXAxisKey = shapeSupportsXAxisChoice ? xAxisKey : null;
+
   const spec = buildChartSpec({
     rows,
     chartMetricKey,
+    secondaryMetricKey: effectiveSecondaryKey,
+    xAxisKey: effectiveXAxisKey,
     timeIncrement: meta.timeIncrement,
     multiEntity,
     compareToPrevious: meta.compareToPrevious,
+    since: meta.since,
+    until: meta.until,
+    previousSince: meta.previousSince,
+    previousUntil: meta.previousUntil,
   });
 
   if (spec.type === "none") {
@@ -126,7 +180,17 @@ export default function ExploreChart({ rows, meta, chartMetricKey, currency, eff
     );
   }
 
-  const formatValue = (v) => formatMetricValue(v, metric.format, currency);
+  // Resolves a data key to the right formatter — the primary/secondary
+  // metric's own format for their real keys, and the primary metric's format
+  // for anything else (an entity-pivoted series' key is that entity's own
+  // label, not a metric key, but every such series is still the same
+  // primary metric; the 2-bar comparison's single series is literally keyed
+  // "value", same reasoning).
+  const formatFor = (key) => {
+    if (key === effectiveSecondaryKey && secondaryMetric) return (v) => formatMetricValue(v, secondaryMetric.format, currency);
+    return (v) => formatMetricValue(v, metric.format, currency);
+  };
+  const hasSecondarySeries = !!effectiveSecondaryKey && spec.series.includes(effectiveSecondaryKey);
   const ChartComponent = spec.type === "line" ? LineChart : BarChart;
 
   return (
@@ -142,40 +206,60 @@ export default function ExploreChart({ rows, meta, chartMetricKey, currency, eff
           Showing the first {MAX_CHART_SERIES} series — see the table for the rest.
         </p>
       )}
+      {secondaryMetricKey && !shapeSupportsSecondaryAxis && (
+        <p className={styles.sub} style={{ marginBottom: 8 }}>
+          A 2nd Y axis metric isn&apos;t shown for this chart shape (every line here is already one entity&apos;s own
+          {` ${metric.label}`}).
+        </p>
+      )}
+      {xAxisKey && !shapeSupportsXAxisChoice && (
+        <p className={styles.sub} style={{ marginBottom: 8 }}>
+          A custom X axis only applies to a category chart (no date grouping, more than one row).
+        </p>
+      )}
       <div style={{ width: "100%", height: 360 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ChartComponent data={spec.data}>
             <CartesianGrid stroke="rgba(var(--surface-tint-rgb),.06)" />
             <XAxis dataKey="x" stroke="var(--t3)" fontSize={11} />
-            <YAxis stroke="var(--t3)" fontSize={11} tickFormatter={formatValue} width={70} />
+            <YAxis yAxisId="left" stroke="var(--t3)" fontSize={11} tickFormatter={formatFor(chartMetricKey)} width={70} />
+            {hasSecondarySeries && (
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="var(--t3)"
+                fontSize={11}
+                tickFormatter={formatFor(effectiveSecondaryKey)}
+                width={70}
+              />
+            )}
             <Tooltip
               contentStyle={{ background: "var(--bg)", border: "1px solid rgba(var(--surface-tint-rgb),.12)", borderRadius: 8 }}
               labelStyle={{ color: "var(--t1)" }}
               itemStyle={{ color: "var(--t1)" }}
-              formatter={(v) => formatValue(v)}
+              formatter={(v, _name, item) => formatFor(item.dataKey)(v)}
             />
             {spec.series.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
-            {spec.series.map((key, i) =>
-              spec.type === "line" ? (
+            {spec.series.map((key, i) => {
+              const isSecondary = key === effectiveSecondaryKey;
+              const yAxisId = isSecondary ? "right" : "left";
+              const name = key === chartMetricKey ? metric.label : isSecondary ? secondaryMetric?.label || key : key;
+              return spec.type === "line" ? (
                 <Line
                   key={key}
+                  yAxisId={yAxisId}
                   type="monotone"
                   dataKey={key}
-                  name={key === chartMetricKey ? metric.label : key}
+                  name={name}
                   stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
                   strokeWidth={2}
                   dot={spec.data.length <= 31}
                   connectNulls
                 />
               ) : (
-                <Bar
-                  key={key}
-                  dataKey={key}
-                  name={key === chartMetricKey ? metric.label : key}
-                  fill={SERIES_COLORS[i % SERIES_COLORS.length]}
-                />
-              )
-            )}
+                <Bar key={key} yAxisId={yAxisId} dataKey={key} name={name} fill={SERIES_COLORS[i % SERIES_COLORS.length]} />
+              );
+            })}
           </ChartComponent>
         </ResponsiveContainer>
       </div>
