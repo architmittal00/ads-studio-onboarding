@@ -22,7 +22,11 @@ import styles from "@/styles/Home.module.css";
 // column currently sits first can be frozen (pinned via the header's sticky
 // `top` already in play, extended to `left: 0` too) so it stays visible
 // while the rest of the table scrolls horizontally — on by default, with a
-// toggle to turn it back off.
+// toggle to turn it back off. A column marked `freezeExempt: true` (a narrow
+// bulk-select checkbox column, say) is skipped when picking which column
+// that "first" one is, so freezing doesn't default to pinning a column with
+// nothing worth seeing while scrolled — it still takes its normal place in
+// the column order, just never becomes the freeze target on its own.
 // `renderRowExtra(row)`, if given, returns extra JSX (typically one or more
 // `<tr>`s, e.g. for an on-demand-fetched set of child rows) inserted right
 // after that row's own `<tr>` — entirely outside sorting/searching (which
@@ -171,7 +175,12 @@ export default function SortableTable({
     return <p className={styles.sub}>{emptyMessage}</p>;
   }
 
-  const firstColKey = orderedColumns[0]?.key;
+  // The freezable column defaults to whichever is first — except a column
+  // marked `freezeExempt` (a narrow bulk-select checkbox column, say), which
+  // is never worth pinning in place of the real content next to it. Falls
+  // back to the true first column if every column happens to be exempt,
+  // so freezing never silently targets nothing.
+  const firstColKey = (orderedColumns.find((c) => !c.freezeExempt) || orderedColumns[0])?.key;
 
   return (
     <div>
