@@ -1409,8 +1409,8 @@ export default function Explore() {
               <div className={styles.exploreContent}>{resultArea}</div>
 
               <aside className={styles.exploreQueryPanel}>
-                <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className={`${styles.card} ${styles.exploreQueryCard}`}>
+                  <div className={styles.exploreQueryHeader}>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
                       <SettingsIcon size={15} />
                       Query &amp; Filters
@@ -1429,6 +1429,7 @@ export default function Explore() {
                     )}
                   </div>
 
+                  <div className={styles.exploreQueryBody}>
                   <div>
                     <SectionHeading
                       hint={`Pick one or more accounts — results from all of them come back merged into this one view, tagged with which account each row came from (up to ${MAX_ACCOUNTS_PER_VIEW} at a time).`}
@@ -1845,8 +1846,9 @@ export default function Explore() {
                       </div>
                     )}
                   </div>
+                  </div>
 
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <div className={styles.exploreQueryFooter}>
                     <button
                       type="button"
                       className={styles.btnPrimary}
