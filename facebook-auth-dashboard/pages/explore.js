@@ -1,7 +1,7 @@
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import { getServerSession } from "next-auth/next";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
@@ -9,6 +9,8 @@ import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
 import RowActions from "@/components/RowActions";
+import Thumb from "@/components/Thumb";
+import CreativeLightbox from "@/components/CreativeLightbox";
 import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon, ChartIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
@@ -1267,6 +1269,7 @@ export default function Explore() {
               currencyByAccountId={currencyByAccountId}
               effectiveCatalog={effectiveCatalog}
               onActionApplied={applyEntityActionPatch}
+              customMetrics={customMetrics}
             />
           ) : activeView.chartMetricKey ? (
             <ExploreChart
@@ -1909,6 +1912,16 @@ function DeltaBadge({ value }) {
 // via SortableTable's own clamp if a particular value runs long regardless.
 const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 100, text: 150 };
 
+// Campaign → Ad Set → Ad drill-down (mirrors components/EntityDrillDown.js's
+// own naming exactly, so the two features agree on what a "child level" or
+// id-filter field is called — see pages/api/fb/explore-insights.js's
+// ID_FILTER_FIELD_LEVEL for the backend side both of them rely on). Only a
+// campaign or ad set row ever offers a drill-down; an ad is already the
+// bottom of the hierarchy.
+const CHILD_LEVEL = { campaign: "adset", adset: "ad" };
+const CHILD_ID_FILTER_FIELD = { adset: "campaignId", ad: "adsetId" };
+const CHILD_LEVEL_PLURAL = { adset: "ad sets", ad: "ads" };
+
 // The leading, non-metric columns a result can have — shared between the
 // on-screen table (which wants per-column render/sortValue/maxWidth) and the
 // CSV export (which just wants `{key, label}` to read `row[key]` through). A
@@ -1931,7 +1944,7 @@ function leadingColumnDefs(meta) {
   return defs;
 }
 
-function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog, onActionApplied }) {
+function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog, onActionApplied, customMetrics }) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
   // Lets someone spot a few problem rows here, grab their IDs, and paste
@@ -1966,6 +1979,77 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
     navigator.clipboard?.writeText(text).catch(() => {});
   }
 
+  // Campaign → Ad Set → Ad drill-down. Only offered on a plain, one-row-per-
+  // entity result (no breakdown, no time grouping — either would mean
+  // several rows already share one entityId, so "expand this row" would be
+  // ambiguous about which row's children to show and would try to re-fetch
+  // the same children once per row). `expansions` is keyed by entityId
+  // regardless of depth (every Meta id is globally unique across levels), so
+  // a campaign row and a nested ad set row both found inside it live in the
+  // same flat map: `{ open, status: 'loading'|'loaded'|'error', childLevel,
+  // rows, error, parentRow }`. A fetch only ever happens the first time a
+  // row is expanded — toggling afterwards just flips `open`, never refetches
+  // (see toggleExpand), and a collapsed-but-already-fetched entry keeps its
+  // `rows` cached so re-expanding is instant.
+  const drillDownEnabled = !!CHILD_LEVEL[meta.level] && meta.breakdownGroup === "none" && !meta.timeIncrement;
+  const [expansions, setExpansions] = useState({});
+  const [lightboxItem, setLightboxItem] = useState(null);
+
+  // The exact same custom-metric/custom-event definitions (not just their
+  // ids) the currently-displayed result itself was computed from — derived
+  // from `meta` (what's actually on screen), never from the query panel's
+  // own live form state, so an unsaved edit there can't desync a child
+  // fetch's metric set from the columns already rendered for it.
+  const childMetricDefs = useMemo(
+    () =>
+      (customMetrics || [])
+        .filter((cm) => meta.metricKeys.includes(cm.id))
+        .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey })),
+    [customMetrics, meta.metricKeys]
+  );
+  const childCustomEvents = useMemo(() => {
+    const known = getCachedEntry(CUSTOM_EVENTS_CACHE_PREFIX + JSON.stringify([...meta.accountIds].sort()))?.data?.customEvents || [];
+    return known
+      .filter((ce) => meta.metricKeys.includes(ce.id))
+      .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
+  }, [meta.metricKeys, meta.accountIds]);
+
+  function startFetch(row, childLevel) {
+    const id = row.entityId;
+    setExpansions((prev) => ({ ...prev, [id]: { open: true, status: "loading", childLevel, rows: [], error: null, parentRow: row } }));
+    fetchExploreInsights({
+      accountIds: [row.accountId],
+      level: childLevel,
+      breakdownGroup: "none",
+      metricKeys: meta.metricKeys,
+      customMetrics: childMetricDefs,
+      customEvents: childCustomEvents,
+      idFilter: { field: CHILD_ID_FILTER_FIELD[childLevel], value: id },
+      // Only an ad has a creative to show a thumbnail for.
+      includeCreative: childLevel === "ad",
+      since: meta.since,
+      until: meta.until,
+    })
+      .then((json) => {
+        setExpansions((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], status: "loaded", rows: json.rows || [] } } : prev));
+      })
+      .catch((err) => {
+        setExpansions((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], status: "error", error: err.message } } : prev));
+      });
+  }
+
+  function toggleExpand(row, level) {
+    const id = row.entityId;
+    const childLevel = CHILD_LEVEL[level];
+    if (!id || !childLevel) return;
+    const existing = expansions[id];
+    if (existing) {
+      setExpansions((prev) => ({ ...prev, [id]: { ...prev[id], open: !prev[id].open } }));
+      return;
+    }
+    startFetch(row, childLevel);
+  }
+
   const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
   const LEADING_MAX_WIDTH = { accountId: 200, date: 120, entityLabel: 240, breakdownLabel: 200, label: 160 };
   const leadingColumns = leadingColumnDefs(meta).map((def) => {
@@ -1979,6 +2063,20 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
         render: (row) =>
           row.entityId ? (
             <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              {drillDownEnabled && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleExpand(row, meta.level);
+                  }}
+                  aria-label={expansions[row.entityId]?.open ? "Collapse" : `Show ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]}`}
+                  title={`Show ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]} in this ${meta.level === "campaign" ? "campaign" : "ad set"}`}
+                  style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--t3)", display: "flex", flexShrink: 0 }}
+                >
+                  <ChevronIcon direction={expansions[row.entityId]?.open ? "down" : "right"} size={11} />
+                </button>
+              )}
               <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row[def.key]}</span>
               <CopyIdButton id={row.entityId} onCopy={copyText} />
             </span>
@@ -2053,6 +2151,140 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
       : []),
   ];
 
+  // One drilled-into row (an ad set found inside a campaign, or an ad found
+  // inside an ad set) — reuses every one of `columns`' own render functions
+  // for the metric/status cells (so a child row shows exactly the same
+  // formatting, currency, and metric set as its parent), only special-casing
+  // the bulk-select/actions columns (not offered on a child row) and the
+  // leading name column (indentation, its own expand toggle if it has a
+  // further child level, and an ad's thumbnail).
+  function renderDataRow(row, level, depth) {
+    const childLevel = CHILD_LEVEL[level];
+    const isOpen = !!expansions[row.entityId]?.open;
+    return (
+      <tr key={row.entityId}>
+        {columns.map((col) => {
+          if (col.key === "__select" || col.key === "__actions") return <td key={col.key} />;
+          if (col.key === "entityLabel" || col.key === "label") {
+            return (
+              <td key={col.key}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: depth * 20, minWidth: 0 }}>
+                  {childLevel ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(row, level)}
+                      aria-label={isOpen ? "Collapse" : `Show ${CHILD_LEVEL_PLURAL[childLevel]}`}
+                      style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--t3)", display: "flex", flexShrink: 0 }}
+                    >
+                      <ChevronIcon direction={isOpen ? "down" : "right"} size={11} />
+                    </button>
+                  ) : (
+                    <span style={{ width: 15, flexShrink: 0 }} />
+                  )}
+                  {level === "ad" && (
+                    <Thumb
+                      src={row.thumbnailUrl}
+                      isVideo={row.isVideo}
+                      size={22}
+                      onClick={
+                        row.entityId
+                          ? () =>
+                              setLightboxItem({
+                                id: row.entityId,
+                                name: row.entityLabel || row.entityId,
+                                thumbnailUrl: row.thumbnailUrl,
+                                isVideo: row.isVideo,
+                              })
+                          : undefined
+                      }
+                    />
+                  )}
+                  <span
+                    title={row.entityLabel}
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      minWidth: 0,
+                      color: level === "ad" ? "var(--t2)" : "var(--t1)",
+                    }}
+                  >
+                    {row.entityLabel}
+                  </span>
+                  {row.entityId && <CopyIdButton id={row.entityId} onCopy={copyText} />}
+                </div>
+              </td>
+            );
+          }
+          return (
+            <td key={col.key} style={{ textAlign: col.align || "left" }}>
+              {col.render ? col.render(row) : row[col.key]}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  }
+
+  // Everything currently fetched/visible under one expanded parent — a
+  // single status row (loading/error/empty) or the child rows themselves,
+  // each followed immediately by ITS OWN expansion block (recursing one more
+  // level for an ad set's ads), all flattened into one array so they can sit
+  // directly inside SortableTable's `<tbody>` via `renderRowExtra`.
+  function renderChildBlock(parentId, depth) {
+    const exp = expansions[parentId];
+    if (!exp) return null;
+    const label = CHILD_LEVEL_PLURAL[exp.childLevel] || "children";
+    if (exp.status === "loading") {
+      return (
+        <tr key={`${parentId}-loading`}>
+          <td colSpan={columns.length}>
+            <Loader inline label={`Loading ${label}…`} />
+          </td>
+        </tr>
+      );
+    }
+    if (exp.status === "error") {
+      return (
+        <tr key={`${parentId}-error`}>
+          <td colSpan={columns.length}>
+            <span className={styles.error} style={{ marginRight: 10 }}>
+              {exp.error}
+            </span>
+            <button type="button" className={styles.btnSecondary} onClick={() => startFetch(exp.parentRow, exp.childLevel)}>
+              Retry
+            </button>
+          </td>
+        </tr>
+      );
+    }
+    // Fetched (loaded) but collapsed — stays cached in `exp.rows` so
+    // re-expanding doesn't refetch; just nothing to render while hidden.
+    if (!exp.open) return null;
+    if (exp.rows.length === 0) {
+      return (
+        <tr key={`${parentId}-empty`}>
+          <td colSpan={columns.length}>
+            <span className={styles.muted} style={{ paddingLeft: depth * 20 }}>
+              No {label}.
+            </span>
+          </td>
+        </tr>
+      );
+    }
+    return exp.rows.map((childRow) => (
+      <Fragment key={childRow.entityId}>
+        {renderDataRow(childRow, exp.childLevel, depth)}
+        {renderChildBlock(childRow.entityId, depth + 1)}
+      </Fragment>
+    ));
+  }
+
+  function renderRowExtra(row) {
+    if (!drillDownEnabled || !row.entityId) return null;
+    return renderChildBlock(row.entityId, 1);
+  }
+
   return (
     <div>
       {selectedIds.size > 0 && (
@@ -2082,8 +2314,10 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
           searchKeys={leadingColumns.map((c) => c.key)}
           searchPlaceholder="Search rows…"
           resizableColumns
+          renderRowExtra={drillDownEnabled ? renderRowExtra : undefined}
         />
       </div>
+      <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { SearchIcon, GripIcon, PinIcon } from "./icons";
 import styles from "@/styles/Home.module.css";
 
@@ -23,6 +23,12 @@ import styles from "@/styles/Home.module.css";
 // `top` already in play, extended to `left: 0` too) so it stays visible
 // while the rest of the table scrolls horizontally — on by default, with a
 // toggle to turn it back off.
+// `renderRowExtra(row)`, if given, returns extra JSX (typically one or more
+// `<tr>`s, e.g. for an on-demand-fetched set of child rows) inserted right
+// after that row's own `<tr>` — entirely outside sorting/searching (which
+// only ever operate on the top-level `rows` array), so a caller doing its
+// own nested-row expansion keeps that state and gets it rendered in the
+// right place without this component needing to know anything about it.
 export default function SortableTable({
   columns,
   rows,
@@ -36,6 +42,7 @@ export default function SortableTable({
   searchKeys = ["name"],
   searchPlaceholder = "Search…",
   resizableColumns = false,
+  renderRowExtra,
 }) {
   const [sortKey, setSortKey] = useState(defaultSortKey || columns[0]?.key);
   const [sortDir, setSortDir] = useState(defaultSortDir);
@@ -267,58 +274,60 @@ export default function SortableTable({
             </thead>
             <tbody>
               {sorted.map((row, i) => (
-                <tr
-                  key={row.id ?? i}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={rowClassName ? rowClassName(row) : undefined}
-                  style={onRowClick ? { cursor: "pointer" } : undefined}
-                >
-                  {orderedColumns.map((col) => {
-                    const content = col.render ? col.render(row) : row[col.key];
-                    const width = resizableColumns ? columnWidth(col) : col.maxWidth;
-                    const isFrozen = firstColFrozen && col.key === firstColKey;
-                    const frozenStyle = isFrozen
-                      ? {
-                          position: "sticky",
-                          left: 0,
-                          zIndex: 1,
-                          // `var(--card)` is a ~4%-alpha tint (see
-                          // globals.css), not a solid fill — fine for a
-                          // static card background, but useless here since
-                          // the whole point is to occlude whatever scrolls
-                          // underneath this cell. Needs to be fully opaque
-                          // (unlike the sticky header's own 95%-alpha
-                          // background below, where any residual ghosting
-                          // scrolls away quickly) since a frozen column sits
-                          // in place for as long as someone's looking at it.
-                          background: "var(--bg)",
-                          boxShadow: "1px 0 0 var(--border2)",
-                        }
-                      : null;
-                    if (!width) {
+                <Fragment key={row.id ?? i}>
+                  <tr
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    className={rowClassName ? rowClassName(row) : undefined}
+                    style={onRowClick ? { cursor: "pointer" } : undefined}
+                  >
+                    {orderedColumns.map((col) => {
+                      const content = col.render ? col.render(row) : row[col.key];
+                      const width = resizableColumns ? columnWidth(col) : col.maxWidth;
+                      const isFrozen = firstColFrozen && col.key === firstColKey;
+                      const frozenStyle = isFrozen
+                        ? {
+                            position: "sticky",
+                            left: 0,
+                            zIndex: 1,
+                            // `var(--card)` is a ~4%-alpha tint (see
+                            // globals.css), not a solid fill — fine for a
+                            // static card background, but useless here since
+                            // the whole point is to occlude whatever scrolls
+                            // underneath this cell. Needs to be fully opaque
+                            // (unlike the sticky header's own 95%-alpha
+                            // background below, where any residual ghosting
+                            // scrolls away quickly) since a frozen column sits
+                            // in place for as long as someone's looking at it.
+                            background: "var(--bg)",
+                            boxShadow: "1px 0 0 var(--border2)",
+                          }
+                        : null;
+                      if (!width) {
+                        return (
+                          <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle }}>
+                            {content}
+                          </td>
+                        );
+                      }
+                      const title = col.title
+                        ? col.title(row)
+                        : typeof row[col.key] === "string"
+                        ? row[col.key]
+                        : undefined;
                       return (
-                        <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle }}>
-                          {content}
+                        <td
+                          key={col.key}
+                          style={{ textAlign: col.align || "left", width: resizableColumns ? width : undefined, ...frozenStyle }}
+                        >
+                          <div title={title} className={styles.clamp3} style={{ maxWidth: width }}>
+                            {content}
+                          </div>
                         </td>
                       );
-                    }
-                    const title = col.title
-                      ? col.title(row)
-                      : typeof row[col.key] === "string"
-                      ? row[col.key]
-                      : undefined;
-                    return (
-                      <td
-                        key={col.key}
-                        style={{ textAlign: col.align || "left", width: resizableColumns ? width : undefined, ...frozenStyle }}
-                      >
-                        <div title={title} className={styles.clamp3} style={{ maxWidth: width }}>
-                          {content}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
+                    })}
+                  </tr>
+                  {renderRowExtra ? renderRowExtra(row) : null}
+                </Fragment>
               ))}
             </tbody>
           </table>
