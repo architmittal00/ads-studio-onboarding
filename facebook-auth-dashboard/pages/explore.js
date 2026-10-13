@@ -283,6 +283,12 @@ function createBlankView(seedAccountId = "") {
     error: null,
     viewMode: "table",
     chartMetricKey: null,
+    // Optional chart customization — both default to "automatic" behavior
+    // (chartSecondaryMetricKey unset: single Y axis; chartXAxisKey unset:
+    // ExploreChart's own existing date/entity-label default) so an existing
+    // view never changes how its chart looks until someone opts in.
+    chartSecondaryMetricKey: null,
+    chartXAxisKey: "",
   };
 }
 
@@ -1344,19 +1350,81 @@ export default function Explore() {
           </div>
 
           {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className={styles.muted}>Chart metric</span>
-              <select
-                className={styles.select}
-                value={activeView.chartMetricKey || ""}
-                onChange={(e) => updateActive({ chartMetricKey: e.target.value })}
-              >
-                {chartableMetricKeys.map((key) => (
-                  <option key={key} value={key}>
-                    {effectiveCatalog.find((m) => m.key === key)?.label || key}
-                  </option>
-                ))}
-              </select>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className={styles.muted}>Y axis</span>
+                <select
+                  className={styles.select}
+                  value={activeView.chartMetricKey || ""}
+                  onChange={(e) =>
+                    updateActive((v) => ({
+                      chartMetricKey: e.target.value,
+                      // A secondary metric equal to the new primary one would
+                      // plot the exact same line/bar twice — clearing it
+                      // avoids that silently-redundant state.
+                      chartSecondaryMetricKey: v.chartSecondaryMetricKey === e.target.value ? null : v.chartSecondaryMetricKey,
+                    }))
+                  }
+                >
+                  {chartableMetricKeys.map((key) => (
+                    <option key={key} value={key}>
+                      {effectiveCatalog.find((m) => m.key === key)?.label || key}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* A second Y-axis metric only makes sense where there's a
+                  single series already in play for the primary one — once a
+                  breakdown/multi-account result is pivoted into one line per
+                  entity (ExploreChart's hasTime && multiEntity shape), "the"
+                  series is already spoken for by that pivot, and the
+                  previous-vs-current comparison bars aren't really "a
+                  second metric" in the same sense either. ExploreChart
+                  itself is the one source of truth for which shape a result
+                  renders as — ignoring this prop entirely in those two
+                  cases — so this control stays simple (metric count only)
+                  rather than duplicating that shape logic here too. */}
+              {chartableMetricKeys.length > 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className={styles.muted}>+ 2nd Y axis</span>
+                  <select
+                    className={styles.select}
+                    value={activeView.chartSecondaryMetricKey || ""}
+                    onChange={(e) => updateActive({ chartSecondaryMetricKey: e.target.value || null })}
+                  >
+                    <option value="">None</option>
+                    {chartableMetricKeys
+                      .filter((key) => key !== activeView.chartMetricKey)
+                      .map((key) => (
+                        <option key={key} value={key}>
+                          {effectiveCatalog.find((m) => m.key === key)?.label || key}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+              {/* X axis choice only applies to a non-time-grouped chart — a
+                  trend chart's X axis is inherently the date, nothing to
+                  pick. */}
+              {!result.meta.timeIncrement && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className={styles.muted}>X axis</span>
+                  <select
+                    className={styles.select}
+                    value={activeView.chartXAxisKey || ""}
+                    onChange={(e) => updateActive({ chartXAxisKey: e.target.value })}
+                  >
+                    <option value="">Auto</option>
+                    {leadingColumnDefs(result.meta)
+                      .filter((d) => d.key !== "date")
+                      .map((d) => (
+                        <option key={d.key} value={d.key}>
+                          {d.label}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
@@ -1377,6 +1445,8 @@ export default function Explore() {
               rows={chartRows}
               meta={result.meta}
               chartMetricKey={activeView.chartMetricKey}
+              secondaryMetricKey={activeView.chartSecondaryMetricKey}
+              xAxisKey={activeView.chartXAxisKey}
               currency={chartCurrency}
               effectiveCatalog={effectiveCatalog}
             />
