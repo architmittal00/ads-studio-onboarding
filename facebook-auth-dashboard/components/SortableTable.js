@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { SearchIcon } from "./icons";
+import { SearchIcon, GripIcon, PinIcon } from "./icons";
 import styles from "@/styles/Home.module.css";
 
 // Generic sortable, scroll-capped, optionally searchable table used across
@@ -13,9 +13,16 @@ import styles from "@/styles/Home.module.css";
 // `rowClassName(row)` optionally returns a class name applied to that row's
 // `<tr>` — e.g. to highlight rows that need attention. `resizableColumns`
 // lets someone drag a column's right edge to resize it (a per-render
-// preference, like the sort/search state below — it doesn't persist across
-// a fresh result, since a new query can bring an entirely different set of
-// columns anyway).
+// preference, like the sort/search/order/freeze state below — it doesn't
+// persist across a fresh result, since a new query can bring an entirely
+// different set of columns anyway).
+//
+// Column order is drag-and-drop editable (grip handle in each header, like
+// a spreadsheet) via `colOrder`/the reconciliation below, and whichever
+// column currently sits first can be frozen (pinned via the header's sticky
+// `top` already in play, extended to `left: 0` too) so it stays visible
+// while the rest of the table scrolls horizontally — on by default, with a
+// toggle to turn it back off.
 export default function SortableTable({
   columns,
   rows,
@@ -38,6 +45,35 @@ export default function SortableTable({
   // removing columns between queries never leaves a stale width behind.
   const [colWidths, setColWidths] = useState({});
   const dragRef = useRef(null);
+
+  // User-dragged column order, by key. Reconciled against the live `columns`
+  // prop below rather than trusted outright — a key this table has never
+  // seen (a fresh query's new column) is appended in its original position,
+  // and a key that's gone is just dropped, so switching queries can't leave
+  // the table rendering a stale or missing column.
+  const [colOrder, setColOrder] = useState(() => columns.map((c) => c.key));
+  const [dragKey, setDragKey] = useState(null);
+  const [dragOverKey, setDragOverKey] = useState(null);
+  const [firstColFrozen, setFirstColFrozen] = useState(true);
+
+  const orderedColumns = useMemo(() => {
+    const byKey = new Map(columns.map((c) => [c.key, c]));
+    const known = colOrder.map((k) => byKey.get(k)).filter(Boolean);
+    const newOnes = columns.filter((c) => !colOrder.includes(c.key));
+    return [...known, ...newOnes];
+  }, [columns, colOrder]);
+
+  function handleColumnDrop(targetKey) {
+    if (!dragKey || dragKey === targetKey) return;
+    const current = orderedColumns.map((c) => c.key);
+    const from = current.indexOf(dragKey);
+    const to = current.indexOf(targetKey);
+    if (from === -1 || to === -1) return;
+    const next = [...current];
+    next.splice(from, 1);
+    next.splice(to, 0, dragKey);
+    setColOrder(next);
+  }
 
   const filtered = useMemo(() => {
     if (!searchable || !search.trim()) return rows;
@@ -108,30 +144,49 @@ export default function SortableTable({
     return <p className={styles.sub}>{emptyMessage}</p>;
   }
 
+  const firstColKey = orderedColumns[0]?.key;
+
   return (
     <div>
-      {searchable && (
-        <div style={{ position: "relative", marginBottom: 10, width: "100%", maxWidth: 280 }}>
-          <span
-            style={{
-              position: "absolute",
-              left: 11,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--t3)",
-              pointerEvents: "none",
-            }}
-          >
-            <SearchIcon size={13} />
-          </span>
-          <input
-            type="text"
-            className={styles.select}
-            placeholder={searchPlaceholder}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", paddingLeft: 30 }}
-          />
+      {(searchable || orderedColumns.length > 1) && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+          {searchable ? (
+            <div style={{ position: "relative", width: "100%", maxWidth: 280 }}>
+              <span
+                style={{
+                  position: "absolute",
+                  left: 11,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--t3)",
+                  pointerEvents: "none",
+                }}
+              >
+                <SearchIcon size={13} />
+              </span>
+              <input
+                type="text"
+                className={styles.select}
+                placeholder={searchPlaceholder}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: "100%", paddingLeft: 30 }}
+              />
+            </div>
+          ) : (
+            <span />
+          )}
+          {orderedColumns.length > 1 && (
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => setFirstColFrozen((f) => !f)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+            >
+              <PinIcon size={12} />
+              {firstColFrozen ? "Unfreeze column" : "Freeze first column"}
+            </button>
+          )}
         </div>
       )}
 
@@ -151,36 +206,63 @@ export default function SortableTable({
               // and makes the table wider than its container whenever that
               // sum exceeds it — which is what lets .tableScroll's
               // overflow: auto actually scroll instead of squeezing columns.
-              resizableColumns ? { width: columns.reduce((sum, col) => sum + columnWidth(col), 0) } : undefined
+              resizableColumns ? { width: orderedColumns.reduce((sum, col) => sum + columnWidth(col), 0) } : undefined
             }
           >
             <thead>
               <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    onClick={() => toggleSort(col.key)}
-                    style={{
-                      cursor: "pointer",
-                      textAlign: col.align || "left",
-                      position: resizableColumns ? "relative" : undefined,
-                      width: resizableColumns ? columnWidth(col) : undefined,
-                    }}
-                  >
-                    {col.label}
-                    {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
-                    {resizableColumns && (
-                      <span
-                        className={styles.colResizeHandle}
-                        onMouseDown={(e) => startResize(e, col)}
-                        onClick={(e) => e.stopPropagation()}
-                        role="separator"
-                        aria-orientation="vertical"
-                        aria-label={`Resize ${typeof col.label === "string" ? col.label : col.key} column`}
-                      />
-                    )}
-                  </th>
-                ))}
+                {orderedColumns.map((col) => {
+                  const isFrozen = firstColFrozen && col.key === firstColKey;
+                  return (
+                    <th
+                      key={col.key}
+                      draggable={orderedColumns.length > 1}
+                      onDragStart={() => setDragKey(col.key)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (col.key !== dragKey) setDragOverKey(col.key);
+                      }}
+                      onDragLeave={() => setDragOverKey((k) => (k === col.key ? null : k))}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleColumnDrop(col.key);
+                        setDragKey(null);
+                        setDragOverKey(null);
+                      }}
+                      onDragEnd={() => {
+                        setDragKey(null);
+                        setDragOverKey(null);
+                      }}
+                      onClick={() => toggleSort(col.key)}
+                      className={dragOverKey === col.key && dragKey !== col.key ? styles.colDragOver : undefined}
+                      style={{
+                        cursor: "pointer",
+                        textAlign: col.align || "left",
+                        position: isFrozen ? "sticky" : resizableColumns ? "relative" : undefined,
+                        width: resizableColumns ? columnWidth(col) : undefined,
+                        ...(isFrozen ? { left: 0, zIndex: 2, boxShadow: "1px 0 0 var(--border2)" } : null),
+                      }}
+                    >
+                      {orderedColumns.length > 1 && (
+                        <span className={styles.colDragHandle} aria-hidden="true">
+                          <GripIcon size={10} />
+                        </span>
+                      )}
+                      {col.label}
+                      {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                      {resizableColumns && (
+                        <span
+                          className={styles.colResizeHandle}
+                          onMouseDown={(e) => startResize(e, col)}
+                          onClick={(e) => e.stopPropagation()}
+                          role="separator"
+                          aria-orientation="vertical"
+                          aria-label={`Resize ${typeof col.label === "string" ? col.label : col.key} column`}
+                        />
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -191,12 +273,31 @@ export default function SortableTable({
                   className={rowClassName ? rowClassName(row) : undefined}
                   style={onRowClick ? { cursor: "pointer" } : undefined}
                 >
-                  {columns.map((col) => {
+                  {orderedColumns.map((col) => {
                     const content = col.render ? col.render(row) : row[col.key];
                     const width = resizableColumns ? columnWidth(col) : col.maxWidth;
+                    const isFrozen = firstColFrozen && col.key === firstColKey;
+                    const frozenStyle = isFrozen
+                      ? {
+                          position: "sticky",
+                          left: 0,
+                          zIndex: 1,
+                          // `var(--card)` is a ~4%-alpha tint (see
+                          // globals.css), not a solid fill — fine for a
+                          // static card background, but useless here since
+                          // the whole point is to occlude whatever scrolls
+                          // underneath this cell. Needs to be fully opaque
+                          // (unlike the sticky header's own 95%-alpha
+                          // background below, where any residual ghosting
+                          // scrolls away quickly) since a frozen column sits
+                          // in place for as long as someone's looking at it.
+                          background: "var(--bg)",
+                          boxShadow: "1px 0 0 var(--border2)",
+                        }
+                      : null;
                     if (!width) {
                       return (
-                        <td key={col.key} style={{ textAlign: col.align || "left" }}>
+                        <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle }}>
                           {content}
                         </td>
                       );
@@ -207,7 +308,10 @@ export default function SortableTable({
                       ? row[col.key]
                       : undefined;
                     return (
-                      <td key={col.key} style={{ textAlign: col.align || "left", width: resizableColumns ? width : undefined }}>
+                      <td
+                        key={col.key}
+                        style={{ textAlign: col.align || "left", width: resizableColumns ? width : undefined, ...frozenStyle }}
+                      >
                         <div title={title} className={styles.clamp3} style={{ maxWidth: width }}>
                           {content}
                         </div>
