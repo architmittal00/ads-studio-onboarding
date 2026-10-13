@@ -34,6 +34,26 @@ function formatDateRangeLabel(since, until) {
   return since === until ? fmt(since) : `${fmt(since)} – ${fmt(until)}`;
 }
 
+// Every ISO date from `since` to `until`, inclusive — the real, full x-axis
+// for a time-grouped chart, as opposed to whatever subset of dates happens
+// to still have a surviving row after the "Filter results" panel (metric
+// thresholds, status) has removed some. Without this, a filtered-out day
+// simply isn't a data point at all rather than a gap, so the x-axis quietly
+// shrinks to fit whatever's left and the line still looks like one
+// continuous, unbroken trend — applying a filter to a chart could look like
+// it did nothing even though it demonstrably changed the underlying rows.
+function allDatesInRange(since, until) {
+  if (!since || !until) return null;
+  const dates = [];
+  let d = new Date(`${since}T00:00:00Z`);
+  const end = new Date(`${until}T00:00:00Z`);
+  while (d <= end) {
+    dates.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return dates;
+}
+
 // Every "possible combination" this app's query builder can produce reduces
 // to one of four shapes, each wanting a different chart. The dimension that
 // actually matters for "one series vs several" isn't literally "is a
@@ -76,26 +96,35 @@ function buildChartSpec({
   const secondarySeriesFields = secondaryMetricKey ? [secondaryMetricKey] : [];
 
   if (hasTime && !multiEntity) {
-    const data = [...rows]
-      .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
-      .map((r) => ({
-        x: r.date,
-        [chartMetricKey]: r[chartMetricKey],
-        ...(secondaryMetricKey ? { [secondaryMetricKey]: r[secondaryMetricKey] } : {}),
-      }));
+    const byDate = new Map(rows.map((r) => [r.date, r]));
+    const dates = allDatesInRange(since, until) || [...byDate.keys()].sort();
+    const data = dates.map((date) => {
+      const r = byDate.get(date);
+      return {
+        x: date,
+        [chartMetricKey]: r ? r[chartMetricKey] : null,
+        ...(secondaryMetricKey ? { [secondaryMetricKey]: r ? r[secondaryMetricKey] : null } : {}),
+      };
+    });
     return { type: "line", data, series: [chartMetricKey, ...secondarySeriesFields] };
   }
 
   if (hasTime && multiEntity) {
-    const byDate = new Map();
+    const byDateAndLabel = new Map();
     const labels = [];
     for (const r of rows) {
       if (!labels.includes(r.label)) labels.push(r.label);
-      if (!byDate.has(r.date)) byDate.set(r.date, { x: r.date });
-      byDate.get(r.date)[r.label] = r[chartMetricKey];
+      if (!byDateAndLabel.has(r.date)) byDateAndLabel.set(r.date, {});
+      byDateAndLabel.get(r.date)[r.label] = r[chartMetricKey];
     }
-    const data = [...byDate.values()].sort((a, b) => a.x.localeCompare(b.x));
     const series = labels.slice(0, MAX_CHART_SERIES);
+    const dates = allDatesInRange(since, until) || [...byDateAndLabel.keys()].sort();
+    const data = dates.map((date) => {
+      const atDate = byDateAndLabel.get(date) || {};
+      const entry = { x: date };
+      for (const label of series) entry[label] = label in atDate ? atDate[label] : null;
+      return entry;
+    });
     return { type: "line", data, series, truncatedSeries: labels.length > MAX_CHART_SERIES };
   }
 
@@ -254,7 +283,11 @@ export default function ExploreChart({ rows, meta, chartMetricKey, secondaryMetr
                   stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
                   strokeWidth={2}
                   dot={spec.data.length <= 31}
-                  connectNulls
+                  // Deliberately NOT connectNulls: a null here means a row
+                  // that got excluded by the "Filter results" panel (or a
+                  // genuinely dataless day) — bridging straight over it would
+                  // make the filter's effect invisible, the line looking
+                  // exactly as continuous as it did before filtering.
                 />
               ) : (
                 <Bar key={key} yAxisId={yAxisId} dataKey={key} name={name} fill={SERIES_COLORS[i % SERIES_COLORS.length]} />

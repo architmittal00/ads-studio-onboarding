@@ -55,6 +55,7 @@ const RANGE_PRESETS = [
   { key: "last_30d", label: "Last 30 Days" },
   { key: "last_90d", label: "Last 90 Days" },
   { key: "this_month", label: "This Month" },
+  { key: "last_month", label: "Last Month" },
   { key: "custom", label: "Custom" },
 ];
 
@@ -357,6 +358,14 @@ function computeRange(preset, customSince, customUntil) {
     case "this_month": {
       const todayIso = isoDate(today);
       return { since: `${todayIso.slice(0, 7)}-01`, until: todayIso };
+    }
+    // The full previous calendar month (1st through its last day) — unlike
+    // "This Month," always a complete, comparable period rather than a
+    // still-accumulating one.
+    case "last_month": {
+      const firstOfThisMonth = `${isoDate(today).slice(0, 7)}-01`;
+      const lastOfPrevMonth = addDaysUTC(firstOfThisMonth, -1);
+      return { since: `${lastOfPrevMonth.slice(0, 7)}-01`, until: lastOfPrevMonth };
     }
     case "custom":
       return customSince && customUntil ? { since: customSince, until: customUntil } : null;
@@ -1068,8 +1077,17 @@ export default function Explore() {
       const top = el.getBoundingClientRect().top;
       setQueryPanelMaxHeight(Math.max(PANEL_MIN_HEIGHT, window.innerHeight - top - PANEL_BOTTOM_MARGIN));
     }
+    // Cancel-and-reschedule, not "skip while one's already pending" — the
+    // latter leaves `frame` permanently non-null (so every later scroll/
+    // resize is silently ignored forever) if that one pending frame is ever
+    // dropped or indefinitely delayed, e.g. a tab backgrounded mid-scroll.
+    // Once stuck, the panel's height just freezes at whatever it last
+    // computed — too tall for the current viewport/scroll position (running
+    // past the footer again) or, just as easily, stuck not tall enough,
+    // leaving unused space below a short form. This way a new event always
+    // gets a fresh frame, so it can't wedge itself permanently.
     function onScrollOrResize() {
-      if (frame) return;
+      if (frame) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(recompute);
     }
     recompute();
@@ -2733,7 +2751,7 @@ function ExploreResultsTable({
           columns={columns}
           defaultSortKey={meta.metricKeys[0] || "label"}
           maxHeight={480}
-          searchable={rows.length > 6}
+          searchable
           searchKeys={leadingColumns.map((c) => c.key)}
           searchPlaceholder="Search rows…"
           resizableColumns
