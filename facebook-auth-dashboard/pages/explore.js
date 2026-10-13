@@ -1270,6 +1270,7 @@ export default function Explore() {
               effectiveCatalog={effectiveCatalog}
               onActionApplied={applyEntityActionPatch}
               customMetrics={customMetrics}
+              resultFilters={activeView.resultFilters}
             />
           ) : activeView.chartMetricKey ? (
             <ExploreChart
@@ -1944,7 +1945,7 @@ function leadingColumnDefs(meta) {
   return defs;
 }
 
-function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog, onActionApplied, customMetrics }) {
+function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog, onActionApplied, customMetrics, resultFilters }) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
   // Lets someone spot a few problem rows here, grab their IDs, and paste
@@ -1995,6 +1996,38 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
   const [expansions, setExpansions] = useState({});
   const [lightboxItem, setLightboxItem] = useState(null);
 
+  // Mirrors SortableTable's own (otherwise fully internal) sort/search state
+  // for the top-level rows, via its onSortChange/onSearchChange — so the
+  // same sort column/direction, search term, and result filters (status
+  // checkboxes, metric-threshold conditions — applied one level up in
+  // pages/explore.js, passed down as `resultFilters`) the visible top-level
+  // rows are under also apply to a drilled-into row's children, instead of
+  // those always showing in raw API order with every status/filter ignored.
+  const [childSort, setChildSort] = useState({ key: null, dir: "desc" });
+  const [childSearch, setChildSearch] = useState("");
+
+  function applyChildRowOrdering(childRows) {
+    let out = applyResultFilters(childRows, resultFilters, meta.metricKeys);
+    const term = childSearch.trim().toLowerCase();
+    if (term) {
+      const keys = leadingColumns.map((c) => c.key);
+      out = out.filter((row) => keys.some((key) => String(row[key] ?? "").toLowerCase().includes(term)));
+    }
+    const col = columns.find((c) => c.key === childSort.key);
+    if (!col) return out;
+    const getValue = col.sortValue || ((row) => row[col.key]);
+    const copy = [...out];
+    copy.sort((a, b) => {
+      const av = getValue(a);
+      const bv = getValue(b);
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string") return childSort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return childSort.dir === "asc" ? av - bv : bv - av;
+    });
+    return copy;
+  }
+
   // The exact same custom-metric/custom-event definitions (not just their
   // ids) the currently-displayed result itself was computed from — derived
   // from `meta` (what's actually on screen), never from the query panel's
@@ -2029,6 +2062,15 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
       includeCreative: childLevel === "ad",
       since: meta.since,
       until: meta.until,
+      // The exact window the parent report compared against (not
+      // recomputed) when it itself requested a comparison, so a child row's
+      // own delta is against the same two periods its parent's is — passing
+      // along `meta.compareToPrevious` with no window would make the backend
+      // default to "immediately preceding period," which is usually but not
+      // always the same thing (a custom comparison start date wouldn't be).
+      compareToPrevious: meta.compareToPrevious,
+      previousSince: meta.compareToPrevious ? meta.previousSince : undefined,
+      previousUntil: meta.compareToPrevious ? meta.previousUntil : undefined,
     })
       .then((json) => {
         setExpansions((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], status: "loaded", rows: json.rows || [] } } : prev));
@@ -2310,7 +2352,19 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
         </tr>
       );
     }
-    return exp.rows.map((childRow) => (
+    const orderedRows = applyChildRowOrdering(exp.rows);
+    if (orderedRows.length === 0) {
+      return (
+        <tr key={`${parentId}-no-matches`}>
+          <td colSpan={columns.length}>
+            <span className={styles.muted} style={{ paddingLeft: depth * 20 }}>
+              No {label} match the current filters.
+            </span>
+          </td>
+        </tr>
+      );
+    }
+    return orderedRows.map((childRow) => (
       <Fragment key={childRow.entityId}>
         {renderDataRow(childRow, exp.childLevel, depth)}
         {renderChildBlock(childRow.entityId, depth + 1)}
@@ -2353,6 +2407,8 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
           searchPlaceholder="Search rows…"
           resizableColumns
           renderRowExtra={drillDownEnabled ? renderRowExtra : undefined}
+          onSortChange={(key, dir) => setChildSort({ key, dir })}
+          onSearchChange={setChildSearch}
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />

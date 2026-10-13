@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon, GripIcon, PinIcon } from "./icons";
 import styles from "@/styles/Home.module.css";
 
@@ -29,6 +29,12 @@ import styles from "@/styles/Home.module.css";
 // only ever operate on the top-level `rows` array), so a caller doing its
 // own nested-row expansion keeps that state and gets it rendered in the
 // right place without this component needing to know anything about it.
+// `onSortChange(sortKey, sortDir)`/`onSearchChange(search)`, if given, fire
+// whenever this table's own (otherwise fully internal) sort/search state
+// changes, including once on mount with its initial value — letting a
+// caller that's rendering its own extra rows via `renderRowExtra` mirror the
+// same sort/search the visible top-level rows are under, instead of those
+// extra rows silently ignoring it.
 export default function SortableTable({
   columns,
   rows,
@@ -43,10 +49,24 @@ export default function SortableTable({
   searchPlaceholder = "Search…",
   resizableColumns = false,
   renderRowExtra,
+  onSortChange,
+  onSearchChange,
 }) {
   const [sortKey, setSortKey] = useState(defaultSortKey || columns[0]?.key);
   const [sortDir, setSortDir] = useState(defaultSortDir);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    onSortChange?.(sortKey, sortDir);
+    // Only the sort state itself should re-fire this — `onSortChange` isn't
+    // expected to change identity across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortKey, sortDir]);
+
+  useEffect(() => {
+    onSearchChange?.(search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
   // User-dragged widths only — a column with no entry here still falls back
   // to its own `maxWidth` (or the DEFAULT_COLUMN_WIDTH below), so adding/
   // removing columns between queries never leaves a stale width behind.
@@ -245,18 +265,63 @@ export default function SortableTable({
                       style={{
                         cursor: "pointer",
                         textAlign: col.align || "left",
-                        position: isFrozen ? "sticky" : resizableColumns ? "relative" : undefined,
+                        // NOT `position: resizableColumns ? "relative" : …` —
+                        // that used to live here to anchor the resize
+                        // handle's `position: absolute` below, but inline
+                        // `position` on the `<th>` overrides the sticky
+                        // header CSS below it (`.tableScroll .table thead
+                        // th`), silently turning every resizable table's
+                        // header back into normal, non-sticky flow content —
+                        // this is what the header stopping scrolling with
+                        // the top actually was. `position: sticky` (from
+                        // that CSS rule, applies regardless of
+                        // resizableColumns) already establishes its own
+                        // containing block, so the resize handle anchors to
+                        // it correctly with no inline override needed here.
                         width: resizableColumns ? columnWidth(col) : undefined,
-                        ...(isFrozen ? { left: 0, zIndex: 2, boxShadow: "1px 0 0 var(--border2)" } : null),
                       }}
                     >
-                      {orderedColumns.length > 1 && (
-                        <span className={styles.colDragHandle} aria-hidden="true">
-                          <GripIcon size={10} />
-                        </span>
+                      {/* A header cell that's BOTH the sticky-top header row
+                          (every `th`, via the CSS class below) AND the
+                          frozen column (sticky-left, like the body cells
+                          below) needs both offsets on the same element —
+                          browsers reliably lose the `top` stickiness the
+                          moment a table cell also gets `left` stickiness.
+                          Splitting them across two elements (this `th` stays
+                          exactly like every other — sticky-top only — and an
+                          inner wrapper does the sticky-left) sidesteps that
+                          dual-axis bug entirely; a plain, non-frozen header
+                          never needs the wrapper. */}
+                      {isFrozen ? (
+                        <div
+                          style={{
+                            position: "sticky",
+                            left: 0,
+                            zIndex: 2,
+                            width: "100%",
+                            background: "rgba(var(--bg-rgb), 0.95)",
+                            boxShadow: "1px 0 0 var(--border2)",
+                          }}
+                        >
+                          {orderedColumns.length > 1 && (
+                            <span className={styles.colDragHandle} aria-hidden="true">
+                              <GripIcon size={10} />
+                            </span>
+                          )}
+                          {col.label}
+                          {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                        </div>
+                      ) : (
+                        <>
+                          {orderedColumns.length > 1 && (
+                            <span className={styles.colDragHandle} aria-hidden="true">
+                              <GripIcon size={10} />
+                            </span>
+                          )}
+                          {col.label}
+                          {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                        </>
                       )}
-                      {col.label}
-                      {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                       {resizableColumns && (
                         <span
                           className={styles.colResizeHandle}
