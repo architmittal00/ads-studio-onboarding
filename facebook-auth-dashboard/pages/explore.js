@@ -8,6 +8,7 @@ import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
+import DateRangePicker from "@/components/DateRangePicker";
 import RowActions from "@/components/RowActions";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
@@ -1684,28 +1685,13 @@ export default function Explore() {
                       ))}
                     </div>
                     {activeView.rangePreset === "custom" && (
-                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                        <input
-                          type="date"
-                          className={styles.select}
-                          value={activeView.customSince}
-                          max={activeView.customUntil || isoDate(todayUTC())}
-                          onChange={(e) => updateActive({ customSince: e.target.value })}
-                        />
-                        <span className={styles.muted}>to</span>
-                        <input
-                          type="date"
-                          className={styles.select}
-                          value={activeView.customUntil}
-                          min={activeView.customSince || undefined}
-                          max={
-                            activeView.customSince
-                              ? [addDaysUTC(activeView.customSince, MAX_RANGE_DAYS - 1), isoDate(todayUTC())].sort()[0]
-                              : isoDate(todayUTC())
-                          }
-                          onChange={(e) => updateActive({ customUntil: e.target.value })}
-                        />
-                      </div>
+                      <DateRangePicker
+                        since={activeView.customSince}
+                        until={activeView.customUntil}
+                        maxIso={isoDate(todayUTC())}
+                        maxRangeDays={MAX_RANGE_DAYS}
+                        onApply={(since, until) => updateActive({ customSince: since, customUntil: until })}
+                      />
                     )}
                     {range && !rangeValid && (
                       <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
