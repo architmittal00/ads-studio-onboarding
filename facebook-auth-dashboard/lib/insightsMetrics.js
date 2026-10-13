@@ -584,9 +584,22 @@ export function deriveRowMetrics(rawRow, metricKeys, customFields, customMetrics
   const result = {};
   const customById = new Map(customMetrics.map((cm) => [cm.id, cm]));
   const eventById = new Map(customEvents.map((ce) => [ce.id, ce]));
-  const builtinKeys = (metricKeys || []).filter((k) => !customById.has(k) && !eventById.has(k));
   const customKeys = (metricKeys || []).filter((k) => customById.has(k));
   const eventKeys = (metricKeys || []).filter((k) => eventById.has(k));
+  // A selected custom ratio metric needs its numerator/denominator computed
+  // below regardless of whether the user ALSO independently added them as
+  // their own visible columns — without this, selecting only "AOV" (and not
+  // separately selecting, say, Purchase Value and Purchases) always computed
+  // `null` no matter the real numbers, since neither operand was ever
+  // extracted from the raw row in the first place (the ratio pass further
+  // down only reads `result[cm.numeratorKey]`, populated here).
+  const customOperandKeys = customKeys.flatMap((key) => {
+    const cm = customById.get(key);
+    return [cm.numeratorKey, cm.denominatorKey];
+  });
+  const builtinKeys = [
+    ...new Set([...(metricKeys || []).filter((k) => !customById.has(k) && !eventById.has(k)), ...customOperandKeys]),
+  ];
 
   for (const key of builtinKeys) {
     const metric = getMetric(key);
