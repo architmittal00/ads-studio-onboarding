@@ -478,6 +478,16 @@ button.stat:hover {
   background: rgba(var(--surface-tint-rgb), 0.02);
 }
 
+/* ── Pinned "Total" row (SortableTable's `pinnedRow` prop) — bold and
+   visually separated from the real rows it's totaling, always first
+   regardless of sort/search. Doesn't need :hover's own highlight — it's
+   never a clickable row the way the ones above are. */
+.pinnedRow td {
+  font-weight: 700;
+  background: rgba(var(--purple-rgb), 0.05);
+  border-bottom: 2px solid var(--border2);
+}
+
 /* ── Badge variant: ABO (blue, vs. CBO's default purple pill) ── */
 .badgeInfo {
   display: inline-flex;
