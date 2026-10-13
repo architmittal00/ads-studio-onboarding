@@ -928,6 +928,33 @@ export default function Explore() {
     runQueryForView(newView, false);
   }
 
+  // "Open new" on a set of selected Campaign/Ad Set rows — a new tab at the
+  // next level down (Ad Set for a Campaign selection, Ad for an Ad Set
+  // selection), scoped to exactly those selected entities via the same
+  // "Only show these IDs" mechanism the query panel already exposes, with
+  // every other query parameter (date range, metrics, breakdown, name
+  // filters, compare-to-previous, …) carried over unchanged from the active
+  // view. Overwrites whatever idFilter the active view already had — that's
+  // the whole point of this one, not a filter someone else set earlier.
+  function openChildViewFromSelection(parentLevel, entityIds) {
+    const childLevel = CHILD_LEVEL[parentLevel];
+    if (!childLevel || entityIds.length === 0) return;
+    const newView = {
+      ...activeView,
+      id: newViewId(),
+      customTitle: null,
+      level: childLevel,
+      idFilter: { field: CHILD_ID_FILTER_FIELD[childLevel], value: entityIds.join(",") },
+      result: null,
+      resultFetchedAt: null,
+      loading: false,
+      error: null,
+    };
+    setViews((prev) => [...withCapApplied(prev, activeViewId), newView]);
+    setActiveViewId(newView.id);
+    runQueryForView(newView, false);
+  }
+
   function addBlankView() {
     const blank = createBlankView(selectedAccountId);
     setViews((prev) => [...withCapApplied(prev, activeViewId), blank]);
@@ -1343,6 +1370,7 @@ export default function Explore() {
               onActionApplied={applyEntityActionPatch}
               customMetrics={customMetrics}
               resultFilters={activeView.resultFilters}
+              onOpenChildView={openChildViewFromSelection}
             />
           ) : activeView.chartMetricKey ? (
             <ExploreChart
@@ -2039,7 +2067,17 @@ function leadingColumnDefs(meta) {
   return defs;
 }
 
-function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effectiveCatalog, onActionApplied, customMetrics, resultFilters }) {
+function ExploreResultsTable({
+  rows,
+  meta,
+  adAccounts,
+  currencyByAccountId,
+  effectiveCatalog,
+  onActionApplied,
+  customMetrics,
+  resultFilters,
+  onOpenChildView,
+}) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
   // Lets someone spot a few problem rows here, grab their IDs, and paste
@@ -2511,6 +2549,18 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
           <button type="button" className={styles.btnSecondary} onClick={() => setSelectedIds(new Set())}>
             Clear selection
           </button>
+          {CHILD_LEVEL[meta.level] && (
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={() => onOpenChildView(meta.level, [...selectedIds])}
+              title={`Open a new tab showing the ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]} inside the selected ${
+                selectedIds.size === 1 ? meta.level : `${meta.level}s`
+              }, with the same date range, metrics, and other query settings as this view`}
+            >
+              + Open New
+            </button>
+          )}
         </div>
       )}
       <div style={{ overflowX: "auto" }}>
