@@ -71,8 +71,10 @@ function parseIdList(text) {
 //    directly from that same unreliable `reach`.
 //  - `unique_ctr` is derived from `unique_clicks`, same problem.
 // `ctr`/`cpc`/`cpm`/`roas` are NOT in this set — they're all re-derivable
-// from `impressions`/`clicks`/`spend`/`action_values`, which sum correctly,
-// so mergeRawRows() below recomputes them instead of dropping them.
+// from `impressions`/`inline_link_clicks`/`spend`/`action_values`, which sum
+// correctly, so mergeRawRows() below recomputes (or, for ctr/cpc, simply
+// lets the catalog's own extract function recompute) them instead of
+// dropping them.
 const REACH_DEPENDENT_KEYS = new Set(["reach", "frequency", "cpp", "unique_clicks", "unique_ctr"]);
 
 function isoDate(date) {
@@ -232,11 +234,13 @@ const ACTION_ARRAY_FIELDS = ["actions", "action_values", "video_p25_watched_acti
 //    only merges rows that actually have it, and only includes the result if
 //    at least one row did,
 //  - deletes every field that would otherwise leak one entity's own narrow
-//    ratio into a row whose underlying totals have just changed:
-//    `ctr`/`cpc`/`cpm` are recomputed from the now-summed base fields
-//    instead (the catalog's extract functions read these fields directly
-//    rather than deriving them, so stale values must be overwritten, not
-//    merely left as rows[0]'s); `purchase_roas` is deleted so the `roas`
+//    ratio into a row whose underlying totals have just changed: `cpm` is
+//    recomputed from the now-summed base fields instead (the catalog's own
+//    extract function reads it directly rather than deriving it, so a stale
+//    value must be overwritten, not merely left as rows[0]'s) — `ctr`/`cpc`
+//    need no such step since their extract functions already derive from
+//    `inline_link_clicks`/`impressions`/`spend`, all of which SCALAR_SUM_FIELDS
+//    above already sums correctly; `purchase_roas` is deleted so the `roas`
 //    metric's own fallback (lib/metrics.js's roasFromRow) recomputes it from
 //    the merged `spend`/`action_values` instead of trusting rows[0]'s
 //    narrower figure; `quality_ranking`/`engagement_rate_ranking`/
@@ -268,11 +272,13 @@ function mergeRawRows(rows, customFields) {
   }
 
   const impressions = parseFloat(merged.impressions || 0);
-  const clicks = parseFloat(merged.clicks || 0);
   const spend = parseFloat(merged.spend || 0);
-  merged.ctr = impressions > 0 ? String((clicks / impressions) * 100) : "0";
-  merged.cpc = clicks > 0 ? String(spend / clicks) : "0";
   merged.cpm = impressions > 0 ? String((spend / impressions) * 1000) : "0";
+  // Facebook's own per-row ctr/cpc (all-clicks based) are never read by the
+  // catalog's extract functions any more, but rows[0]'s copy would otherwise
+  // sit here looking like real data for this merged, multi-entity row.
+  delete merged.ctr;
+  delete merged.cpc;
 
   delete merged.purchase_roas;
   delete merged.quality_ranking;

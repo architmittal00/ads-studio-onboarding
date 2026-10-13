@@ -36,11 +36,11 @@ export default async function handler(req, res) {
 
   const [overviewResult, trendResult, weeklyResult, monthlyResult] = await Promise.allSettled([
     graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
+      fields: "spend,impressions,inline_link_clicks,actions,action_values,purchase_roas",
       time_range: graphTimeRange,
     }),
     graphGetInsights(`/${accountId}/insights`, token, {
-      fields: "spend,clicks,ctr,actions,action_values,purchase_roas",
+      fields: "spend,impressions,inline_link_clicks,actions,action_values,purchase_roas",
       time_range: graphTimeRange,
       time_increment: trendIncrement,
     }),
@@ -62,10 +62,14 @@ export default async function handler(req, res) {
   const overview = overviewRow
     ? (() => {
         const { spend, revenue, roas } = roasFromRow(overviewRow);
-        const clicks = parseFloat(overviewRow.clicks || 0);
-        const ctr = parseFloat(overviewRow.ctr || 0);
+        // Link clicks, not Facebook's own `clicks`/`ctr` (every click,
+        // reactions/shares/comments included) — CTR and CVR here mean "of
+        // the people who actually clicked through to the site."
+        const impressions = parseFloat(overviewRow.impressions || 0);
+        const linkClicks = parseFloat(overviewRow.inline_link_clicks || 0);
+        const ctr = impressions > 0 ? (linkClicks / impressions) * 100 : 0;
         const purchases = pickPurchaseCount(overviewRow.actions);
-        const cvr = clicks > 0 ? (purchases / clicks) * 100 : 0;
+        const cvr = linkClicks > 0 ? (purchases / linkClicks) * 100 : 0;
         return { spend, revenue, roas, ctr, purchases, cvr };
       })()
     : { spend: 0, revenue: 0, roas: 0, ctr: 0, purchases: 0, cvr: 0 };
@@ -74,10 +78,11 @@ export default async function handler(req, res) {
   if (trendResult.status === "rejected") warnings.push(`Trend chart data unavailable: ${trendResult.reason.message}`);
   const trendPoints = (trendJson?.data || []).map((row) => {
     const { spend, roas } = roasFromRow(row);
-    const clicks = parseFloat(row.clicks || 0);
-    const ctr = parseFloat(row.ctr || 0);
+    const impressions = parseFloat(row.impressions || 0);
+    const linkClicks = parseFloat(row.inline_link_clicks || 0);
+    const ctr = impressions > 0 ? (linkClicks / impressions) * 100 : 0;
     const purchases = pickPurchaseCount(row.actions);
-    const cvr = clicks > 0 ? (purchases / clicks) * 100 : 0;
+    const cvr = linkClicks > 0 ? (purchases / linkClicks) * 100 : 0;
     return { since: row.date_start, until: row.date_stop, spend, purchases, roas, ctr, cvr };
   });
   const trend = { granularity: trendIncrement === 1 ? "daily" : "weekly", points: trendPoints };
