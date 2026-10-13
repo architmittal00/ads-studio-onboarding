@@ -11,7 +11,7 @@ import AccountSelect from "@/components/AccountSelect";
 import RowActions from "@/components/RowActions";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
-import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon, ChartIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon, ChartIcon, RocketIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
 import {
@@ -196,7 +196,14 @@ function compareMetricValue(rowValue, operator, threshold) {
 // condition whose value was cleared mid-edit (e.g. the number input is
 // momentarily blank) is guarded the same way, for the same reason — it
 // shouldn't blank the whole table just because one threshold isn't a valid
-// number yet.
+// number yet. A condition's `basis` — "value" (the default, and the only
+// option outside compare-to-previous mode) or "change" — picks whether the
+// threshold compares against the metric's own value or its `_deltaPct`
+// (percentage change vs. the previous period, only present when the view
+// has compare-to-previous on); `row._deltaPct?.[c.metricKey]` is `undefined`
+// on a row with no comparable previous value, which compareMetricValue
+// already treats as "doesn't match," the same honest non-match as a missing
+// metric value.
 function applyResultFilters(rows, resultFilters, availableMetricKeys) {
   if (!rows) return rows;
   let out = rows;
@@ -204,7 +211,11 @@ function applyResultFilters(rows, resultFilters, availableMetricKeys) {
     (c) => availableMetricKeys.includes(c.metricKey) && typeof c.value === "number" && !isNaN(c.value)
   );
   if (conditions.length > 0) {
-    out = out.filter((row) => conditions.every((c) => compareMetricValue(row[c.metricKey], c.operator, c.value)));
+    out = out.filter((row) =>
+      conditions.every((c) =>
+        compareMetricValue(c.basis === "change" ? row._deltaPct?.[c.metricKey] : row[c.metricKey], c.operator, c.value)
+      )
+    );
   }
   // `statusValues` is `null` for "no filter" (every status counts) vs. an
   // array for "only these statuses" — including an EMPTY array, which means
@@ -400,6 +411,12 @@ function buildQuerySpecFromView(view, customMetrics) {
     // same cache key / request body.
     accountIds: [...view.accountIds].sort(),
     level: view.level,
+    // Only an ad has a creative to show a thumbnail for — matches the same
+    // flag the drill-down child fetch already sends (see startFetch below),
+    // which this top-level query was missing: querying Ad level directly
+    // (not by drilling into a campaign/ad set) never requested the
+    // thumbnail/preview data in the first place.
+    includeCreative: view.level === "ad",
     breakdownGroup: view.breakdownGroup,
     metricKeys: view.metricKeys,
     customMetrics: (customMetrics || [])
@@ -1114,7 +1131,7 @@ export default function Explore() {
       (k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text"
     );
     if (numericKeys.length === 0) return;
-    setDraftConditions((prev) => [...prev, { id: newViewId(), metricKey: numericKeys[0], operator: "gte", value: 0 }]);
+    setDraftConditions((prev) => [...prev, { id: newViewId(), metricKey: numericKeys[0], basis: "value", operator: "gte", value: 0 }]);
   }
 
   function updateDraftCondition(id, patch) {
@@ -1300,6 +1317,19 @@ export default function Explore() {
                           </option>
                         ))}
                     </select>
+                    {/* "% Change" only makes sense (and only has data) once
+                        the view is actually comparing to a previous period
+                        — hidden rather than shown-but-always-empty otherwise. */}
+                    {result.meta.compareToPrevious && (
+                      <select
+                        className={styles.select}
+                        value={c.basis || "value"}
+                        onChange={(e) => updateDraftCondition(c.id, { basis: e.target.value })}
+                      >
+                        <option value="value">Value</option>
+                        <option value="change">% Change</option>
+                      </select>
+                    )}
                     <select
                       className={styles.select}
                       value={c.operator}
@@ -1319,6 +1349,7 @@ export default function Explore() {
                       onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
                       onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
                     />
+                    {c.basis === "change" && result.meta.compareToPrevious && <span className={styles.muted}>%</span>}
                     <button
                       type="button"
                       className={styles.btnSecondary}
@@ -2156,6 +2187,31 @@ function ExploreResultsTable({
   // resets whenever the query re-runs, same as SortableTable's own sort/
   // search state; there's no reason a selection should survive a new result.
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  // Defaults on — most views benefit from seeing the Total at a glance —
+  // but some people want the table to just be the rows, so it's a toggle,
+  // not forced. Local to this one render of the table, same as every other
+  // per-result UI preference here (sort/search/freeze/selection) — it
+  // resets with a fresh query, it isn't meant to be a saved setting.
+  const [showTotalsRow, setShowTotalsRow] = useState(true);
+
+  // A brief, purely perceptual loading flash whenever a filter is applied —
+  // the actual filtering (see applyResultFilters/filteredRows in the parent)
+  // is instant, synchronous, client-side, which read as "did that even do
+  // anything?" with literally nothing changing on screen for an eye-blink
+  // and then just... different rows. Skips the very first render — mounting
+  // with a result already in hand isn't "a filter just got applied."
+  const [filterPulse, setFilterPulse] = useState(false);
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    setFilterPulse(true);
+    const timer = setTimeout(() => setFilterPulse(false), 200);
+    return () => clearTimeout(timer);
+  }, [resultFilters]);
+
   const selectableRows = rows.filter((r) => r.entityId);
   // Deduplicated — a breakdown (e.g. Age & Gender) can repeat the same
   // entity across several rows, and selection is keyed by entity id, not
@@ -2353,6 +2409,16 @@ function ExploreResultsTable({
                 >
                   <ChevronIcon direction={expansions[row.entityId]?.open ? "down" : "right"} size={11} />
                 </button>
+              )}
+              {meta.level === "ad" && (
+                <Thumb
+                  src={row.thumbnailUrl}
+                  isVideo={row.isVideo}
+                  size={22}
+                  onClick={() =>
+                    setLightboxItem({ id: row.entityId, name: row[def.key] || row.entityId, thumbnailUrl: row.thumbnailUrl, isVideo: row.isVideo })
+                  }
+                />
               )}
               <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row[def.key]}</span>
               <CopyIdButton id={row.entityId} onCopy={copyText} />
@@ -2604,36 +2670,64 @@ function ExploreResultsTable({
 
   return (
     <div>
-      {selectedIds.size > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span className={styles.muted}>
-            {selectedIds.size} selected
-          </span>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={() => copyText([...selectedIds].join(", "))}
-          >
-            Copy {selectedIds.size} ID{selectedIds.size === 1 ? "" : "s"}
-          </button>
-          <button type="button" className={styles.btnSecondary} onClick={() => setSelectedIds(new Set())}>
-            Clear selection
-          </button>
-          {CHILD_LEVEL[meta.level] && (
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={() => onOpenChildView(meta.level, [...selectedIds])}
-              title={`Open a new tab showing the ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]} inside the selected ${
-                selectedIds.size === 1 ? meta.level : `${meta.level}s`
-              }, with the same date range, metrics, and other query settings as this view`}
-            >
-              + Open New
-            </button>
+      {(selectedIds.size > 0 || meta.totalsRow) && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {selectedIds.size > 0 && (
+              <>
+                <span className={styles.muted}>{selectedIds.size} selected</span>
+                {/* Leads the group (not trailing after Copy/Clear) and gets
+                    its own emphasized treatment — this is the action most
+                    people reach for after selecting a batch of rows, and it
+                    used to blend into the row as just another secondary-
+                    looking button. */}
+                {CHILD_LEVEL[meta.level] && (
+                  <button
+                    type="button"
+                    className={`${styles.btnPrimary} ${styles.openNewCta}`}
+                    onClick={() => onOpenChildView(meta.level, [...selectedIds])}
+                    title={`Open a new tab showing the ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]} inside the selected ${
+                      selectedIds.size === 1 ? meta.level : `${meta.level}s`
+                    }, with the same date range, metrics, and other query settings as this view`}
+                  >
+                    <RocketIcon size={14} />
+                    Open New
+                  </button>
+                )}
+                <button type="button" className={styles.btnSecondary} onClick={() => copyText([...selectedIds].join(", "))}>
+                  Copy {selectedIds.size} ID{selectedIds.size === 1 ? "" : "s"}
+                </button>
+                <button type="button" className={styles.btnSecondary} onClick={() => setSelectedIds(new Set())}>
+                  Clear selection
+                </button>
+              </>
+            )}
+          </div>
+          {meta.totalsRow && (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--t2)", cursor: "pointer" }}>
+              <input type="checkbox" checked={showTotalsRow} onChange={(e) => setShowTotalsRow(e.target.checked)} />
+              Show Total row
+            </label>
           )}
         </div>
       )}
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ overflowX: "auto", position: "relative" }}>
+        {filterPulse && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(var(--bg-rgb), 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 30,
+              borderRadius: 10,
+            }}
+          >
+            <span className={styles.spinner} />
+          </div>
+        )}
         <SortableTable
           rows={rows}
           columns={columns}
@@ -2647,7 +2741,7 @@ function ExploreResultsTable({
           onSortChange={(key, dir) => setChildSort({ key, dir })}
           onSearchChange={setChildSearch}
           onFreezeChange={setChildFrozenKey}
-          pinnedRow={meta.totalsRow || undefined}
+          pinnedRow={showTotalsRow ? meta.totalsRow || undefined : undefined}
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />

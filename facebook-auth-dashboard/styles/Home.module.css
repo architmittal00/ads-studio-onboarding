@@ -68,6 +68,29 @@
   box-shadow: none;
 }
 
+/* ── Explore: "Open New" on a row selection — the action most people reach
+   for right after selecting a batch of rows, so it gets a stronger pulse
+   than an ordinary .btnPrimary to actually catch the eye the moment a
+   selection is made, not just read as another button in the row. The pulse
+   runs a fixed, finite number of times (not infinite) — it's meant to draw
+   a first glance, not nag for as long as the selection stays open. */
+@keyframes openNewPulse {
+  0%, 100% {
+    box-shadow: 0 4px 24px rgba(var(--purple-rgb), 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 28px rgba(var(--purple-rgb), 0.65);
+  }
+}
+.openNewCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  animation: openNewPulse 1.4s ease-in-out 2;
+}
+
 .btnSecondary {
   background: rgba(var(--surface-tint-rgb), 0.06);
   border: 1px solid rgba(var(--surface-tint-rgb), 0.1);
@@ -479,13 +502,15 @@ button.stat:hover {
 }
 
 /* ── Pinned "Total" row (SortableTable's `pinnedRow` prop) — bold and
-   visually separated from the real rows it's totaling, always first
+   visually separated from the real rows it's totaling, always last
    regardless of sort/search. Doesn't need :hover's own highlight — it's
-   never a clickable row the way the ones above are. */
+   never a clickable row the way the ones above are. border-top (not
+   -bottom) since it now sits after every real row, framing it like a
+   footer rather than doubling up on the table's own closing edge. */
 .pinnedRow td {
   font-weight: 700;
   background: rgba(var(--purple-rgb), 0.05);
-  border-bottom: 2px solid var(--border2);
+  border-top: 2px solid var(--border2);
 }
 
 /* ── Badge variant: ABO (blue, vs. CBO's default purple pill) ── */
@@ -507,11 +532,17 @@ button.stat:hover {
 .tableScroll {
   overflow: auto;
 }
+/* z-index: 3, above a frozen column's own body cells (z-index 1, set inline
+   in SortableTable.js's renderCell) — both are `position: sticky` elements
+   with no shared positioned ancestor, so without this gap a vertical scroll
+   paints the frozen column's cells (tbody, later in the DOM) over this
+   header row (thead, earlier) the moment their equal z-index ties, which
+   plain DOM order then resolves in the body's favor. */
 .tableScroll .table thead th {
   position: sticky;
   top: 0;
   background: rgba(var(--bg-rgb), 0.95);
-  z-index: 1;
+  z-index: 3;
 }
 
 /* ── Report layout: sticky section nav + wide content ──

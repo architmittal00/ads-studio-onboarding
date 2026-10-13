@@ -81,8 +81,9 @@ function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth }
 // the visible top-level rows are under, instead of those extra rows silently
 // ignoring it. `frozenKey` is `null` when nothing's pinned.
 // `pinnedRow`, if given, renders one extra row via the same `columns[].
-// render`/frozen-column treatment as a normal row, pinned to the very top of
-// `<tbody>` — outside sorting, searching, and `renderRowExtra` entirely (a
+// render`/frozen-column treatment as a normal row, pinned after every real
+// row at the very end of `<tbody>` — outside sorting, searching, and
+// `renderRowExtra` entirely (a
 // caller's own "Total" row, say, which should never itself get sorted among
 // the rows it's totaling, or disappear behind a search term that doesn't
 // match its own label).
@@ -127,20 +128,31 @@ export default function SortableTable({
   const dragRef = useRef(null);
 
   // User-dragged column order, by key. Reconciled against the live `columns`
-  // prop below rather than trusted outright — a key this table has never
-  // seen (a fresh query's new column) is appended in its original position,
-  // and a key that's gone is just dropped, so switching queries can't leave
-  // the table rendering a stale or missing column.
+  // prop below rather than trusted outright — a key that's gone (last
+  // query's breakdown column, say) is just dropped, so switching queries
+  // can't leave the table rendering a stale or missing column.
   const [colOrder, setColOrder] = useState(() => columns.map((c) => c.key));
   const [dragKey, setDragKey] = useState(null);
   const [dragOverKey, setDragOverKey] = useState(null);
   const [firstColFrozen, setFirstColFrozen] = useState(true);
 
+  // Preserves the user's own relative order for every column that was
+  // already part of it, but places any newly-appeared column (a Breakdown
+  // column that just got turned on, say) at the natural position `columns`
+  // itself puts it in, rather than always at the very end. This table
+  // persists across a caller re-running its query with a different column
+  // set (e.g. Explore's own SortableTable instance isn't remounted just
+  // because "Update This View" changed which columns come back) — appending
+  // every new column unconditionally used to silently push a fresh grouping/
+  // breakdown column out past every metric column, only fixed by a full page
+  // reload (which remounts this component and recomputes colOrder's initial
+  // state from scratch, matching the current columns).
   const orderedColumns = useMemo(() => {
-    const byKey = new Map(columns.map((c) => [c.key, c]));
-    const known = colOrder.map((k) => byKey.get(k)).filter(Boolean);
-    const newOnes = columns.filter((c) => !colOrder.includes(c.key));
-    return [...known, ...newOnes];
+    const sortableKnown = columns
+      .filter((c) => colOrder.includes(c.key))
+      .sort((a, b) => colOrder.indexOf(a.key) - colOrder.indexOf(b.key));
+    let i = 0;
+    return columns.map((c) => (colOrder.includes(c.key) ? sortableKnown[i++] : c));
   }, [columns, colOrder]);
 
   // Mirrors which column (if any) is currently pinned — same convention as
@@ -403,11 +415,6 @@ export default function SortableTable({
               </tr>
             </thead>
             <tbody>
-              {pinnedRow && (
-                <tr className={styles.pinnedRow}>
-                  {orderedColumns.map((col) => renderCell(col, pinnedRow, { activeFrozenKey, resizableColumns, columnWidth }))}
-                </tr>
-              )}
               {sorted.map((row, i) => (
                 <Fragment key={row.id ?? i}>
                   <tr
@@ -420,6 +427,11 @@ export default function SortableTable({
                   {renderRowExtra ? renderRowExtra(row) : null}
                 </Fragment>
               ))}
+              {pinnedRow && (
+                <tr className={styles.pinnedRow}>
+                  {orderedColumns.map((col) => renderCell(col, pinnedRow, { activeFrozenKey, resizableColumns, columnWidth }))}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
