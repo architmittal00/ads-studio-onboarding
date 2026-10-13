@@ -2164,6 +2164,9 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
             key: "__select",
             label: <SelectAllCheckbox checked={allSelected} indeterminate={someSelected} onChange={toggleSelectAll} />,
             maxWidth: 28,
+            // A narrow checkbox column has nothing worth pinning in place —
+            // freezing should default to the actual name column next to it.
+            freezeExempt: true,
             render: (row) =>
               row.entityId ? (
                 <input
@@ -2207,6 +2210,7 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
             key: "__actions",
             label: "Actions",
             maxWidth: 170,
+            freezeExempt: true,
             render: (row) => (
               <RowActions
                 row={row}
