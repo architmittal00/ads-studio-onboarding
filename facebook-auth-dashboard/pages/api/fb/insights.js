@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     // includes today, an incomplete day) — an explicit time_range instead,
     // same as pages/report.js and pages/explore.js.
     const json = await graphGetInsights(`/${accountId}/insights`, session.accessToken, {
-      fields: "spend,impressions,clicks,ctr,action_values,purchase_roas,actions",
+      fields: "spend,impressions,inline_link_clicks,action_values,purchase_roas,actions",
       time_range: lastNDaysRange(30, new Date()),
     });
 
@@ -41,8 +41,12 @@ export default async function handler(req, res) {
 
     const { spend, revenue, roas } = roasFromRow(row);
 
-    // Facebook's "ctr" field is already a percentage (e.g. "1.23" = 1.23%)
-    const ctr = parseFloat(row.ctr || 0);
+    // Link CTR (impressions that actually led to a click to the advertiser's
+    // site), not Facebook's own `ctr` field — that counts every click
+    // (reactions, shares, comments included), not just a real link click.
+    const impressions = parseFloat(row.impressions || 0);
+    const linkClicks = parseFloat(row.inline_link_clicks || 0);
+    const ctr = impressions > 0 ? (linkClicks / impressions) * 100 : 0;
     const conversions = pickPurchaseCount(row.actions);
 
     res.status(200).json({ spend, revenue, roas, ctr, conversions, hasData: true });

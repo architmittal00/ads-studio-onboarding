@@ -135,7 +135,20 @@ export const METRIC_CATALOG = [
     fields: ["unique_clicks"],
     extract: (r) => parseFloat(r.unique_clicks || 0),
   },
-  { key: "ctr", label: "CTR", group: "Engagement", format: "percent", fields: ["ctr"], extract: (r) => parseFloat(r.ctr || 0) },
+  // Meta's own `ctr` field is all-clicks CTR (reactions/shares/comments
+  // included, not just an actual click to the advertiser's site) — re-derived
+  // from inline_link_clicks/impressions instead, the same "real" click basis
+  // lpv_rate/click_to_atc_rate below already use, so "CTR" reads as the
+  // link-click-through rate media buyers actually mean by it. `null` (not
+  // `0`) on zero impressions, matching this catalog's other ratio metrics.
+  {
+    key: "ctr",
+    label: "CTR",
+    group: "Engagement",
+    format: "percent",
+    fields: ["inline_link_clicks", "impressions"],
+    extract: (r) => safePercent(parseFloat(r.inline_link_clicks || 0), parseFloat(r.impressions || 0)),
+  },
   {
     key: "unique_ctr",
     label: "Unique CTR",
@@ -154,7 +167,17 @@ export const METRIC_CATALOG = [
   },
 
   // Cost efficiency
-  { key: "cpc", label: "CPC", group: "Cost", format: "currency", fields: ["cpc"], extract: (r) => parseFloat(r.cpc || 0) },
+  // Same reasoning as `ctr` above — Meta's own `cpc` field divides spend by
+  // every click (including reactions/shares/comments), not just an
+  // inline/link click to the advertiser's site.
+  {
+    key: "cpc",
+    label: "CPC",
+    group: "Cost",
+    format: "currency",
+    fields: ["spend", "inline_link_clicks"],
+    extract: (r) => safeRatio(parseFloat(r.spend || 0), parseFloat(r.inline_link_clicks || 0)),
+  },
   { key: "cpm", label: "CPM", group: "Cost", format: "currency", fields: ["cpm"], extract: (r) => parseFloat(r.cpm || 0) },
   { key: "cpp", label: "CPP", group: "Cost", format: "currency", fields: ["cpp"], extract: (r) => parseFloat(r.cpp || 0) },
   // Meta's own "Cost per Result" is tied to whatever a campaign's
