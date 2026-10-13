@@ -2050,6 +2050,33 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
     startFetch(row, childLevel);
   }
 
+  // RowActions' own success callback (see components/RowActions.js) always
+  // targets whichever `onActionApplied` it was given — the top-level table's
+  // own `onActionApplied` prop only ever patches `rows` (the just-fetched
+  // top-level result), which a drilled-into ad set/ad row was never part of.
+  // This is that same patch applied to `expansions` instead: every fetched
+  // child list is scanned for the matching entityId (there's exactly one
+  // across the whole tree, campaign/ad set/ad ids never collide), so a
+  // pause/activate/budget change on a drilled-into row shows up immediately
+  // without needing to collapse and re-expand it.
+  function applyChildActionPatch(entityId, patch) {
+    setExpansions((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        const entry = next[key];
+        if (entry.status !== "loaded") continue;
+        const idx = entry.rows.findIndex((r) => r.entityId === entityId);
+        if (idx === -1) continue;
+        const rows = [...entry.rows];
+        rows[idx] = { ...rows[idx], ...patch };
+        next[key] = { ...entry, rows };
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }
+
   const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
   const LEADING_MAX_WIDTH = { accountId: 200, date: 120, entityLabel: 240, breakdownLabel: 200, label: 160 };
   const leadingColumns = leadingColumnDefs(meta).map((def) => {
@@ -2154,17 +2181,28 @@ function ExploreResultsTable({ rows, meta, adAccounts, currencyByAccountId, effe
   // One drilled-into row (an ad set found inside a campaign, or an ad found
   // inside an ad set) — reuses every one of `columns`' own render functions
   // for the metric/status cells (so a child row shows exactly the same
-  // formatting, currency, and metric set as its parent), only special-casing
-  // the bulk-select/actions columns (not offered on a child row) and the
-  // leading name column (indentation, its own expand toggle if it has a
-  // further child level, and an ad's thumbnail).
+  // formatting, currency, and metric set as its parent). Bulk-select isn't
+  // offered on a child row (that feature is scoped to the top-level result
+  // set), but Pause/Activate/Change Budget are — same RowActions component
+  // the top-level rows use, just pointed at this row's own level and at
+  // applyChildActionPatch (not the top-level onActionApplied) so a
+  // successful action updates the drilled-into row in place. The leading
+  // name column gets its own special-casing too: indentation, its own
+  // expand toggle if it has a further child level, and an ad's thumbnail.
   function renderDataRow(row, level, depth) {
     const childLevel = CHILD_LEVEL[level];
     const isOpen = !!expansions[row.entityId]?.open;
     return (
       <tr key={row.entityId}>
         {columns.map((col) => {
-          if (col.key === "__select" || col.key === "__actions") return <td key={col.key} />;
+          if (col.key === "__select") return <td key={col.key} />;
+          if (col.key === "__actions") {
+            return (
+              <td key={col.key}>
+                <RowActions row={row} level={level} currency={currencyByAccountId.get(row.accountId)} onActionApplied={applyChildActionPatch} />
+              </td>
+            );
+          }
           if (col.key === "entityLabel" || col.key === "label") {
             return (
               <td key={col.key}>
