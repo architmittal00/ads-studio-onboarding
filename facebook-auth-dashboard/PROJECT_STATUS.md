@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-14**, by Claude, right after merging PR #148.
+> Last updated: **2026-10-14**, by Claude, right after merging PR #150.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`ba0287a`** — "Explore: Monthly grouping, absolute-value comparisons, a real Level+Time pivot table, and selected-row highlighting" (PR #148, merged 2026-10-14).
+Latest commit as of this writing: **`06235d4`** — "Persist Explore table sort/search/filters per tab, add Chrome-style tab groups" (PR #150, merged 2026-10-14).
 
 No open PRs. Everything described below is merged and live.
 
@@ -79,25 +79,19 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-14)
 
-### PR #148 — Monthly grouping, absolute-value comparisons, a real Level+Time pivot table, selected-row highlighting
+### PR #150 — Per-tab table-state persistence + Chrome-style tab groups
 
-The biggest of this week's rounds, four items:
+1. **The results table's own sort column/direction, search text, column order, and frozen column now persist per tab**, same as every other query setting (account, filters, metrics, …) — reopening a tab later shows the table exactly as it was left instead of resetting to defaults. New view fields: `tableSortKey`/`tableSortDir`/`tableSearch`/`tableColOrder`/`tableFirstColFrozen`. `SortableTable` gained matching `initialSearch`/`initialColOrder`/`initialFirstColFrozen` seed props and `onColOrderChange`/`onFirstColFrozenChange` callbacks (purely additive — existing callers that don't pass them are unaffected). The main `<ExploreResultsTable>` now also remounts on tab switch (`key={activeViewId}`) so this per-tab state (and the table's other, intentionally session-only state like row selection) genuinely belongs to one tab — previously the single long-lived instance let a tab's search text/frozen column leak onto whichever tab you switched to next.
+2. **Tab groups**, modeled directly on Chrome's own: right-click a tab → add it to a new or an existing group; click a group's colored chip → rename/recolor/collapse/ungroup/close-group popover. Grouping always moves a tab to sit contiguously with its new group's other members (`moveViewNextToGroup`), mirroring Chrome's own guarantee. A collapsed group hides its other tabs but keeps showing whichever one is currently active, so switching to a tab never hides the tab you're looking at. Groups (`{id, name, color, collapsed}`) persist in the same `localStorage` payload as the tabs themselves; a group with no member tabs left is dropped automatically (derived via a `liveGroups` memo, not a reactive effect — an earlier version used a `useEffect` calling `setGroups` reactively off `views` and tripped the `react-hooks/set-state-in-effect` lint rule, fixed by making it a plain derived value instead).
 
-1. **"Monthly" grouping** added to "Group by time" (Daily/Weekly/Monthly) — Meta's literal `time_increment: "monthly"` value, real calendar-month buckets. Unlike daily/weekly, **not chunked** (at most 4 buckets for a 90-day range — no benefit to splitting, and a fixed-day chunk would cut across month boundaries anyway).
-2. **Absolute-value comparisons** — a comparison column defaulted to (and still defaults to) a % change; a new "Show each comparison as: % Change / Absolute value" toggle switches it to the raw difference in the metric's own unit/currency instead. Pure display toggle, no re-fetch.
-3. **A real pivot table for Level + "Group by time"** — this combination used to render one flat (entity, date) row list, unreadable for any non-trivial range. Now pivoted exactly like the existing Campaign → Ad Set drill-down: one row per entity aggregated across every date, expandable to reveal that entity's own date rows nested underneath, reusing the *same* sort/search/frozen-column/row-actions machinery the drill-down already has (not a parallel implementation). **Important finding, not just an implementation detail**: the per-entity aggregation genuinely has to happen server-side (new `meta.pivotRows` in `pages/api/fb/explore-insights.js`, computed via the same `aggregateRowMetrics` the Total row uses) — several metrics' `aggregate()` functions read Facebook's *raw* field names (CTR sums raw `inline_link_clicks`, for instance), which never reach the client at all, only the already-derived display values do. A client-side version of this aggregation was built first and verified to silently produce wrong numbers (0.00% CTR for every entity) before being moved server-side — worth remembering if a similar "just group what the client already has" idea comes up again for anything ratio-based.
-4. **Selected-row highlighting** — a checked row is now visually highlighted (`SortableTable`'s new `highlightRow` prop), including its frozen column's cell, which needed its own fix since that cell's background is set inline (for occlusion-while-scrolling) and otherwise always beats a plain CSS class.
+### Earlier rounds (compressed)
 
-### Earlier rounds this week (further compressed)
+- **PR #148**: "Monthly" time-grouping (Meta's literal `time_increment: "monthly"`, real calendar-month buckets, unchunked); a "% Change / Absolute value" toggle for comparison columns; a real pivot table for Level + "Group by time" (one row per entity, expandable to its own date rows) — **worth remembering**: per-entity aggregation for this had to move server-side (`meta.pivotRows`), since several metrics' `aggregate()` functions read Facebook's *raw* field names that never reach the client, only already-derived display values do (a client-side attempt silently produced 0.00% CTR for every entity before this was caught); selected-row highlighting (`SortableTable`'s `highlightRow` prop).
+- **PR #140–146**: column-order reconciliation on re-query, a filter-apply loading pulse, a "Value / % Change" metric-filter basis, frozen-column/sticky-header z-index and chart `connectNulls` fixes, a "Last Month" preset, an inline calendar popover replacing the two native date inputs for "Custom" range, clickable campaign/ad-set names (not just the chevron) for expand/collapse, instant-apply on removing a metric filter condition, and the Total row rebuilt as a genuinely separate always-visible table (its old `position: sticky` row only caught near the very end of scrolling).
 
-- **PR #146**: campaign/ad-set *names* (not just the chevron) are now clickable to expand/collapse; removing a metric filter condition now auto-applies instantly; the Total row is a genuinely separate, always-visible table below the scrollable body rather than a `position: sticky` row that only caught near the very end of scrolling.
-- **PR #144**: the "Custom" date range's two native date inputs replaced with one inline calendar popover, clamped into the viewport.
-- **PR #142**: a time-series chart's `connectNulls` was invisibly bridging over filtered-out rows (fixed); results-table search no longer disappears for ≤6 rows; the Query & Filters panel's height-recompute no longer permanently wedges itself after one dropped scroll/resize frame; added a "Last Month" preset.
-- **PR #140**: column-order reconciliation on "Update This View", a filter-apply loading pulse, a "Value / % Change" metric-filter basis, a frozen-column/sticky-header z-index fix, thumbnails on direct Ad-level queries, "+ Open New" prominence (the Total-row placement from this PR was later superseded by #146's pinned-footer rework).
+**Testing-environment gotcha** (still relevant): in this session's Browser-tool pane, neither a programmatic `el.scrollTop = n` on `document.body` nor a `resize_window` viewport change reliably fires a native `scroll`/`resize` DOM event — a CDP-automation quirk, not this app. Scrolling a plain (non-`body`) element's own `scrollTop` via `javascript_tool` works fine and does fire real events. Separately, an automated `key: "Enter"` sent in the same batch immediately after a `type` action can race ahead of React's controlled-input state update — if a commit-on-Enter handler seems to silently no-op in a test, retry with the Enter/blur in its own separate tool call (or trigger the commit via a blur instead) before assuming the app logic is actually broken.
 
-**Testing-environment gotcha** (still relevant): in this session's Browser-tool pane, neither a programmatic `el.scrollTop = n` on `document.body` nor a `resize_window` viewport change reliably fires a native `scroll`/`resize` DOM event — a CDP-automation quirk, not this app. Scrolling a plain (non-`body`) element's own `scrollTop` via `javascript_tool` works fine and does fire real events — use that, or a real `computer` scroll gesture when the pane isn't reporting "hidden", for anything that must test page-level scroll/resize specifically.
-
-All five rounds verified via a disposable mocked preview harness (deleted before commit — see the convention note below); `npm run lint` and `npm run build` clean for all.
+All rounds verified via a disposable mocked preview harness (deleted before commit — see the convention note below); `npm run lint` and `npm run build` clean for all.
 
 ### The mocked-preview-harness convention (use this for any Explore UI verification)
 
