@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-14**, by Claude, right after merging PR #146.
+> Last updated: **2026-10-14**, by Claude, right after merging PR #148.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`cf7a76e`** — "Explore: make row names clickable to expand, auto-apply a removed metric filter, and make the Total row a true pinned footer" (PR #146, merged 2026-10-14).
+Latest commit as of this writing: **`ba0287a`** — "Explore: Monthly grouping, absolute-value comparisons, a real Level+Time pivot table, and selected-row highlighting" (PR #148, merged 2026-10-14).
 
 No open PRs. Everything described below is merged and live.
 
@@ -79,23 +79,25 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-14)
 
-### PR #146 — clickable row names, auto-apply filter removal, true pinned Total row
+### PR #148 — Monthly grouping, absolute-value comparisons, a real Level+Time pivot table, selected-row highlighting
 
-Three more user-reported Explore issues:
+The biggest of this week's rounds, four items:
 
-1. **Row names weren't clickable to expand/collapse** — only the small chevron icon toggled a campaign → ad sets / ad set → ads drill-down; the name text next to it did nothing. Now clickable too, at both the top-level table and drilled-into child rows, wherever a child level actually exists (an Ad-level name stays inert — nothing below it).
-2. **Removing a metric filter didn't auto-apply** — the "×" on a draft metric-threshold condition only updated the local draft state; the table kept showing the filtered-down result until a separate "Apply Filters" click. Now commits immediately, same as the Status checkboxes already did.
-3. **Total row wasn't actually pinned** — it was `position: sticky; bottom: 0` on the last `<tr>` of the scrollable body. Sticky-bottom on an element with nothing after it to scroll past only "catches" in the last few pixels of scrolling — for any non-trivial result the total was invisible until scrolled almost to the very end. **Restructured, not just re-styled**: `components/SortableTable.js`'s `pinnedRow` now renders as a second, separate `<table>` below `.tableScroll` (outside its vertical scroll entirely), with its horizontal scroll mirrored from the real table via a plain `scrollLeft` sync on scroll — reproduces a proper frozen-footer/scrollable-body split, including a frozen column staying aligned between the two tables.
+1. **"Monthly" grouping** added to "Group by time" (Daily/Weekly/Monthly) — Meta's literal `time_increment: "monthly"` value, real calendar-month buckets. Unlike daily/weekly, **not chunked** (at most 4 buckets for a 90-day range — no benefit to splitting, and a fixed-day chunk would cut across month boundaries anyway).
+2. **Absolute-value comparisons** — a comparison column defaulted to (and still defaults to) a % change; a new "Show each comparison as: % Change / Absolute value" toggle switches it to the raw difference in the metric's own unit/currency instead. Pure display toggle, no re-fetch.
+3. **A real pivot table for Level + "Group by time"** — this combination used to render one flat (entity, date) row list, unreadable for any non-trivial range. Now pivoted exactly like the existing Campaign → Ad Set drill-down: one row per entity aggregated across every date, expandable to reveal that entity's own date rows nested underneath, reusing the *same* sort/search/frozen-column/row-actions machinery the drill-down already has (not a parallel implementation). **Important finding, not just an implementation detail**: the per-entity aggregation genuinely has to happen server-side (new `meta.pivotRows` in `pages/api/fb/explore-insights.js`, computed via the same `aggregateRowMetrics` the Total row uses) — several metrics' `aggregate()` functions read Facebook's *raw* field names (CTR sums raw `inline_link_clicks`, for instance), which never reach the client at all, only the already-derived display values do. A client-side version of this aggregation was built first and verified to silently produce wrong numbers (0.00% CTR for every entity) before being moved server-side — worth remembering if a similar "just group what the client already has" idea comes up again for anything ratio-based.
+4. **Selected-row highlighting** — a checked row is now visually highlighted (`SortableTable`'s new `highlightRow` prop), including its frozen column's cell, which needed its own fix since that cell's background is set inline (for occlusion-while-scrolling) and otherwise always beats a plain CSS class.
 
-### Earlier rounds this week (compressed)
+### Earlier rounds this week (further compressed)
 
-- **PR #144**: the "Custom" date range's two native date inputs replaced with one inline calendar popover (`components/DateRangePicker.js`) — click a start day then an end day, Apply/Cancel. Positioned `fixed` and clamped into the viewport (found and fixed it initially overflowing the screen in that narrow query-panel column).
-- **PR #142**: a time-series chart's `connectNulls` was invisibly bridging over rows a filter had removed, making "Applying filters don't work in charts" look true even though it wasn't; fixed by building the x-axis from the full date range and dropping `connectNulls`. Also: the results-table search box no longer disappears for ≤6 rows, the Query & Filters panel's height-recompute no longer permanently wedges itself after one dropped scroll/resize frame, and a "Last Month" preset was added.
-- **PR #140**: column-order reconciliation on "Update This View", a filter-apply loading pulse, a "Value / % Change" metric-filter basis, a frozen-column/sticky-header z-index fix, thumbnails on direct Ad-level queries, "+ Open New" prominence, and the Total row first moved to render after real rows (later superseded by #146's pinned-footer rework above).
+- **PR #146**: campaign/ad-set *names* (not just the chevron) are now clickable to expand/collapse; removing a metric filter condition now auto-applies instantly; the Total row is a genuinely separate, always-visible table below the scrollable body rather than a `position: sticky` row that only caught near the very end of scrolling.
+- **PR #144**: the "Custom" date range's two native date inputs replaced with one inline calendar popover, clamped into the viewport.
+- **PR #142**: a time-series chart's `connectNulls` was invisibly bridging over filtered-out rows (fixed); results-table search no longer disappears for ≤6 rows; the Query & Filters panel's height-recompute no longer permanently wedges itself after one dropped scroll/resize frame; added a "Last Month" preset.
+- **PR #140**: column-order reconciliation on "Update This View", a filter-apply loading pulse, a "Value / % Change" metric-filter basis, a frozen-column/sticky-header z-index fix, thumbnails on direct Ad-level queries, "+ Open New" prominence (the Total-row placement from this PR was later superseded by #146's pinned-footer rework).
 
-**Testing-environment gotcha** (found while diagnosing #142's query-panel bug, still relevant): in this session's Browser-tool pane, neither a programmatic `el.scrollTop = n` on `document.body` nor a `resize_window` viewport change reliably fires a native `scroll`/`resize` DOM event (confirmed with a bare, unrelated listener that never fired either) — a quirk of the CDP-based automation, not of this app. Scrolling a plain (non-`body`) element's own `scrollTop` via `javascript_tool`, by contrast, works fine and does fire real scroll events — that's how #146's pinned-footer fix above was actually verified. Prefer that over `document.body` tricks, and fall back to a real `computer` scroll gesture (when the pane isn't reporting "hidden") for anything that must specifically test page-level scroll/resize.
+**Testing-environment gotcha** (still relevant): in this session's Browser-tool pane, neither a programmatic `el.scrollTop = n` on `document.body` nor a `resize_window` viewport change reliably fires a native `scroll`/`resize` DOM event — a CDP-automation quirk, not this app. Scrolling a plain (non-`body`) element's own `scrollTop` via `javascript_tool` works fine and does fire real events — use that, or a real `computer` scroll gesture when the pane isn't reporting "hidden", for anything that must test page-level scroll/resize specifically.
 
-All four rounds verified via a disposable mocked preview harness (deleted before commit — see the convention note below); `npm run lint` and `npm run build` clean for all.
+All five rounds verified via a disposable mocked preview harness (deleted before commit — see the convention note below); `npm run lint` and `npm run build` clean for all.
 
 ### The mocked-preview-harness convention (use this for any Explore UI verification)
 
