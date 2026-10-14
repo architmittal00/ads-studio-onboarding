@@ -6,7 +6,7 @@ import { lastNDaysRange } from "@/lib/adCreativeDetails";
 import { roasFromRow, pickPurchaseCount } from "@/lib/metrics";
 
 const DETAIL_FIELDS =
-  "name,campaign_id,campaign{objective},optimization_goal,bid_strategy,daily_budget,lifetime_budget,targeting,promoted_object,status,attribution_spec";
+  "name,campaign_id,campaign{objective,name},optimization_goal,bid_strategy,daily_budget,lifetime_budget,targeting,promoted_object,status,attribution_spec";
 
 const GENDERS_TO_FIELD = { "": "all", "1": "male", "2": "female" };
 
@@ -97,7 +97,19 @@ export default async function handler(req, res) {
       const ads = (adsResult.data || [])
         .filter((a) => a.creative?.id)
         .map((a) => ({ name: `${a.name} - Copy`, creativeId: a.creative.id }));
-      res.status(200).json({ campaignObjective: adset.campaign?.objective || null, fields: toFormFields(adset), ads });
+      res.status(200).json({
+        // The ad set's own raw name and campaign name — kept separate from
+        // `fields.name` (which already has " - Copy" appended by
+        // toFormFields) so a caller that jumped straight here from Explore's
+        // "Duplicate" row action (skipping the picker list, which is where
+        // this info would otherwise come from) can still show "Duplicating
+        // 'X' (in campaign Y)" for context.
+        name: adset.name,
+        campaignName: adset.campaign?.name || null,
+        campaignObjective: adset.campaign?.objective || null,
+        fields: toFormFields(adset),
+        ads,
+      });
       return;
     }
     if (accountId) {
