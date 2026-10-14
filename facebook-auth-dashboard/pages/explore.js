@@ -1157,8 +1157,16 @@ export default function Explore() {
     setDraftConditions((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
 
+  // Unlike every other draft edit (metric/operator/value), removing a
+  // condition entirely takes effect immediately — same reasoning as the
+  // Status checkboxes below: there's no keystroke-by-keystroke jank to
+  // smooth over with an explicit Apply step, and leaving a just-removed
+  // condition still filtering the table until a separate Apply click looks
+  // like the "×" button silently did nothing.
   function removeDraftCondition(id) {
-    setDraftConditions((prev) => prev.filter((c) => c.id !== id));
+    const next = draftConditions.filter((c) => c.id !== id);
+    setDraftConditions(next);
+    updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: next } }));
   }
 
   function applyMetricFilters() {
@@ -2424,7 +2432,12 @@ function ExploreResultsTable({
                   }
                 />
               )}
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{row[def.key]}</span>
+              <span
+                onClick={drillDownEnabled ? () => toggleExpand(row, meta.level) : undefined}
+                style={{ overflow: "hidden", textOverflow: "ellipsis", cursor: drillDownEnabled ? "pointer" : undefined }}
+              >
+                {row[def.key]}
+              </span>
               <CopyIdButton id={row.entityId} onCopy={copyText} />
             </span>
           ) : (
@@ -2576,12 +2589,14 @@ function ExploreResultsTable({
                   )}
                   <span
                     title={row.entityLabel}
+                    onClick={childLevel ? () => toggleExpand(row, level) : undefined}
                     style={{
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                       minWidth: 0,
                       color: level === "ad" ? "var(--t2)" : "var(--t1)",
+                      cursor: childLevel ? "pointer" : undefined,
                     }}
                   >
                     {row.entityLabel}

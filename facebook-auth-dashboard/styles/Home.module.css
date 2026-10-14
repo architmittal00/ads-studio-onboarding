@@ -501,15 +501,18 @@ button.stat:hover {
   background: rgba(var(--surface-tint-rgb), 0.02);
 }
 
-/* ── Pinned "Total" row (SortableTable's `pinnedRow` prop) — bold and
-   visually separated from the real rows it's totaling, always last
-   regardless of sort/search. Doesn't need :hover's own highlight — it's
-   never a clickable row the way the ones above are. border-top (not
-   -bottom) since it now sits after every real row, framing it like a
-   footer rather than doubling up on the table's own closing edge. */
+/* ── Pinned "Total" row (SortableTable's `pinnedRow` prop) — bold,
+   visually separated from the real rows it's totaling, and rendered in its
+   own table below `.tableScroll` (see `.tableScrollFooter`) rather than as
+   one more row inside it, so it's always visible instead of only once
+   scrolled all the way down. Opaque (`color-mix`, not a translucent rgba
+   tint) since the frozen column's own cell in this row still slides
+   horizontally in step with the real table — same "needs to actually
+   occlude what's behind it" reasoning as the frozen column's own background
+   below. border-top frames it like a footer under the real rows. */
 .pinnedRow td {
   font-weight: 700;
-  background: rgba(var(--purple-rgb), 0.05);
+  background: color-mix(in srgb, var(--purple) 8%, var(--bg));
   border-top: 2px solid var(--border2);
 }
 
@@ -543,6 +546,17 @@ button.stat:hover {
   top: 0;
   background: rgba(var(--bg-rgb), 0.95);
   z-index: 3;
+}
+/* ── The pinned-row footer's own table (see SortableTable.js's `pinnedRow`
+   comment) — sits right below `.tableScroll`, entirely outside its vertical
+   scroll, so the total row is always visible rather than only once scrolled
+   to the bottom. `overflow: hidden` (not `auto`): it has no scrollbar of its
+   own, its horizontal position is driven by `.tableScroll`'s own scroll via
+   SortableTable's `handleMainScroll`, which only needs `scrollLeft` to be
+   settable — `hidden` still allows that while never showing a second,
+   independently-draggable scrollbar under the first. */
+.tableScrollFooter {
+  overflow: hidden;
 }
 
 /* ── Report layout: sticky section nav + wide content ──
