@@ -8,7 +8,6 @@ import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
-import DateRangePicker from "@/components/DateRangePicker";
 import RowActions from "@/components/RowActions";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
@@ -31,6 +30,8 @@ import {
   buildEffectiveCatalog,
 } from "@/lib/insightsMetrics";
 import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_COLORS } from "@/lib/tabGroups";
+import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
+import DateRangeMenu from "@/components/DateRangeMenu";
 import styles from "@/styles/Home.module.css";
 
 // Recharts measures its container via ResizeObserver, so it can't be
@@ -47,19 +48,6 @@ const EXPLORE_CACHE_MAX_ENTRIES = 50;
 const CUSTOM_EVENTS_CACHE_PREFIX = "explore-custom-conversions:";
 const CUSTOM_EVENTS_CACHE_MAX_ENTRIES = 20;
 const MAX_VIEWS = 15;
-
-const RANGE_PRESETS = [
-  { key: "today", label: "Today" },
-  { key: "yesterday", label: "Yesterday" },
-  { key: "last_3d", label: "Last 3 Days" },
-  { key: "last_7d", label: "Last 7 Days" },
-  { key: "last_14d", label: "Last 14 Days" },
-  { key: "last_30d", label: "Last 30 Days" },
-  { key: "last_90d", label: "Last 90 Days" },
-  { key: "this_month", label: "This Month" },
-  { key: "last_month", label: "Last Month" },
-  { key: "custom", label: "Custom" },
-];
 
 const TIME_GROUPING_OPTIONS = [
   { value: "", label: "No grouping (totals)" },
@@ -329,80 +317,6 @@ function createBlankView(seedAccountId = "") {
   };
 }
 
-function isoDate(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDaysUTC(dateStr, n) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return isoDate(d);
-}
-
-function todayUTC() {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
-
-// Mirrors pages/report.js's own lastNDaysRangeUTC() (and lib/adCreativeDetails.js's
-// server-side lastNDaysRange()) exactly: "Last N Days" means the N full days
-// immediately before today, not including today itself — today's own data is
-// still accumulating throughout the day and isn't a complete, comparable day
-// the way Ads Manager's "Last N days" picker also treats it. "Today" and
-// "Yesterday" are separate, explicit presets and are unaffected by this.
-function lastNDaysRangeExcludingToday(n, today) {
-  const until = addDaysUTC(isoDate(today), -1);
-  return { since: addDaysUTC(until, -(n - 1)), until };
-}
-
-// Every preset resolves to a concrete {since, until} — "custom" is the only
-// one that depends on user input rather than "now".
-function computeRange(preset, customSince, customUntil) {
-  const today = todayUTC();
-  switch (preset) {
-    case "today":
-      return { since: isoDate(today), until: isoDate(today) };
-    case "yesterday": {
-      const y = addDaysUTC(isoDate(today), -1);
-      return { since: y, until: y };
-    }
-    case "last_3d":
-      return lastNDaysRangeExcludingToday(3, today);
-    case "last_7d":
-      return lastNDaysRangeExcludingToday(7, today);
-    case "last_14d":
-      return lastNDaysRangeExcludingToday(14, today);
-    case "last_30d":
-      return lastNDaysRangeExcludingToday(30, today);
-    case "last_90d":
-      return lastNDaysRangeExcludingToday(90, today);
-    // Unlike every "Last N Days" preset above, month-to-date includes today
-    // — the natural reading of "This Month" is "so far," not "excluding
-    // whatever's still accumulating," the way a trailing N-day window is.
-    case "this_month": {
-      const todayIso = isoDate(today);
-      return { since: `${todayIso.slice(0, 7)}-01`, until: todayIso };
-    }
-    // The full previous calendar month (1st through its last day) — unlike
-    // "This Month," always a complete, comparable period rather than a
-    // still-accumulating one.
-    case "last_month": {
-      const firstOfThisMonth = `${isoDate(today).slice(0, 7)}-01`;
-      const lastOfPrevMonth = addDaysUTC(firstOfThisMonth, -1);
-      return { since: `${lastOfPrevMonth.slice(0, 7)}-01`, until: lastOfPrevMonth };
-    }
-    case "custom":
-      return customSince && customUntil ? { since: customSince, until: customUntil } : null;
-    default:
-      return null;
-  }
-}
-
-function inclusiveDayCount(since, until) {
-  return Math.round((new Date(`${until}T00:00:00Z`) - new Date(`${since}T00:00:00Z`)) / 86400000) + 1;
-}
-
 // A custom comparison period is always the same length as the primary range
 // — only its *start* is the user's choice, mirroring the backend's own
 // enforcement of this in pages/api/fb/explore-insights.js. Returns null
@@ -546,7 +460,9 @@ function describeQuery(view) {
 
 // One-line recap shown in place of the query form while the panel is
 // collapsed — just enough to tell which query produced what's on screen
-// without having to expand the panel to check.
+// without having to expand the panel to check. The date range itself isn't
+// repeated here — it's always already visible right next to this, in the
+// DateRangeMenu control (see renderDateRangeBar).
 function summarizeQuery(view, adAccounts) {
   const accountNames = view.accountIds.map((id) => adAccounts.find((a) => a.id === id)?.name).filter(Boolean);
   const accountLabel =
@@ -555,10 +471,9 @@ function summarizeQuery(view, adAccounts) {
       : accountNames.length === 1
       ? accountNames[0]
       : `${accountNames.length} accounts`;
-  const rangeLabel = RANGE_PRESETS.find((p) => p.key === view.rangePreset)?.label || view.rangePreset;
   const levelLabel = LEVEL_OPTIONS.find((l) => l.value === view.level)?.label;
   const metricCount = view.metricKeys.length;
-  return `${accountLabel} · ${rangeLabel} · ${levelLabel} level · ${metricCount} metric${metricCount === 1 ? "" : "s"}`;
+  return `${accountLabel} · ${levelLabel} level · ${metricCount} metric${metricCount === 1 ? "" : "s"}`;
 }
 
 // Small "?" badge that swaps a section's always-visible explanatory paragraph
@@ -1935,6 +1850,39 @@ export default function Explore() {
     );
   }
 
+  // The always-visible date-range + compare control (see DateRangeMenu's own
+  // comment for why it lives outside the Query & Filters panel) plus its
+  // validation messages — shared by both the expanded and collapsed layouts
+  // below so a performance marketer scanning several tabs can change either
+  // one without the panel being open at all.
+  function renderDateRangeBar() {
+    return (
+      <>
+        <DateRangeMenu
+          rangePreset={activeView.rangePreset}
+          customSince={activeView.customSince}
+          customUntil={activeView.customUntil}
+          maxRangeDays={MAX_RANGE_DAYS}
+          compareToPrevious={activeView.compareToPrevious}
+          compareCustomSince={activeView.compareCustomSince}
+          compareDisplay={activeView.compareDisplay}
+          compareDisabled={compareDisabled}
+          onApply={(patch) => updateActive(patch)}
+        />
+        {range && !rangeValid && (
+          <span className={styles.sub} style={{ color: "var(--red)" }}>
+            Date range cannot exceed {MAX_RANGE_DAYS} days (currently {rangeDays}).
+          </span>
+        )}
+        {customPrevious && !customPreviousValid && (
+          <span className={styles.sub} style={{ color: "var(--red)" }}>
+            Comparison period can&apos;t extend into the future.
+          </span>
+        )}
+      </>
+    );
+  }
+
   return (
     <Layout>
       <Head>
@@ -1981,7 +1929,26 @@ export default function Explore() {
 
           {queryPanelExpanded ? (
             <div className={styles.exploreLayout}>
-              <div className={styles.exploreContent}>{resultArea}</div>
+              <div className={styles.exploreContent}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    marginBottom: 14,
+                    position: "sticky",
+                    top: tabsRowHeight,
+                    zIndex: 4,
+                    background: "var(--bg)",
+                    paddingTop: 8,
+                    paddingBottom: 8,
+                  }}
+                >
+                  {renderDateRangeBar()}
+                </div>
+                {resultArea}
+              </div>
 
               <aside
                 ref={queryPanelRef}
@@ -2023,35 +1990,6 @@ export default function Explore() {
                       maxSelected={MAX_ACCOUNTS_PER_VIEW}
                       style={{ width: "100%", maxWidth: 420 }}
                     />
-                  </div>
-
-                  <div>
-                    <h2 className={styles.h2}>Date range</h2>
-                    <div className={styles.tabGroup} style={{ marginBottom: 10 }}>
-                      {RANGE_PRESETS.map((p) => (
-                        <button
-                          key={p.key}
-                          className={activeView.rangePreset === p.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                          onClick={() => updateActive({ rangePreset: p.key })}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                    {activeView.rangePreset === "custom" && (
-                      <DateRangePicker
-                        since={activeView.customSince}
-                        until={activeView.customUntil}
-                        maxIso={isoDate(todayUTC())}
-                        maxRangeDays={MAX_RANGE_DAYS}
-                        onApply={(since, until) => updateActive({ customSince: since, customUntil: until })}
-                      />
-                    )}
-                    {range && !rangeValid && (
-                      <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
-                        Date range cannot exceed {MAX_RANGE_DAYS} days (currently {rangeDays}).
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -2341,94 +2279,6 @@ export default function Explore() {
                     </div>
                   </div>
 
-                  <div>
-                    <SectionHeading hint="By default, shows each row's change against the immediately preceding period of equal length — a 7-day range compares week-over-week. Pick any other starting date below instead; the comparison period is always the same length as the one you selected above, only its start date is your choice.">
-                      Compare to previous period
-                    </SectionHeading>
-                    {compareDisabled && (
-                      <p className={styles.sub} style={{ marginBottom: 10 }}>
-                        Not available together with daily/weekly grouping.
-                      </p>
-                    )}
-                    <div className={styles.tabGroup}>
-                      <button
-                        className={!activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                        onClick={() => updateActive({ compareToPrevious: false })}
-                      >
-                        Off
-                      </button>
-                      <button
-                        className={activeView.compareToPrevious ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                        onClick={() => updateActive({ compareToPrevious: true })}
-                        disabled={compareDisabled}
-                      >
-                        On
-                      </button>
-                    </div>
-                    {activeView.compareToPrevious && !compareDisabled && (
-                      <div style={{ marginTop: 10 }}>
-                        <div className={styles.tabGroup} style={{ marginBottom: 10 }}>
-                          <button
-                            className={!activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                            onClick={() => updateActive({ compareCustomSince: "" })}
-                          >
-                            Immediately preceding (default)
-                          </button>
-                          <button
-                            className={activeView.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                            onClick={() =>
-                              updateActive((v) => ({
-                                compareCustomSince: v.compareCustomSince || (range && rangeDays ? addDaysUTC(range.since, -rangeDays) : ""),
-                              }))
-                            }
-                          >
-                            Custom start date
-                          </button>
-                        </div>
-                        {activeView.compareCustomSince && (
-                          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                            <input
-                              type="date"
-                              className={styles.select}
-                              value={activeView.compareCustomSince}
-                              max={isoDate(todayUTC())}
-                              onChange={(e) => updateActive({ compareCustomSince: e.target.value })}
-                            />
-                            {rangeDays && (
-                              <span className={styles.muted}>
-                                → {addDaysUTC(activeView.compareCustomSince, rangeDays - 1)} ({rangeDays} day
-                                {rangeDays === 1 ? "" : "s"}, matching the selected period)
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {customPrevious && !customPreviousValid && (
-                          <p className={styles.sub} style={{ color: "var(--red)", marginTop: 8 }}>
-                            Comparison period can&apos;t extend into the future.
-                          </p>
-                        )}
-                        <div style={{ marginTop: 10 }}>
-                          <span className={styles.muted} style={{ display: "block", marginBottom: 6 }}>
-                            Show each comparison as
-                          </span>
-                          <div className={styles.tabGroup}>
-                            <button
-                              className={activeView.compareDisplay !== "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                              onClick={() => updateActive({ compareDisplay: "change" })}
-                            >
-                              % Change
-                            </button>
-                            <button
-                              className={activeView.compareDisplay === "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                              onClick={() => updateActive({ compareDisplay: "absolute" })}
-                            >
-                              Absolute value
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                   </div>
 
                   <div className={styles.exploreQueryFooter}>
@@ -2465,9 +2315,12 @@ export default function Explore() {
                   paddingBottom: 8,
                 }}
               >
-                <p className={styles.sub} style={{ margin: 0 }}>
-                  {summarizeQuery(activeView, adAccounts)}
-                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  {renderDateRangeBar()}
+                  <p className={styles.sub} style={{ margin: 0 }}>
+                    {summarizeQuery(activeView, adAccounts)}
+                  </p>
+                </div>
                 <button
                   type="button"
                   className={styles.btnSecondary}
