@@ -1,0 +1,504 @@
+import { useEffect, useState } from "react";
+import Loader from "./Loader";
+import { CloseIcon, ChevronIcon } from "./icons";
+import { toMajorUnits } from "@/lib/reportShared";
+import styles from "@/styles/Home.module.css";
+
+function formatMoney(amount, currency) {
+  if (amount == null) return null;
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: currency || "INR", maximumFractionDigits: 0 }).format(amount);
+  } catch {
+    return `${amount.toFixed(0)} ${currency || ""}`;
+  }
+}
+
+function budgetLabel(entity, currency) {
+  if (entity.daily_budget) return `${formatMoney(toMajorUnits(entity.daily_budget), currency)}/day`;
+  if (entity.lifetime_budget) return `${formatMoney(toMajorUnits(entity.lifetime_budget), currency)} lifetime`;
+  return "No budget at this level";
+}
+
+// Minimal searchable list for the "choose a different ad set/campaign"
+// escape hatch — a smaller, modal-sized cousin of pages/launch.js's own
+// PickerList (kept separate rather than shared, same reasoning that file's
+// own comment gives: each caller wants slightly different row content).
+function PickerList({ items, query, onQueryChange, emptyLabel, renderRow }) {
+  const filtered = query.trim() ? items.filter((i) => i.name.toLowerCase().includes(query.trim().toLowerCase())) : items;
+  return (
+    <div>
+      <input
+        type="text"
+        autoFocus
+        className={styles.select}
+        style={{ width: "100%", marginBottom: 10 }}
+        placeholder="Search…"
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+      />
+      {filtered.length === 0 ? (
+        <p className={styles.sub}>{emptyLabel}</p>
+      ) : (
+        <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", maxHeight: 280, overflowY: "auto" }}>
+          {filtered.map((item) => renderRow(item))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PickerRow({ item, subtitle, badge, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: "10px 14px",
+        borderBottom: "1px solid var(--border)",
+        cursor: "pointer",
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 8,
+        alignItems: "center",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+        {subtitle && <span className={styles.muted}>{subtitle}</span>}
+      </div>
+      {badge && (
+        <span className={styles.badgeInfo} style={{ flexShrink: 0 }}>
+          {badge}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function BackLink({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: "var(--t2)", fontSize: 12.5, padding: 0, marginBottom: 12 }}
+    >
+      <ChevronIcon direction="left" size={12} />
+      Back
+    </button>
+  );
+}
+
+// The "Duplicate" row action's own popup — opened in place over Explore
+// instead of navigating to the Launch tab (same reasoning as RowActions'
+// existing budget-change modal: this is still fundamentally a "confirm a
+// change to one row and get right back to what you were doing" interaction,
+// just a multi-step creation instead of a single Graph call). Defaults to
+// the fastest, most common choice (duplicate into the SAME ad set/campaign
+// the source already lives in) with a "Change" escape hatch for the less
+// common case of an explicitly different destination — rather than forcing
+// a picker step every single time the way pages/launch.js's own standalone
+// duplicate flow does, which makes sense there (no row to default from) but
+// would just be friction here.
+//
+// Reuses the exact same backend this app already had for duplication:
+// pages/api/fb/ads-list.js + pages/api/fb/duplicate-ad.js for a single ad,
+// pages/api/fb/adsets-list.js (?adsetId=, already resolving the ad set's own
+// settings + its ads' creative ids) + pages/api/fb/launch-campaign.js for an
+// ad set and all of its ads. Everything is created paused, same safety
+// pattern as every object this app creates.
+export default function DuplicateEntityModal({ level, row, currency, onClose }) {
+  const accountId = row.accountId;
+  const [step, setStep] = useState("loading"); // loading | error | confirm | pick_destination | done
+  const [loadError, setLoadError] = useState(null);
+
+  // "ad" duplication
+  const [adSource, setAdSource] = useState(null);
+  const [adName, setAdName] = useState("");
+  const [adDestination, setAdDestination] = useState(null);
+  const [adsetChoices, setAdsetChoices] = useState([]);
+
+  // "adset" duplication
+  const [adsetSource, setAdsetSource] = useState(null);
+  const [campaignChoices, setCampaignChoices] = useState([]);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [budgetAmount, setBudgetAmount] = useState("");
+
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [progressMessage, setProgressMessage] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    function handleKey(e) {
+      if (e.key === "Escape" && !submitting) onClose();
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [submitting, onClose]);
+
+  // One-time load of the source entity (+ the candidate destinations, needed
+  // either immediately for the default or later if "Change" is clicked —
+  // fetched up front either way since it's one cheap list call).
+  useEffect(() => {
+    if (level === "ad") {
+      Promise.all([
+        fetch(`/api/fb/ads-list?adId=${encodeURIComponent(row.entityId)}`).then((res) => res.json()),
+        fetch(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`).then((res) => res.json()),
+      ])
+        .then(([adJson, adsetsJson]) => {
+          if (adJson.error) {
+            setLoadError(adJson.error);
+            setStep("error");
+            return;
+          }
+          setAdSource(adJson);
+          setAdName(`${adJson.name} - Copy`);
+          setAdDestination({ id: adJson.adsetId, name: adJson.adsetName, campaign: { name: adJson.campaignName } });
+          setAdsetChoices(adsetsJson.adsets || []);
+          setStep("confirm");
+        })
+        .catch((err) => {
+          setLoadError(err.message);
+          setStep("error");
+        });
+    } else {
+      Promise.all([
+        fetch(`/api/fb/adsets-list?adsetId=${encodeURIComponent(row.entityId)}`).then((res) => res.json()),
+        fetch(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`).then((res) => res.json()),
+      ])
+        .then(([adsetJson, campaignsJson]) => {
+          if (adsetJson.error) {
+            setLoadError(adsetJson.error);
+            setStep("error");
+            return;
+          }
+          setAdsetSource(adsetJson);
+          const list = campaignsJson.campaigns || [];
+          setCampaignChoices(list);
+          setSelectedCampaign(list.find((c) => c.id === adsetJson.campaignId) || { id: adsetJson.campaignId, name: adsetJson.campaignName });
+          setBudgetAmount(adsetJson.fields.budgetAmount || "");
+          setStep("confirm");
+        })
+        .catch((err) => {
+          setLoadError(err.message);
+          setStep("error");
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time load keyed to the specific row this modal was opened for
+  }, []);
+
+  // A destination campaign that already carries its own daily/lifetime
+  // budget is CBO (ad sets under it can't also have one); one with neither
+  // is ABO, so the new ad set needs its own budget amount — mirrors
+  // pages/launch.js's own campaignHasOwnBudget exactly, just derived from
+  // whichever campaign is currently selected here instead of a form field.
+  const adsetBudgetIsUsed = level === "adset" && !(selectedCampaign?.daily_budget || selectedCampaign?.lifetime_budget);
+  const adsetBudgetValid = !adsetBudgetIsUsed || (Number.isFinite(parseFloat(budgetAmount)) && parseFloat(budgetAmount) > 0);
+
+  function submitAd() {
+    if (submitting || !adName.trim() || !adDestination) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    fetch("/api/fb/duplicate-ad", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId, sourceAdId: adSource.id, destinationAdsetId: adDestination.id, name: adName }),
+    })
+      .then((res) => res.json().then((json) => ({ ok: res.ok, json })))
+      .then(({ ok, json }) => {
+        if (!ok) {
+          setSubmitError(json.error || "Request failed");
+          return;
+        }
+        setResult(json);
+        setStep("done");
+      })
+      .catch((err) => setSubmitError(err.message))
+      .finally(() => setSubmitting(false));
+  }
+
+  async function submitAdset() {
+    if (submitting || !selectedCampaign || !adsetBudgetValid) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    setProgressMessage("Starting…");
+    try {
+      const res = await fetch("/api/fb/launch-campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          existingCampaignId: selectedCampaign.id,
+          budgetStrategy: adsetBudgetIsUsed ? "ABO" : "CBO",
+          budgetType: adsetSource.fields.budgetType,
+          budgetAmount: adsetBudgetIsUsed ? budgetAmount : undefined,
+          adset: adsetSource.fields,
+          duplicateAds: adsetSource.ads,
+          status: "PAUSED",
+        }),
+      });
+      if (!res.ok || !res.body) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Request failed (${res.status})`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalResult = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          if (event.type === "progress") setProgressMessage(event.message);
+          else if (event.type === "done") finalResult = event;
+        }
+      }
+      setResult(finalResult);
+      setStep("done");
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+      setProgressMessage(null);
+    }
+  }
+
+  const adsetCount = adsetSource?.ads?.length || 0;
+  const canSubmit = level === "ad" ? !!adName.trim() && !!adDestination : !!selectedCampaign && adsetBudgetValid;
+
+  return (
+    <div
+      onClick={submitting ? undefined : onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.65)",
+        backdropFilter: "blur(6px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 800,
+        padding: 24,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={styles.card}
+        style={{ background: "var(--bg)", width: "min(480px, 100%)", maxHeight: "85vh", overflowY: "auto", display: "flex", flexDirection: "column" }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+          <div>
+            <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+              {step === "pick_destination"
+                ? level === "ad"
+                  ? "Choose a destination ad set"
+                  : "Choose a destination campaign"
+                : `Duplicate ${level === "ad" ? "ad" : "ad set"}`}
+            </h2>
+            <p className={styles.sub}>
+              {level === "ad" ? "Ad" : "Ad set"}: {row.entityLabel || row.label}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} disabled={submitting} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
+            <CloseIcon size={14} />
+          </button>
+        </div>
+
+        {step === "loading" && (
+          <div style={{ marginTop: 16 }}>
+            <Loader label="Loading…" />
+          </div>
+        )}
+
+        {step === "error" && (
+          <div className={styles.error} style={{ marginTop: 16 }}>
+            {loadError}
+          </div>
+        )}
+
+        {step === "pick_destination" && (
+          <div style={{ marginTop: 16 }}>
+            <BackLink onClick={() => setStep("confirm")} />
+            {level === "ad" ? (
+              <PickerList
+                items={adsetChoices}
+                query={pickerQuery}
+                onQueryChange={setPickerQuery}
+                emptyLabel="No ad sets found on this account."
+                renderRow={(a) => (
+                  <PickerRow
+                    key={a.id}
+                    item={a}
+                    subtitle={`${a.campaign?.name || ""} · ${budgetLabel(a, currency)}`}
+                    badge={a.status}
+                    onClick={() => {
+                      setAdDestination(a);
+                      setStep("confirm");
+                    }}
+                  />
+                )}
+              />
+            ) : (
+              <PickerList
+                items={campaignChoices}
+                query={pickerQuery}
+                onQueryChange={setPickerQuery}
+                emptyLabel="No campaigns found on this account."
+                renderRow={(c) => (
+                  <PickerRow
+                    key={c.id}
+                    item={c}
+                    subtitle={budgetLabel(c, currency)}
+                    badge={c.effective_status}
+                    onClick={() => {
+                      setSelectedCampaign(c);
+                      setStep("confirm");
+                    }}
+                  />
+                )}
+              />
+            )}
+          </div>
+        )}
+
+        {step === "confirm" && level === "ad" && (
+          <div style={{ marginTop: 16 }}>
+            <p className={styles.sub}>
+              This creates an exact copy of <strong style={{ color: "var(--t1)" }}>{adSource.name}</strong> — same creative, reused by
+              id (so a partnership/branded-content ad duplicates correctly too) — created paused.
+            </p>
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <p className={styles.sub} style={{ marginBottom: 2 }}>
+                  Destination ad set
+                </p>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{adDestination.name}</div>
+                <span className={styles.muted}>{adDestination.campaign?.name}</span>
+              </div>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => {
+                  setPickerQuery("");
+                  setStep("pick_destination");
+                }}
+              >
+                Change
+              </button>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <p className={styles.sub} style={{ marginBottom: 6 }}>
+                Name for the new ad
+              </p>
+              <input type="text" className={styles.select} style={{ width: "100%" }} value={adName} onChange={(e) => setAdName(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {step === "confirm" && level === "adset" && (
+          <div style={{ marginTop: 16 }}>
+            <p className={styles.sub}>
+              This creates an exact copy of <strong style={{ color: "var(--t1)" }}>{adsetSource.name}</strong>
+              {adsetCount > 0 && (
+                <>
+                  {" "}
+                  and its {adsetCount} ad{adsetCount === 1 ? "" : "s"} (same creative, reused by id)
+                </>
+              )}{" "}
+              — same targeting, created paused.
+            </p>
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <p className={styles.sub} style={{ marginBottom: 2 }}>
+                  Destination campaign
+                </p>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{selectedCampaign?.name}</div>
+              </div>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => {
+                  setPickerQuery("");
+                  setStep("pick_destination");
+                }}
+              >
+                Change
+              </button>
+            </div>
+            {adsetBudgetIsUsed && (
+              <div style={{ marginTop: 14 }}>
+                <p className={styles.sub} style={{ marginBottom: 6 }}>
+                  {selectedCampaign?.id === adsetSource.campaignId ? "This campaign has no campaign-level budget, so the " : "The "}
+                  new ad set&apos;s {adsetSource.fields.budgetType === "LIFETIME" ? "lifetime" : "daily"} budget
+                </p>
+                <input
+                  type="number"
+                  min="1"
+                  className={styles.select}
+                  style={{ width: "100%" }}
+                  placeholder={`Enter an amount (${currency || "₹"})`}
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === "done" && (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ fontWeight: 600, marginBottom: 4 }}>Duplicated successfully.</p>
+            <p className={styles.sub}>
+              {level === "ad"
+                ? `The new ad was created paused in "${adDestination.name}".`
+                : `The new ad set${adsetCount > 0 ? ` and its ${adsetCount} ad${adsetCount === 1 ? "" : "s"}` : ""} ${
+                    adsetCount > 0 ? "were" : "was"
+                  } created paused in "${selectedCampaign.name}".`}
+            </p>
+            {result && !result.success && (
+              <p className={styles.sub} style={{ color: "var(--amber)", marginTop: 8 }}>
+                Some steps had errors — check Ads Manager before activating.
+              </p>
+            )}
+          </div>
+        )}
+
+        {submitError && (
+          <div className={styles.error} style={{ marginTop: 14 }}>
+            {submitError}
+          </div>
+        )}
+
+        {step === "confirm" && (
+          <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
+            <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="button" className={styles.btnPrimary} onClick={level === "ad" ? submitAd : submitAdset} disabled={submitting || !canSubmit}>
+              {submitting ? progressMessage || "Duplicating…" : "Duplicate"}
+            </button>
+          </div>
+        )}
+        {step === "error" && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+            <button type="button" className={styles.btnSecondary} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        )}
+        {step === "done" && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+            <button type="button" className={styles.btnPrimary} onClick={onClose}>
+              Done
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

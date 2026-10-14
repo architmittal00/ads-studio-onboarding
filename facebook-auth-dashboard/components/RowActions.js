@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/router";
 import styles from "@/styles/Home.module.css";
 import { formatMetricValue, LEVEL_OPTIONS } from "@/lib/insightsMetrics";
 import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon, CopyIcon } from "./icons";
+import DuplicateEntityModal from "./DuplicateEntityModal";
 
 // Quick budget bumps — the common "cut it back" / "push it harder" pacing
 // moves a performance marketer actually reaches for, rather than typing an
@@ -20,15 +20,14 @@ const BUDGET_PRESETS = [-50, -20, -10, 10, 20, 50];
 //    ever sets dailyBudget/lifetimeBudget here when that's true, which is
 //    exactly the CBO/ABO-aware check this feature needs (see that file's
 //    fetchEntityBudgets comment).
-//  - Duplicate (ad/ad set only) hands off to the Launch tab instead of
-//    acting right here — unlike pause/activate/budget, which are one Graph
-//    call each, duplicating is a multi-step creation flow (and, for an ad
-//    set, "ask where" means picking a destination campaign) that pages/launch.js
-//    already has fully built; this just jumps straight to it pre-loaded with
-//    the row's own entity, skipping the picker step Launch's own entry point
-//    normally starts with. Needs `row.accountId` (always present — see
+//  - Duplicate (ad/ad set only) opens its own popup (DuplicateEntityModal)
+//    right here, same as the budget-change modal below — unlike those two,
+//    which are one Graph call each, duplicating is a multi-step creation
+//    flow, but it's still fundamentally "confirm something about this row
+//    and get right back to the table," not a reason to navigate away to the
+//    Launch tab. Needs `row.accountId` (always present — see
 //    pages/api/fb/explore-insights.js's row-building code) to know which
-//    account's Launch tab to open.
+//    account to fetch destinations from.
 function determineActions(row, level) {
   const actions = [];
   if (row.status === "ACTIVE") {
@@ -42,15 +41,7 @@ function determineActions(row, level) {
     actions.push({ key: "budget", kind: "budget", label: "Change Budget", field: "lifetime_budget", currentValue: row.lifetimeBudget });
   }
   if ((level === "ad" || level === "adset") && row.accountId) {
-    actions.push({
-      key: "duplicate",
-      kind: "duplicate",
-      label: "Duplicate",
-      query:
-        level === "ad"
-          ? { duplicateAdId: row.entityId, accountId: row.accountId }
-          : { duplicateAdsetId: row.entityId, accountId: row.accountId },
-    });
+    actions.push({ key: "duplicate", kind: "duplicate", label: "Duplicate" });
   }
   return actions;
 }
@@ -60,7 +51,6 @@ function determineActions(row, level) {
 // shown behind a small "Take Action" menu, nothing shown at all when this
 // row has no single entity to act on or nothing about it is actionable.
 export default function RowActions({ row, level, currency, onActionApplied }) {
-  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   // Viewport-relative {top, right} for the open menu, computed from the
   // trigger button's own getBoundingClientRect() at open time — see the
@@ -68,6 +58,7 @@ export default function RowActions({ row, level, currency, onActionApplied }) {
   // be `position: absolute` anchored to the button.
   const [menuPos, setMenuPos] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
+  const [duplicating, setDuplicating] = useState(false);
   const triggerRef = useRef(null);
 
   // A fixed-position menu doesn't move when its *ancestor* scrolls (unlike
@@ -93,7 +84,7 @@ export default function RowActions({ row, level, currency, onActionApplied }) {
   function openAction(action) {
     setMenuOpen(false);
     if (action.kind === "duplicate") {
-      router.push({ pathname: "/launch", query: action.query });
+      setDuplicating(true);
       return;
     }
     setPendingAction(action);
@@ -152,6 +143,7 @@ export default function RowActions({ row, level, currency, onActionApplied }) {
           }}
         />
       )}
+      {duplicating && <DuplicateEntityModal level={level} row={row} currency={currency} onClose={() => setDuplicating(false)} />}
     </div>
   );
 }
