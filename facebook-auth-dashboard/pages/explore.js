@@ -47,6 +47,30 @@ const CUSTOM_EVENTS_CACHE_PREFIX = "explore-custom-conversions:";
 const CUSTOM_EVENTS_CACHE_MAX_ENTRIES = 20;
 const MAX_VIEWS = 15;
 
+// Tab-group colors — a fixed palette, like Chrome's own tab groups, so two
+// groups are always visually distinct without asking anyone to pick a hex
+// value. `bg`/`border` are used for the group's chip and the tint across its
+// member tabs; `dot` is the small swatch shown in the color picker and next
+// to the group's name.
+const GROUP_COLORS = [
+  { key: "grey", dot: "#9aa0a6", bg: "rgba(154, 160, 166, 0.18)", border: "#9aa0a6" },
+  { key: "blue", dot: "#4c8bf5", bg: "rgba(76, 139, 245, 0.18)", border: "#4c8bf5" },
+  { key: "red", dot: "#ea4335", bg: "rgba(234, 67, 53, 0.18)", border: "#ea4335" },
+  { key: "yellow", dot: "#f4b400", bg: "rgba(244, 180, 0, 0.2)", border: "#f4b400" },
+  { key: "green", dot: "#34a853", bg: "rgba(52, 168, 83, 0.18)", border: "#34a853" },
+  { key: "pink", dot: "#e65fa1", bg: "rgba(230, 95, 161, 0.18)", border: "#e65fa1" },
+  { key: "purple", dot: "#a142f4", bg: "rgba(161, 66, 244, 0.18)", border: "#a142f4" },
+  { key: "cyan", dot: "#24c1e0", bg: "rgba(36, 193, 224, 0.18)", border: "#24c1e0" },
+];
+
+function newGroupId() {
+  return `g${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function groupColor(key) {
+  return GROUP_COLORS.find((c) => c.key === key) || GROUP_COLORS[0];
+}
+
 const RANGE_PRESETS = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
@@ -308,6 +332,23 @@ function createBlankView(seedAccountId = "") {
     // view never changes how its chart looks until someone opts in.
     chartSecondaryMetricKey: null,
     chartXAxisKey: "",
+    // The results table's own sort/search/column-order/frozen-column state —
+    // persisted per tab the same way as every other field here, so reopening
+    // this tab later (even after closing the browser) shows the table
+    // exactly as it was left, not swept back to defaults. `tableColOrder`
+    // null means "never customized" (SortableTable falls back to the
+    // current columns' own order). Row selection and the Total-row toggle
+    // stay session-only (see ExploreResultsTable's own state) — neither
+    // reads as a "filter" someone would expect to survive a reload the way
+    // a sort order or a typed-in search term does.
+    tableSortKey: null,
+    tableSortDir: "desc",
+    tableSearch: "",
+    tableColOrder: null,
+    tableFirstColFrozen: true,
+    // Which tab group (if any) this tab belongs to — see `groups` state in
+    // the Explore component and GROUP_COLORS below. Null means ungrouped.
+    groupId: null,
   };
 }
 
@@ -615,10 +656,42 @@ export default function Explore() {
   const [activeViewId, setActiveViewId] = useState(() => views[0].id);
   const activeView = views.find((v) => v.id === activeViewId) || views[0];
 
+  // Tab groups — like Chrome's own: a named, colored cluster of adjacent
+  // tabs. `{id, name, color, collapsed}`; membership lives on each view's own
+  // `groupId`, not here (so closing every tab in a group just leaves an
+  // empty group entry, cleaned up by pruneEmptyGroups below rather than
+  // tracked bidirectionally). Persisted alongside `views` — see the
+  // persistence effect below.
+  const [groups, setGroups] = useState([]);
+
   // Which tab (if any) is currently showing its rename text input in place
   // of its label — at most one at a time, cleared on commit/cancel/blur.
   const [renamingViewId, setRenamingViewId] = useState(null);
   const [renameDraft, setRenameDraft] = useState("");
+
+  // The tab being right-clicked (for "Add to group" / "Remove from group")
+  // or the group chip being clicked (for rename/color/ungroup/close) — at
+  // most one open menu at a time, closed on an outside click or Escape.
+  const [tabMenu, setTabMenu] = useState(null); // { type: "tab" | "group", id, x, y }
+  // The group popover's own rename field — seeded with that group's current
+  // name whenever the popover opens (see the chip's onClick below).
+  const [groupRenameDraft, setGroupRenameDraft] = useState("");
+
+  useEffect(() => {
+    if (!tabMenu) return;
+    function closeMenu() {
+      setTabMenu(null);
+    }
+    function closeOnEscape(e) {
+      if (e.key === "Escape") closeMenu();
+    }
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [tabMenu]);
 
   // Collapsed by default (per-device, like the app sidebar) so the result
   // table/chart — not the query form that produced it — is the first thing
@@ -846,6 +919,12 @@ export default function Explore() {
         compareCustomSince: v.compareCustomSince || "",
         compareDisplay: v.compareDisplay === "absolute" ? "absolute" : "change",
         resultFilters: v.resultFilters || { metricConditions: [], statusValues: null },
+        tableSortKey: v.tableSortKey ?? null,
+        tableSortDir: v.tableSortDir || "desc",
+        tableSearch: v.tableSearch || "",
+        tableColOrder: v.tableColOrder || null,
+        tableFirstColFrozen: v.tableFirstColFrozen !== false,
+        groupId: v.groupId ?? null,
       };
       delete migrated.accountId;
       const cached =
@@ -860,10 +939,16 @@ export default function Explore() {
         error: null,
       };
     });
+    // Only a group some restored view still actually points at survives —
+    // otherwise every tab ever grouped, then closed, across every session
+    // would pile up here forever.
+    const liveGroupIds = new Set(hydrated.map((v) => v.groupId).filter(Boolean));
+    const restoredGroups = (persisted.groups || []).filter((g) => liveGroupIds.has(g.id));
     // One-time hydration from localStorage on mount, not derived state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setViews(hydrated);
     setActiveViewId(hydrated.some((v) => v.id === persisted.activeViewId) ? persisted.activeViewId : hydrated[0].id);
+    setGroups(restoredGroups);
   }, []);
 
   // Seeds only the very first tab's account from the shared selector, once
@@ -879,15 +964,23 @@ export default function Explore() {
     setViews((prev) => prev.map((v, i) => (i === 0 && v.accountIds.length === 0 ? { ...v, accountIds: [selectedAccountId] } : v)));
   }, [selectedAccountId]);
 
+  // A group with no member tab left (its last tab closed, ungrouped, or
+  // evicted by withCapApplied) is dropped here — derived on every render
+  // instead of pruned reactively in an effect, so nothing ever displays or
+  // persists an invisible, empty group entry.
+  const liveGroups = useMemo(() => groups.filter((g) => views.some((v) => v.groupId === g.id)), [groups, views]);
+
   // Persists the open tabs' query specs (never their fetched results, which
-  // are ephemeral and re-derived from the cache on restore) whenever they
-  // change — a plain sync-to-external-system effect, not a state update.
+  // are ephemeral and re-derived from the cache on restore) and the tab
+  // groups whenever either changes — a plain sync-to-external-system effect,
+  // not a state update.
   useEffect(() => {
     setExploreViews({
       activeViewId,
       views: views.map(({ result, resultFetchedAt, loading, error, ...spec }) => spec),
+      groups: liveGroups,
     });
-  }, [views, activeViewId]);
+  }, [views, activeViewId, liveGroups]);
 
   function updateView(id, patch) {
     setViews((prev) => prev.map((v) => (v.id === id ? { ...v, ...(typeof patch === "function" ? patch(v) : patch) } : v)));
@@ -1008,6 +1101,75 @@ export default function Explore() {
     const next = views.filter((v) => v.id !== id);
     setViews(next);
     if (id === activeViewId) setActiveViewId(next[Math.max(0, idx - 1)].id);
+  }
+
+  // Tab groups mirror Chrome's own model: a group is just a name + color,
+  // and membership is a `groupId` on each view — grouping a tab always moves
+  // it next to its new group's other members so a group's tabs stay
+  // contiguous on screen, the same guarantee Chrome enforces (the rendering
+  // walk below assumes exactly one contiguous run per group id).
+  function moveViewNextToGroup(viewsList, viewId, groupId) {
+    const from = viewsList.findIndex((v) => v.id === viewId);
+    if (from === -1) return viewsList;
+    const view = viewsList[from];
+    const withoutView = viewsList.filter((v) => v.id !== viewId);
+    let insertAt = withoutView.findIndex((v) => v.groupId === groupId);
+    if (insertAt === -1) {
+      // No existing member to land next to — leave it roughly where it was.
+      insertAt = Math.min(from, withoutView.length);
+    } else {
+      while (insertAt < withoutView.length && withoutView[insertAt].groupId === groupId) insertAt++;
+    }
+    const next = [...withoutView];
+    next.splice(insertAt, 0, view);
+    return next;
+  }
+
+  function createGroupFromView(viewId) {
+    const id = newGroupId();
+    const usedColors = new Set(liveGroups.map((g) => g.color));
+    const color = (GROUP_COLORS.find((c) => !usedColors.has(c.key)) || GROUP_COLORS[liveGroups.length % GROUP_COLORS.length]).key;
+    setGroups((prev) => [...prev, { id, name: "New group", color, collapsed: false }]);
+    setViews((prev) => moveViewNextToGroup(prev, viewId, id).map((v) => (v.id === viewId ? { ...v, groupId: id } : v)));
+    setTabMenu(null);
+  }
+
+  function addViewToGroup(viewId, groupId) {
+    setViews((prev) => moveViewNextToGroup(prev, viewId, groupId).map((v) => (v.id === viewId ? { ...v, groupId } : v)));
+    setTabMenu(null);
+  }
+
+  function removeViewFromGroup(viewId) {
+    setViews((prev) => prev.map((v) => (v.id === viewId ? { ...v, groupId: null } : v)));
+    setTabMenu(null);
+  }
+
+  function commitGroupRename(groupId, name) {
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, name: name.trim() || g.name } : g)));
+  }
+
+  function recolorGroup(groupId, color) {
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, color } : g)));
+  }
+
+  function toggleGroupCollapsed(groupId) {
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, collapsed: !g.collapsed } : g)));
+  }
+
+  function ungroup(groupId) {
+    setViews((prev) => prev.map((v) => (v.groupId === groupId ? { ...v, groupId: null } : v)));
+    setTabMenu(null);
+  }
+
+  // Closes every tab in a group at once (Chrome's own "Close group") —
+  // refuses if that would close every open tab, same guard as closeView.
+  function closeGroup(groupId) {
+    const memberIds = new Set(views.filter((v) => v.groupId === groupId).map((v) => v.id));
+    const next = views.filter((v) => !memberIds.has(v.id));
+    if (next.length === 0) return;
+    setViews(next);
+    if (memberIds.has(activeViewId)) setActiveViewId(next[0].id);
+    setTabMenu(null);
   }
 
   function toggleMetric(key) {
@@ -1495,6 +1657,14 @@ export default function Explore() {
 
           {activeView.viewMode === "table" ? (
             <ExploreResultsTable
+              // Remounts on tab switch so SortableTable's own internal sort/
+              // search/column-order/freeze state (seeded below from this
+              // tab's last-saved values) genuinely belongs to this one tab,
+              // instead of leaking whatever the previously-active tab left
+              // behind — same instance today meant switching tabs kept the
+              // old tab's search text and frozen column showing on the new
+              // one's columns.
+              key={activeViewId}
               rows={filteredRows}
               meta={result.meta}
               adAccounts={adAccounts}
@@ -1505,6 +1675,12 @@ export default function Explore() {
               resultFilters={activeView.resultFilters}
               onOpenChildView={openChildViewFromSelection}
               compareDisplay={activeView.compareDisplay}
+              tableSortKey={activeView.tableSortKey}
+              tableSortDir={activeView.tableSortDir}
+              tableSearch={activeView.tableSearch}
+              tableColOrder={activeView.tableColOrder}
+              tableFirstColFrozen={activeView.tableFirstColFrozen}
+              onTableViewChange={updateActive}
             />
           ) : activeView.chartMetricKey ? (
             <ExploreChart
@@ -1523,6 +1699,281 @@ export default function Explore() {
       )}
     </>
   );
+
+  // Renders one tab button — shared between ungrouped tabs and a group's own
+  // member tabs below, so both look and behave identically. `idx` is this
+  // tab's position in the full `views` array (what viewTitle's "View N"
+  // fallback numbers off), `groupColorKey` (if any) tints it to match its
+  // group.
+  function renderTabButton(v, idx, groupColorKey) {
+    const isActive = v.id === activeViewId;
+    const isRenaming = renamingViewId === v.id;
+    const tint = groupColorKey ? groupColor(groupColorKey) : null;
+    return (
+      <div
+        key={v.id}
+        onClick={() => setActiveViewId(v.id)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setTabMenu({ type: "tab", id: v.id, x: e.clientX, y: e.clientY });
+        }}
+        title={
+          isRenaming
+            ? undefined
+            : `${viewTitle(v, adAccounts, idx)} — double-click to rename, right-click for group options`
+        }
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 10px",
+          borderRadius: "10px 10px 0 0",
+          cursor: "pointer",
+          fontSize: 12.5,
+          fontWeight: 600,
+          maxWidth: isRenaming ? 220 : 190,
+          background: isActive ? "var(--bg)" : tint ? tint.bg : "transparent",
+          border: "1px solid var(--border)",
+          borderBottom: isActive ? "2px solid var(--purple)" : "1px solid var(--border)",
+          color: isActive ? "var(--t1)" : "var(--t2)",
+        }}
+      >
+        {v.loading && <span className={`${styles.spinner} ${styles.spinnerSm}`} />}
+        {isRenaming ? (
+          <input
+            type="text"
+            autoFocus
+            className={styles.select}
+            value={renameDraft}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setRenameDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") cancelRename();
+            }}
+            style={{ width: 140, fontSize: 12.5, padding: "2px 6px" }}
+          />
+        ) : (
+          <span
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              startRenaming(v, idx);
+            }}
+            style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            {viewTitle(v, adAccounts, idx)}
+          </span>
+        )}
+        {views.length > 1 && !isRenaming && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeView(v.id);
+            }}
+            title="Close this view"
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              color: "inherit",
+              display: "flex",
+              flexShrink: 0,
+            }}
+          >
+            <CloseIcon size={11} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // A group's colored label chip, like Chrome's own tab-group label — click
+  // opens the rename/color/collapse/ungroup/close popover (see `tabMenu`).
+  function renderGroupChip(group, memberCount) {
+    const tint = groupColor(group.color);
+    return (
+      <button
+        type="button"
+        key={`chip-${group.id}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setGroupRenameDraft(group.name);
+          setTabMenu((prev) =>
+            prev?.type === "group" && prev.id === group.id ? null : { type: "group", id: group.id, x: e.clientX, y: e.clientY }
+          );
+        }}
+        title={`${group.name} — click to rename, recolor, collapse, or ungroup`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 10px 8px 12px",
+          cursor: "pointer",
+          fontSize: 12.5,
+          fontWeight: 700,
+          color: "var(--t1)",
+          background: tint.bg,
+          border: `1px solid ${tint.border}`,
+          borderBottom: "none",
+          borderRadius: "10px 0 0 0",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span style={{ width: 9, height: 9, borderRadius: "50%", background: tint.border, flexShrink: 0 }} />
+        {group.name}
+        {group.collapsed && <span style={{ color: "var(--t3)", fontWeight: 600 }}>({memberCount})</span>}
+      </button>
+    );
+  }
+
+  // Walks `views` in order, clustering each group's tabs (always contiguous
+  // — see moveViewNextToGroup) behind its chip, so grouped and ungrouped tabs
+  // can freely interleave along the strip exactly like Chrome's own tab bar.
+  // A collapsed group still shows its currently-active member (if any) right
+  // after the chip, so switching to a tab never hides the very tab you're
+  // looking at — only its other, non-active siblings disappear.
+  function renderTabStrip() {
+    const elements = [];
+    let i = 0;
+    while (i < views.length) {
+      const v = views[i];
+      if (!v.groupId) {
+        elements.push(renderTabButton(v, i, null));
+        i++;
+        continue;
+      }
+      const group = groups.find((g) => g.id === v.groupId);
+      let j = i;
+      while (j < views.length && views[j].groupId === v.groupId) j++;
+      const members = views.slice(i, j);
+      const startIdx = i;
+      elements.push(
+        <div key={`group-${v.groupId}`} style={{ display: "flex", alignItems: "flex-end" }}>
+          {group ? renderGroupChip(group, members.length) : null}
+          {(!group?.collapsed
+            ? members
+            : members.filter((m) => m.id === activeViewId)
+          ).map((m) => renderTabButton(m, startIdx + members.indexOf(m), group?.color))}
+        </div>
+      );
+      i = j;
+    }
+    return elements;
+  }
+
+  // The right-click "add to / remove from group" menu on a tab, or the
+  // click-to-manage popover on a group's own chip — whichever `tabMenu`
+  // currently points at. Rendered fixed at the triggering click's own
+  // coordinates; closed by the window click/Escape listener set up above.
+  function renderTabMenu() {
+    if (!tabMenu) return null;
+    const menuStyle = {
+      position: "fixed",
+      top: tabMenu.y + 4,
+      left: tabMenu.x,
+      zIndex: 50,
+      background: "var(--bg)",
+      border: "1px solid var(--border)",
+      borderRadius: 10,
+      boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+      padding: 8,
+      minWidth: 200,
+      fontSize: 12.5,
+    };
+    const menuItemStyle = {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      width: "100%",
+      textAlign: "left",
+      background: "none",
+      border: "none",
+      padding: "6px 8px",
+      borderRadius: 6,
+      cursor: "pointer",
+      color: "var(--t1)",
+    };
+
+    if (tabMenu.type === "tab") {
+      const view = views.find((v) => v.id === tabMenu.id);
+      if (!view) return null;
+      return (
+        <div style={menuStyle} onClick={(e) => e.stopPropagation()}>
+          {view.groupId && (
+            <button type="button" style={menuItemStyle} onClick={() => removeViewFromGroup(view.id)}>
+              Remove from group
+            </button>
+          )}
+          <button type="button" style={menuItemStyle} onClick={() => createGroupFromView(view.id)}>
+            Add tab to new group
+          </button>
+          {liveGroups
+            .filter((g) => g.id !== view.groupId)
+            .map((g) => (
+              <button key={g.id} type="button" style={menuItemStyle} onClick={() => addViewToGroup(view.id, g.id)}>
+                <span
+                  style={{ width: 9, height: 9, borderRadius: "50%", background: groupColor(g.color).border, flexShrink: 0 }}
+                />
+                Add to &quot;{g.name}&quot;
+              </button>
+            ))}
+        </div>
+      );
+    }
+
+    const group = groups.find((g) => g.id === tabMenu.id);
+    if (!group) return null;
+    const memberCount = views.filter((v) => v.groupId === group.id).length;
+    return (
+      <div style={menuStyle} onClick={(e) => e.stopPropagation()}>
+        <input
+          type="text"
+          autoFocus
+          className={styles.select}
+          value={groupRenameDraft}
+          onChange={(e) => setGroupRenameDraft(e.target.value)}
+          onBlur={() => commitGroupRename(group.id, groupRenameDraft)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitGroupRename(group.id, groupRenameDraft);
+            if (e.key === "Escape") setTabMenu(null);
+          }}
+          style={{ width: "100%", marginBottom: 8 }}
+        />
+        <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+          {GROUP_COLORS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => recolorGroup(group.id, c.key)}
+              title={c.key}
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: c.dot,
+                border: group.color === c.key ? "2px solid var(--t1)" : "2px solid transparent",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            />
+          ))}
+        </div>
+        <button type="button" style={menuItemStyle} onClick={() => toggleGroupCollapsed(group.id)}>
+          {group.collapsed ? "Expand group" : "Collapse group"}
+        </button>
+        <button type="button" style={menuItemStyle} onClick={() => ungroup(group.id)}>
+          Ungroup
+        </button>
+        <button type="button" style={{ ...menuItemStyle, color: "var(--red)" }} onClick={() => closeGroup(group.id)}>
+          Close group ({memberCount} tab{memberCount === 1 ? "" : "s"})
+        </button>
+      </div>
+    );
+  }
 
   return (
     <Layout>
@@ -1555,81 +2006,7 @@ export default function Explore() {
               paddingBottom: 2,
             }}
           >
-            {views.map((v, i) => {
-              const isActive = v.id === activeViewId;
-              const isRenaming = renamingViewId === v.id;
-              return (
-                <div
-                  key={v.id}
-                  onClick={() => setActiveViewId(v.id)}
-                  title={isRenaming ? undefined : `${viewTitle(v, adAccounts, i)} — double-click to rename`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "8px 10px",
-                    borderRadius: "10px 10px 0 0",
-                    cursor: "pointer",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    maxWidth: isRenaming ? 220 : 190,
-                    background: isActive ? "var(--bg)" : "transparent",
-                    border: "1px solid var(--border)",
-                    borderBottom: isActive ? "2px solid var(--purple)" : "1px solid var(--border)",
-                    color: isActive ? "var(--t1)" : "var(--t2)",
-                  }}
-                >
-                  {v.loading && <span className={`${styles.spinner} ${styles.spinnerSm}`} />}
-                  {isRenaming ? (
-                    <input
-                      type="text"
-                      autoFocus
-                      className={styles.select}
-                      value={renameDraft}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setRenameDraft(e.target.value)}
-                      onBlur={commitRename}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitRename();
-                        if (e.key === "Escape") cancelRename();
-                      }}
-                      style={{ width: 140, fontSize: 12.5, padding: "2px 6px" }}
-                    />
-                  ) : (
-                    <span
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        startRenaming(v, i);
-                      }}
-                      style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                    >
-                      {viewTitle(v, adAccounts, i)}
-                    </span>
-                  )}
-                  {views.length > 1 && !isRenaming && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeView(v.id);
-                      }}
-                      title="Close this view"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        color: "inherit",
-                        display: "flex",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <CloseIcon size={11} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+            {renderTabStrip()}
             <button
               type="button"
               onClick={addBlankView}
@@ -1640,6 +2017,7 @@ export default function Explore() {
               +
             </button>
           </div>
+          {renderTabMenu()}
 
           {queryPanelExpanded ? (
             <div className={styles.exploreLayout}>
@@ -2250,6 +2628,12 @@ function ExploreResultsTable({
   resultFilters,
   onOpenChildView,
   compareDisplay,
+  tableSortKey,
+  tableSortDir,
+  tableSearch,
+  tableColOrder,
+  tableFirstColFrozen,
+  onTableViewChange,
 }) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
@@ -2945,16 +3329,28 @@ function ExploreResultsTable({
         <SortableTable
           rows={topLevelRows}
           columns={columns}
-          defaultSortKey={meta.metricKeys[0] || "label"}
+          defaultSortKey={tableSortKey || meta.metricKeys[0] || "label"}
+          defaultSortDir={tableSortDir || "desc"}
+          initialSearch={tableSearch}
+          initialColOrder={tableColOrder}
+          initialFirstColFrozen={tableFirstColFrozen}
           maxHeight={480}
           searchable
           searchKeys={leadingColumns.map((c) => c.key)}
           searchPlaceholder="Search rows…"
           resizableColumns
           renderRowExtra={drillDownEnabled || timePivotEnabled ? renderRowExtra : undefined}
-          onSortChange={(key, dir) => setChildSort({ key, dir })}
-          onSearchChange={setChildSearch}
+          onSortChange={(key, dir) => {
+            setChildSort({ key, dir });
+            onTableViewChange?.({ tableSortKey: key, tableSortDir: dir });
+          }}
+          onSearchChange={(s) => {
+            setChildSearch(s);
+            onTableViewChange?.({ tableSearch: s });
+          }}
           onFreezeChange={setChildFrozenKey}
+          onColOrderChange={(order) => onTableViewChange?.({ tableColOrder: order })}
+          onFirstColFrozenChange={(frozen) => onTableViewChange?.({ tableFirstColFrozen: frozen })}
           pinnedRow={showTotalsRow ? meta.totalsRow || undefined : undefined}
           highlightRow={(row) => !!row.entityId && selectedIds.has(row.entityId)}
         />

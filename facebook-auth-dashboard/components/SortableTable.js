@@ -86,7 +86,15 @@ function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth, 
 // once on mount with its initial value — letting a caller that's rendering
 // its own extra rows via `renderRowExtra` mirror the same sort/search/freeze
 // the visible top-level rows are under, instead of those extra rows silently
-// ignoring it. `frozenKey` is `null` when nothing's pinned.
+// ignoring it. `frozenKey` is `null` when nothing's pinned. `onColOrderChange`/
+// `onFirstColFrozenChange` are the equivalent for column order and the
+// freeze toggle's own boolean (as opposed to `onFreezeChange`'s resolved
+// column key) — for a caller that wants to remember exactly how someone left
+// the table, not just mirror it into sibling rows. `initialSearch`/
+// `initialColOrder`/`initialFirstColFrozen` seed that same state back in on
+// mount (alongside the existing `defaultSortKey`/`defaultSortDir`) — a
+// one-time read, same as those two, not a controlled prop kept in sync on
+// every change.
 // `pinnedRow`, if given, renders one extra row via the same `columns[].
 // render`/frozen-column treatment as a normal row — outside sorting,
 // searching, and `renderRowExtra` entirely (a caller's own "Total" row, say,
@@ -119,11 +127,16 @@ export default function SortableTable({
   onSortChange,
   onSearchChange,
   onFreezeChange,
+  onColOrderChange,
+  onFirstColFrozenChange,
+  initialSearch = "",
+  initialColOrder,
+  initialFirstColFrozen = true,
   pinnedRow,
 }) {
   const [sortKey, setSortKey] = useState(defaultSortKey || columns[0]?.key);
   const [sortDir, setSortDir] = useState(defaultSortDir);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch || "");
 
   useEffect(() => {
     onSortChange?.(sortKey, sortDir);
@@ -155,10 +168,22 @@ export default function SortableTable({
   // prop below rather than trusted outright — a key that's gone (last
   // query's breakdown column, say) is just dropped, so switching queries
   // can't leave the table rendering a stale or missing column.
-  const [colOrder, setColOrder] = useState(() => columns.map((c) => c.key));
+  const [colOrder, setColOrder] = useState(() =>
+    initialColOrder?.length ? initialColOrder : columns.map((c) => c.key)
+  );
   const [dragKey, setDragKey] = useState(null);
   const [dragOverKey, setDragOverKey] = useState(null);
-  const [firstColFrozen, setFirstColFrozen] = useState(true);
+  const [firstColFrozen, setFirstColFrozen] = useState(initialFirstColFrozen);
+
+  useEffect(() => {
+    onColOrderChange?.(colOrder);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colOrder]);
+
+  useEffect(() => {
+    onFirstColFrozenChange?.(firstColFrozen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstColFrozen]);
 
   // Preserves the user's own relative order for every column that was
   // already part of it, but places any newly-appeared column (a Breakdown
