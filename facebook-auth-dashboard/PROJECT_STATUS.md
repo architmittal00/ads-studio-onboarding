@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-13**, by Claude, right after merging PR #144.
+> Last updated: **2026-10-14**, by Claude, right after merging PR #146.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`8c31133`** — "Explore: replace the two separate custom-date-range inputs with one inline calendar picker" (PR #144, merged 2026-10-13).
+Latest commit as of this writing: **`cf7a76e`** — "Explore: make row names clickable to expand, auto-apply a removed metric filter, and make the Total row a true pinned footer" (PR #146, merged 2026-10-14).
 
 No open PRs. Everything described below is merged and live.
 
@@ -77,33 +77,25 @@ No open PRs. Everything described below is merged and live.
 
 ---
 
-## 5. Most recent work (this session, 2026-10-13)
+## 5. Most recent work (2026-10-14)
 
-### PR #144 — single inline calendar for the custom date range
+### PR #146 — clickable row names, auto-apply filter removal, true pinned Total row
 
-The "Custom" date range option used two independent native `<input type="date">` fields. The user explicitly asked for one unified picker instead of two separate fields — added `components/DateRangePicker.js`: a click-through calendar popover (click a start day, then an end day; hovering between them previews the range; live day count; Apply/Cancel). Shows two months side by side so a range crossing a month boundary doesn't need manual navigation.
+Three more user-reported Explore issues:
 
-Positioned `fixed` from the trigger's own `getBoundingClientRect()` (same convention as `RowActions`' action menu) rather than CSS-anchored `absolute`, since the trigger lives inside Explore's internally-scrolling query panel. **Found and fixed a real overflow bug during testing**: a naive left-anchor placed the ~520px-wide popover off the right edge of the screen, since the trigger sits in a narrow 380px right-hand column — now clamped into the viewport on both axes (flips above the trigger when there's no room below, shifts left when there's no room to the right).
+1. **Row names weren't clickable to expand/collapse** — only the small chevron icon toggled a campaign → ad sets / ad set → ads drill-down; the name text next to it did nothing. Now clickable too, at both the top-level table and drilled-into child rows, wherever a child level actually exists (an Ad-level name stays inert — nothing below it).
+2. **Removing a metric filter didn't auto-apply** — the "×" on a draft metric-threshold condition only updated the local draft state; the table kept showing the filtered-down result until a separate "Apply Filters" click. Now commits immediately, same as the Status checkboxes already did.
+3. **Total row wasn't actually pinned** — it was `position: sticky; bottom: 0` on the last `<tr>` of the scrollable body. Sticky-bottom on an element with nothing after it to scroll past only "catches" in the last few pixels of scrolling — for any non-trivial result the total was invisible until scrolled almost to the very end. **Restructured, not just re-styled**: `components/SortableTable.js`'s `pinnedRow` now renders as a second, separate `<table>` below `.tableScroll` (outside its vertical scroll entirely), with its horizontal scroll mirrored from the real table via a plain `scrollLeft` sync on scroll — reproduces a proper frozen-footer/scrollable-body split, including a frozen column staying aligned between the two tables.
 
-This supersedes PR #142's item 5 ("already existed, no change needed") — it's now an actual unified picker, not two fields.
+### Earlier rounds this week (compressed)
 
-### PR #142 — chart filtering visibility, stuck query-panel height, always-on search, Last Month preset
+- **PR #144**: the "Custom" date range's two native date inputs replaced with one inline calendar popover (`components/DateRangePicker.js`) — click a start day then an end day, Apply/Cancel. Positioned `fixed` and clamped into the viewport (found and fixed it initially overflowing the screen in that narrow query-panel column).
+- **PR #142**: a time-series chart's `connectNulls` was invisibly bridging over rows a filter had removed, making "Applying filters don't work in charts" look true even though it wasn't; fixed by building the x-axis from the full date range and dropping `connectNulls`. Also: the results-table search box no longer disappears for ≤6 rows, the Query & Filters panel's height-recompute no longer permanently wedges itself after one dropped scroll/resize frame, and a "Last Month" preset was added.
+- **PR #140**: column-order reconciliation on "Update This View", a filter-apply loading pulse, a "Value / % Change" metric-filter basis, a frozen-column/sticky-header z-index fix, thumbnails on direct Ad-level queries, "+ Open New" prominence, and the Total row first moved to render after real rows (later superseded by #146's pinned-footer rework above).
 
-Shipped against another batch of 5 user-reported Explore issues:
+**Testing-environment gotcha** (found while diagnosing #142's query-panel bug, still relevant): in this session's Browser-tool pane, neither a programmatic `el.scrollTop = n` on `document.body` nor a `resize_window` viewport change reliably fires a native `scroll`/`resize` DOM event (confirmed with a bare, unrelated listener that never fired either) — a quirk of the CDP-based automation, not of this app. Scrolling a plain (non-`body`) element's own `scrollTop` via `javascript_tool`, by contrast, works fine and does fire real scroll events — that's how #146's pinned-footer fix above was actually verified. Prefer that over `document.body` tricks, and fall back to a real `computer` scroll gesture (when the pane isn't reporting "hidden") for anything that must specifically test page-level scroll/resize.
 
-1. **"Applying filters don't work in charts"** — root-caused to `connectNulls` on the time-series `<Line>` in `components/ExploreChart.js`: a row excluded by the "Filter results" panel just got smoothed over into an invisible gap instead of a visible break, so filtering a chart could look like it did nothing even though the underlying data array genuinely shrank (verified directly: dot/row counts dropped, the line just didn't show it). Fixed by building the time-series x-axis from every calendar day in the query's actual date range (not just whichever days still have a surviving row) and removing `connectNulls`, so a filtered-out (or genuinely missing) day now renders as a real break in the line.
-2. **"Search option disappears"** — `SortableTable`'s search box in Explore was gated on `rows.length > 6`; any result/drill-down with 6 or fewer rows silently lost its search box. Now always shown.
-3. **"Query box keeps on expanding"** — the Query & Filters panel's max-height recompute (on scroll/resize) used a `requestAnimationFrame` "skip while one's already pending" latch (`if (frame) return; frame = requestAnimationFrame(recompute)`). If that one pending frame is ever dropped/delayed — confirmed directly: a real viewport resize left the computed max-height frozen at its old value, with the panel's bottom edge measured running 200px past the actual new viewport bottom — every later scroll/resize is silently ignored for the rest of that panel's lifetime. Fixed by switching to cancel-and-reschedule (`if (frame) cancelAnimationFrame(frame); frame = requestAnimationFrame(recompute)`), which can't wedge itself permanently.
-4. **"Last Month" preset** added to `RANGE_PRESETS` (full previous calendar month, distinct from "This Month"'s month-to-date).
-5. **Custom start/end date picker** — at the time, the two-native-date-inputs version already existed and was verified working, so no change was made here. The user then asked for a single unified picker instead of two fields — see PR #144 below, which replaced it.
-
-**Testing-environment gotcha found while diagnosing #3, worth knowing for next time:** in this session's Browser-tool pane, neither a programmatic `el.scrollTop = n` assignment nor a `resize_window` viewport change reliably fires a native `scroll`/`resize` DOM event (confirmed by attaching a bare, unrelated listener and seeing it never fire either) — this is a quirk of the CDP-based automation/emulation, not of this app. A real mouse-wheel scroll via the `computer` tool's `scroll` action is the correct way to test scroll-driven behavior here, but repeatedly failed in this session with "Browser pane is currently hidden" — a recurring tool limitation this session hit, not something fixable from the app side. When it recurs, fall back to reasoning about the fix's correctness from the code plus whatever partial signal `javascript_tool` can get (it can still read computed styles/geometry after a change, just can't always *trigger* a trusted scroll/resize event itself).
-
-### PR #140 (older — compressed)
-
-A prior batch of 7 items, all shipped: column-order reconciliation on "Update This View", a brief loading pulse during filter apply, a "Value / % Change" basis option for metric-threshold filters, a sticky-header-vs-frozen-column z-index fix, thumbnails on direct Ad-level queries, "+ Open New" moved first/pulsing in the selection bar, and the Total row moved to render after real rows with a show/hide toggle. Full detail in PR #140's own description if needed.
-
-All three rounds verified via a disposable mocked preview harness (deleted before commit — see the convention note below); `npm run lint` and `npm run build` clean for all.
+All four rounds verified via a disposable mocked preview harness (deleted before commit — see the convention note below); `npm run lint` and `npm run build` clean for all.
 
 ### The mocked-preview-harness convention (use this for any Explore UI verification)
 
@@ -153,7 +145,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Nothing is currently queued.** The last two batches of user-requested Explore fixes (§5) are fully shipped. There is no known open task, bug, or plan waiting to be picked up as of 2026-10-13.
+**Nothing is currently queued.** Every batch of user-requested Explore fixes in §5 is fully shipped. There is no known open task, bug, or plan waiting to be picked up as of 2026-10-14.
 
 When new work comes in:
 1. Read this whole file first, then skim `README.md` for the relevant feature area.
