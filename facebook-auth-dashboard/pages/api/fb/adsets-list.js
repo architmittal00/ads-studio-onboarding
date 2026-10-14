@@ -98,13 +98,15 @@ export default async function handler(req, res) {
         .filter((a) => a.creative?.id)
         .map((a) => ({ name: `${a.name} - Copy`, creativeId: a.creative.id }));
       res.status(200).json({
-        // The ad set's own raw name and campaign name — kept separate from
-        // `fields.name` (which already has " - Copy" appended by
-        // toFormFields) so a caller that jumped straight here from Explore's
-        // "Duplicate" row action (skipping the picker list, which is where
-        // this info would otherwise come from) can still show "Duplicating
-        // 'X' (in campaign Y)" for context.
+        // The ad set's own raw name, campaign id, and campaign name — kept
+        // separate from `fields.name` (which already has " - Copy" appended
+        // by toFormFields) so a caller that jumped straight here from
+        // Explore's "Duplicate" row action (skipping the picker list, which
+        // is where this info would otherwise come from) can still show
+        // "Duplicating 'X' (in campaign Y)" for context, and default a
+        // destination picker to the ad set's own current campaign.
         name: adset.name,
+        campaignId: adset.campaign_id || null,
         campaignName: adset.campaign?.name || null,
         campaignObjective: adset.campaign?.objective || null,
         fields: toFormFields(adset),
