@@ -2,10 +2,17 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon, GripIcon, PinIcon } from "./icons";
 import styles from "@/styles/Home.module.css";
 
+// Same color a highlighted row's non-frozen cells get from `.highlightedRow
+// td` in Home.module.css — kept here too so a *frozen* cell in that row (its
+// background set inline below, which would otherwise win over the CSS class
+// entirely) can still match it instead of reverting to the plain opaque
+// `var(--bg)` every other frozen cell uses.
+const HIGHLIGHT_BG = "color-mix(in srgb, var(--purple) 10%, var(--bg))";
+
 // Shared by every real row and the optional pinned row below — a standalone
 // function (not a method closing over component state) since the pinned row
 // needs to render identically, just from a different row array.
-function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth }) {
+function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth, highlighted }) {
   const content = col.render ? col.render(row) : row[col.key];
   const width = resizableColumns ? columnWidth(col) : col.maxWidth;
   const isFrozen = col.key === activeFrozenKey;
@@ -21,7 +28,7 @@ function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth }
         // 95%-alpha background, where any residual ghosting scrolls away
         // quickly) since a frozen column sits in place for as long as
         // someone's looking at it.
-        background: "var(--bg)",
+        background: highlighted ? HIGHLIGHT_BG : "var(--bg)",
         boxShadow: "1px 0 0 var(--border2)",
       }
     : null;
@@ -103,6 +110,7 @@ export default function SortableTable({
   emptyMessage = "No data.",
   onRowClick,
   rowClassName,
+  highlightRow,
   searchable = false,
   searchKeys = ["name"],
   searchPlaceholder = "Search…",
@@ -434,18 +442,22 @@ export default function SortableTable({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row, i) => (
-                <Fragment key={row.id ?? i}>
-                  <tr
-                    onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    className={rowClassName ? rowClassName(row) : undefined}
-                    style={onRowClick ? { cursor: "pointer" } : undefined}
-                  >
-                    {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth }))}
-                  </tr>
-                  {renderRowExtra ? renderRowExtra(row) : null}
-                </Fragment>
-              ))}
+              {sorted.map((row, i) => {
+                const highlighted = highlightRow ? highlightRow(row) : false;
+                const classes = [rowClassName ? rowClassName(row) : null, highlighted ? styles.highlightedRow : null].filter(Boolean).join(" ");
+                return (
+                  <Fragment key={row.id ?? i}>
+                    <tr
+                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      className={classes || undefined}
+                      style={onRowClick ? { cursor: "pointer" } : undefined}
+                    >
+                      {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth, highlighted }))}
+                    </tr>
+                    {renderRowExtra ? renderRowExtra(row) : null}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
