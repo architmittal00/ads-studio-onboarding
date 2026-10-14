@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronIcon, CalendarIcon } from "./icons";
 import { RANGE_PRESETS, isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
 import styles from "@/styles/Home.module.css";
@@ -316,215 +317,218 @@ export default function DateRangeMenu({
         <ChevronIcon direction="up" size={11} />
       </button>
 
-      <div
-        ref={popoverRef}
-        className={styles.card}
-        style={{
-          position: "fixed",
-          top: pos.top,
-          left: pos.left,
-          zIndex: 50,
-          background: "var(--bg)",
-          width: "min(760px, calc(100vw - 32px))",
-          boxShadow: "var(--shadow-md)",
-          display: "flex",
-          padding: 0,
-          overflow: "hidden",
-        }}
-      >
+      {createPortal(
         <div
+          ref={popoverRef}
+          className={styles.card}
           style={{
-            width: 172,
-            flexShrink: 0,
-            borderRight: "1px solid var(--border)",
-            padding: 12,
+            position: "fixed",
+            top: pos.top,
+            left: pos.left,
+            zIndex: 50,
+            background: "var(--bg)",
+            width: "min(760px, calc(100vw - 32px))",
+            boxShadow: "var(--shadow-md)",
             display: "flex",
-            flexDirection: "column",
-            gap: 2,
-            maxHeight: 520,
-            overflowY: "auto",
+            padding: 0,
+            overflow: "hidden",
           }}
         >
-          {RANGE_PRESETS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => pickPreset(p.key)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                textAlign: "left",
-                background: draft.rangePreset === p.key ? "rgba(var(--purple-rgb), 0.12)" : "none",
-                border: "none",
-                borderRadius: 6,
-                padding: "7px 8px",
-                cursor: "pointer",
-                color: "var(--t1)",
-                fontSize: 12.5,
-                fontWeight: draft.rangePreset === p.key ? 700 : 500,
-              }}
-            >
-              <span
+          <div
+            style={{
+              width: 172,
+              flexShrink: 0,
+              borderRight: "1px solid var(--border)",
+              padding: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              maxHeight: 520,
+              overflowY: "auto",
+            }}
+          >
+            {RANGE_PRESETS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => pickPreset(p.key)}
                 style={{
-                  width: 13,
-                  height: 13,
-                  borderRadius: "50%",
-                  border: `2px solid ${draft.rangePreset === p.key ? "var(--purple)" : "var(--border2)"}`,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
+                  gap: 8,
+                  textAlign: "left",
+                  background: draft.rangePreset === p.key ? "rgba(var(--purple-rgb), 0.12)" : "none",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "7px 8px",
+                  cursor: "pointer",
+                  color: "var(--t1)",
+                  fontSize: 12.5,
+                  fontWeight: draft.rangePreset === p.key ? 700 : 500,
                 }}
               >
-                {draft.rangePreset === p.key && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--purple)" }} />}
+                <span
+                  style={{
+                    width: 13,
+                    height: 13,
+                    borderRadius: "50%",
+                    border: `2px solid ${draft.rangePreset === p.key ? "var(--purple)" : "var(--border2)"}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {draft.rangePreset === p.key && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--purple)" }} />}
+                </span>
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0, padding: 16, display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <button type="button" className={styles.btnSecondary} style={{ padding: 6 }} onClick={() => setLeftMonth((m) => shiftMonth(m, -1))} aria-label="Previous month">
+                <ChevronIcon direction="left" size={13} />
+              </button>
+              <span className={styles.muted}>
+                {draft.since && draft.until
+                  ? `${DAY_LABEL_FMT.format(new Date(`${draft.since}T00:00:00Z`))} – ${DAY_LABEL_FMT.format(new Date(`${draft.until}T00:00:00Z`))} · ${draftDays} day${draftDays === 1 ? "" : "s"}`
+                  : draft.since
+                    ? `${DAY_LABEL_FMT.format(new Date(`${draft.since}T00:00:00Z`))} – pick an end date`
+                    : "Pick a start date"}
               </span>
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0, padding: 16, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <button type="button" className={styles.btnSecondary} style={{ padding: 6 }} onClick={() => setLeftMonth((m) => shiftMonth(m, -1))} aria-label="Previous month">
-              <ChevronIcon direction="left" size={13} />
-            </button>
-            <span className={styles.muted}>
-              {draft.since && draft.until
-                ? `${DAY_LABEL_FMT.format(new Date(`${draft.since}T00:00:00Z`))} – ${DAY_LABEL_FMT.format(new Date(`${draft.until}T00:00:00Z`))} · ${draftDays} day${draftDays === 1 ? "" : "s"}`
-                : draft.since
-                  ? `${DAY_LABEL_FMT.format(new Date(`${draft.since}T00:00:00Z`))} – pick an end date`
-                  : "Pick a start date"}
-            </span>
-            <button type="button" className={styles.btnSecondary} style={{ padding: 6 }} onClick={() => setLeftMonth((m) => shiftMonth(m, 1))} aria-label="Next month">
-              <ChevronIcon direction="right" size={13} />
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: 18, marginTop: 8 }} onMouseLeave={() => setHoverDate(null)}>
-            <Month monthKey={leftMonth} selStart={draft.since} selEnd={draft.until} hoverEnd={hoverDate} maxIso={maxIso} onPick={handleDayPick} onHover={setHoverDate} />
-            <Month monthKey={rightMonth} selStart={draft.since} selEnd={draft.until} hoverEnd={hoverDate} maxIso={maxIso} onPick={handleDayPick} onHover={setHoverDate} />
-          </div>
-          {draftTooLong && (
-            <p className={styles.sub} style={{ color: "var(--red)", marginTop: 10 }}>
-              That&apos;s {draftDays} days — the longest range allowed is {maxRangeDays}.
-            </p>
-          )}
-
-          <div style={{ borderTop: "1px solid var(--border)", marginTop: 16, paddingTop: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)" }}>Compare to previous period</span>
-              <Switch
-                checked={!!draft.compareToPrevious}
-                disabled={compareDisabled}
-                onChange={(v) => setDraft((d) => ({ ...d, compareToPrevious: v }))}
-              />
+              <button type="button" className={styles.btnSecondary} style={{ padding: 6 }} onClick={() => setLeftMonth((m) => shiftMonth(m, 1))} aria-label="Next month">
+                <ChevronIcon direction="right" size={13} />
+              </button>
             </div>
-            {compareDisabled && (
-              <p className={styles.sub} style={{ marginTop: 4 }}>
-                Not available together with daily/weekly/monthly grouping.
+            <div style={{ display: "flex", gap: 18, marginTop: 8 }} onMouseLeave={() => setHoverDate(null)}>
+              <Month monthKey={leftMonth} selStart={draft.since} selEnd={draft.until} hoverEnd={hoverDate} maxIso={maxIso} onPick={handleDayPick} onHover={setHoverDate} />
+              <Month monthKey={rightMonth} selStart={draft.since} selEnd={draft.until} hoverEnd={hoverDate} maxIso={maxIso} onPick={handleDayPick} onHover={setHoverDate} />
+            </div>
+            {draftTooLong && (
+              <p className={styles.sub} style={{ color: "var(--red)", marginTop: 10 }}>
+                That&apos;s {draftDays} days — the longest range allowed is {maxRangeDays}.
               </p>
             )}
-            {draft.compareToPrevious && !compareDisabled && (
-              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div className={styles.tabGroup}>
-                  <button
-                    type="button"
-                    className={!draft.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setDraft((d) => ({ ...d, compareCustomSince: "" }))}
-                  >
-                    Immediately preceding
-                  </button>
-                  <button
-                    type="button"
-                    className={draft.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => {
-                      const nextSince = draft.compareCustomSince || (draftDays ? addDaysUTC(draft.since, -draftDays) : "");
-                      setDraft((d) => ({ ...d, compareCustomSince: nextSince }));
-                      if (nextSince) setCompareMonth(monthKeyOf(nextSince));
-                    }}
-                  >
-                    Custom start date
-                  </button>
-                </div>
-                {draft.compareCustomSince && (
-                  <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-                    <div style={{ width: 220 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                        <button
-                          type="button"
-                          className={styles.btnSecondary}
-                          style={{ padding: 4 }}
-                          onClick={() => setCompareMonth((m) => shiftMonth(m || monthKeyOf(draft.compareCustomSince), -1))}
-                          aria-label="Previous month"
-                        >
-                          <ChevronIcon direction="left" size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnSecondary}
-                          style={{ padding: 4 }}
-                          onClick={() => setCompareMonth((m) => shiftMonth(m || monthKeyOf(draft.compareCustomSince), 1))}
-                          aria-label="Next month"
-                        >
-                          <ChevronIcon direction="right" size={12} />
-                        </button>
-                      </div>
-                      <Month
-                        monthKey={compareMonth || monthKeyOf(draft.compareCustomSince)}
-                        selStart={draft.compareCustomSince}
-                        selEnd={draft.compareCustomSince}
-                        hoverEnd={null}
-                        maxIso={maxIso}
-                        onPick={(iso) => setDraft((d) => ({ ...d, compareCustomSince: iso }))}
-                        onHover={() => {}}
-                      />
-                    </div>
-                    {draftDays && (
-                      <span className={styles.muted} style={{ marginTop: 4 }}>
-                        {DAY_LABEL_FMT.format(new Date(`${draft.compareCustomSince}T00:00:00Z`))} → {DAY_LABEL_FMT.format(new Date(`${compareEnd}T00:00:00Z`))}
-                        <br />({draftDays} day{draftDays === 1 ? "" : "s"})
-                      </span>
-                    )}
-                  </div>
-                )}
-                {compareTooFar && (
-                  <p className={styles.sub} style={{ color: "var(--red)" }}>
-                    Comparison period can&apos;t extend into the future.
-                  </p>
-                )}
-                <div className={styles.tabGroup}>
-                  <button
-                    type="button"
-                    className={draft.compareDisplay !== "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setDraft((d) => ({ ...d, compareDisplay: "change" }))}
-                  >
-                    % Change
-                  </button>
-                  <button
-                    type="button"
-                    className={draft.compareDisplay === "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setDraft((d) => ({ ...d, compareDisplay: "absolute" }))}
-                  >
-                    Absolute value
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
-            <span className={styles.muted}>Dates are in your local timezone.</span>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button type="button" className={styles.btnSecondary} onClick={close}>
-                Cancel
-              </button>
-              <button type="button" className={styles.btnPrimary} disabled={!canApply} onClick={handleApply}>
-                Update
-              </button>
+            <div style={{ borderTop: "1px solid var(--border)", marginTop: 16, paddingTop: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)" }}>Compare to previous period</span>
+                <Switch
+                  checked={!!draft.compareToPrevious}
+                  disabled={compareDisabled}
+                  onChange={(v) => setDraft((d) => ({ ...d, compareToPrevious: v }))}
+                />
+              </div>
+              {compareDisabled && (
+                <p className={styles.sub} style={{ marginTop: 4 }}>
+                  Not available together with daily/weekly/monthly grouping.
+                </p>
+              )}
+              {draft.compareToPrevious && !compareDisabled && (
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div className={styles.tabGroup}>
+                    <button
+                      type="button"
+                      className={!draft.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => setDraft((d) => ({ ...d, compareCustomSince: "" }))}
+                    >
+                      Immediately preceding
+                    </button>
+                    <button
+                      type="button"
+                      className={draft.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => {
+                        const nextSince = draft.compareCustomSince || (draftDays ? addDaysUTC(draft.since, -draftDays) : "");
+                        setDraft((d) => ({ ...d, compareCustomSince: nextSince }));
+                        if (nextSince) setCompareMonth(monthKeyOf(nextSince));
+                      }}
+                    >
+                      Custom start date
+                    </button>
+                  </div>
+                  {draft.compareCustomSince && (
+                    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                      <div style={{ width: 220 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            style={{ padding: 4 }}
+                            onClick={() => setCompareMonth((m) => shiftMonth(m || monthKeyOf(draft.compareCustomSince), -1))}
+                            aria-label="Previous month"
+                          >
+                            <ChevronIcon direction="left" size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            style={{ padding: 4 }}
+                            onClick={() => setCompareMonth((m) => shiftMonth(m || monthKeyOf(draft.compareCustomSince), 1))}
+                            aria-label="Next month"
+                          >
+                            <ChevronIcon direction="right" size={12} />
+                          </button>
+                        </div>
+                        <Month
+                          monthKey={compareMonth || monthKeyOf(draft.compareCustomSince)}
+                          selStart={draft.compareCustomSince}
+                          selEnd={draft.compareCustomSince}
+                          hoverEnd={null}
+                          maxIso={maxIso}
+                          onPick={(iso) => setDraft((d) => ({ ...d, compareCustomSince: iso }))}
+                          onHover={() => {}}
+                        />
+                      </div>
+                      {draftDays && (
+                        <span className={styles.muted} style={{ marginTop: 4 }}>
+                          {DAY_LABEL_FMT.format(new Date(`${draft.compareCustomSince}T00:00:00Z`))} → {DAY_LABEL_FMT.format(new Date(`${compareEnd}T00:00:00Z`))}
+                          <br />({draftDays} day{draftDays === 1 ? "" : "s"})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {compareTooFar && (
+                    <p className={styles.sub} style={{ color: "var(--red)" }}>
+                      Comparison period can&apos;t extend into the future.
+                    </p>
+                  )}
+                  <div className={styles.tabGroup}>
+                    <button
+                      type="button"
+                      className={draft.compareDisplay !== "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => setDraft((d) => ({ ...d, compareDisplay: "change" }))}
+                    >
+                      % Change
+                    </button>
+                    <button
+                      type="button"
+                      className={draft.compareDisplay === "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                      onClick={() => setDraft((d) => ({ ...d, compareDisplay: "absolute" }))}
+                    >
+                      Absolute value
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
+              <span className={styles.muted}>Dates are in your local timezone.</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" className={styles.btnSecondary} onClick={close}>
+                  Cancel
+                </button>
+                <button type="button" className={styles.btnPrimary} disabled={!canApply} onClick={handleApply}>
+                  Update
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
