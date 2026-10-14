@@ -501,6 +501,19 @@ button.stat:hover {
   background: rgba(var(--surface-tint-rgb), 0.02);
 }
 
+/* ── A row SortableTable's `highlightRow` prop flags (Explore: a row whose
+   checkbox is checked). Targets `td`, not the `tr` itself — `:hover` above
+   sets its background on the `tr`, which every cell's own opaque background
+   then completely covers, so setting it at the same `tr` level here would
+   just lose to `:hover` on mouseover; `td` paints on top of that regardless.
+   The frozen column's cell doesn't pick this up at all (its background is
+   set inline in SortableTable.js's renderCell, which always wins over a
+   class) — that cell gets this exact same `color-mix` color directly there
+   instead, via the `highlighted` flag renderCell is also given. */
+.highlightedRow td {
+  background: color-mix(in srgb, var(--purple) 10%, var(--bg));
+}
+
 /* ── Pinned "Total" row (SortableTable's `pinnedRow` prop) — bold,
    visually separated from the real rows it's totaling, and rendered in its
    own table below `.tableScroll` (see `.tableScrollFooter`) rather than as

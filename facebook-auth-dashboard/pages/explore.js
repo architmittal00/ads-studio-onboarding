@@ -64,6 +64,7 @@ const TIME_GROUPING_OPTIONS = [
   { value: "", label: "No grouping (totals)" },
   { value: "1", label: "Daily" },
   { value: "7", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
 ];
 
 function newViewId() {
@@ -261,6 +262,11 @@ function createBlankView(seedAccountId = "") {
     timeIncrement: "",
     metricKeys: ["spend", "impressions", "clicks", "ctr"],
     compareToPrevious: false,
+    // How a comparison column's delta is displayed — "change" (the default,
+    // a % swing) or "absolute" (the raw difference, in the metric's own
+    // unit). Purely a display choice: the underlying `_previous`/`_deltaPct`
+    // data is always both present server-side regardless of this setting.
+    compareDisplay: "change",
     // Null (not an empty string) means "no custom comparison start date" —
     // compareToPrevious then defaults to the immediately-preceding period of
     // equal length, computed server-side. Set to a YYYY-MM-DD string once the
@@ -838,6 +844,7 @@ export default function Explore() {
         nameFilters: (v.nameFilters || []).map((f) => ({ ...f, mode: f.mode === "include" ? "include" : "exclude" })),
         idFilter: v.idFilter || { field: "campaignId", value: "" },
         compareCustomSince: v.compareCustomSince || "",
+        compareDisplay: v.compareDisplay === "absolute" ? "absolute" : "change",
         resultFilters: v.resultFilters || { metricConditions: [], statusValues: null },
       };
       delete migrated.accountId;
@@ -1497,6 +1504,7 @@ export default function Explore() {
               customMetrics={customMetrics}
               resultFilters={activeView.resultFilters}
               onOpenChildView={openChildViewFromSelection}
+              compareDisplay={activeView.compareDisplay}
             />
           ) : activeView.chartMetricKey ? (
             <ExploreChart
@@ -2061,6 +2069,25 @@ export default function Explore() {
                             Comparison period can&apos;t extend into the future.
                           </p>
                         )}
+                        <div style={{ marginTop: 10 }}>
+                          <span className={styles.muted} style={{ display: "block", marginBottom: 6 }}>
+                            Show each comparison as
+                          </span>
+                          <div className={styles.tabGroup}>
+                            <button
+                              className={activeView.compareDisplay !== "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                              onClick={() => updateActive({ compareDisplay: "change" })}
+                            >
+                              % Change
+                            </button>
+                            <button
+                              className={activeView.compareDisplay === "absolute" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                              onClick={() => updateActive({ compareDisplay: "absolute" })}
+                            >
+                              Absolute value
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2128,13 +2155,29 @@ export default function Explore() {
 // metrics selected, a separate "<Metric> Δ%" column per metric pushed the
 // comparison for e.g. Spend far off to the right of the Spend column itself,
 // behind a horizontal scroll, making the two hard to read together.
-function DeltaBadge({ value }) {
-  if (typeof value !== "number") return null;
-  const color = value > 0 ? "var(--green)" : value < 0 ? "var(--red)" : "var(--t2)";
-  const arrow = value > 0 ? "▲" : value < 0 ? "▼" : "";
+// `mode: "change"` (default) shows the %-swing already computed server-side
+// (`_deltaPct`); `mode: "absolute"` shows the raw difference instead, in the
+// metric's own unit/format (currency, a plain count, …) — for someone who'd
+// rather read "+₹4,200" than "+12.3%", or whom a %-change badge misleads
+// when the previous value was tiny (a huge % swing off a near-zero base).
+function DeltaBadge({ mode, deltaPct, absoluteDiff, format, currency }) {
+  if (mode === "absolute") {
+    if (typeof absoluteDiff !== "number") return null;
+    const color = absoluteDiff > 0 ? "var(--green)" : absoluteDiff < 0 ? "var(--red)" : "var(--t2)";
+    const sign = absoluteDiff > 0 ? "+" : absoluteDiff < 0 ? "−" : "";
+    return (
+      <div style={{ fontSize: 11, color, marginTop: 2 }}>
+        {sign}
+        {formatMetricValue(Math.abs(absoluteDiff), format, currency)}
+      </div>
+    );
+  }
+  if (typeof deltaPct !== "number") return null;
+  const color = deltaPct > 0 ? "var(--green)" : deltaPct < 0 ? "var(--red)" : "var(--t2)";
+  const arrow = deltaPct > 0 ? "▲" : deltaPct < 0 ? "▼" : "";
   return (
     <div style={{ fontSize: 11, color, marginTop: 2 }}>
-      {arrow} {Math.abs(value).toFixed(1)}%
+      {arrow} {Math.abs(deltaPct).toFixed(1)}%
     </div>
   );
 }
@@ -2158,6 +2201,17 @@ const CHILD_LEVEL = { campaign: "adset", adset: "ad" };
 const CHILD_ID_FILTER_FIELD = { adset: "campaignId", ad: "adsetId" };
 const CHILD_LEVEL_PLURAL = { adset: "ad sets", ad: "ads" };
 
+// A pivoted date row's own label (see `timePivotEnabled`) — each bucket's
+// `date` field is always the Meta API's `date_start` for that bucket
+// (pages/api/fb/explore-insights.js), so "monthly" grouping needs its own
+// month-only rendering rather than showing e.g. "Sep 1, 2026" for a bucket
+// that actually spans the whole month.
+function formatPivotDateLabel(iso, timeIncrement) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (timeIncrement === "monthly") return d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 // The leading, non-metric columns a result can have — shared between the
 // on-screen table (which wants per-column render/sortValue/maxWidth) and the
 // CSV export (which just wants `{key, label}` to read `row[key]` through). A
@@ -2168,8 +2222,13 @@ const CHILD_LEVEL_PLURAL = { adset: "ad sets", ad: "ads" };
 // next to it.
 function leadingColumnDefs(meta) {
   const defs = [];
+  // Pivot mode (see `timePivotEnabled`) nests date rows under each entity
+  // instead of listing them as their own column — a separate "Date" column
+  // would be blank on every pivoted-parent row and redundant on every date
+  // row (which already shows its date in place of the entity name).
+  const pivotMode = !!meta.timeIncrement && meta.breakdownGroup === "none" && meta.level !== "account";
   if (meta.accountIds.length > 1) defs.push({ key: "accountId", label: "Account" });
-  if (meta.timeIncrement) defs.push({ key: "date", label: "Date" });
+  if (meta.timeIncrement && !pivotMode) defs.push({ key: "date", label: "Date" });
   if (meta.level !== "account") {
     defs.push({ key: "entityLabel", label: LEVEL_OPTIONS.find((l) => l.value === meta.level)?.label || "Name" });
   }
@@ -2190,6 +2249,7 @@ function ExploreResultsTable({
   customMetrics,
   resultFilters,
   onOpenChildView,
+  compareDisplay,
 }) {
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
@@ -2224,15 +2284,6 @@ function ExploreResultsTable({
     return () => clearTimeout(timer);
   }, [resultFilters]);
 
-  const selectableRows = rows.filter((r) => r.entityId);
-  // Deduplicated — a breakdown (e.g. Age & Gender) can repeat the same
-  // entity across several rows, and selection is keyed by entity id, not
-  // row, so "select all"/its checked state needs the unique id count, not
-  // the row count.
-  const selectableIds = [...new Set(selectableRows.map((r) => r.entityId))];
-  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
-  const someSelected = !allSelected && selectableIds.some((id) => selectedIds.has(id));
-
   function toggleSelected(id) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -2265,6 +2316,32 @@ function ExploreResultsTable({
   const drillDownEnabled = !!CHILD_LEVEL[meta.level] && meta.breakdownGroup === "none" && !meta.timeIncrement;
   const [expansions, setExpansions] = useState({});
   const [lightboxItem, setLightboxItem] = useState(null);
+
+  // Pivot mode: Level + "Group by time" together, e.g. Campaign level with
+  // Daily grouping. The backend already returns one row per (entity, date)
+  // pair in that combination — exactly what a trend chart needs (a line per
+  // campaign) — but shown flat, a 20-campaign × 30-day result is 600
+  // same-looking rows with no sense of "which day belongs to which
+  // campaign" beyond re-reading the name column on every row. Pivoted here
+  // instead: one row per entity, aggregated across every date it has (same
+  // numbers an aggregate "no time grouping" query would return), expandable
+  // to reveal that entity's own date rows — same mental model as the
+  // Campaign → Ad Set drill-down above, just grouping by date instead of by
+  // a finer level, and requiring no extra fetch at all (the date rows are
+  // already sitting right there in `rows`, just needing to be grouped).
+  // Scoped the same way `drillDownEnabled` is (no breakdown active) plus
+  // "there's an actual entity to group by" (not Level: Account, where every
+  // row already IS one date with nothing above it to pivot into).
+  const timePivotEnabled = !!meta.timeIncrement && meta.breakdownGroup === "none" && meta.level !== "account";
+  const [pivotOpenIds, setPivotOpenIds] = useState(() => new Set());
+  function togglePivotOpen(entityId) {
+    setPivotOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entityId)) next.delete(entityId);
+      else next.add(entityId);
+      return next;
+    });
+  }
 
   // Mirrors SortableTable's own (otherwise fully internal) sort/search state
   // for the top-level rows, via its onSortChange/onSearchChange — so the
@@ -2322,6 +2399,44 @@ function ExploreResultsTable({
       .filter((ce) => meta.metricKeys.includes(ce.id))
       .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
   }, [meta.metricKeys, meta.accountIds]);
+
+  // `pivotParentRows` (one aggregated row per entity) comes straight from
+  // the backend's own `meta.pivotRows` — computed server-side via the same
+  // `aggregateRowMetrics` the Total row uses, which needs Facebook's raw
+  // per-row fields (e.g. CTR's `aggregate()` sums raw `inline_link_clicks`,
+  // not anything named `ctr`/`clicks`) that simply never reach the client;
+  // only already-derived display values do, so this can't be recomputed
+  // here the way it first looks like it should. `pivotChildrenByEntity` is
+  // the one piece that's genuinely just client-side grouping — each
+  // entity's own date rows, already sitting in the already-fetched,
+  // already-(resultFilters-)filtered `rows`, grouped for the expand block
+  // below (and re-filtered/re-sorted there via the existing
+  // `applyChildRowOrdering`, same as the ad-set drill-down's children).
+  const pivotChildrenByEntity = useMemo(() => {
+    if (!timePivotEnabled) return null;
+    const byEntity = new Map();
+    for (const row of rows) {
+      if (!row.entityId) continue;
+      if (!byEntity.has(row.entityId)) byEntity.set(row.entityId, []);
+      byEntity.get(row.entityId).push(row);
+    }
+    return byEntity;
+  }, [timePivotEnabled, rows]);
+  const pivotParentRows = timePivotEnabled ? meta.pivotRows || [] : null;
+
+  // What the top-level table actually renders and what "N selected"/"Select
+  // all" operate over — the pivoted, one-row-per-entity rows in pivot mode
+  // (so selecting "Campaign X" means exactly that, not each of its date
+  // rows separately), the plain fetched rows otherwise.
+  const topLevelRows = timePivotEnabled ? pivotParentRows : rows;
+  const selectableRows = topLevelRows.filter((r) => r.entityId);
+  // Deduplicated — a breakdown (e.g. Age & Gender) can repeat the same
+  // entity across several rows, and selection is keyed by entity id, not
+  // row, so "select all"/its checked state needs the unique id count, not
+  // the row count.
+  const selectableIds = [...new Set(selectableRows.map((r) => r.entityId))];
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && selectableIds.some((id) => selectedIds.has(id));
 
   function startFetch(row, childLevel) {
     const id = row.entityId;
@@ -2408,18 +2523,32 @@ function ExploreResultsTable({
         render: (row) =>
           row.entityId ? (
             <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-              {drillDownEnabled && (
+              {(drillDownEnabled || timePivotEnabled) && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleExpand(row, meta.level);
+                    if (timePivotEnabled) togglePivotOpen(row.entityId);
+                    else toggleExpand(row, meta.level);
                   }}
-                  aria-label={expansions[row.entityId]?.open ? "Collapse" : `Show ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]}`}
-                  title={`Show ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]} in this ${meta.level === "campaign" ? "campaign" : "ad set"}`}
+                  aria-label={
+                    (timePivotEnabled ? pivotOpenIds.has(row.entityId) : expansions[row.entityId]?.open)
+                      ? "Collapse"
+                      : timePivotEnabled
+                        ? "Show the date-by-date breakdown"
+                        : `Show ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]}`
+                  }
+                  title={
+                    timePivotEnabled
+                      ? "Show this row's own date-by-date breakdown"
+                      : `Show ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]} in this ${meta.level === "campaign" ? "campaign" : "ad set"}`
+                  }
                   style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--t3)", display: "flex", flexShrink: 0 }}
                 >
-                  <ChevronIcon direction={expansions[row.entityId]?.open ? "down" : "right"} size={11} />
+                  <ChevronIcon
+                    direction={(timePivotEnabled ? pivotOpenIds.has(row.entityId) : expansions[row.entityId]?.open) ? "down" : "right"}
+                    size={11}
+                  />
                 </button>
               )}
               {meta.level === "ad" && (
@@ -2433,8 +2562,14 @@ function ExploreResultsTable({
                 />
               )}
               <span
-                onClick={drillDownEnabled ? () => toggleExpand(row, meta.level) : undefined}
-                style={{ overflow: "hidden", textOverflow: "ellipsis", cursor: drillDownEnabled ? "pointer" : undefined }}
+                onClick={
+                  timePivotEnabled
+                    ? () => togglePivotOpen(row.entityId)
+                    : drillDownEnabled
+                      ? () => toggleExpand(row, meta.level)
+                      : undefined
+                }
+                style={{ overflow: "hidden", textOverflow: "ellipsis", cursor: drillDownEnabled || timePivotEnabled ? "pointer" : undefined }}
               >
                 {row[def.key]}
               </span>
@@ -2484,12 +2619,15 @@ function ExploreResultsTable({
         maxWidth: METRIC_COLUMN_WIDTH[format] || METRIC_COLUMN_WIDTH.number,
         sortValue: (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
         render: (row) => {
-          const value = formatMetricValue(row[key], format, currencyByAccountId.get(row.accountId));
+          const currency = currencyByAccountId.get(row.accountId);
+          const value = formatMetricValue(row[key], format, currency);
           if (!comparable) return value;
+          const previous = row._previous?.[key];
+          const absoluteDiff = typeof row[key] === "number" && typeof previous === "number" ? row[key] - previous : null;
           return (
             <div>
               <div>{value}</div>
-              <DeltaBadge value={row._deltaPct?.[key]} />
+              <DeltaBadge mode={compareDisplay} deltaPct={row._deltaPct?.[key]} absoluteDiff={absoluteDiff} format={format} currency={currency} />
             </div>
           );
         },
@@ -2682,7 +2820,64 @@ function ExploreResultsTable({
     ));
   }
 
+  // One date row nested under a pivoted entity (see `timePivotEnabled`) —
+  // deliberately NOT `renderDataRow` reused as-is: a date row is the same
+  // entity as its parent, not a finer one, so it has no further level to
+  // expand into and Pause/Activate/Change Budget (already offered on the
+  // parent row) would be a confusing "pause just this one day" repeated on
+  // every row otherwise. Reuses `columns`' own per-metric `render`/format
+  // (so a date row's numbers look exactly like any other row's) and the same
+  // frozen-column treatment as `renderDataRow`.
+  function renderPivotDateRow(dateRow, depth) {
+    function frozenStyle(col) {
+      return col.key === childFrozenKey
+        ? { position: "sticky", left: 0, zIndex: 1, background: "var(--bg)", boxShadow: "1px 0 0 var(--border2)" }
+        : null;
+    }
+    return (
+      <tr key={dateRow.date}>
+        {columns.map((col) => {
+          if (col.key === "__select" || col.key === "__actions") return <td key={col.key} style={frozenStyle(col)} />;
+          if (col.key === "entityLabel" || col.key === "label") {
+            return (
+              <td key={col.key} style={frozenStyle(col)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: depth * 20, minWidth: 0 }}>
+                  <span style={{ width: 15, flexShrink: 0 }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, color: "var(--t2)" }}>
+                    {formatPivotDateLabel(dateRow.date, meta.timeIncrement)}
+                  </span>
+                </div>
+              </td>
+            );
+          }
+          return (
+            <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle(col) }}>
+              {col.render ? col.render(dateRow) : dateRow[col.key]}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  }
+
   function renderRowExtra(row) {
+    if (timePivotEnabled) {
+      if (!row.entityId || !pivotOpenIds.has(row.entityId)) return null;
+      const dateRows = pivotChildrenByEntity.get(row.entityId) || [];
+      const ordered = applyChildRowOrdering(dateRows);
+      if (ordered.length === 0) {
+        return (
+          <tr key={`${row.entityId}-pivot-empty`}>
+            <td colSpan={columns.length}>
+              <span className={styles.muted} style={{ paddingLeft: 20 }}>
+                No dates match the current filters.
+              </span>
+            </td>
+          </tr>
+        );
+      }
+      return ordered.map((dateRow) => renderPivotDateRow(dateRow, 1));
+    }
     if (!drillDownEnabled || !row.entityId) return null;
     return renderChildBlock(row.entityId, 1);
   }
@@ -2748,7 +2943,7 @@ function ExploreResultsTable({
           </div>
         )}
         <SortableTable
-          rows={rows}
+          rows={topLevelRows}
           columns={columns}
           defaultSortKey={meta.metricKeys[0] || "label"}
           maxHeight={480}
@@ -2756,11 +2951,12 @@ function ExploreResultsTable({
           searchKeys={leadingColumns.map((c) => c.key)}
           searchPlaceholder="Search rows…"
           resizableColumns
-          renderRowExtra={drillDownEnabled ? renderRowExtra : undefined}
+          renderRowExtra={drillDownEnabled || timePivotEnabled ? renderRowExtra : undefined}
           onSortChange={(key, dir) => setChildSort({ key, dir })}
           onSearchChange={setChildSearch}
           onFreezeChange={setChildFrozenKey}
           pinnedRow={showTotalsRow ? meta.totalsRow || undefined : undefined}
+          highlightRow={(row) => !!row.entityId && selectedIds.has(row.entityId)}
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />

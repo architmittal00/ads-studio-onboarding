@@ -495,7 +495,11 @@ export default async function handler(req, res) {
   const effectiveMetricKeys = needsRollup ? metricKeys.filter((k) => !REACH_DEPENDENT_KEYS.has(k)) : metricKeys;
   const excludedMetrics = needsRollup ? metricKeys.filter((k) => REACH_DEPENDENT_KEYS.has(k)) : [];
 
-  const validTimeIncrement = timeIncrement === "1" || timeIncrement === "7" ? timeIncrement : null;
+  // "monthly" is a literal Meta API value (not a day count, unlike "1"/"7")
+  // — it buckets by real calendar month, so a range that doesn't start/end
+  // on a month boundary gets a partial first and/or last bucket, same as
+  // Ads Manager's own monthly view would show.
+  const validTimeIncrement = timeIncrement === "1" || timeIncrement === "7" || timeIncrement === "monthly" ? timeIncrement : null;
   if (compareToPrevious && validTimeIncrement) {
     return res.status(400).json({
       error: "Compare-to-previous-period isn't supported together with daily/weekly grouping",
@@ -570,7 +574,13 @@ export default async function handler(req, res) {
   // chunked, where each chunk's rows are already independent and safe to
   // concatenate. (compareToPrevious is already mutually exclusive with
   // time_increment, so the previous-period call is never chunked.)
-  const currentChunks = validTimeIncrement ? splitRangeIntoChunks(since, until, CHUNK_DAYS) : [{ since, until }];
+  // "monthly" buckets stay unchunked regardless of range length — at most
+  // 4 buckets for a 90-day (MAX_RANGE_DAYS) range, nowhere near enough rows
+  // to need splitting, and a fixed-day chunk size like CHUNK_DAYS would cut
+  // across calendar month boundaries anyway (the exact problem CHUNK_DAYS
+  // being a multiple of 7 exists to avoid for weekly).
+  const currentChunks =
+    validTimeIncrement && validTimeIncrement !== "monthly" ? splitRangeIntoChunks(since, until, CHUNK_DAYS) : [{ since, until }];
 
   // One flat list of calls across every account, every current-period chunk,
   // and (when comparing) the previous period — run together in a single
@@ -847,6 +857,54 @@ export default async function handler(req, res) {
     }
   }
 
+  // Per-entity pivot summaries — one row per entity, aggregated across every
+  // date bucket it has, for Explore's table to show when a real level (not
+  // Account) and time grouping are both active: one row per entity instead
+  // of a flat (entity, date) list, with each entity's own date rows (already
+  // right there in `rows`) nested underneath it client-side. Computed the
+  // same way as `totalsRow` above — real per-metric sums with ratios
+  // re-derived from those sums, never an average of already-computed
+  // per-day percentages — just grouped by entity instead of collapsed into
+  // one grand total. Built from `allCurrentEntries` (the pre-derive raw
+  // rows `aggregateRowMetrics`'s per-metric `aggregate()` functions need —
+  // they read Facebook's own raw field names like `inline_link_clicks`,
+  // which the already-derived `rows` below no longer carry at all) and
+  // cross-referenced against `rows` (now fully enriched with status/budget/
+  // creative, right above) only for the handful of fields that don't vary
+  // by date and don't need re-aggregating in the first place.
+  // compareToPrevious is unreachable here — already rejected above whenever
+  // validTimeIncrement is set — so there's no previous-period counterpart
+  // to compute for these the way totalsRow has one.
+  let pivotRows = null;
+  if (validTimeIncrement && level !== "account" && group.breakdowns.length === 0 && statusIdField) {
+    const entriesByEntity = new Map();
+    for (const entry of allCurrentEntries) {
+      const id = entry.row[statusIdField];
+      if (!id) continue;
+      if (!entriesByEntity.has(id)) entriesByEntity.set(id, []);
+      entriesByEntity.get(id).push(entry);
+    }
+    pivotRows = [...entriesByEntity.entries()]
+      .map(([entityId, entries]) => {
+        const sample = rows.find((r) => r.entityId === entityId);
+        if (!sample) return null;
+        const metrics = aggregateRowMetrics(entries, effectiveMetricKeys, cleanCustomMetrics);
+        return {
+          entityId,
+          accountId: sample.accountId,
+          label: sample.entityLabel,
+          entityLabel: sample.entityLabel,
+          status: sample.status,
+          dailyBudget: sample.dailyBudget,
+          lifetimeBudget: sample.lifetimeBudget,
+          thumbnailUrl: sample.thumbnailUrl,
+          isVideo: sample.isVideo,
+          ...metrics,
+        };
+      })
+      .filter(Boolean);
+  }
+
   res.status(200).json({
     rows,
     meta: {
@@ -888,6 +946,11 @@ export default async function handler(req, res) {
       // pagination (see pages/explore.js) — `null` at the account level,
       // where there's nothing to total (one row per account already).
       totalsRow,
+      // One aggregated row per entity when time grouping is active at a real
+      // level (see the computation above) — `null` otherwise, including at
+      // the account level or whenever a breakdown is also active, where
+      // there's no single-entity pivot to offer.
+      pivotRows,
     },
   });
 }
