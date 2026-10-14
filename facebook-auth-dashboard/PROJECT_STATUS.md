@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-14**, by Claude, right after merging PR #157.
+> Last updated: **2026-10-14**, by Claude, right after merging PR #159.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`37e6fcc`** — "Duplicate ad/ad set now opens a popup instead of navigating to Launch" (PR #157, merged 2026-10-14).
+Latest commit as of this writing: **`49df9d3`** — "Fix date range Update button, theme its calendar/compare controls, stop defaulting duplicate destinations" (PR #159, merged 2026-10-14).
 
 No open PRs. Everything described below is merged and live.
 
@@ -79,20 +79,17 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-14)
 
-### PR #157 — Duplicate ad/ad set now opens a popup instead of navigating to Launch
+### PR #159 — Fix date range Update, theme its calendar/compare controls, stop defaulting duplicate destinations
 
-PR #152 (below) originally hooked Explore's "Duplicate" row action up by navigating to `/launch`. The user asked for it to behave like "Change Budget" instead — a popup over the current screen, not a page navigation — so `components/DuplicateEntityModal.js` now handles it in place, and also **defaults to the fastest choice**: duplicating into the *same* ad set (for an ad) or the *same* campaign (for an ad set) the source already belongs to, with a single "Change" button as the escape hatch for a different destination, rather than always forcing a picker step first. A budget-amount field only appears for an ad-set duplicate when the destination campaign has no campaign-level budget (ABO); otherwise there's nothing else to ask and "Duplicate" is one click. No backend changes beyond `adsets-list.js` additionally returning the source ad set's own `campaignId` (to default the "same campaign" destination without an extra round trip) — reuses every endpoint #152 already built. `pages/launch.js`'s `?duplicateAdId=`/`?duplicateAdsetId=` query-param hand-off (what RowActions used to navigate there with) is now dead code and was removed; its own standalone "Duplicate an Ad Set" entry card (reached by going to `/launch` directly) is unchanged.
+Follow-up feedback on #155 and #157: (1) `DateRangeMenu`'s "Update" button only patched the view's query spec, it never actually re-ran the query — the table kept showing stale data no matter what you picked. Now it re-runs the active query immediately (when the view is otherwise runnable), matching Meta's own picker. (2) The "Compare to previous period" → "Custom start date" field was a bare native `<input type="date">`, popping the OS's own unstyled calendar — replaced with a themed single-month picker reusing the same `Month` component as the main range calendar. (3) "Compare to previous period" is now a toggle switch, not a checkbox, consistent with the rest of the popover. (4) `DuplicateEntityModal` no longer defaults the destination to wherever the source already lives (the "default + Change escape hatch" design #157 shipped) — every duplicate path now starts unresolved ("Not selected yet") and requires an explicit pick; duplicating an ad cascades "choose a destination campaign" → "choose a destination ad set" scoped to that campaign, duplicating an ad set requires explicitly choosing a destination campaign. No backend/endpoint changes.
 
-### PR #154–155 — Tab groups (+ Recent Changes), Meta-style date range/compare picker
+### PR #157 — Duplicate ad/ad set opens a popup instead of navigating to Launch; PR #154–155 — Tab groups (+ Recent Changes), Meta-style date range/compare picker
 
-A collapsed tab group used to still show its active member tab, so collapsing the group you're working in saved no space — fixed to hide every member when collapsed, matching Chrome; the same grouping feature was ported to Recent Changes (which already had Explore's own tab/persistence system, just not grouping). Separately, date range and "Compare to previous period" moved out of Explore's collapsible Query panel into one always-visible `DateRangeMenu` control styled after Meta Ads Manager's own picker (presets + dual calendar + compare settings, edited as a draft, committed on "Update").
-
-### PR #152 — "Duplicate" row action for ads and ad sets (superseded by #157's UX — same backend)
-
-Explore's RowActions gained `Duplicate` on ad/ad-set rows. Duplicating an ad points the new ad at the **same creative by id** (re-fetched server-side, never trusted from the client) — so a partnership/branded-content ad duplicates correctly for free; duplicating an ad set carries over all of its own ads the same way. Both always create paused. (#157 changed how this is *triggered* — a modal, not a navigation — not the underlying creation logic.)
+#157: Explore's "Duplicate" row action (ad/ad set) moved from navigating to `/launch` into an in-place `DuplicateEntityModal` popup, same interaction shape as "Change Budget" — later revised by #159 above to stop defaulting the destination. `pages/launch.js`'s now-dead `?duplicateAdId=`/`?duplicateAdsetId=` query-param hand-off was removed; its own standalone "Duplicate an Ad Set" entry card (reached by going to `/launch` directly) is unchanged. #154–155: a collapsed tab group used to still show its active member tab (fixed to hide every member when collapsed, matching Chrome), the same grouping feature was ported to Recent Changes, and date range + "Compare to previous period" moved out of Explore's collapsible Query panel into one always-visible `DateRangeMenu` control styled after Meta Ads Manager's own picker.
 
 ### Earlier rounds (compressed)
 
+- **PR #152**: Explore's RowActions gained `Duplicate` on ad/ad-set rows (originally navigating to `/launch`, moved in-place by #157). Duplicating an ad points the new ad at the same creative by id (so a partnership/branded-content ad duplicates correctly for free); duplicating an ad set carries over all of its own ads the same way. Both always create paused.
 - **PR #148–150**: "Monthly" time-grouping, a "% Change / Absolute value" comparison toggle, a real Level+"Group by time" pivot table (per-entity aggregation had to move server-side — several metrics' `aggregate()` functions read Facebook's *raw* field names that never reach the client); per-tab persistence of the results table's own sort/search/column-order/frozen-column state; the original Chrome-style tab groups feature.
 - **PR #140–146**: column-order reconciliation on re-query, frozen-column/sticky-header z-index and chart `connectNulls` fixes, clickable campaign/ad-set names for expand/collapse, and the Total row rebuilt as a genuinely separate always-visible table.
 
