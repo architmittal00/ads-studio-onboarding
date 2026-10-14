@@ -1867,7 +1867,16 @@ export default function Explore() {
           compareCustomSince={activeView.compareCustomSince}
           compareDisplay={activeView.compareDisplay}
           compareDisabled={compareDisabled}
-          onApply={(patch) => updateActive(patch)}
+          onApply={(patch) => {
+            const nextView = { ...activeView, ...patch };
+            updateActive(patch);
+            // Changing the date range/compare settings is the single most
+            // frequent action a performance marketer takes while scanning —
+            // it should behave like Meta's own picker and refresh the table
+            // immediately on "Update", not silently restage the query behind
+            // a separate "Run Query" click elsewhere in the panel.
+            if (isViewRunnable(nextView, effectiveCatalog)) runQueryForView(nextView, false);
+          }}
         />
         {range && !rangeValid && (
           <span className={styles.sub} style={{ color: "var(--red)" }}>

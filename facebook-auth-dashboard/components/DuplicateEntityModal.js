@@ -91,13 +91,11 @@ function BackLink({ onClick }) {
 // instead of navigating to the Launch tab (same reasoning as RowActions'
 // existing budget-change modal: this is still fundamentally a "confirm a
 // change to one row and get right back to what you were doing" interaction,
-// just a multi-step creation instead of a single Graph call). Defaults to
-// the fastest, most common choice (duplicate into the SAME ad set/campaign
-// the source already lives in) with a "Change" escape hatch for the less
-// common case of an explicitly different destination — rather than forcing
-// a picker step every single time the way pages/launch.js's own standalone
-// duplicate flow does, which makes sense there (no row to default from) but
-// would just be friction here.
+// just a multi-step creation instead of a single Graph call). The
+// destination (campaign, and for an ad, ad set too) is never pre-picked —
+// every path here starts unresolved and the marketer explicitly chooses
+// both, rather than this modal silently recommending "same place it already
+// lives" and hoping a "Change" button gets noticed when it's wrong.
 //
 // Reuses the exact same backend this app already had for duplication:
 // pages/api/fb/ads-list.js + pages/api/fb/duplicate-ad.js for a single ad,
@@ -109,10 +107,17 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
   const accountId = row.accountId;
   const [step, setStep] = useState("loading"); // loading | error | confirm | pick_destination | done
   const [loadError, setLoadError] = useState(null);
+  // Which destination the "pick_destination" step is choosing — only ever
+  // "adset" for an "adset" duplication (there's no ad-set-level destination
+  // to pick, the new ad set itself IS the thing being placed into a
+  // campaign), but an "ad" duplication needs campaign picked before ad set
+  // can even be scoped, so it's either.
+  const [pickTarget, setPickTarget] = useState(null); // "campaign" | "adset"
 
   // "ad" duplication
   const [adSource, setAdSource] = useState(null);
   const [adName, setAdName] = useState("");
+  const [destinationCampaign, setDestinationCampaign] = useState(null);
   const [adDestination, setAdDestination] = useState(null);
   const [adsetChoices, setAdsetChoices] = useState([]);
 
@@ -144,8 +149,9 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
       Promise.all([
         fetch(`/api/fb/ads-list?adId=${encodeURIComponent(row.entityId)}`).then((res) => res.json()),
         fetch(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`).then((res) => res.json()),
+        fetch(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`).then((res) => res.json()),
       ])
-        .then(([adJson, adsetsJson]) => {
+        .then(([adJson, adsetsJson, campaignsJson]) => {
           if (adJson.error) {
             setLoadError(adJson.error);
             setStep("error");
@@ -153,8 +159,8 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
           }
           setAdSource(adJson);
           setAdName(`${adJson.name} - Copy`);
-          setAdDestination({ id: adJson.adsetId, name: adJson.adsetName, campaign: { name: adJson.campaignName } });
           setAdsetChoices(adsetsJson.adsets || []);
+          setCampaignChoices(campaignsJson.campaigns || []);
           setStep("confirm");
         })
         .catch((err) => {
@@ -173,9 +179,7 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
             return;
           }
           setAdsetSource(adsetJson);
-          const list = campaignsJson.campaigns || [];
-          setCampaignChoices(list);
-          setSelectedCampaign(list.find((c) => c.id === adsetJson.campaignId) || { id: adsetJson.campaignId, name: adsetJson.campaignName });
+          setCampaignChoices(campaignsJson.campaigns || []);
           setBudgetAmount(adsetJson.fields.budgetAmount || "");
           setStep("confirm");
         })
@@ -192,7 +196,7 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
   // is ABO, so the new ad set needs its own budget amount — mirrors
   // pages/launch.js's own campaignHasOwnBudget exactly, just derived from
   // whichever campaign is currently selected here instead of a form field.
-  const adsetBudgetIsUsed = level === "adset" && !(selectedCampaign?.daily_budget || selectedCampaign?.lifetime_budget);
+  const adsetBudgetIsUsed = level === "adset" && !!selectedCampaign && !(selectedCampaign.daily_budget || selectedCampaign.lifetime_budget);
   const adsetBudgetValid = !adsetBudgetIsUsed || (Number.isFinite(parseFloat(budgetAmount)) && parseFloat(budgetAmount) > 0);
 
   function submitAd() {
@@ -269,7 +273,8 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
   }
 
   const adsetCount = adsetSource?.ads?.length || 0;
-  const canSubmit = level === "ad" ? !!adName.trim() && !!adDestination : !!selectedCampaign && adsetBudgetValid;
+  const canSubmit =
+    level === "ad" ? !!adName.trim() && !!destinationCampaign && !!adDestination : !!selectedCampaign && adsetBudgetValid;
 
   return (
     <div
@@ -295,7 +300,7 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
           <div>
             <h2 className={styles.h2} style={{ marginBottom: 2 }}>
               {step === "pick_destination"
-                ? level === "ad"
+                ? pickTarget === "adset"
                   ? "Choose a destination ad set"
                   : "Choose a destination campaign"
                 : `Duplicate ${level === "ad" ? "ad" : "ad set"}`}
@@ -324,17 +329,17 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
         {step === "pick_destination" && (
           <div style={{ marginTop: 16 }}>
             <BackLink onClick={() => setStep("confirm")} />
-            {level === "ad" ? (
+            {pickTarget === "adset" ? (
               <PickerList
-                items={adsetChoices}
+                items={adsetChoices.filter((a) => a.campaign?.id === destinationCampaign?.id)}
                 query={pickerQuery}
                 onQueryChange={setPickerQuery}
-                emptyLabel="No ad sets found on this account."
+                emptyLabel="No ad sets found in this campaign."
                 renderRow={(a) => (
                   <PickerRow
                     key={a.id}
                     item={a}
-                    subtitle={`${a.campaign?.name || ""} · ${budgetLabel(a, currency)}`}
+                    subtitle={budgetLabel(a, currency)}
                     badge={a.status}
                     onClick={() => {
                       setAdDestination(a);
@@ -356,7 +361,18 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
                     subtitle={budgetLabel(c, currency)}
                     badge={c.effective_status}
                     onClick={() => {
-                      setSelectedCampaign(c);
+                      if (level === "ad") {
+                        // Switching the destination campaign invalidates
+                        // whatever ad set was already picked — it almost
+                        // certainly belongs to the OLD campaign, and
+                        // adsetChoices is filtered by campaign id above, so
+                        // keeping it would show a destination ad set the
+                        // filtered picker can't even reach.
+                        setDestinationCampaign(c);
+                        setAdDestination(null);
+                      } else {
+                        setSelectedCampaign(c);
+                      }
                       setStep("confirm");
                     }}
                   />
@@ -375,20 +391,42 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
             <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <div style={{ minWidth: 0 }}>
                 <p className={styles.sub} style={{ marginBottom: 2 }}>
-                  Destination ad set
+                  Destination campaign
                 </p>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>{adDestination.name}</div>
-                <span className={styles.muted}>{adDestination.campaign?.name}</span>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{destinationCampaign?.name || "Not selected yet"}</div>
               </div>
               <button
                 type="button"
                 className={styles.btnSecondary}
                 onClick={() => {
                   setPickerQuery("");
+                  setPickTarget("campaign");
                   setStep("pick_destination");
                 }}
               >
-                Change
+                {destinationCampaign ? "Change" : "Choose"}
+              </button>
+            </div>
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <p className={styles.sub} style={{ marginBottom: 2 }}>
+                  Destination ad set
+                </p>
+                <div style={{ fontWeight: 600, fontSize: 13, color: adDestination ? "var(--t1)" : "var(--t3)" }}>
+                  {adDestination?.name || (destinationCampaign ? "Not selected yet" : "Choose a campaign first")}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                disabled={!destinationCampaign}
+                onClick={() => {
+                  setPickerQuery("");
+                  setPickTarget("adset");
+                  setStep("pick_destination");
+                }}
+              >
+                {adDestination ? "Change" : "Choose"}
               </button>
             </div>
             <div style={{ marginTop: 14 }}>
@@ -417,17 +455,18 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
                 <p className={styles.sub} style={{ marginBottom: 2 }}>
                   Destination campaign
                 </p>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>{selectedCampaign?.name}</div>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{selectedCampaign?.name || "Not selected yet"}</div>
               </div>
               <button
                 type="button"
                 className={styles.btnSecondary}
                 onClick={() => {
                   setPickerQuery("");
+                  setPickTarget("campaign");
                   setStep("pick_destination");
                 }}
               >
-                Change
+                {selectedCampaign ? "Change" : "Choose"}
               </button>
             </div>
             {adsetBudgetIsUsed && (
