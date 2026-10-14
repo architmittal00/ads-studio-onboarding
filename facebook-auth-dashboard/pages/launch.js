@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { getServerSession } from "next-auth/next";
 import { useEffect, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
@@ -117,14 +118,18 @@ function PickerList({ loading, error, items, query, onQueryChange, renderRow, em
 }
 
 export default function Launch() {
+  const router = useRouter();
   const { adAccounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
   const currency = adAccounts.find((a) => a.id === selectedAccountId)?.currency;
 
-  // screen: entry | pick_campaign | pick_adset | pick_destination | form | review
+  // screen: entry | pick_campaign | pick_adset | pick_destination | form |
+  // review | duplicate_ad_destination | duplicate_ad_confirm (the last two
+  // are the "duplicate this ad" flow — see handleDuplicateQuery below)
   const [screen, setScreen] = useState("entry");
   const [destination, setDestination] = useState(null); // "new" | "existing"
   const [existingCampaign, setExistingCampaign] = useState(null);
   const [sourceAdsetName, setSourceAdsetName] = useState(null);
+  const [sourceAdsetCampaignName, setSourceAdsetCampaignName] = useState(null);
   // Ads to re-create under the new ad set once it exists — each one's
   // existing creative is reused by id (see pages/api/fb/adsets-list.js's
   // ?adsetId= detail fetch), not null outside the duplicate path.
@@ -144,7 +149,23 @@ export default function Launch() {
   const [adsetsError, setAdsetsError] = useState(null);
   const [pickerQuery, setPickerQuery] = useState("");
 
+  // "Duplicate this ad" — entered only via Explore's RowActions "Duplicate"
+  // action on an ad-level row (?duplicateAdId=&accountId=), never from this
+  // page's own entry screen: there's no "browse every ad in the account"
+  // picker anywhere in this app, so this only ever makes sense starting from
+  // one specific, already-on-screen ad. No campaign/ad-set FORM is involved
+  // (unlike duplicating an ad set) — a single ad has nothing to configure
+  // beyond which ad set it lands in and what it's named.
+  const [duplicateAdSource, setDuplicateAdSource] = useState(null);
+  const [duplicateAdSourceError, setDuplicateAdSourceError] = useState(null);
+  const [duplicateAdDestination, setDuplicateAdDestination] = useState(null);
+  const [duplicateAdName, setDuplicateAdName] = useState("");
+  const [duplicateAdSubmitting, setDuplicateAdSubmitting] = useState(false);
+  const [duplicateAdError, setDuplicateAdError] = useState(null);
+  const [duplicateAdResult, setDuplicateAdResult] = useState(null);
+
   const prevObjectiveRef = useRef(null);
+  const handledDuplicateQueryRef = useRef(false);
 
   // An existing campaign that already has a campaign-level budget is CBO —
   // its ad sets can't also carry a budget. One with no budget at all is the
@@ -212,12 +233,19 @@ export default function Launch() {
     setDestination(null);
     setExistingCampaign(null);
     setSourceAdsetName(null);
+    setSourceAdsetCampaignName(null);
     setDuplicateAds([]);
     setCampaignFields(defaultCampaignFields());
     setAdsetFields(defaultAdsetFields());
     setBudgetType("DAILY");
     setBudgetAmount("");
     setPickerQuery("");
+    setDuplicateAdSource(null);
+    setDuplicateAdSourceError(null);
+    setDuplicateAdDestination(null);
+    setDuplicateAdName("");
+    setDuplicateAdError(null);
+    setDuplicateAdResult(null);
   }
 
   function startNewCampaign() {
@@ -242,9 +270,15 @@ export default function Launch() {
     setScreen("form");
   }
 
-  function pickSourceAdset(a) {
+  // Fetches one ad set's full settings + its ads (pages/api/fb/adsets-list.js's
+  // ?adsetId= detail shape) and lands on the destination picker — shared by
+  // the normal "Choose an ad set to duplicate" picker (pickSourceAdset below)
+  // and the Explore-row-action shortcut (handleDuplicateQuery), which skips
+  // straight here already knowing the id.
+  function loadSourceAdsetById(id) {
     setAdsetsLoading(true);
-    fetch(`/api/fb/adsets-list?adsetId=${encodeURIComponent(a.id)}`)
+    setAdsetsError(null);
+    fetch(`/api/fb/adsets-list?adsetId=${encodeURIComponent(id)}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) {
@@ -252,13 +286,96 @@ export default function Launch() {
           return;
         }
         setAdsetFields(json.fields);
-        setSourceAdsetName(a.name);
+        setSourceAdsetName(json.name);
+        setSourceAdsetCampaignName(json.campaignName);
         setDuplicateAds(json.ads || []);
         setScreen("pick_destination");
       })
       .catch((err) => setAdsetsError(err.message))
       .finally(() => setAdsetsLoading(false));
   }
+
+  function pickSourceAdset(a) {
+    loadSourceAdsetById(a.id);
+  }
+
+  // Fetches the source ad's own name/creative/ancestry (pages/api/fb/ads-list.js)
+  // and moves to "pick a destination ad set" — the only entry point into the
+  // "duplicate this ad" flow, see handleDuplicateQuery below.
+  function loadDuplicateAdSource(adId) {
+    setDuplicateAdSourceError(null);
+    fetch(`/api/fb/ads-list?adId=${encodeURIComponent(adId)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.error) {
+          setDuplicateAdSourceError(json.error);
+          setScreen("duplicate_ad_destination");
+          return;
+        }
+        setDuplicateAdSource(json);
+        setDuplicateAdName(`${json.name} - Copy`);
+        loadAdsets();
+        setScreen("duplicate_ad_destination");
+      })
+      .catch((err) => {
+        setDuplicateAdSourceError(err.message);
+        setScreen("duplicate_ad_destination");
+      });
+  }
+
+  function pickAdDestination(a) {
+    setDuplicateAdDestination(a);
+    setDuplicateAdError(null);
+    setScreen("duplicate_ad_confirm");
+  }
+
+  function submitDuplicateAd() {
+    if (!duplicateAdSource || !duplicateAdDestination || duplicateAdSubmitting) return;
+    setDuplicateAdSubmitting(true);
+    setDuplicateAdError(null);
+    fetch("/api/fb/duplicate-ad", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accountId: selectedAccountId,
+        sourceAdId: duplicateAdSource.id,
+        destinationAdsetId: duplicateAdDestination.id,
+        name: duplicateAdName,
+      }),
+    })
+      .then((res) => res.json().then((json) => ({ ok: res.ok, json })))
+      .then(({ ok, json }) => {
+        if (!ok) {
+          setDuplicateAdError(json.error || "Request failed");
+          return;
+        }
+        setDuplicateAdResult(json);
+      })
+      .catch((err) => setDuplicateAdError(err.message))
+      .finally(() => setDuplicateAdSubmitting(false));
+  }
+
+  // One-time hand-off from Explore's RowActions "Duplicate" action — jumps
+  // straight past this page's own entry/picker screens since the row that
+  // was clicked already identifies exactly which ad or ad set to duplicate.
+  // Replaces the URL (shallow, no reload) once handled so a later refresh or
+  // back-navigation doesn't re-trigger it.
+  useEffect(() => {
+    if (!router.isReady || handledDuplicateQueryRef.current) return;
+    const { duplicateAdsetId, duplicateAdId, accountId: queryAccountId } = router.query;
+    if (!duplicateAdsetId && !duplicateAdId) return;
+    handledDuplicateQueryRef.current = true;
+    if (queryAccountId) setSelectedAccountId(String(queryAccountId));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time data load triggered by an external input (the URL's duplicate query from Explore), not derived state
+    if (duplicateAdsetId) loadSourceAdsetById(String(duplicateAdsetId));
+    else if (duplicateAdId) loadDuplicateAdSource(String(duplicateAdId));
+    // Guarded on pathname rather than called unconditionally: this is only
+    // ever a same-page query cleanup on the real /launch route (shallow, so
+    // it never re-runs getServerSideProps or remounts anything there) — the
+    // guard just keeps it from ever trying to navigate elsewhere.
+    if (router.pathname === "/launch") router.replace("/launch", undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately one-time on the query becoming available, not re-run as component state changes afterward
+  }, [router.isReady]);
 
   const runnable = !!selectedAccountId;
 
@@ -377,12 +494,20 @@ export default function Launch() {
 
           {screen === "pick_destination" && (
             <div>
-              <BackLink onClick={() => setScreen("pick_adset")} />
+              {/* Goes all the way back to the entry screen rather than just
+                  to "pick_adset" — this screen is also reached directly via
+                  Explore's "Duplicate" row action, which never populated
+                  that picker's list in the first place, so "one step back"
+                  isn't always a real, loaded screen to land on. Matches the
+                  label this already shows ("Start over"). */}
+              <BackLink onClick={resetFlow} />
               <h2 className={styles.h2} style={{ marginBottom: 6 }}>
                 Where should the duplicate go?
               </h2>
               <p className={styles.sub} style={{ marginBottom: 14 }}>
-                Duplicating &ldquo;{sourceAdsetName}&rdquo; — its settings are pre-filled below, still fully editable.
+                Duplicating &ldquo;{sourceAdsetName}&rdquo;
+                {sourceAdsetCampaignName && <> (currently in <strong>{sourceAdsetCampaignName}</strong>)</>} — its settings are
+                pre-filled below, still fully editable.
                 {duplicateAds.length > 0 &&
                   ` Its ${duplicateAds.length} ad${duplicateAds.length > 1 ? "s" : ""} will be duplicated into the new ad set too, using the same creative.`}
               </p>
@@ -390,6 +515,116 @@ export default function Launch() {
                 <EntryCard title="New Campaign" description="Create a new campaign for this ad set." onClick={startNewCampaign} />
                 <EntryCard title="Existing Campaign" description="Attach it to a campaign you already have." onClick={startExistingCampaign} />
               </div>
+            </div>
+          )}
+
+          {screen === "duplicate_ad_destination" && (
+            <div>
+              <BackLink onClick={resetFlow} />
+              <h2 className={styles.h2} style={{ marginBottom: 6 }}>
+                Where should the duplicate go?
+              </h2>
+              {duplicateAdSourceError ? (
+                <div className={styles.error} style={{ marginBottom: 14 }}>{duplicateAdSourceError}</div>
+              ) : (
+                <p className={styles.sub} style={{ marginBottom: 14 }}>
+                  Duplicating &ldquo;{duplicateAdSource?.name}&rdquo;
+                  {duplicateAdSource && (
+                    <>
+                      {" "}
+                      (currently in <strong>{duplicateAdSource.adsetName}</strong> · {duplicateAdSource.campaignName})
+                    </>
+                  )}
+                  . Choose which ad set the new ad should land in.
+                </p>
+              )}
+              <PickerList
+                loading={adsetsLoading}
+                error={adsetsError}
+                items={adsets}
+                query={pickerQuery}
+                onQueryChange={setPickerQuery}
+                emptyLabel="No ad sets found on this account."
+                renderRow={(a) => (
+                  <div
+                    key={a.id}
+                    onClick={() => pickAdDestination(a)}
+                    style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
+                      <span className={styles.muted}>
+                        {a.campaign?.name} · {OPTIMIZATION_GOAL_LABELS[a.optimization_goal] || a.optimization_goal} · {budgetLabel(a, currency)}
+                      </span>
+                      <PerformanceLine performance={a.performance} currency={currency} />
+                    </div>
+                    <span className={styles.badgeInfo} style={{ flexShrink: 0 }}>
+                      {a.status}
+                    </span>
+                  </div>
+                )}
+              />
+            </div>
+          )}
+
+          {screen === "duplicate_ad_confirm" && (
+            <div>
+              <BackLink onClick={() => setScreen("duplicate_ad_destination")} label="Choose a different ad set" />
+              <h2 className={styles.h2} style={{ marginBottom: 10 }}>
+                Duplicate this ad
+              </h2>
+              <div className={styles.card} style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <p className={styles.sub} style={{ marginBottom: 2 }}>Source ad</p>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{duplicateAdSource?.name}</div>
+                  <span className={styles.muted}>
+                    {duplicateAdSource?.adsetName} · {duplicateAdSource?.campaignName}
+                  </span>
+                </div>
+                <div>
+                  <p className={styles.sub} style={{ marginBottom: 2 }}>Destination ad set</p>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{duplicateAdDestination?.name}</div>
+                  <span className={styles.muted}>{duplicateAdDestination?.campaign?.name}</span>
+                </div>
+                <div>
+                  <p className={styles.sub} style={{ marginBottom: 6 }}>Name for the new ad</p>
+                  <input
+                    type="text"
+                    className={styles.select}
+                    style={{ width: "100%" }}
+                    value={duplicateAdName}
+                    onChange={(e) => setDuplicateAdName(e.target.value)}
+                    disabled={!!duplicateAdResult}
+                  />
+                </div>
+                <p className={styles.sub}>
+                  The new ad reuses the exact same creative as this one (by id) — it will look and run identically, including
+                  a partnership/branded-content ad — and is created paused so it can be reviewed before activating.
+                </p>
+              </div>
+
+              {duplicateAdError && <div className={styles.error} style={{ marginBottom: 14 }}>{duplicateAdError}</div>}
+
+              {duplicateAdResult ? (
+                <>
+                  <div className={styles.card} style={{ marginBottom: 20 }}>
+                    <p style={{ fontWeight: 600, marginBottom: 4 }}>Duplicated successfully.</p>
+                    <p className={styles.sub}>The new ad was created paused in &ldquo;{duplicateAdDestination?.name}&rdquo;.</p>
+                  </div>
+                  <button type="button" className={styles.btnPrimary} onClick={resetFlow}>
+                    Done
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  disabled={!duplicateAdName.trim() || duplicateAdSubmitting}
+                  onClick={submitDuplicateAd}
+                >
+                  {duplicateAdSubmitting ? "Duplicating…" : "Duplicate"}
+                </button>
+              )}
             </div>
           )}
 
