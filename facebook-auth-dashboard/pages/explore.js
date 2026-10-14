@@ -30,6 +30,7 @@ import {
   formatMetricValue,
   buildEffectiveCatalog,
 } from "@/lib/insightsMetrics";
+import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_COLORS } from "@/lib/tabGroups";
 import styles from "@/styles/Home.module.css";
 
 // Recharts measures its container via ResizeObserver, so it can't be
@@ -46,30 +47,6 @@ const EXPLORE_CACHE_MAX_ENTRIES = 50;
 const CUSTOM_EVENTS_CACHE_PREFIX = "explore-custom-conversions:";
 const CUSTOM_EVENTS_CACHE_MAX_ENTRIES = 20;
 const MAX_VIEWS = 15;
-
-// Tab-group colors — a fixed palette, like Chrome's own tab groups, so two
-// groups are always visually distinct without asking anyone to pick a hex
-// value. `bg`/`border` are used for the group's chip and the tint across its
-// member tabs; `dot` is the small swatch shown in the color picker and next
-// to the group's name.
-const GROUP_COLORS = [
-  { key: "grey", dot: "#9aa0a6", bg: "rgba(154, 160, 166, 0.18)", border: "#9aa0a6" },
-  { key: "blue", dot: "#4c8bf5", bg: "rgba(76, 139, 245, 0.18)", border: "#4c8bf5" },
-  { key: "red", dot: "#ea4335", bg: "rgba(234, 67, 53, 0.18)", border: "#ea4335" },
-  { key: "yellow", dot: "#f4b400", bg: "rgba(244, 180, 0, 0.2)", border: "#f4b400" },
-  { key: "green", dot: "#34a853", bg: "rgba(52, 168, 83, 0.18)", border: "#34a853" },
-  { key: "pink", dot: "#e65fa1", bg: "rgba(230, 95, 161, 0.18)", border: "#e65fa1" },
-  { key: "purple", dot: "#a142f4", bg: "rgba(161, 66, 244, 0.18)", border: "#a142f4" },
-  { key: "cyan", dot: "#24c1e0", bg: "rgba(36, 193, 224, 0.18)", border: "#24c1e0" },
-];
-
-function newGroupId() {
-  return `g${Date.now()}_${Math.random().toString(36).slice(2)}`;
-}
-
-function groupColor(key) {
-  return GROUP_COLORS.find((c) => c.key === key) || GROUP_COLORS[0];
-}
 
 const RANGE_PRESETS = [
   { key: "today", label: "Today" },
@@ -1103,32 +1080,15 @@ export default function Explore() {
     if (id === activeViewId) setActiveViewId(next[Math.max(0, idx - 1)].id);
   }
 
-  // Tab groups mirror Chrome's own model: a group is just a name + color,
-  // and membership is a `groupId` on each view — grouping a tab always moves
-  // it next to its new group's other members so a group's tabs stay
-  // contiguous on screen, the same guarantee Chrome enforces (the rendering
-  // walk below assumes exactly one contiguous run per group id).
-  function moveViewNextToGroup(viewsList, viewId, groupId) {
-    const from = viewsList.findIndex((v) => v.id === viewId);
-    if (from === -1) return viewsList;
-    const view = viewsList[from];
-    const withoutView = viewsList.filter((v) => v.id !== viewId);
-    let insertAt = withoutView.findIndex((v) => v.groupId === groupId);
-    if (insertAt === -1) {
-      // No existing member to land next to — leave it roughly where it was.
-      insertAt = Math.min(from, withoutView.length);
-    } else {
-      while (insertAt < withoutView.length && withoutView[insertAt].groupId === groupId) insertAt++;
-    }
-    const next = [...withoutView];
-    next.splice(insertAt, 0, view);
-    return next;
-  }
-
+  // Tab groups mirror Chrome's own model: a group is just a name + color
+  // (see lib/tabGroups.js), and membership is a `groupId` on each view —
+  // grouping a tab always moves it next to its new group's other members so
+  // a group's tabs stay contiguous on screen, the same guarantee Chrome
+  // enforces (the rendering walk below assumes exactly one contiguous run
+  // per group id).
   function createGroupFromView(viewId) {
     const id = newGroupId();
-    const usedColors = new Set(liveGroups.map((g) => g.color));
-    const color = (GROUP_COLORS.find((c) => !usedColors.has(c.key)) || GROUP_COLORS[liveGroups.length % GROUP_COLORS.length]).key;
+    const color = pickNextGroupColor(liveGroups);
     setGroups((prev) => [...prev, { id, name: "New group", color, collapsed: false }]);
     setViews((prev) => moveViewNextToGroup(prev, viewId, id).map((v) => (v.id === viewId ? { ...v, groupId: id } : v)));
     setTabMenu(null);
@@ -1833,9 +1793,12 @@ export default function Explore() {
   // Walks `views` in order, clustering each group's tabs (always contiguous
   // — see moveViewNextToGroup) behind its chip, so grouped and ungrouped tabs
   // can freely interleave along the strip exactly like Chrome's own tab bar.
-  // A collapsed group still shows its currently-active member (if any) right
-  // after the chip, so switching to a tab never hides the very tab you're
-  // looking at — only its other, non-active siblings disappear.
+  // A collapsed group hides every one of its member tabs — including the
+  // active one — same as Chrome itself: the result below still shows
+  // whichever view is active regardless of whether its tab button is
+  // visible, so collapsing the group you're currently working in is exactly
+  // the case this is for (reclaiming the strip's space while still seeing
+  // that tab's data), not a reason to leave it peeking out.
   function renderTabStrip() {
     const elements = [];
     let i = 0;
@@ -1854,10 +1817,7 @@ export default function Explore() {
       elements.push(
         <div key={`group-${v.groupId}`} style={{ display: "flex", alignItems: "flex-end" }}>
           {group ? renderGroupChip(group, members.length) : null}
-          {(!group?.collapsed
-            ? members
-            : members.filter((m) => m.id === activeViewId)
-          ).map((m) => renderTabButton(m, startIdx + members.indexOf(m), group?.color))}
+          {!group?.collapsed && members.map((m) => renderTabButton(m, startIdx + members.indexOf(m), group?.color))}
         </div>
       );
       i = j;
