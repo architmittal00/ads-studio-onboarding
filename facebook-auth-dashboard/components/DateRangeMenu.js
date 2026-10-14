@@ -93,6 +93,47 @@ function Month({ monthKey, selStart, selEnd, hoverEnd, maxIso, onPick, onHover }
   );
 }
 
+// A themed on/off control for "Compare to previous period" — a checkbox
+// here read as noticeably out of place next to the rest of this popover's
+// custom-drawn controls (presets, tabs, calendar), which never use native
+// form widgets.
+function Switch({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      style={{
+        width: 34,
+        height: 20,
+        borderRadius: 999,
+        border: "none",
+        padding: 2,
+        flexShrink: 0,
+        background: checked ? "var(--purple)" : "var(--border2)",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+        transition: "background 0.15s ease",
+      }}
+    >
+      <span
+        style={{
+          display: "block",
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          background: "#fff",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+          transform: checked ? "translateX(14px)" : "translateX(0)",
+          transition: "transform 0.15s ease",
+        }}
+      />
+    </button>
+  );
+}
+
 function formatTriggerLabel(rangePreset, since, until) {
   if (!since || !until) return "Select dates…";
   const datesLabel =
@@ -133,6 +174,7 @@ export default function DateRangeMenu({
   const [draft, setDraft] = useState(null);
   const [hoverDate, setHoverDate] = useState(null);
   const [leftMonth, setLeftMonth] = useState(() => monthKeyOf(isoDate(todayUTC())));
+  const [compareMonth, setCompareMonth] = useState(null);
   const [pos, setPos] = useState(null);
   const triggerRef = useRef(null);
   const popoverRef = useRef(null);
@@ -170,6 +212,7 @@ export default function DateRangeMenu({
       compareDisplay,
     });
     setLeftMonth(monthKeyOf(seedRange?.since || maxIso));
+    setCompareMonth(null);
     setOpen(true);
   }
 
@@ -368,15 +411,14 @@ export default function DateRangeMenu({
           )}
 
           <div style={{ borderTop: "1px solid var(--border)", marginTop: 16, paddingTop: 14 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: compareDisabled ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
-              <input
-                type="checkbox"
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)" }}>Compare to previous period</span>
+              <Switch
                 checked={!!draft.compareToPrevious}
                 disabled={compareDisabled}
-                onChange={(e) => setDraft((d) => ({ ...d, compareToPrevious: e.target.checked }))}
+                onChange={(v) => setDraft((d) => ({ ...d, compareToPrevious: v }))}
               />
-              Compare to previous period
-            </label>
+            </div>
             {compareDisabled && (
               <p className={styles.sub} style={{ marginTop: 4 }}>
                 Not available together with daily/weekly/monthly grouping.
@@ -395,23 +437,54 @@ export default function DateRangeMenu({
                   <button
                     type="button"
                     className={draft.compareCustomSince ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() =>
-                      setDraft((d) => ({ ...d, compareCustomSince: d.compareCustomSince || (draftDays ? addDaysUTC(d.since, -draftDays) : "") }))
-                    }
+                    onClick={() => {
+                      const nextSince = draft.compareCustomSince || (draftDays ? addDaysUTC(draft.since, -draftDays) : "");
+                      setDraft((d) => ({ ...d, compareCustomSince: nextSince }));
+                      if (nextSince) setCompareMonth(monthKeyOf(nextSince));
+                    }}
                   >
                     Custom start date
                   </button>
                 </div>
                 {draft.compareCustomSince && (
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <input
-                      type="date"
-                      className={styles.select}
-                      value={draft.compareCustomSince}
-                      max={maxIso}
-                      onChange={(e) => setDraft((d) => ({ ...d, compareCustomSince: e.target.value }))}
-                    />
-                    {draftDays && <span className={styles.muted}>→ {compareEnd} ({draftDays} day{draftDays === 1 ? "" : "s"})</span>}
+                  <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <div style={{ width: 220 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          style={{ padding: 4 }}
+                          onClick={() => setCompareMonth((m) => shiftMonth(m || monthKeyOf(draft.compareCustomSince), -1))}
+                          aria-label="Previous month"
+                        >
+                          <ChevronIcon direction="left" size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          style={{ padding: 4 }}
+                          onClick={() => setCompareMonth((m) => shiftMonth(m || monthKeyOf(draft.compareCustomSince), 1))}
+                          aria-label="Next month"
+                        >
+                          <ChevronIcon direction="right" size={12} />
+                        </button>
+                      </div>
+                      <Month
+                        monthKey={compareMonth || monthKeyOf(draft.compareCustomSince)}
+                        selStart={draft.compareCustomSince}
+                        selEnd={draft.compareCustomSince}
+                        hoverEnd={null}
+                        maxIso={maxIso}
+                        onPick={(iso) => setDraft((d) => ({ ...d, compareCustomSince: iso }))}
+                        onHover={() => {}}
+                      />
+                    </div>
+                    {draftDays && (
+                      <span className={styles.muted} style={{ marginTop: 4 }}>
+                        {DAY_LABEL_FMT.format(new Date(`${draft.compareCustomSince}T00:00:00Z`))} → {DAY_LABEL_FMT.format(new Date(`${compareEnd}T00:00:00Z`))}
+                        <br />({draftDays} day{draftDays === 1 ? "" : "s"})
+                      </span>
+                    )}
                   </div>
                 )}
                 {compareTooFar && (
