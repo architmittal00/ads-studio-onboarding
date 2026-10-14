@@ -81,12 +81,19 @@ function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth }
 // the visible top-level rows are under, instead of those extra rows silently
 // ignoring it. `frozenKey` is `null` when nothing's pinned.
 // `pinnedRow`, if given, renders one extra row via the same `columns[].
-// render`/frozen-column treatment as a normal row, pinned after every real
-// row at the very end of `<tbody>` — outside sorting, searching, and
-// `renderRowExtra` entirely (a
-// caller's own "Total" row, say, which should never itself get sorted among
-// the rows it's totaling, or disappear behind a search term that doesn't
-// match its own label).
+// render`/frozen-column treatment as a normal row — outside sorting,
+// searching, and `renderRowExtra` entirely (a caller's own "Total" row, say,
+// which should never itself get sorted among the rows it's totaling, or
+// disappear behind a search term that doesn't match its own label). It's a
+// genuinely separate `<table>` below `.tableScroll`, not one more `<tr>`
+// inside it — `position: sticky; bottom: 0` on the last row of a scrolling
+// container only "catches" once you've scrolled nearly to the very end
+// (there's nothing after it to scroll past), which for a 200-row result
+// means the total is invisible for almost the entire scroll range, not
+// pinned the way the header is. A second table, kept outside the vertical
+// scroll entirely and with its own horizontal scroll silently mirrored from
+// the first (see `handleMainScroll`), reproduces "frozen footer, scrollable
+// body" properly instead.
 export default function SortableTable({
   columns,
   rows,
@@ -126,6 +133,15 @@ export default function SortableTable({
   // removing columns between queries never leaves a stale width behind.
   const [colWidths, setColWidths] = useState({});
   const dragRef = useRef(null);
+  const footerScrollRef = useRef(null);
+
+  // The pinned-row footer (see the big comment on the `pinnedRow` prop
+  // above) is a second, independent `<table>` — its own horizontal scroll
+  // position has to be kept in lockstep with the real one by hand, since
+  // nothing ties two separate scroll containers together natively.
+  function handleMainScroll(e) {
+    if (footerScrollRef.current) footerScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  }
 
   // User-dragged column order, by key. Reconciled against the live `columns`
   // prop below rather than trusted outright — a key that's gone (last
@@ -219,6 +235,7 @@ export default function SortableTable({
   function columnWidth(col) {
     return colWidths[col.key] ?? col.maxWidth ?? DEFAULT_COLUMN_WIDTH;
   }
+  const tableWidthStyle = { width: orderedColumns.reduce((sum, col) => sum + columnWidth(col), 0) };
 
   // `table-layout: fixed` (applied via .tableResizable, only while this prop
   // is on) is what makes a dragged width actually stick — with the default
@@ -297,7 +314,7 @@ export default function SortableTable({
       {sorted.length === 0 ? (
         <p className={styles.sub}>No matches for &quot;{search}&quot;.</p>
       ) : (
-        <div className={styles.tableScroll} style={{ maxHeight }}>
+        <div className={styles.tableScroll} style={{ maxHeight }} onScroll={pinnedRow ? handleMainScroll : undefined}>
           <table
             className={resizableColumns ? `${styles.table} ${styles.tableResizable}` : styles.table}
             style={
@@ -310,7 +327,9 @@ export default function SortableTable({
               // and makes the table wider than its container whenever that
               // sum exceeds it — which is what lets .tableScroll's
               // overflow: auto actually scroll instead of squeezing columns.
-              resizableColumns ? { width: orderedColumns.reduce((sum, col) => sum + columnWidth(col), 0) } : undefined
+              // The pinned-row footer table below mirrors this exact style
+              // so its columns land at the same pixel widths as this one.
+              resizableColumns ? tableWidthStyle : undefined
             }
           >
             <thead>
@@ -427,11 +446,18 @@ export default function SortableTable({
                   {renderRowExtra ? renderRowExtra(row) : null}
                 </Fragment>
               ))}
-              {pinnedRow && (
-                <tr className={styles.pinnedRow}>
-                  {orderedColumns.map((col) => renderCell(col, pinnedRow, { activeFrozenKey, resizableColumns, columnWidth }))}
-                </tr>
-              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {pinnedRow && sorted.length > 0 && (
+        <div className={styles.tableScrollFooter} ref={footerScrollRef}>
+          <table className={resizableColumns ? `${styles.table} ${styles.tableResizable}` : styles.table} style={resizableColumns ? tableWidthStyle : undefined}>
+            <tbody>
+              <tr className={styles.pinnedRow}>
+                {orderedColumns.map((col) => renderCell(col, pinnedRow, { activeFrozenKey, resizableColumns, columnWidth }))}
+              </tr>
             </tbody>
           </table>
         </div>
