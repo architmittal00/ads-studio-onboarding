@@ -124,6 +124,7 @@ const KNOWN_CACHE_FAMILIES = [
   { prefix: "explore-custom-conversions:", maxEntries: 20 },
   { prefix: "recent-changes-investigate:", maxEntries: 40 },
   { prefix: "recent-changes-drilldown-investigate:", maxEntries: 40 },
+  { prefix: "new-recent-changes:", maxEntries: 50 },
 ];
 
 // Run once per app load (see pages/_app.js) — self-heals existing bloat for
