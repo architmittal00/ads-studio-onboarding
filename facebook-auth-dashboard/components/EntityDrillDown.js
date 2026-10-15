@@ -9,6 +9,10 @@ import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
 
 const DRILLDOWN_CACHE_PREFIX = "recent-changes-drilldown-investigate:";
+// Keep in sync with lib/clientCache.js's KNOWN_CACHE_FAMILIES entry for this
+// same prefix — that registry is what a one-time sweep on app load enforces,
+// this is what keeps it bounded between sweeps within one long session.
+const DRILLDOWN_CACHE_MAX_ENTRIES = 40;
 
 const PAGE_SIZE = 10;
 
@@ -129,7 +133,7 @@ async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customM
   const res = await fetch(`/api/fb/recent-changes/investigate?${params.toString()}`);
   const json = await res.json();
   if (json.error) throw new Error(json.error);
-  setCachedEntry(cacheKey, json);
+  setCachedEntry(cacheKey, json, { prefix: DRILLDOWN_CACHE_PREFIX, maxEntriesForPrefix: DRILLDOWN_CACHE_MAX_ENTRIES });
   return json.windows;
 }
 
