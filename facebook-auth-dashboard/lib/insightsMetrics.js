@@ -693,10 +693,10 @@ export const RATE_METRIC_KEYS = new Set(["cpc", "cpm", "cpp", "cost_per_purchase
 // A "unit" metric (ROAS, CTR, Hook/Hold Rate, and every RATE_METRIC_KEYS
 // entry) is already a per-unit rate — directly comparable across windows of
 // different lengths, unlike an additive total (Spend, Purchases, …) which
-// naturally grows with a longer window even after per-day normalization.
-// Used to decide which metric rows get best/worst comparison coloring (see
-// components/InvestigateDrawer.js) — only ever the genuinely comparable
-// ones. A custom ratio metric (format "decimal") qualifies the same way a
+// naturally grows with a longer window. Used to decide which metric rows get
+// best/worst comparison coloring (see components/WindowComparisonTable.js) —
+// only ever the genuinely comparable ones. A custom ratio metric (format
+// "decimal") qualifies the same way a
 // built-in decimal/percent metric does.
 export function isUnitMetric(metric) {
   return metric.format === "percent" || metric.format === "decimal" || RATE_METRIC_KEYS.has(metric.key);

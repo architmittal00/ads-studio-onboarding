@@ -116,8 +116,16 @@ function sweepExpiredEntries(prefix, ttlMs) {
 // sweep whichever caches that page's own code path actually touched.
 // Keep this in sync with every `setCachedEntry(key, data, { prefix, ... })`
 // call site in the app (currently: pages/explore.js, pages/recent-changes.js,
-// lib/customEvents.js, components/InvestigateDrawer.js,
-// components/EntityDrillDown.js).
+// lib/customEvents.js, components/EntityDrillDown.js). The now-orphaned
+// "recent-changes:" and "new-recent-changes:" prefixes (pages/recent-changes.js
+// was consolidated from two separate pages, each with its own differently-
+// shaped cache, onto a fresh "recent-changes-v2:" prefix — see that file's
+// own CACHE_PREFIX comment for why neither old one was reused directly) are
+// deliberately kept here too, with nothing writing to them anymore, purely
+// so any already-cached entries still sitting in a returning visitor's
+// browser from before this consolidation get swept away by TTL like
+// everything else instead of lingering forever. Safe to drop once enough
+// time has passed that no real entry could still be within TTL.
 const KNOWN_CACHE_FAMILIES = [
   { prefix: "explore:", maxEntries: 50 },
   { prefix: "recent-changes:", maxEntries: 50 },
@@ -125,6 +133,7 @@ const KNOWN_CACHE_FAMILIES = [
   { prefix: "recent-changes-investigate:", maxEntries: 40 },
   { prefix: "recent-changes-drilldown-investigate:", maxEntries: 40 },
   { prefix: "new-recent-changes:", maxEntries: 50 },
+  { prefix: "recent-changes-v2:", maxEntries: 50 },
 ];
 
 // Run once per app load (see pages/_app.js) — self-heals existing bloat for

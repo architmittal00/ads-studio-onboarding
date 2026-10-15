@@ -4,7 +4,7 @@ import { LEVEL_OPTIONS } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
 // Read-only "how is this actually set up" drawer for one Campaign/Ad Set/Ad
-// row in Explore — deliberately a side drawer (components/InvestigateDrawer.js's
+// row in Explore — deliberately a side drawer (components/EntityChangesDrawer.js's
 // own .drawerOverlay/.drawerPanel convention), never a navigation elsewhere:
 // this is about understanding a row without losing your place in the table.
 // `entity` is `{ level: "campaign"|"adset"|"ad", id, name }`; data for each

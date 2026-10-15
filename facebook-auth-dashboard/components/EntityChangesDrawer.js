@@ -12,11 +12,8 @@ import { fetchCustomEvents } from "@/lib/customEvents";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
-// Same investigate-fetch cache as components/InvestigateDrawer.js — this
-// drawer calls the exact same /api/fb/recent-changes/investigate endpoint,
-// just anchored at a day (see dayAnchorEventTime below) instead of one
-// change's own precise timestamp, so sharing the prefix/cache is correct,
-// not just convenient.
+// Calls /api/fb/recent-changes/investigate, anchored at a day (see
+// dayAnchorEventTime below) rather than one change's own precise timestamp.
 const CACHE_PREFIX = "recent-changes-investigate:";
 const CACHE_MAX_ENTRIES = 40;
 
@@ -24,10 +21,9 @@ const DEFAULT_METRIC_KEYS = DEFAULT_COMPARISON_METRIC_KEYS;
 
 const LEVEL_LABEL = { campaign: "Campaign", adset: "Ad Set" };
 
-// Color-codes each tracked action the same way pages/recent-changes.js's own
-// CATEGORY_BADGE does (budget = warn, a pause/stop = danger, a launch =
-// good) — gives the change list a scannable signal at a glance instead of
-// every entry reading as plain bold text.
+// Color-codes each tracked action (budget = warn, a pause/stop = danger, a
+// launch = good) — gives the change list a scannable signal at a glance
+// instead of every entry reading as plain bold text.
 const ACTION_BADGE_CLASS = {
   ad_launched: "badgeGood",
   ad_paused: "badgeDanger",
@@ -44,7 +40,7 @@ const CHANGE_LIST_MAX_HEIGHT = 240;
 
 // The only two tracked actions whose `sourceObjectId` is an actual Ad (every
 // other action's source is an Ad Set or Campaign, which has no creative to
-// thumbnail) — see pages/api/fb/new-recent-changes.js's own ACTION_LABELS.
+// thumbnail) — see pages/api/fb/recent-changes.js's own ACTION_LABELS.
 const AD_LEVEL_ACTIONS = new Set(["ad_launched", "ad_paused"]);
 
 function isoDateOf(iso) {
@@ -61,7 +57,7 @@ function dayAnchorEventTime(dateStr) {
 }
 
 // Groups one entity's full change list (already fetched, see
-// pages/new-recent-changes.js) into one line item per calendar day that had
+// pages/recent-changes.js) into one line item per calendar day that had
 // at least one change — several changes on the same day collapse into a
 // single investigatable row, per the original ask ("3 ads launched + a
 // budget change on one day shows as 1 line, a change 2 days earlier is a
@@ -203,14 +199,11 @@ function DayChangesList({ changes, thumbnails, onOpenThumb }) {
   );
 }
 
-// Read-only "what happened to this entity, grouped by day" drawer for the
-// "New Recent Changes" page — a simpler, narrower sibling of
-// components/InvestigateDrawer.js (which stays untouched; the original
-// Recent Changes page still uses it for one-change-at-a-time investigation).
-// Two internal "pages," not two stacked drawers: the day list (default), and
-// — once a day's "Investigate" is clicked — the same metric-picker +
-// WindowComparisonTable + EntityDrillDown combination InvestigateDrawer
-// shows, anchored at that whole day rather than one precise change time.
+// Read-only "what happened to this entity, grouped by day" drawer for
+// pages/recent-changes.js. Two internal "pages," not two stacked drawers:
+// the day list (default), and — once a day's "Investigate" is clicked — a
+// metric-picker + WindowComparisonTable + EntityDrillDown combination,
+// anchored at that whole day rather than one precise change time.
 export default function EntityChangesDrawer({ entity, onClose, currency }) {
   const [investigatingDay, setInvestigatingDay] = useState(null);
   const [selectedKeys, setSelectedKeys] = useState(DEFAULT_METRIC_KEYS);
@@ -240,7 +233,7 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
   // same /api/fb/ad-thumbnails endpoint components/EntityDrillDown.js and
   // pages/explore.js both already use. Keyed by level+id (not the whole
   // `entity` object) so a silent refresh of the same entity's data (see
-  // pages/new-recent-changes.js's own re-sync effect) doesn't re-fetch
+  // pages/recent-changes.js's own re-sync effect) doesn't re-fetch
   // thumbnails for ads it already has.
   const [thumbnails, setThumbnails] = useState({});
   const [lightboxItem, setLightboxItem] = useState(null);
