@@ -48,6 +48,12 @@ const EXPLORE_CACHE_MAX_ENTRIES = 50;
 const CUSTOM_EVENTS_CACHE_PREFIX = "explore-custom-conversions:";
 const CUSTOM_EVENTS_CACHE_MAX_ENTRIES = 20;
 const MAX_VIEWS = 15;
+// A fast query (the common case) should look exactly like it always has —
+// this only kicks in once a query has been running long enough that a plain
+// spinner starts reading as "is this stuck?", at which point swapping in the
+// backend's own real progress ("Fetched 2 of 5…") keeps it legible without
+// changing anything about how a normal, fast query feels.
+const CONTEXTUAL_LOADER_DELAY_MS = 5000;
 
 const TIME_GROUPING_OPTIONS = [
   { value: "", label: "No grouping (totals)" },
@@ -413,15 +419,45 @@ function firstChartableKey(metricKeys, catalog, accountCount) {
   return metricKeys.find((k) => isChartableForView(k, catalog, accountCount)) || null;
 }
 
-async function fetchExploreInsights(body) {
+// Streams newline-delimited JSON (same shape/reader pattern as
+// pages/api/fb/launch-campaign.js + components/LaunchReview.js's own
+// consumption of it) instead of one plain JSON response — a "progress" event
+// per account/chunk fetched as it completes, then one "done" event carrying
+// the exact same `{rows, meta}` (or `{error}`) shape this function used to
+// return directly. `onProgress` is optional so every other caller (there
+// isn't one today, but nothing requires it) can ignore progress entirely.
+async function fetchExploreInsights(body, onProgress) {
   const res = await fetch("/api/fb/explore-insights", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
-  return json;
+  // A validation failure (bad date range, too many accounts, …) returns a
+  // plain JSON error before any streaming starts — same as today.
+  if (!res.ok || !res.body) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.error || `Request failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalResult = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line);
+      if (event.type === "progress") onProgress?.(event.message);
+      else if (event.type === "done") finalResult = event;
+    }
+  }
+  if (!finalResult) throw new Error("Request ended unexpectedly");
+  if (finalResult.error) throw new Error(finalResult.error);
+  return finalResult;
 }
 
 // Keeps at most MAX_VIEWS tabs, evicting the oldest one that isn't the
@@ -538,6 +574,79 @@ function ExploreEmptyState({ canRunQuery, onRun, loading }) {
         </button>
       </div>
     </section>
+  );
+}
+
+// Search-as-you-type single-select over a flat {key, label} list — the
+// Custom ratio metric form's numerator/denominator pickers used to be plain
+// native <select>s, the only spot in this page that didn't use the same
+// combo-box look (components/AccountSelect.js's single-select mode) as every
+// other picker in the app, which matters here specifically: METRIC_CATALOG
+// has ~40 entries across 8 groups, long enough that scrolling a native
+// dropdown to find one is exactly the friction AccountSelect was built to
+// avoid for a long account list. Not AccountSelect itself reused directly —
+// its prop names and module doc comment are written in terms of ad accounts,
+// and this app's own convention (see components/DuplicateEntityModal.js's
+// PickerList/PickerRow) is a small dedicated picker per distinct domain
+// rather than a generically-named component doing double duty.
+function MetricSelect({ options, value, onChange, placeholder }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const blurTimer = useRef(null);
+
+  function handleFocus() {
+    clearTimeout(blurTimer.current);
+    setQuery("");
+    setOpen(true);
+  }
+
+  // Same delayed-close idiom as AccountSelect/InterestPicker — a plain onBlur
+  // fires before an option's onMouseDown would register.
+  function handleBlur() {
+    blurTimer.current = setTimeout(() => setOpen(false), 150);
+  }
+
+  const selected = options.find((o) => o.key === value);
+  const filtered = query.trim() ? options.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase())) : options;
+  const displayValue = open ? query : selected?.label || "";
+
+  function pick(option) {
+    onChange(option.key);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <div className={styles.comboWrapper} style={{ minWidth: 180 }}>
+      <input
+        type="text"
+        className={styles.select}
+        style={{ width: "100%" }}
+        placeholder={placeholder}
+        value={displayValue}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+      />
+      {open && (
+        <div className={styles.comboDropdown}>
+          {filtered.length === 0 ? (
+            <div className={styles.comboOption}>No matches.</div>
+          ) : (
+            filtered.map((o) => (
+              <div
+                key={o.key}
+                className={styles.comboOption}
+                onMouseDown={() => pick(o)}
+                style={o.key === value ? { background: "rgba(var(--purple-rgb), 0.12)", fontWeight: 700 } : undefined}
+              >
+                {o.label}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -869,7 +978,7 @@ export default function Explore() {
   useEffect(() => {
     setExploreViews({
       activeViewId,
-      views: views.map(({ result, resultFetchedAt, loading, error, ...spec }) => spec),
+      views: views.map(({ result, resultFetchedAt, loading, error, progressMessage, ...spec }) => spec),
       groups: liveGroups,
     });
   }, [views, activeViewId, liveGroups]);
@@ -920,8 +1029,23 @@ export default function Explore() {
       }
     }
 
-    updateView(view.id, { loading: true, error: null });
-    fetchExploreInsights(spec)
+    updateView(view.id, { loading: true, error: null, progressMessage: null });
+    // `startedAt` is set lazily on the first progress event rather than via
+    // a bare `Date.now()` here — this function is defined in the component
+    // body, and the `Date.now()` calls below it need to live inside a
+    // callback (same as `resultFetchedAt: Date.now()` a few lines down) to
+    // satisfy the "no impure call directly in a component-scoped function"
+    // lint rule, even though this one only ever runs from an event handler.
+    let startedAt = null;
+    fetchExploreInsights(spec, (message) => {
+      // Gated on elapsed time, not just "a progress event arrived" — the
+      // backend emits these as each account/chunk finishes regardless of how
+      // fast the overall query is, so without this a sub-second query could
+      // still flash a progress label for one render before the result
+      // replaces it.
+      if (startedAt == null) startedAt = Date.now();
+      if (Date.now() - startedAt >= CONTEXTUAL_LOADER_DELAY_MS) updateView(view.id, { progressMessage: message });
+    })
       .then((json) => {
         updateView(view.id, {
           result: json,
@@ -932,7 +1056,7 @@ export default function Explore() {
         setCachedEntry(cacheKey, json, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
       })
       .catch((err) => updateView(view.id, { error: err.message }))
-      .finally(() => updateView(view.id, { loading: false }));
+      .finally(() => updateView(view.id, { loading: false, progressMessage: null }));
   }
 
   function createNewViewFromActive() {
@@ -1268,7 +1392,7 @@ export default function Explore() {
   const resultArea = (
     <>
       {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
-      {activeView.loading && !result && <Loader label="Running your query…" />}
+      {activeView.loading && !result && <Loader label={activeView.progressMessage || "Running your query…"} />}
       {!activeView.error && !activeView.loading && !result && (
         <ExploreEmptyState canRunQuery={canRunQuery} loading={activeView.loading} onRun={() => runQueryForView(activeView, false)} />
       )}
@@ -1289,7 +1413,7 @@ export default function Explore() {
                 zIndex: 20,
               }}
             >
-              <Loader label={describeQuery(activeView)} />
+              <Loader label={activeView.progressMessage || describeQuery(activeView)} />
             </div>
           )}
 
@@ -2182,17 +2306,31 @@ export default function Explore() {
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                             {effectiveCatalog.filter((m) => m.group === group).map((m) => {
                               const selected = activeView.metricKeys.includes(m.key);
+                              // Budget only ever comes back populated at
+                              // Campaign/Ad Set level (see its own comment in
+                              // lib/insightsMetrics.js) — flagged the same
+                              // "still toggleable, visually dimmed" way as a
+                              // rollup-unavailable metric below, rather than
+                              // blocked outright, since switching Level with
+                              // it already selected shouldn't silently drop it.
+                              const budgetUnavailable = m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset";
                               // Still toggleable (so an already-selected one can be
                               // turned off), but visually flagged — it'll be
                               // silently absent from the result anyway once a
                               // filter forces a rollup, see the note below.
-                              const unavailable = willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key);
+                              const unavailable = (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable;
                               return (
                                 <button
                                   key={m.key}
                                   type="button"
                                   onClick={() => toggleMetric(m.key)}
-                                  title={unavailable ? "Not available while a name filter requires combining finer-grained data" : undefined}
+                                  title={
+                                    budgetUnavailable
+                                      ? "Only available at Campaign or Ad Set level"
+                                      : unavailable
+                                        ? "Not available while a name filter requires combining finer-grained data"
+                                        : undefined
+                                  }
                                   className={selected ? styles.badgeInfo : styles.pill}
                                   style={
                                     selected
@@ -2224,33 +2362,9 @@ export default function Explore() {
                         <HelpHint text={'Define your own ratio metric (e.g. Revenue ÷ Purchases) from any two metrics above — it\'s saved on this device and shows up as a pill in every view, under "Custom".'} />
                       </p>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                        <select
-                          className={styles.select}
-                          style={{ maxWidth: "100%" }}
-                          value={customMetricNumerator}
-                          onChange={(e) => setCustomMetricNumerator(e.target.value)}
-                        >
-                          <option value="">Numerator…</option>
-                          {METRIC_CATALOG.map((m) => (
-                            <option key={m.key} value={m.key}>
-                              {m.label}
-                            </option>
-                          ))}
-                        </select>
+                        <MetricSelect options={METRIC_CATALOG} value={customMetricNumerator} onChange={setCustomMetricNumerator} placeholder="Numerator…" />
                         <span className={styles.muted}>÷</span>
-                        <select
-                          className={styles.select}
-                          style={{ maxWidth: "100%" }}
-                          value={customMetricDenominator}
-                          onChange={(e) => setCustomMetricDenominator(e.target.value)}
-                        >
-                          <option value="">Denominator…</option>
-                          {METRIC_CATALOG.map((m) => (
-                            <option key={m.key} value={m.key}>
-                              {m.label}
-                            </option>
-                          ))}
-                        </select>
+                        <MetricSelect options={METRIC_CATALOG} value={customMetricDenominator} onChange={setCustomMetricDenominator} placeholder="Denominator…" />
                         <input
                           type="text"
                           className={styles.select}
@@ -2564,6 +2678,15 @@ function ExploreResultsTable({
   // frozen Campaign column stayed pinned for top-level rows but not for the
   // child rows underneath it. `null` when nothing's frozen.
   const [childFrozenKey, setChildFrozenKey] = useState(null);
+  // Mirrors the parent table's own dragged column order — same reasoning as
+  // childFrozenKey above, and the same bug shape: a drilled-into row is
+  // rendered by this file directly (via renderRowExtra), not by
+  // SortableTable's own <tbody> loop, so without this a column drag only
+  // ever reordered the top-level rows, leaving every child row's cells
+  // sitting in the original column positions underneath them. Seeded from
+  // `tableColOrder` (the persisted order) so a freshly-expanded row matches
+  // immediately, before any drag happens in this session.
+  const [childColOrder, setChildColOrder] = useState(tableColOrder);
 
   function applyChildRowOrdering(childRows) {
     let out = applyResultFilters(childRows, resultFilters, meta.metricKeys);
@@ -2862,6 +2985,19 @@ function ExploreResultsTable({
       : []),
   ];
 
+  // Reorders `columns` by `childColOrder` for child-row rendering below —
+  // the exact same reconciliation components/SortableTable.js does
+  // internally for its own `orderedColumns` (a key no longer in `columns`,
+  // e.g. last query's breakdown column, is just dropped; a key that's new,
+  // e.g. a breakdown column that just got turned on, is placed at its
+  // natural position in `columns` rather than always at the end).
+  const childOrderedColumns = (() => {
+    if (!childColOrder) return columns;
+    const known = columns.filter((c) => childColOrder.includes(c.key)).sort((a, b) => childColOrder.indexOf(a.key) - childColOrder.indexOf(b.key));
+    let i = 0;
+    return columns.map((c) => (childColOrder.includes(c.key) ? known[i++] : c));
+  })();
+
   // One drilled-into row (an ad set found inside a campaign, or an ad found
   // inside an ad set) — reuses every one of `columns`' own render functions
   // for the metric/status cells (so a child row shows exactly the same
@@ -2888,7 +3024,7 @@ function ExploreResultsTable({
     }
     return (
       <tr key={row.entityId}>
-        {columns.map((col) => {
+        {childOrderedColumns.map((col) => {
           if (col.key === "__select") return <td key={col.key} style={frozenStyle(col)} />;
           if (col.key === "__actions") {
             return (
@@ -3042,7 +3178,7 @@ function ExploreResultsTable({
     }
     return (
       <tr key={dateRow.date}>
-        {columns.map((col) => {
+        {childOrderedColumns.map((col) => {
           if (col.key === "__select" || col.key === "__actions") return <td key={col.key} style={frozenStyle(col)} />;
           if (col.key === "entityLabel" || col.key === "label") {
             return (
@@ -3171,7 +3307,10 @@ function ExploreResultsTable({
             onTableViewChange?.({ tableSearch: s });
           }}
           onFreezeChange={setChildFrozenKey}
-          onColOrderChange={(order) => onTableViewChange?.({ tableColOrder: order })}
+          onColOrderChange={(order) => {
+            setChildColOrder(order);
+            onTableViewChange?.({ tableColOrder: order });
+          }}
           onFirstColFrozenChange={(frozen) => onTableViewChange?.({ tableFirstColFrozen: frozen })}
           pinnedRow={showTotalsRow ? meta.totalsRow || undefined : undefined}
           highlightRow={(row) => !!row.entityId && selectedIds.has(row.entityId)}

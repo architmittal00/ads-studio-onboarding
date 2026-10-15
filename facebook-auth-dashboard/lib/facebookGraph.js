@@ -214,12 +214,19 @@ const ASYNC_POLL_TIMEOUT_MS = 15000;
 // hundreds of active ads) spans multiple pages just like any other list
 // endpoint, so both branches run through collectAllPages() before
 // returning, same as graphGetAllPages() does for plain list connections.
-export async function graphGetInsights(path, accessToken, params = {}) {
+// `timeoutMs` overrides the default 15s async-job poll window — plumbed
+// through as a sibling param, never spread into `params` itself, since
+// `params` travels verbatim onto Facebook's own query string. Defaults to
+// `ASYNC_POLL_TIMEOUT_MS` for every existing caller (no behavior change);
+// pages/api/fb/explore-insights.js is the one caller that raises it, for its
+// heaviest shape (ad-level × a time-increment query — see that file's own
+// comment on why that specific combination is the most likely to need it).
+export async function graphGetInsights(path, accessToken, params = {}, { timeoutMs } = {}) {
   const json = await graphGet(path, accessToken, params);
   if (!json?.report_run_id) return collectAllPages(json, path);
 
   const jobId = json.report_run_id;
-  const deadline = Date.now() + ASYNC_POLL_TIMEOUT_MS;
+  const deadline = Date.now() + (timeoutMs ?? ASYNC_POLL_TIMEOUT_MS);
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, ASYNC_POLL_INTERVAL_MS));
     const status = await graphGet(`/${jobId}`, accessToken, {});

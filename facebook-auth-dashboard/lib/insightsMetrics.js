@@ -131,6 +131,20 @@ export const METRIC_CATALOG = [
     extract: (r) => parseFloat(r.spend || 0),
     aggregate: (rows) => sumBy(rows, (r) => parseFloat(r.spend || 0)),
   },
+  // `extract` is a placeholder, never meaningfully called — Budget isn't an
+  // Insights-API field at all (it lives on the Campaign/Ad Set object
+  // itself, fetched separately by pages/api/fb/explore-insights.js's
+  // fetchEntityBudgets, already called unconditionally at Campaign/Ad Set
+  // level for the "Change Budget" row action). Its real value is injected
+  // directly onto each row once that lookup resolves, the same way `status`
+  // is handled — catalog membership here is only so it shows up as a pill in
+  // the metric picker and gets currency-formatted like everything else.
+  // Null (not 0) at Account/Ad level or on a budget-less entity (e.g. an ad
+  // set under a CBO campaign), same "—" convention as every other
+  // inapplicable metric. No `aggregate` — a CBO campaign and its own
+  // (budget-less) ad sets showing up together in one view have no honest way
+  // to be summed without double-counting, same reasoning as Reach.
+  { key: "budget", label: "Budget", group: "Delivery", format: "currency", fields: [], extract: () => null },
   {
     key: "impressions",
     label: "Impressions",
@@ -244,8 +258,13 @@ export const METRIC_CATALOG = [
       return impressions > 0 ? (sumBy(rows, (r) => parseFloat(r.spend || 0)) / impressions) * 1000 : null;
     },
   },
-  // No `aggregate` — CPP (spend ÷ Reach) inherits Reach's own overlap problem.
-  { key: "cpp", label: "CPP", group: "Cost", format: "currency", fields: ["cpp"], extract: (r) => parseFloat(r.cpp || 0) },
+  // CPP (Cost per 1,000 People Reached) temporarily removed from the catalog
+  // per user feedback — reinstate by restoring this entry (its `extract`,
+  // and its mentions in RATE_METRIC_KEYS/LOWER_IS_BETTER_METRIC_KEYS below,
+  // and REACH_DEPENDENT_KEYS/REACH_DEPENDENT_METRIC_KEYS in
+  // pages/api/fb/explore-insights.js and pages/explore.js, were all left in
+  // place — nothing else needs to change to bring it back):
+  // { key: "cpp", label: "CPP", group: "Cost", format: "currency", fields: ["cpp"], extract: (r) => parseFloat(r.cpp || 0) },
   // Meta's own "Cost per Result" is tied to whatever a campaign's
   // optimization goal is (purchases, leads, …), which isn't tracked
   // per-campaign anywhere in this app — this standardizes on purchases as
