@@ -143,16 +143,14 @@ async function fetchChildren({ accountId, level, idField, parentId, eventTime })
   return { rows: json.rows || [], usedFallback: !sinceChange };
 }
 
-// Fetches the same 6-window before/after comparison components/InvestigateDrawer.js
+// Fetches the same before/after window comparison components/EntityChangesDrawer.js
 // shows for the top-level changed entity, but for one child row (an ad set or
 // ad found inside it) — anchored to that same original change's `eventTime`,
 // and over the SAME metric selection the Investigate drawer's own picker
 // currently has (so a metric added/removed up there shows up down here too,
-// and vice versa — these were two independently-maintained sets before,
-// which meant a custom/opt-in metric selected up top silently never
-// appeared in any child row). Cached client-side the same way
-// InvestigateDrawer's own fetch is, keyed by entity + eventTime + the exact
-// metric selection (sorted, so selection order doesn't matter).
+// and vice versa). Cached client-side the same way, keyed by entity +
+// eventTime + the exact metric selection (sorted, so selection order
+// doesn't matter).
 async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customMetrics, customEvents }) {
   const sortedKeys = [...metricKeys].sort();
   const cacheKey = `${DRILLDOWN_CACHE_PREFIX}${entityId}:${eventTime}:${sortedKeys.join(",")}`;
@@ -174,8 +172,8 @@ async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customM
   return json.windows;
 }
 
-// A breadcrumb trail of "children of X" cards — components/InvestigateDrawer.js
-// mounts this with `key={change.id}` so switching to a different change
+// A breadcrumb trail of "children of X" cards — the caller mounts this with
+// a key scoped to the current change/day so switching to a different one
 // remounts it fresh rather than carrying over a previous change's drilled-in
 // state, and passes its own current metric selection (`metricKeys`/`catalog`/
 // `customMetrics`/`customEvents`) straight through so both levels of this

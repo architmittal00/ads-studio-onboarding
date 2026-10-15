@@ -44,9 +44,8 @@ function describePrimitivePair(extraData) {
 
 // Best-effort "what changed, from what to what" for one Activity Log entry's
 // extra_data. Returns null when the shape isn't one of the ones confirmed/
-// handled above — callers should fall back to raw JSON (see
-// components/InvestigateDrawer.js) rather than guess further, same lesson as
-// the original [object Object] bug.
+// handled above — callers should fall back to raw JSON rather than guess
+// further, same lesson as the original [object Object] bug.
 export function describeChangeDetail(extraData) {
   if (!extraData) return null;
   return describeBudgetChange(extraData) || describePrimitivePair(extraData);

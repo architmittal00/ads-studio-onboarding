@@ -102,7 +102,7 @@ function buildWindows(eventTimeIso) {
     // delivery into one number, which would misleadingly read as a clean
     // "since the change" value. Only possible for a change more recent than
     // the window is long (e.g. a change from 2 days ago inside a "Last 7
-    // Days" window) — components/InvestigateDrawer.js shows a muted
+    // Days" window) — components/WindowComparisonTable.js shows a muted
     // explanation instead of the number when this is set.
     last3Days: { since: last3DaysSince, until: yesterday, overlapsChange: last3DaysSince <= changeDay },
     last7Days: { since: last7DaysSince, until: yesterday, overlapsChange: last7DaysSince <= changeDay },

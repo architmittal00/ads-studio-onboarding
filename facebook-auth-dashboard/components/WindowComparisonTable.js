@@ -5,7 +5,7 @@ import styles from "@/styles/Home.module.css";
 // Shared with components/EntityDrillDown.js, which renders one of these per
 // drilled-into entity (adset/ad) so a user doing root-cause analysis sees the
 // exact same before/after window shape there as on the top-level changed
-// entity in components/InvestigateDrawer.js, instead of a different,
+// entity in components/EntityChangesDrawer.js, instead of a different,
 // cheaper-looking summary.
 export const DEFAULT_COMPARISON_METRIC_KEYS = ["spend", "purchases", "cost_per_purchase", "roas"];
 
