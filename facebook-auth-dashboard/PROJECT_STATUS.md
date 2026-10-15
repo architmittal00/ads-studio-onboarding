@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #193.
+> Last updated: **2026-10-16**, by Claude, right after merging PR #195.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`63bc06b`** — "Investigate tab: row actions, status, launched-ads filter, fixes" (PR #193, merged 2026-10-15).
+Latest commit as of this writing: **`705b68c`** — "Investigate tab round 2: scaling impact window, copy IDs, sort, paused-ad badges, layout fixes" (PR #195, merged 2026-10-16).
 
 No open PRs. Everything described below is merged and live.
 
@@ -70,31 +70,36 @@ No open PRs. Everything described below is merged and live.
 | `/report` | **Audit Report** — account handover report: overview + trend drill-down, top campaigns, revenue pareto by creative/age-gender/platform/product/state, account structure tree, budget utilization & creative-count recommendations, pixel health | Stable, mature |
 | `/strategy` | **Figure Out Strategy** — recommends one of 8 funnel-shaped campaign strategies from `lib/strategyEngine.js`, with a data-driven "does this account have history" signal | Stable, mature |
 | `/launch` | **Launch** — direct, self-serve campaign/ad-set creation (new ad set → new or existing campaign, or duplicate an existing ad set), Indian-D2C defaults throughout, live Meta search-backed location/language/interest pickers | **Shipped** (PR #124–126 and others) — see §6, this was a full plan that is now fully implemented, not pending |
-| `/recent-changes` | **Recent Changes** — single page (see §5, PR #191: the two previously-separate Recent Changes pages were consolidated into one, the old flat-change-list implementation deleted entirely). Multi-tab (own account/24h-72h-7d window/search/status-filter per tab) with a right-side collapsible Accounts/Time Window panel, six tracked actions rolled up to Campaign/Ad Set (ad activity + an ad set's own budget change → the ad set; an ad set paused + a campaign's own budget/pause → the campaign), landing view lists affected entities with a name/campaign search filter, an Active/Inactive status filter, and a performance-since-last-change quick signal (Spend/Purchases/ROAS, one day before vs. one day after, fetched progressively after the list renders); opening one groups its changes by day with per-day action-type filter tabs + ad thumbnails for "Investigate" (before/after-grouped 6-window comparison with a "launched this day" ad filter, status badges, and per-ad row actions — View Details/Pause-Activate/Duplicate, reusing Explore's own components) | **Shipped** (PR #171, #175, #177, #179, #183, #185, #187, #189, #191, #193) — see §5; #185's timeout fix needs live re-check, §7 item 1 |
+| `/recent-changes` | **Recent Changes** — single page (see §5, PR #191: the two previously-separate Recent Changes pages were consolidated into one, the old flat-change-list implementation deleted entirely). Multi-tab (own account/24h-72h-7d window/search/status-filter per tab) with a right-side collapsible Accounts/Time Window panel, six tracked actions rolled up to Campaign/Ad Set (ad activity + an ad set's own budget change → the ad set; an ad set paused + a campaign's own budget/pause → the campaign), landing view lists affected entities sorted by last-change day then ROAS impact (worst movers first), with a name/campaign search filter, an Active/Inactive status filter, copy-ID buttons, and a performance-since-last-change quick signal (Spend/Purchases/ROAS, scaling N days before vs. N days since based on how long ago the change happened, fetched progressively after the list renders, all fetches timeout-guarded); opening one (fixed, non-scrolling header; 805px wide) groups its changes by day with per-day action-type filter tabs + ad thumbnails for "Investigate" (before/after-grouped 6-window comparison, correct best/worst highlighting across every comparable column including partial "after" windows, a "Changed This Day" ad filter + per-row Launched/Paused badges, status badges, copy-ID buttons, and per-ad row actions — View Details/Pause-Activate/Duplicate, reusing Explore's own components) | **Shipped** (PR #171, #175, #177, #179, #183, #185, #187, #189, #191, #193, #195) — see §5; #185's timeout fix needs live re-check, §7 item 1 |
 | `/explore` | **Custom Views (Explore)** — build-your-own report: pick account(s)/level/breakdown/metrics/date-range, multi-tab views + tab groups, drill-down (Campaign→AdSet→Ad), charting with axis customization, custom ratio metrics, name/ID filters, result filters (value or %-change), Total row, CSV export, a Meta-Ads-Manager-style date range/compare picker, row actions (pause/activate/change budget/duplicate — the last via its own in-page popup, not a navigation) | **Most actively developed area right now** — see §5 for the latest round |
 | `/dashboard` | Raw Data — raw profile/Pages/Ad Accounts payload + manual ROAS check | Stable, simple |
 | `/logs` | API Logs — recent Graph API call log (method/path/status/duration) | Stable, simple |
 
 ---
 
-## 5. Most recent work (2026-10-15)
+## 5. Most recent work (2026-10-16)
 
-### PR #193 — Investigate tab: row actions, status, launched-ads filter, fixes
+### PR #195 — Investigate tab round 2: scaling impact window, copy IDs, sort, paused-ad badges, layout fixes
 
-A screenshot-driven round with eight distinct asks on the Investigate tab (`components/EntityChangesDrawer.js` / `EntityDrillDown.js` / `WindowComparisonTable.js`):
+A second screenshot-driven round, nine more asks on the same Investigate/Recent-Changes flow:
 
-1. **Removed "Last 3 Days"/"Last 7 Days"** from `WindowComparisonTable` entirely (client + server `buildWindows`) — no longer needed, down to 6 windows.
-2. **Fixed a real inconsistency**: `EntityDrillDown`'s "Highest Spend"/"Highest Performer" ranking still used the pre-PR-#187 "stop at yesterday, fall back to Last 30 Days" window, while the per-row comparison table had already moved to "always through today." Now they match; the now-unreachable 30-day fallback is gone.
-3. **Fixed the duplicate entity name** in the drawer header (shown in "Back to X's changes" *and* the heading right below) — back button is now a plain "Back" in the top row, heading is its own block below.
-4. **"Launched this day" ad filter** in `EntityDrillDown` — scoped to the ad ids actually launched as part of the day under investigation.
-5. **Status (Active/Paused/...) display** everywhere relevant — landing rows, drawer header, ad/ad-set rows. New shared `humanizeStatus()` in `lib/insightsMetrics.js` (`pages/explore.js` now imports it instead of its own copy). Landing/header status comes from a new batched `effective_status` lookup in `pages/api/fb/recent-changes.js` (same `fetchParents()` helper, not a bulk Insights call); the ad-row status needed **zero backend change** — `explore-insights.js` already injects `status` onto every adset/ad-level row.
-6. **Row actions (View Details, Pause/Activate, Duplicate)** on ad/ad-set rows — reuses Explore's `RowActions`/`EntityDetailDrawer` components verbatim; the rows `EntityDrillDown` already fetches already carry every field those components need.
-7. **Active/Inactive filter facet** on the landing page, next to search.
-8. **Verified, not changed**: best/worst conditional-formatting already applies generically to every comparable metric and already excludes scale-dependent totals — confirmed via mocked preview, no gap found.
+1. **Fixed a real "loading forever" risk**: neither the landing page's quick-signal fetch nor the Investigate drill-down's own fetches had a client-side timeout — a connection that never responded had no upper bound. New `fetchWithTimeout` (AbortController-based) in `lib/fetchJson.js`, applied to every fetch in this feature.
+2. **Impact window now scales with elapsed time** instead of a fixed 1-day-before/1-day-after: `lib/recentChangesImpact.js`'s `impactWindowFor` compares N days before vs. N days since, N being how many days have actually passed since the change (2 days elapsed → 2-day windows both sides), labeled on each row ("2d before vs 2d since"). Only a same-day change is still "too recent."
+3. **Copy-ID buttons** — promoted `pages/explore.js`'s own local `CopyIdButton` to a shared `components/CopyIdButton.js`; added to landing rows, the entity drawer header, and every ad/ad-set row in the drill-down.
+4. **Landing-page sort**: entities now sort by last-change day (most recent first), then by ROAS impact ascending within the same day (worst movers first).
+5. **Paused ads were invisible next to launched ones**: `EntityDrillDown` only ever tracked "launched" ads. Generalized to a combined "Changed This Day" filter plus a Launched/Paused badge per row, independent of the filter — zero backend change needed (the launched/paused ad ids come from changes already fetched).
+6. **Drawer width** reduced to 70% (1150px → 805px).
+7. **Fixed the Active/Inactive filter rendering dead-center** on the landing page — an artifact of `justify-content: space-between` with exactly 3 flex children (search box, filter, Hard Refresh). Now sits beside the search box; Hard Refresh pushed right via `margin-left: auto`.
+8. **Fixed a real conditional-formatting bug** (this is the actual gap PR #193 looked for and didn't find): `WindowComparisonTable`'s best/worst highlighting excluded every `partial` window from consideration — and every "after" window (Since Change, N Days Post Change) is partial until fully elapsed, so in practice only "before" columns could ever be crowned best/worst. Partial windows are valid for rate metrics (ROAS, CPR, …) since a ratio isn't biased by a shorter sample the way an additive sum is; only windows that literally overlap the change are still excluded now.
+9. **Drawer header no longer scrolls away** — split into a fixed header and an independently-scrolling body.
 
-Verified end-to-end via the mocked-preview-harness convention, including the full row-action flow (open menu → Pause → confirm → optimistic status update in place → View Details opens the nested detail drawer without closing the parent → Duplicate modal opens). `.drawerPanel` width reduced 1300px → 1150px to match the now-6-column table. `npm run lint && npm run build` clean.
+Caught and fixed a real bug introduced along the way during verification: the landing row's new copy-ID button nested a `<button>` inside the row's own `<button>` (invalid HTML, a real React hydration error) — converted the row to a `div[role="button"]` with Enter/Space keyboard support instead of a plain `<button>`.
+
+Verified end-to-end via the mocked-preview-harness convention: window-scaling labels at 1d/2d, the compound day+ROAS sort order, the Launched/Paused badges and filter, the drawer's 805px width and sticky header (confirmed via direct DOM measurement — header stayed at `top: 0` after scrolling the body), and `WindowComparisonTable` highlighting an "after" column (Since Change) green for the first time. `npm run lint && npm run build` clean.
 
 ### Earlier rounds (compressed)
+
+- **PR #193**: Removed the now-redundant "Last 3 Days"/"Last 7 Days" windows (down to 6); fixed `EntityDrillDown`'s "Highest Spend"/"Highest Performer" ranking still using a pre-PR-#187 window (now matches the per-row comparison table); fixed a duplicate entity name in the drawer header; added a "launched this day" ad filter (superseded by PR #195's "Changed This Day," above); added status badges everywhere relevant (new shared `humanizeStatus()` in `lib/insightsMetrics.js`); added row actions (View Details/Pause-Activate/Duplicate) on ad/ad-set rows reusing Explore's own components; added the Active/Inactive filter facet. `.drawerPanel` width reduced 1300px → 1150px (later reduced again to 805px by PR #195).
 
 - **PR #191**: Consolidated the two separate Recent Changes pages into one at `/recent-changes` — deleted the old flat-change-list page, its own data endpoint, and the now-orphaned `InvestigateDrawer.js`/`FilterDropdown.js`; moved the entity-grouped `/new-recent-changes` implementation into the freed `/recent-changes` name (route, page file, API file). Added a name/campaign search filter (replacing the removed Campaigns dropdown) and performance-since-last-change badges (reusing `lib/recentChangesImpact.js` + `pages/api/fb/recent-changes/impact.js` exactly as the old page did, fetched progressively client-side after the list renders — zero extra Graph calls at list-load time, so it can't reintroduce PR #185's timeout).
 
@@ -176,10 +181,11 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Three open items, nothing else queued:**
+**Four open items, nothing else queued:**
 1. **PR #185's `/recent-changes` timeout fix needs a live re-check** — I diagnosed and fixed the missing `limit` param from code reading alone (couldn't reproduce the original 504 in a mocked harness, no account with that much activity volume available in testing). Please re-run "Last 7 Days" on the account from the original report and confirm it completes without `FUNCTION_INVOCATION_TIMEOUT`.
 2. PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it.
 3. The "no weekly/monthly/daily data at account level" report (see §5, PR #167) couldn't be reproduced against current `origin/main` code via a mocked preview — needs the reporter to describe the actual symptom (error message text, blank table, missing column, etc.) against a live account so this can be properly diagnosed. Don't re-guess at a fix without that information first.
+4. **PR #195's scaled impact window and Launched/Paused badges need a live spot-check** — the day-count math (N days before vs. N days since) and the badge-to-change matching were only verified against hand-built mock data; please confirm the numbers and badges look right for a few real changes 1-7 days old on an actual account.
 
 (The old `/recent-changes` page's `CAMPAIGN_GROUP`-dropping bug flagged here previously is no longer an open item — see the PR #173+#175 entry above: the affected file was deleted outright in PR #191's consolidation, so there's nothing left to fix. The `investigate` "after" columns Graph error flagged here even earlier is **resolved** — see PR #183: `time_range` was being sent with extra, Facebook-rejected keys.)
 
