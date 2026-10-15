@@ -13,9 +13,9 @@ import { chunk } from "@/lib/adCreativeDetails";
 // the new page's landing view and per-entity drawer both expect, with
 // changes nested and already attributed to the right level — the client
 // does no grouping of its own beyond splitting a bucket's changes by day.
-const VALID_HOURS = [72, 168];
+const VALID_HOURS = [24, 72, 168];
 
-// Only these two combinations are offered — see pages/new-recent-changes.js.
+// See pages/new-recent-changes.js for the matching preset list.
 function validateHours(raw) {
   const hours = parseInt(raw, 10);
   return VALID_HOURS.includes(hours) ? hours : null;
@@ -323,10 +323,21 @@ export default async function handler(req, res) {
     rowCount++;
   }
 
+  // Every Ad Set bucket's own parent Campaign (id + name) — needed only for
+  // the "filter out campaigns" picker on the landing page, which has to work
+  // for Ad Set rows too, not just Campaign ones. A Campaign bucket already
+  // *is* its own campaign, so no lookup is needed for those.
+  const adsetBucketIds = [...buckets.values()].filter((b) => b.level === "adset").map((b) => b.entityId);
+  const campaignParents = await fetchParents(adsetBucketIds, token, "campaign_id,campaign{name}");
+
   const entities = [...buckets.values()].map((bucket) => {
     const changes = bucket.changes.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime));
+    const campaignId = bucket.level === "campaign" ? bucket.entityId : campaignParents[bucket.entityId]?.campaign_id || null;
+    const campaignName = bucket.level === "campaign" ? bucket.entityName : campaignParents[bucket.entityId]?.campaign?.name || null;
     return {
       ...bucket,
+      campaignId,
+      campaignName,
       changeCount: changes.length,
       lastChangeTime: changes[0]?.eventTime || null,
       changes,

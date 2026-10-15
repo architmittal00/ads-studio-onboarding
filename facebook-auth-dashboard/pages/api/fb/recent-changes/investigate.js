@@ -38,21 +38,37 @@ function parseJsonArrayParam(raw) {
   }
 }
 
-// Six comparison windows for one entity around one change — three anchored
-// to the change itself (always fully in the past, never unavailable), one
-// that grows with how long ago the change happened, and two anchored to
-// *now* instead of the change (most useful for an older change, where
-// "Since Change" alone would average over a long, diluted period and not
-// show where things stand today). All whole-day, matching the same Insights
-// time_range constraint pages/api/fb/recent-changes.js's bulk impact
-// computation already works around (no sub-day windows exist on this API).
+// Seven comparison windows for one entity around one change — three anchored
+// to the change itself and always fully in the past (never unavailable), one
+// fixed-length window for the change's immediate aftermath, one that grows
+// with how long ago the change happened, and two anchored to *now* instead
+// of the change (most useful for an older change, where "Since Change" alone
+// would average over a long, diluted period and not show where things stand
+// today). All whole-day, matching the same Insights time_range constraint
+// pages/api/fb/recent-changes.js's bulk impact computation already works
+// around (no sub-day windows exist on this API).
 function buildWindows(eventTimeIso) {
   const changeDay = isoDate(new Date(eventTimeIso));
   const today = isoDate(new Date());
   const yesterday = addDaysUTC(today, -1);
 
   const sinceChangeStart = addDaysUTC(changeDay, 1);
-  const sinceChangeAvailable = sinceChangeStart <= yesterday;
+  // A full day hasn't elapsed since the change yet (it happened today, or
+  // yesterday with "yesterday" itself not over) — rather than reporting "not
+  // enough data," fall back to a window that runs through *today*, so a
+  // change made this morning still shows whatever has accrued so far instead
+  // of nothing at all. `since` degrades to the change's own day when even
+  // that day isn't over (change happened today) so the window is never empty.
+  const sinceChangeFullDayAvailable = sinceChangeStart <= yesterday;
+  const sinceChangeUntil = sinceChangeFullDayAvailable ? yesterday : today;
+  // Not available means sinceChangeStart is today or later: today itself
+  // (the change happened yesterday — the window is just today, so far) or
+  // tomorrow (the change happened today — fall back to the change's own day,
+  // since "the day after" doesn't exist yet).
+  const sinceChangeSince = sinceChangeFullDayAvailable ? sinceChangeStart : sinceChangeStart <= today ? sinceChangeStart : changeDay;
+
+  const threeDaysAfterUntil = addDaysUTC(changeDay, 3);
+  const threeDaysAfterAvailable = threeDaysAfterUntil <= yesterday;
 
   const last3DaysSince = addDaysUTC(today, -3);
   const last7DaysSince = addDaysUTC(today, -7);
@@ -61,7 +77,18 @@ function buildWindows(eventTimeIso) {
     sevenDaysBefore: { since: addDaysUTC(changeDay, -7), until: addDaysUTC(changeDay, -1) },
     threeDaysBefore: { since: addDaysUTC(changeDay, -3), until: addDaysUTC(changeDay, -1) },
     oneDayBefore: { since: addDaysUTC(changeDay, -1), until: addDaysUTC(changeDay, -1) },
-    sinceChange: sinceChangeAvailable ? { since: sinceChangeStart, until: yesterday } : null,
+    // `overlapsChange` here means the window's first day is the change's own
+    // day — i.e. the change happened today and there's no later day to start
+    // from yet, so this necessarily mixes pre- and post-change delivery.
+    // `partial` means the window's last day is today, which hasn't finished
+    // yet — the number is real but still accruing, not a clean closed total.
+    sinceChange: {
+      since: sinceChangeSince,
+      until: sinceChangeUntil,
+      partial: !sinceChangeFullDayAvailable,
+      overlapsChange: sinceChangeSince <= changeDay,
+    },
+    threeDaysAfter: threeDaysAfterAvailable ? { since: sinceChangeStart, until: threeDaysAfterUntil } : null,
     // `overlapsChange` flags a now-anchored window whose start falls on or
     // before the change's own day — it mixes pre-change and post-change
     // delivery into one number, which would misleadingly read as a clean
@@ -74,7 +101,7 @@ function buildWindows(eventTimeIso) {
   };
 }
 
-// Per-change, on-demand drill-down — a single entity lookup across up to 6
+// Per-change, on-demand drill-down — a single entity lookup across up to 7
 // windows for a user-chosen metric set, not a bulk list (unlike
 // pages/api/fb/recent-changes.js's own impact computation), so no MAX_*
 // cap or vercel.json maxDuration entry is needed here.
@@ -122,20 +149,17 @@ export default async function handler(req, res) {
   const results = {};
   settled.forEach((result, i) => {
     const name = windowNames[i];
-    const { since, until, overlapsChange } = windows[name];
+    const { since, until, overlapsChange, partial } = windows[name];
     const days = dayCount(since, until);
     if (result.status !== "fulfilled") {
-      results[name] = { since, until, days, overlapsChange, metrics: null, error: result.reason?.message || "Request failed" };
+      results[name] = { since, until, days, overlapsChange, partial, metrics: null, error: result.reason?.message || "Request failed" };
       return;
     }
     // An empty data array means no delivery that window — a real zero, not
     // a missing value, same convention as the bulk impact computation.
     const row = (result.value.data || [])[0] || {};
-    results[name] = { since, until, days, overlapsChange, metrics: deriveRowMetrics(row, metricKeys, [], customMetrics, customEvents) };
+    results[name] = { since, until, days, overlapsChange, partial, metrics: deriveRowMetrics(row, metricKeys, [], customMetrics, customEvents) };
   });
-  if (windows.sinceChange === null) {
-    results.sinceChange = { since: null, until: null, days: 0, metrics: null, tooRecent: true };
-  }
 
   res.status(200).json({ windows: results, metricKeys });
 }
