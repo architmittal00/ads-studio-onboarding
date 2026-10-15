@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #165.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #167.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`ee65028`** — "Stop localStorage cache bloat: actively expire entries, cap two unbounded caches, self-heal on app load" (PR #165, merged 2026-10-15).
+Latest commit as of this writing: **`9fa155e`** — "Explore: raise date range cap to 365 days, lazy-load Ad-level thumbnails" (PR #167, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -79,16 +79,19 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-15)
 
+### PR #167 — Raise date range cap to 365 days, lazy-load Ad-level thumbnails
+
+Two more Explore items: (1) the 90-day date range cap is now 365 (server validation in `explore-insights.js`, the client constant, and a new "Last 365 Days" preset in `lib/dateRanges.js`) — "monthly" grouping stays deliberately unchunked regardless of range length (still nowhere near enough buckets to need it), only daily/weekly chunking math scales with the larger range. (2) User-reported: an Ad-level query felt much slower than other levels — root cause was that it always blocked its response on Facebook's per-ad creative lookup (`fetchAdDetails`, one Graph call per 50 ads) before returning anything. Decoupled: the top-level query now sends `includeCreative: false` and renders metrics immediately, with `Thumb` showing a small spinner in the thumbnail slot; a new `/api/fb/ad-thumbnails` endpoint fetches creative data in the background and `pages/explore.js`'s `loadThumbnailsForView()` merges it into the live result (and pivot rows, for Ad-level + daily/weekly/monthly grouping) once it resolves, re-caching the enriched result. Drill-down expand and `EntityDrillDown.js` are untouched — still synchronous, since their id lists are small enough that this was never the bottleneck there.
+
+**Not resolved this round:** the same feedback batch also reported "no weekly/monthly/daily data at account level, only at campaign/ad set/ad level." Traced the full pipeline (server row-building, `meta.pivotRows`, `leadingColumnDefs`'s Date column, `timePivotEnabled`) end to end and could not find an account-level-specific code path at fault — a mocked preview harness confirmed Account level + Daily grouping does return one row per date with a Date column, against the server logic as it exists today on `origin/main`. This may have been tested before PR #163 shipped, or could be a live Graph API behavior this harness can't reproduce (no real Facebook token available in this environment). **Needs the reporter to say what they actually saw** (an error banner, a blank table, a missing Date column, something else) against a live account before this can be diagnosed further — see §7.
+
 ### PR #165 — Stop localStorage cache bloat: active expiry, cap two unbounded caches, self-heal on app load
 
 User-reported: localStorage had far more `fb-dashboard:cache:*` entries than the number of open tabs implied, some days old. Two root causes in `lib/clientCache.js`: (1) `getCachedEntry` only ever treated an expired entry as a read-time miss, never deleted it — a one-off query (a custom date range picked once) is never looked up again with that exact key, so it sat there dead forever; now it's removed the moment it's found expired. (2) Two cache families — `recent-changes-investigate:` (`InvestigateDrawer.js`) and `recent-changes-drilldown-investigate:` (`EntityDrillDown.js`) — called `setCachedEntry` without ever passing a `{prefix, maxEntriesForPrefix}`, unlike Explore/Recent Changes/custom-conversions, so they had no cap at all and grew forever; both now capped at 40. Added `sweepAllKnownCaches()`, run once per app load from `pages/_app.js` — a one-shot TTL-expiry sweep plus cap re-enforcement across all five known cache families, which self-heals every existing user's already-accumulated bloat the moment this ships (the actual concern driving this fix: 50+ users already on the app, no way to reach each one individually to tell them to clear site data).
 
-### PR #163 — Remove CPP, fix Ad-level time grouping, searchable custom-metric picker, contextual loader, fix column-drag on drill-down rows, add Budget metric
-
-A six-item batch of Explore feedback: (1) CPP removed from the metric catalog for now (commented out in `lib/insightsMetrics.js` with a note on exactly what to restore to bring it back). (2) Ad-level + Day-on-day/Week-on-week/Month-on-month grouping was failing outright — that combination is this app's heaviest query shape (ads × date buckets), routinely tipping Facebook into its async-job path and blowing past `graphGetInsights`' flat 15s poll timeout; raised to 45s specifically for that shape (`lib/facebookGraph.js` now takes an optional per-call `timeoutMs`), within this route's existing 60s `maxDuration`. **Not verifiable via mocked fetch — needs a live-account check against a real large ad account before being considered fully confirmed.** (3) Custom ratio metric's numerator/denominator are now a search-as-you-type combo box (`MetricSelect`, mirroring `AccountSelect`'s pattern) instead of the one remaining pair of plain native `<select>`s. (4) A contextual loader: past 5s of a query running, the spinner's label switches to real backend progress ("Fetched 2 of 3…") — `pages/api/fb/explore-insights.js` now streams NDJSON (same convention as `launch-campaign.js`) instead of one blocking JSON response, progress emitted per account/chunk as each completes, full parallelism unchanged underneath. (5) Dragging a column header to reorder it only moved the top-level rows, not a drilled-into row's children (rendered outside `SortableTable`'s own order-aware body loop, via `renderRowExtra`) — now mirrored into a `childColOrder` state the same way `childFrozenKey` already was. (6) Budget added as a selectable metric at Campaign/Ad Set level, reusing data already fetched unconditionally for the existing "Change Budget" row action.
-
 ### Earlier rounds (compressed)
 
+- **PR #163**: six-item Explore feedback batch — CPP removed from the metric catalog (commented out in `lib/insightsMetrics.js` with restore instructions); Ad-level + Day/Week/Month-on-month grouping's async-job poll timeout raised 15s → 45s for that one heavy shape (`graphGetInsights` now takes an optional per-call `timeoutMs`) — **still not verified against a live large ad account**, see §7; custom ratio metric numerator/denominator became a searchable `MetricSelect` combo box; a contextual loader via NDJSON streaming (`explore-insights.js`, same convention as `launch-campaign.js`); column-drag-to-reorder fixed for drilled-into child rows (`childColOrder`, mirroring `childFrozenKey`); Budget added as a Campaign/Ad Set-level metric.
 - **PR #161**: `DateRangeMenu`'s popover was confined to its sticky wrapper's stacking context (`z-index: 4`), losing to the tab strip's own sticky wrapper (`z-index: 5`) regardless of the popover's own `z-index: 50` — most visible when it flipped above its trigger. Fixed via `createPortal` to `document.body`.
 - **PR #159**: Date range "Update" wasn't re-running the query (only patched the view's spec); compare's "Custom start date" used a native `<input type="date">`, re-themed to match the main calendar; "Compare to previous period" became a toggle switch; `DuplicateEntityModal` stopped defaulting the destination to wherever the source already lives — every duplicate path now requires an explicit pick.
 - **PR #157 / #154–155**: Explore's "Duplicate" row action moved from navigating to `/launch` into an in-place `DuplicateEntityModal` popup (`pages/launch.js`'s now-dead `?duplicateAdId=`/`?duplicateAdsetId=` hand-off removed; its own standalone "Duplicate an Ad Set" entry card is unchanged). A collapsed tab group used to still show its active member tab (fixed to hide every member when collapsed, matching Chrome), the same grouping feature was ported to Recent Changes, and date range + "Compare to previous period" moved out of Explore's collapsible Query panel into the `DateRangeMenu` control.
@@ -148,7 +151,11 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**One open item to verify, nothing else queued.** PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — it needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it. Everything else in §5 is fully shipped and verified as of 2026-10-15.
+**Two open items waiting on the user, nothing else queued:**
+1. PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it.
+2. The "no weekly/monthly/daily data at account level" report (see §5, PR #167) couldn't be reproduced against current `origin/main` code via a mocked preview — needs the reporter to describe the actual symptom (error message text, blank table, missing column, etc.) against a live account so this can be properly diagnosed. Don't re-guess at a fix without that information first.
+
+Everything else in §5 is fully shipped and verified as of 2026-10-15.
 
 When new work comes in:
 1. Read this whole file first, then skim `README.md` for the relevant feature area.
