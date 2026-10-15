@@ -689,12 +689,14 @@ button.stat:hover {
   top: 0;
   right: 0;
   height: 100vh;
-  /* Wide enough that the 7-column before/after WindowComparisonTable
+  /* Wide enough that the 8-column before/after WindowComparisonTable
      (components/WindowComparisonTable.js, used by both this drawer's own
-     Investigate view and components/InvestigateDrawer.js) fits without
-     needing its own horizontal scrollbar on a typical desktop viewport —
-     760px left several of its currency columns cramped enough to force one. */
-  width: min(1040px, 96vw);
+     Investigate view and components/InvestigateDrawer.js — now 8 columns
+     since the addition of "7 Days Post Change") fits without needing its own
+     horizontal scrollbar on a typical desktop viewport — confirmed via the
+     table's own scrollWidth (1223px at this panel's 28px padding) needing a
+     panel of at least ~1279px; 1300px leaves a small margin. */
+  width: min(1300px, 96vw);
   background: var(--bg);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-md);
