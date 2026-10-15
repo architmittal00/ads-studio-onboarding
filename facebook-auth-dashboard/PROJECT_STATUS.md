@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #179.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #181.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`942cb7c`** — "New Recent Changes: clearer tabs/CTAs, ad thumbnails, before/after windows" (PR #179, merged 2026-10-15).
+Latest commit as of this writing: **`681406d`** — "Fix cryptic JSON parse crash on Recent Changes investigate timeout" (PR #181, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -80,21 +80,20 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-15)
 
-### PR #179 — New Recent Changes: clearer tabs/CTAs, ad thumbnails, before/after windows
+### PR #181 — Fixed cryptic JSON parse crash on Recent Changes investigate timeout
 
-Follow-up UX feedback on PR #177's own redesign, plus one real bug found by actually using it against a live account:
+User-reported, immediately after using PR #179: `Unexpected token 'A', "An error o"... is not valid JSON` — self-resolving on reload. Root cause: `pages/api/fb/recent-changes/investigate.js` was the **only** Insights-heavy endpoint in `vercel.json` with no `maxDuration` override, despite firing up to 7 parallel Graph Insights calls per request (grown from 6 once PR #177/#179 added the "3 Days Post Change" window) — defaulting to the platform's standard timeout. A slow-enough request there returns Vercel's own HTML/plain-text timeout page instead of JSON, and every client's plain `res.json()` call choked on it with a raw parse error instead of a real message; a reload "just works" because it simply doesn't re-hit the same slow path.
 
-1. **Tabs restyled as proper folder tabs** (bottom-border active state, matching `pages/recent-changes.js`'s own `renderTabButton` inline-style exactly) — the previous pill-style `.tab`/`.tabActive` treatment didn't read as "tabs" at a glance.
-2. **Landing-page layout now mirrors `/recent-changes`' own exactly**, per explicit screenshot reference: Account/Time Window/Campaign-filter controls moved into a right-side collapsible `exploreQueryPanel` card (reusing the shared `.exploreLayout`/`.exploreQueryPanel` CSS already backing both Explore and Recent Changes), collapsing to a one-line "Edit Account & Window" summary bar once a query has run; a proper empty state (icon, 3 numbered steps, CTA) before the first query, via a new `getNewRecentChangesQueryPanelCollapsed`/`setNewRecentChangesQueryPanelCollapsed` persisted preference.
-3. **Investigate CTA recolored** from `btnSecondary` (muted gray) to `btnPrimary` (the app's purple gradient) in `components/EntityChangesDrawer.js` — it was easy to miss entirely.
-4. **Ad thumbnails in the change list** — an Ad Launched/Paused row now fetches and shows its real creative thumbnail (`/api/fb/ad-thumbnails`, same endpoint Explore and `EntityDrillDown.js` already use), clickable to open the same full-size `CreativeLightbox` used elsewhere. The repeated per-row action badge ("Ad Paused" eight times in a row) is now hidden once a day's own filter tabs have narrowed the list to a single action type — it's redundant with the active tab at that point.
-5. **`WindowComparisonTable` regrouped into "Before the Change" / "After the Change"** with a spanning group-header row and a visible column divider at the change itself (`WINDOW_GROUP`) — previously now-anchored and change-anchored windows were interleaved with no visual separation, per the explicit "no differentiation when metrics start/end" complaint.
-6. **Fixed a real bug in the same table**: a window whose Graph call actually failed (`{..., error: "..."} `, `metrics: null`) was being hidden by the exact same filter that hides a window that's simply not applicable yet (`threeDaysAfter` before 3 days have passed) — both looked like "no post-change data" with no way to tell them apart. Now a failed window renders a dedicated "Error" cell (failure message in a tooltip) instead of silently vanishing.
-7. **Fixed a real, independent bug surfaced by using "View Ads" against a live account**: `components/EntityDrillDown.js`'s `fetchChildren` did a plain `res.json()` against `/api/fb/explore-insights`, which has streamed newline-delimited JSON unconditionally since PR #163's contextual-loader change — throwing `"Unexpected non-whitespace character after JSON"` the moment a real response had more than one line (a `{type:"progress"}` line followed by `{type:"done",...}`). Fixed to read the stream the same way `pages/explore.js`'s own `fetchExploreInsights` does. Since `EntityDrillDown` is shared, **this also fixes the original `/recent-changes` page's own Investigate drill-down** — it was broken there too, just not yet reported.
+- Added the missing `maxDuration: 60`, matching this file's siblings (`recent-changes.js`, `recent-changes/impact.js`, `new-recent-changes.js`).
+- New `lib/fetchJson.js#parseJsonResponse` — reads the body as text and parses it manually, so a non-JSON response surfaces as `"Request failed (504): ..."` instead of throwing. Applied everywhere this endpoint is called from the client: `components/EntityChangesDrawer.js`, `components/InvestigateDrawer.js` (both Investigate drawers), `components/EntityDrillDown.js`'s row-level fetch, and `pages/new-recent-changes.js`'s own main query fetch (same unguarded pattern, different endpoint).
 
-Verified via the mocked-preview-harness convention, this time including a genuine multi-line NDJSON mock for `/api/fb/explore-insights` specifically to exercise fix #7 for real (a plain-object mock would have hidden this bug the same way the earlier PR #171/#175/#177 rounds' mocks did). `npm run lint && npm run build` clean.
+**Important distinction from §7 item 4 below (do not treat as the same bug):** item 4 is a *partial* failure — some individual windows within an otherwise-successful response come back with `metrics: null` and an `error` field (visible as "Error" cells since PR #179's own fix), while others in the same response succeed. This PR's bug was a *total* failure — the whole response wasn't JSON at all, which could only happen on a full request timeout, not a per-window one. Fixing this timeout may or may not also reduce how often item 4 happens (a generous `maxDuration` gives Facebook's own calls more room before `graphGetInsights`' internal retry/timeout logic kicks in) — but item 4 is **not confirmed resolved** by this PR; it still needs the real error-cell tooltip text to actually diagnose.
+
+Verified by writing `parseJsonResponse` as a small pure function and testing it directly against a simulated Vercel timeout response (plain-text 504) and a valid-JSON response, confirming both paths behave correctly, in addition to `npm run lint && npm run build`.
 
 ### Earlier rounds (compressed)
+
+- **PR #179**: Follow-up UX pass on `/new-recent-changes` (tabs restyled as proper folder tabs; landing-page layout rebuilt to mirror `/recent-changes`' own right-side collapsible panel + empty state exactly; Investigate CTA recolored to the primary purple; ad thumbnails added to ad-level changes, clickable to the shared `CreativeLightbox`; repeated per-row action badges hidden once a day's filter narrows to one type; `WindowComparisonTable` regrouped into "Before the Change"/"After the Change" with a divider; a failed window now renders a visible "Error" cell instead of disappearing — see §7 item 4). Also fixed a real, independent bug: `EntityDrillDown.js`'s "View Ads" fetch did a plain `res.json()` against `/api/fb/explore-insights`, which has streamed NDJSON unconditionally since PR #163 — this also fixed the same crash in the original `/recent-changes` page's own Investigate drill-down, which shares this component.
 
 - **PR #177**: Multi-tab support for `/new-recent-changes` (own account/time-window/campaign-filter per tab); a new 24-Hour time window; a "filter out campaigns" picker (required attaching `campaignId`/`campaignName` to every Ad Set entity server-side); and, in the *shared* `pages/api/fb/recent-changes/investigate.js`, two window fixes later refined further by PR #179 above: a partial "Since Change" total through today instead of "not enough data" for a very recent change, and a new fixed "3 Days Post Change" window. Drawer got color-coded action badges and a bounded/scrolling per-day change list with action-type filter tabs.
 
