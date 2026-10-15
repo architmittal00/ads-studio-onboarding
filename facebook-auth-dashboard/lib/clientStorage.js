@@ -191,6 +191,29 @@ export function setRecentChangesQueryPanelCollapsed(collapsed) {
   }
 }
 
+const NEW_RECENT_CHANGES_QUERY_KEY = "fb-dashboard:new-recent-changes-query";
+
+// The "New Recent Changes" page's own query state — a single account + time
+// window, not a multi-tab list of saved views the way Explore/Recent
+// Changes persist theirs (getExploreViews/getRecentChangesViews above) —
+// this page is deliberately simpler, one query at a time.
+export function getNewRecentChangesQuery() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(NEW_RECENT_CHANGES_QUERY_KEY) || "null");
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setNewRecentChangesQuery(data) {
+  try {
+    localStorage.setItem(NEW_RECENT_CHANGES_QUERY_KEY, JSON.stringify(data));
+  } catch {
+    // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}
+
 const CUSTOM_METRICS_KEY = "fb-dashboard:explore-custom-metrics";
 
 // User-defined ratio metrics for Explore (numerator metric ÷ denominator
