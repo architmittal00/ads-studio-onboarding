@@ -7,10 +7,15 @@ import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import FilterDropdown from "@/components/FilterDropdown";
 import EntityChangesDrawer from "@/components/EntityChangesDrawer";
-import { ChevronIcon, CloseIcon, PlusIcon } from "@/components/icons";
+import { ChevronIcon, CloseIcon, RefreshIcon, SettingsIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { getNewRecentChangesTabs, setNewRecentChangesTabs } from "@/lib/clientStorage";
+import {
+  getNewRecentChangesTabs,
+  setNewRecentChangesTabs,
+  getNewRecentChangesQueryPanelCollapsed,
+  setNewRecentChangesQueryPanelCollapsed,
+} from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 const CACHE_PREFIX = "new-recent-changes:";
@@ -114,6 +119,39 @@ function EntityRow({ entity, onOpen }) {
   );
 }
 
+// Shown before a tab has ever been run — mirrors pages/recent-changes.js's
+// own RecentChangesEmptyState, reusing the same CSS classes.
+function NewRecentChangesEmptyState({ canRun, onRun, loading }) {
+  return (
+    <section className={styles.card}>
+      <div className={styles.exploreEmptyState}>
+        <div className={styles.exploreEmptyIcon}>
+          <RefreshIcon size={26} />
+        </div>
+        <div>
+          <h2 className={styles.h2} style={{ marginBottom: 6 }}>
+            See what changed recently
+          </h2>
+          <p className={styles.sub}>
+            Pick an account and a time window in the panel on the right, then check for changes to see them here.
+          </p>
+        </div>
+        <div className={styles.exploreEmptySteps}>
+          {["Pick an account", "Choose a time window", 'Click "Check Changes"'].map((step, i) => (
+            <div key={step} className={styles.exploreEmptyStep}>
+              <span className={styles.exploreEmptyStepNum}>{i + 1}</span>
+              {step}
+            </div>
+          ))}
+        </div>
+        <button type="button" className={styles.btnPrimary} disabled={!canRun || loading} onClick={onRun}>
+          {loading ? "Checking…" : "Check Changes"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // A narrower, pre-grouped, differently-designed sibling of
 // pages/recent-changes.js: one account and one of three time windows per
 // tab, and only six tracked actions (Ad launched/paused, Ad Set budget
@@ -135,6 +173,24 @@ export default function NewRecentChanges() {
   const [renameDraft, setRenameDraft] = useState("");
 
   const [openEntity, setOpenEntity] = useState(null);
+
+  // Collapsed by default (per-device), same as pages/recent-changes.js's own
+  // panel — a tab with results already loaded doesn't keep the Accounts/Time
+  // Window panel permanently in the way. `queryPanelExpanded` below is the
+  // one exception: a tab with nothing fetched yet forces this open.
+  const [queryPanelCollapsed, setQueryPanelCollapsedState] = useState(true);
+  useEffect(() => {
+    const saved = getNewRecentChangesQueryPanelCollapsed();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a per-device localStorage preference on mount, not derivable from props/state
+    if (saved != null) setQueryPanelCollapsedState(saved);
+  }, []);
+  function toggleQueryPanel() {
+    setQueryPanelCollapsedState((prev) => {
+      const next = !prev;
+      setNewRecentChangesQueryPanelCollapsed(next);
+      return next;
+    });
+  }
 
   const hasSeededInitialAccountRef = useRef(false);
   const hasRestoredRef = useRef(false);
@@ -290,6 +346,40 @@ export default function NewRecentChanges() {
     return activeTab.result.entities.filter((e) => !e.campaignId || activeTab.includedCampaignIds.includes(e.campaignId));
   }, [activeTab.result, activeTab.includedCampaignIds]);
 
+  // Forces the Accounts/Time Window panel open until there's a result to
+  // fall back to showing instead of a blank page — mirrors
+  // pages/recent-changes.js's own queryPanelExpanded exactly.
+  const queryPanelExpanded = !activeTab.result || !queryPanelCollapsed;
+
+  const resultArea = activeTab.loading ? (
+    <Loader label="Checking recent changes…" />
+  ) : activeTab.error ? (
+    <div className={styles.error}>{activeTab.error}</div>
+  ) : !activeTab.result ? (
+    <NewRecentChangesEmptyState canRun={runnable} loading={activeTab.loading} onRun={() => runQuery(false)} />
+  ) : (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p className={styles.sub} style={{ margin: 0 }}>
+          {visibleEntities.length} {visibleEntities.length === 1 ? "entity" : "entities"} with tracked changes
+          {visibleEntities.length !== activeTab.result.entities.length && ` (of ${activeTab.result.entities.length})`}
+        </p>
+        <button type="button" className={styles.btnSecondary} onClick={() => runQuery(true)}>
+          Hard Refresh
+        </button>
+      </div>
+      {visibleEntities.length === 0 && activeTab.result.entities.length === 0 && (
+        <p className={styles.sub}>No tracked changes (Ad launches/pauses, budget changes, Ad Set/Campaign pauses) in this window.</p>
+      )}
+      {visibleEntities.length === 0 && activeTab.result.entities.length > 0 && (
+        <p className={styles.sub}>No entities match the selected campaign filter.</p>
+      )}
+      {visibleEntities.map((entity) => (
+        <EntityRow key={`${entity.level}:${entity.entityId}`} entity={entity} onOpen={setOpenEntity} />
+      ))}
+    </div>
+  );
+
   return (
     <Layout>
       <Head>
@@ -306,114 +396,185 @@ export default function NewRecentChanges() {
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 14, overflowX: "auto" }}>
-            {tabs.map((tab, i) => (
-              <div
-                key={tab.id}
-                onClick={() => setActiveTabId(tab.id)}
-                onDoubleClick={() => startRenaming(tab, i)}
-                className={tab.id === activeTabId ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flexShrink: 0 }}
-              >
-                {renamingTabId === tab.id ? (
-                  <input
-                    autoFocus
-                    value={renameDraft}
-                    onChange={(e) => setRenameDraft(e.target.value)}
-                    onBlur={commitRename}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename();
-                      if (e.key === "Escape") setRenamingTabId(null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ width: 110, fontSize: 11.5, fontWeight: 700, background: "transparent", border: "none", outline: "none", color: "inherit" }}
-                  />
-                ) : (
-                  <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {tabTitle(tab, adAccounts, i)}
-                  </span>
-                )}
-                {tabs.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => closeTab(tab.id, e)}
-                    aria-label="Close tab"
-                    style={{ display: "flex", background: "none", border: "none", cursor: "pointer", color: "inherit", opacity: 0.6, padding: 0 }}
-                  >
-                    <CloseIcon size={10} />
-                  </button>
-                )}
-              </div>
-            ))}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 6,
+              flexWrap: "wrap",
+              position: "sticky",
+              top: 0,
+              zIndex: 5,
+              background: "var(--bg)",
+              paddingTop: 8,
+              paddingBottom: 2,
+            }}
+          >
+            {tabs.map((tab, i) => {
+              const isActive = tab.id === activeTabId;
+              const isRenaming = renamingTabId === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => setActiveTabId(tab.id)}
+                  title={isRenaming ? undefined : `${tabTitle(tab, adAccounts, i)} — double-click to rename`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 10px",
+                    borderRadius: "10px 10px 0 0",
+                    cursor: "pointer",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    maxWidth: isRenaming ? 220 : 190,
+                    background: isActive ? "var(--bg)" : "transparent",
+                    border: "1px solid var(--border)",
+                    borderBottom: isActive ? "2px solid var(--purple)" : "1px solid var(--border)",
+                    color: isActive ? "var(--t1)" : "var(--t2)",
+                  }}
+                >
+                  {isRenaming ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      className={styles.select}
+                      value={renameDraft}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") setRenamingTabId(null);
+                      }}
+                      style={{ width: 140, fontSize: 12.5, padding: "2px 6px" }}
+                    />
+                  ) : (
+                    <span
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        startRenaming(tab, i);
+                      }}
+                      style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    >
+                      {tabTitle(tab, adAccounts, i)}
+                    </span>
+                  )}
+                  {tabs.length > 1 && !isRenaming && (
+                    <button
+                      type="button"
+                      onClick={(e) => closeTab(tab.id, e)}
+                      title="Close this tab"
+                      aria-label="Close tab"
+                      style={{ display: "flex", background: "none", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0, padding: 0 }}
+                    >
+                      <CloseIcon size={11} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
             <button
               type="button"
               onClick={addTab}
-              aria-label="Add tab"
-              className={styles.tab}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+              title="New tab"
+              className={styles.btnSecondary}
+              style={{ padding: "6px 12px", borderRadius: "10px 10px 0 0" }}
             >
-              <PlusIcon size={12} />
+              +
             </button>
           </div>
 
-          <div
-            className={styles.card}
-            style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: 10, marginBottom: 20 }}
-          >
-            <AccountSelect
-              accounts={adAccounts}
-              value={activeTab.accountId}
-              onChange={(id) => updateTab(activeTab.id, { accountId: id, result: null, error: null })}
-              placeholder="Select an ad account…"
-              style={{ minWidth: 220 }}
-            />
-            <div className={styles.tabGroup}>
-              {HOURS_PRESETS.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  className={activeTab.hours === p.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => updateTab(activeTab.id, { hours: p.value })}
-                >
-                  {p.label}
-                </button>
-              ))}
+          {queryPanelExpanded ? (
+            <div className={styles.exploreLayout}>
+              <div className={styles.exploreContent}>{resultArea}</div>
+
+              <aside className={styles.exploreQueryPanel}>
+                <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
+                      <SettingsIcon size={15} />
+                      Accounts &amp; Time Window
+                    </span>
+                    {/* No collapse control until there's a result to fall back to showing instead —
+                        collapsing here would leave the page with nothing on it at all. */}
+                    {!!activeTab.result && (
+                      <button
+                        type="button"
+                        className={styles.appSidebarIconBtn}
+                        onClick={toggleQueryPanel}
+                        title="Collapse — focus on the results"
+                      >
+                        <ChevronIcon direction="right" size={15} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <h2 className={styles.h2}>Account</h2>
+                    <AccountSelect
+                      accounts={adAccounts}
+                      value={activeTab.accountId}
+                      onChange={(id) => updateTab(activeTab.id, { accountId: id, result: null, error: null })}
+                      placeholder="Select an ad account…"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+
+                  <div>
+                    <h2 className={styles.h2}>Time Window</h2>
+                    <div className={styles.tabGroup} style={{ flexWrap: "wrap" }}>
+                      {HOURS_PRESETS.map((p) => (
+                        <button
+                          key={p.value}
+                          type="button"
+                          className={activeTab.hours === p.value ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                          onClick={() => updateTab(activeTab.id, { hours: p.value })}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {campaignOptions.length > 0 && (
+                    <div>
+                      <h2 className={styles.h2}>Campaigns</h2>
+                      <FilterDropdown
+                        label="Campaigns"
+                        options={campaignOptions}
+                        selected={activeTab.includedCampaignIds}
+                        onToggle={toggleCampaign}
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  )}
+
+                  <button type="button" className={styles.btnPrimary} onClick={() => runQuery(false)} disabled={!runnable || activeTab.loading}>
+                    {activeTab.loading ? "Loading…" : "Check Changes"}
+                  </button>
+                </div>
+              </aside>
             </div>
-            <FilterDropdown
-              label="Campaigns"
-              options={campaignOptions}
-              selected={activeTab.includedCampaignIds}
-              onToggle={toggleCampaign}
-              style={{ minWidth: 180 }}
-            />
-            <button type="button" className={styles.btnPrimary} onClick={() => runQuery(false)} disabled={!runnable || activeTab.loading}>
-              {activeTab.loading ? "Loading…" : "Check Changes"}
-            </button>
-          </div>
-
-          {activeTab.loading && <Loader label="Checking recent changes…" />}
-          {activeTab.error && <div className={styles.error}>{activeTab.error}</div>}
-
-          {!activeTab.loading && !activeTab.error && activeTab.result && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          ) : (
+            <div className={styles.exploreContent}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
                 <p className={styles.sub} style={{ margin: 0 }}>
-                  {visibleEntities.length} {visibleEntities.length === 1 ? "entity" : "entities"} with tracked changes
-                  {visibleEntities.length !== activeTab.result.entities.length && ` (of ${activeTab.result.entities.length})`}
+                  {adAccounts.find((a) => a.id === activeTab.accountId)?.name || "No account selected"} ·{" "}
+                  {HOURS_PRESETS.find((p) => p.value === activeTab.hours)?.label}
                 </p>
-                <button type="button" className={styles.btnSecondary} onClick={() => runQuery(true)}>
-                  Hard Refresh
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={toggleQueryPanel}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <SettingsIcon size={13} />
+                  Edit Account &amp; Window
+                  <ChevronIcon direction="left" size={12} />
                 </button>
               </div>
-              {visibleEntities.length === 0 && activeTab.result.entities.length === 0 && (
-                <p className={styles.sub}>No tracked changes (Ad launches/pauses, budget changes, Ad Set/Campaign pauses) in this window.</p>
-              )}
-              {visibleEntities.length === 0 && activeTab.result.entities.length > 0 && (
-                <p className={styles.sub}>No entities match the selected campaign filter.</p>
-              )}
-              {visibleEntities.map((entity) => (
-                <EntityRow key={`${entity.level}:${entity.entityId}`} entity={entity} onOpen={setOpenEntity} />
-              ))}
+              {resultArea}
             </div>
           )}
         </main>

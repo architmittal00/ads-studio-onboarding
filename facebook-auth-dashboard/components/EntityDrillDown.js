@@ -82,6 +82,43 @@ function sinceChangeRange(eventTime) {
   return { since, until: yesterday };
 }
 
+// /api/fb/explore-insights always streams newline-delimited JSON once
+// validation passes (one or more `{type:"progress",...}` lines, then one
+// final `{type:"done", rows, meta}` or `{type:"done", error}` line) — never a
+// single plain JSON body, see that handler's own writeHead comment. A plain
+// `res.json()` here used to throw a raw "Unexpected non-whitespace character
+// after JSON" parse error (tripping over the first `\n`) the moment this hit
+// a real response with more than one line, which only ever showed up against
+// a real account rather than this drill-down's own earlier, smaller mocked
+// tests. Mirrors pages/explore.js's own fetchExploreInsights reader exactly;
+// progress events are simply ignored here since this fetch is always small
+// enough not to need a progress indicator of its own.
+async function readExploreInsightsStream(res) {
+  if (!res.ok || !res.body) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.error || `Request failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalResult = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line);
+      if (event.type === "done") finalResult = event;
+    }
+  }
+  if (!finalResult) throw new Error("Request ended unexpectedly");
+  if (finalResult.error) throw new Error(finalResult.error);
+  return finalResult;
+}
+
 async function fetchChildren({ accountId, level, idField, parentId, eventTime }) {
   const sinceChange = sinceChangeRange(eventTime);
   const { since, until } = sinceChange || last30DaysRange();
@@ -101,8 +138,7 @@ async function fetchChildren({ accountId, level, idField, parentId, eventTime })
       until,
     }),
   });
-  const json = await res.json();
-  if (json.error) throw new Error(json.error);
+  const json = await readExploreInsightsStream(res);
   return { rows: json.rows || [], usedFallback: !sinceChange };
 }
 

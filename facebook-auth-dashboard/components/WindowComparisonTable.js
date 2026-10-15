@@ -9,20 +9,32 @@ import styles from "@/styles/Home.module.css";
 // cheaper-looking summary.
 export const DEFAULT_COMPARISON_METRIC_KEYS = ["spend", "purchases", "cost_per_purchase", "roas"];
 
-// Most recent → least recent, left to right: the two "right now" snapshots
-// first, then the change's own cumulative total (which can be short or very
-// long depending on how long ago the change happened), then progressively
-// further back in time relative to the change itself.
-export const WINDOW_ORDER = ["last3Days", "last7Days", "sinceChange", "threeDaysAfter", "oneDayBefore", "threeDaysBefore", "sevenDaysBefore"];
+// Strictly chronological, left to right: furthest-back "before" window down
+// to the day right before the change, then the change itself, then the
+// nearest "after" window out to the two "right now" snapshots. Grouped (see
+// WINDOW_GROUP) so the table can draw one visible divider at the change
+// itself instead of leaving "when did metrics start, when did they end"
+// to be inferred from the column labels alone.
+export const WINDOW_ORDER = ["sevenDaysBefore", "threeDaysBefore", "oneDayBefore", "sinceChange", "threeDaysAfter", "last3Days", "last7Days"];
 export const WINDOW_LABEL = {
-  last3Days: "Last 3 Days",
-  last7Days: "Last 7 Days",
+  sevenDaysBefore: "7 Days Before",
+  threeDaysBefore: "3 Days Before",
+  oneDayBefore: "1 Day Before",
   sinceChange: "Since Change",
   threeDaysAfter: "3 Days Post Change",
-  oneDayBefore: "1 Day Before",
-  threeDaysBefore: "3 Days Before",
-  sevenDaysBefore: "7 Days Before",
+  last3Days: "Last 3 Days",
+  last7Days: "Last 7 Days",
 };
+const WINDOW_GROUP = {
+  sevenDaysBefore: "before",
+  threeDaysBefore: "before",
+  oneDayBefore: "before",
+  sinceChange: "after",
+  threeDaysAfter: "after",
+  last3Days: "after",
+  last7Days: "after",
+};
+const GROUP_LABEL = { before: "Before the Change", after: "After the Change" };
 
 // Additive metrics (a genuine total over the window — Spend, Purchases, …)
 // need dividing by the window's own day-count before two different-length
@@ -45,28 +57,65 @@ export function normalizedValue(metric, rawValue, days) {
 // shape returned by pages/api/fb/recent-changes/investigate.js; `catalog` is
 // the metric catalog to resolve `metricKeys` labels/formats against.
 export default function WindowComparisonTable({ windows, metricKeys, catalog, loading, currency }) {
-  // Drops a window entirely (header and every metric's cell) rather than
-  // rendering a column of "—" when its fetch outright failed or it isn't
-  // available yet (e.g. `threeDaysAfter` before 3 full days have passed —
-  // see buildWindows in pages/api/fb/recent-changes/investigate.js) —
-  // `metrics` is only ever null on a rejected Graph call, never on a genuine
-  // zero (an ad with no delivery that window still gets real 0-valued
-  // metrics). While still loading, every window is kept so the skeleton
-  // doesn't jump once data arrives.
-  const visibleWindowNames = loading ? WINDOW_ORDER : WINDOW_ORDER.filter((name) => windows?.[name]?.metrics != null);
+  // Drops a window entirely (header and every metric's cell) only when it
+  // genuinely doesn't apply yet (the window object itself is `null` — e.g.
+  // `threeDaysAfter` before 3 full days have passed, see buildWindows in
+  // pages/api/fb/recent-changes/investigate.js). A window whose Graph call
+  // actually failed still has a real object (with `error` set and
+  // `metrics: null`) and stays visible, rendered as a dedicated error cell
+  // below — hiding a *failed* window looked identical to "this window
+  // doesn't apply," which silently made it look like post-change data simply
+  // didn't exist instead of surfacing that the fetch itself broke. While
+  // still loading, every window is kept so the skeleton doesn't jump once
+  // data arrives.
+  const visibleWindowNames = loading ? WINDOW_ORDER : WINDOW_ORDER.filter((name) => windows?.[name] != null);
+
+  // One visible divider at the change itself — the last "before" column and
+  // the first "after" column each get a heavier border, and a spanning
+  // group-label row sits above the usual per-window header row, so "when did
+  // metrics start, when did they end" reads at a glance instead of only
+  // being inferable from each column's own label.
+  const dividerBefore = (name) => {
+    const idx = visibleWindowNames.indexOf(name);
+    return idx > 0 && WINDOW_GROUP[visibleWindowNames[idx - 1]] !== WINDOW_GROUP[name];
+  };
+  const groupRuns = [];
+  for (const name of visibleWindowNames) {
+    const group = WINDOW_GROUP[name];
+    const last = groupRuns[groupRuns.length - 1];
+    if (last && last.group === group) last.count++;
+    else groupRuns.push({ group, count: 1 });
+  }
 
   return (
     <div style={{ overflowX: "auto" }}>
       <table className={styles.table}>
         <thead>
           <tr>
+            <th />
+            {groupRuns.map((run, i) => (
+              <th
+                key={i}
+                colSpan={run.count}
+                className={styles.muted}
+                style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, borderLeft: i > 0 ? "2px solid var(--border)" : undefined }}
+              >
+                {GROUP_LABEL[run.group]}
+              </th>
+            ))}
+          </tr>
+          <tr>
             <th>Metric</th>
             {visibleWindowNames.map((name) => {
               const w = windows?.[name];
               return (
-                <th key={name} className={name === "sinceChange" ? styles.drawerSinceChangeCol : undefined}>
+                <th
+                  key={name}
+                  className={name === "sinceChange" ? styles.drawerSinceChangeCol : undefined}
+                  style={dividerBefore(name) ? { borderLeft: "2px solid var(--border)" } : undefined}
+                >
                   {WINDOW_LABEL[name]}
-                  {w && <span className={styles.muted}> ({w.days}d{w.partial ? ", so far" : ""})</span>}
+                  {w && !w.error && <span className={styles.muted}> ({w.days}d{w.partial ? ", so far" : ""})</span>}
                 </th>
               );
             })}
@@ -118,12 +167,21 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
                     );
                   }
                   const w = windows?.[name];
-                  if (!w) return <td key={name} className={cellClass}>—</td>;
+                  const dividerStyle = dividerBefore(name) ? { borderLeft: "2px solid var(--border)" } : undefined;
+                  if (!w) return <td key={name} className={cellClass} style={dividerStyle}>—</td>;
+                  if (w.error) {
+                    return (
+                      <td key={name} className={`${styles.muted} ${cellClass || ""}`} style={dividerStyle} title={w.error}>
+                        Error
+                      </td>
+                    );
+                  }
                   if (w.overlapsChange) {
                     return (
                       <td
                         key={name}
                         className={`${styles.muted} ${cellClass || ""}`}
+                        style={dividerStyle}
                         title="This window spans both before and after the change, so it isn't a clean post-change read."
                       >
                         Includes pre-change days
@@ -133,7 +191,7 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
                   const value = normalizedValue(metric, w.metrics?.[key], w.days);
                   const tone = value === bestValue ? "var(--green)" : value === worstValue ? "var(--red)" : undefined;
                   return (
-                    <td key={name} className={cellClass} style={tone ? { color: tone, fontWeight: 700 } : undefined}>
+                    <td key={name} className={cellClass} style={{ ...dividerStyle, ...(tone ? { color: tone, fontWeight: 700 } : undefined) }}>
                       {formatMetricValue(value, metric.format, currency)}
                       {w.partial && (
                         <span className={styles.muted} style={{ marginLeft: 4, fontWeight: 400 }} title="Today isn't over yet — this total is still accruing.">
