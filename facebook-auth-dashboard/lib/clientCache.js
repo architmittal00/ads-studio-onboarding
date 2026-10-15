@@ -13,11 +13,23 @@ export const DEFAULT_CACHE_TTL_MS = 30 * 60 * 1000;
 
 export function getCachedEntry(key, ttlMs = DEFAULT_CACHE_TTL_MS) {
   try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    const storageKey = CACHE_PREFIX + key;
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return null;
     const entry = JSON.parse(raw);
-    if (!entry || typeof entry.fetchedAt !== "number") return null;
-    if (Date.now() - entry.fetchedAt > ttlMs) return null;
+    // An expired (or unparseable-as-a-real-entry) hit is removed right here,
+    // not just treated as a miss — previously this only ever returned `null`
+    // and left the dead entry sitting in localStorage forever, since nothing
+    // else ever revisits an exact-same-shaped key once its query stops being
+    // re-run. Over weeks of real usage across 50+ users this is what let
+    // localStorage quietly fill up with months-old, already-unusable
+    // entries. See sweepAllKnownCaches() below for the complementary
+    // one-shot cleanup of entries that were already stale before this fix
+    // shipped, for keys nobody ever looks up again.
+    if (!entry || typeof entry.fetchedAt !== "number" || Date.now() - entry.fetchedAt > ttlMs) {
+      localStorage.removeItem(storageKey);
+      return null;
+    }
     return entry;
   } catch {
     return null;
@@ -69,6 +81,68 @@ function pruneCachePrefix(prefix, maxEntries) {
   entries.sort((a, b) => b.fetchedAt - a.fetchedAt);
   for (const { storageKey } of entries.slice(maxEntries)) {
     localStorage.removeItem(storageKey);
+  }
+}
+
+// Removes every entry under `prefix` whose own `fetchedAt` is already past
+// `ttlMs` (or that fails to parse at all) — unlike getCachedEntry's own
+// expiry check, this doesn't wait for something to look that exact key up
+// again first. A one-off query (a custom date range picked once, say) would
+// otherwise sit expired-but-undeleted forever, since nothing will ever
+// generate that exact cache key a second time to trigger the lazy check.
+function sweepExpiredEntries(prefix, ttlMs) {
+  const fullPrefix = CACHE_PREFIX + prefix;
+  const now = Date.now();
+  const expiredKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const storageKey = localStorage.key(i);
+    if (!storageKey || !storageKey.startsWith(fullPrefix)) continue;
+    let fetchedAt = null;
+    try {
+      fetchedAt = JSON.parse(localStorage.getItem(storageKey))?.fetchedAt;
+    } catch {
+      // Unparseable — treat the same as expired, below.
+    }
+    if (typeof fetchedAt !== "number" || now - fetchedAt > ttlMs) expiredKeys.push(storageKey);
+  }
+  for (const storageKey of expiredKeys) localStorage.removeItem(storageKey);
+}
+
+// Every cache family that can accumulate more than a handful of entries over
+// time, with how many of its (still-fresh) entries are worth keeping around.
+// Hardcoded here, rather than each consumer registering itself on import, so
+// a sweep is guaranteed complete regardless of which page a visitor happens
+// to load first — a per-module "register on import" approach would only
+// sweep whichever caches that page's own code path actually touched.
+// Keep this in sync with every `setCachedEntry(key, data, { prefix, ... })`
+// call site in the app (currently: pages/explore.js, pages/recent-changes.js,
+// lib/customEvents.js, components/InvestigateDrawer.js,
+// components/EntityDrillDown.js).
+const KNOWN_CACHE_FAMILIES = [
+  { prefix: "explore:", maxEntries: 50 },
+  { prefix: "recent-changes:", maxEntries: 50 },
+  { prefix: "explore-custom-conversions:", maxEntries: 20 },
+  { prefix: "recent-changes-investigate:", maxEntries: 40 },
+  { prefix: "recent-changes-drilldown-investigate:", maxEntries: 40 },
+];
+
+// Run once per app load (see pages/_app.js) — self-heals existing bloat for
+// every visitor the moment this ships, rather than relying on a manual
+// localStorage.clear() or each person stumbling onto this on their own.
+// Sweeps TTL-expired entries first (the actual fix for "a 6-day-old entry
+// sits there forever"), then re-enforces each family's own max-entries cap
+// on whatever fresh entries remain — belt and suspenders with the cap
+// setCachedEntry already applies on every write, and the only cap at all for
+// the two investigate caches below, which never passed one before.
+export function sweepAllKnownCaches(ttlMs = DEFAULT_CACHE_TTL_MS) {
+  try {
+    for (const { prefix, maxEntries } of KNOWN_CACHE_FAMILIES) {
+      sweepExpiredEntries(prefix, ttlMs);
+      pruneCachePrefix(prefix, maxEntries);
+    }
+  } catch {
+    // Private browsing / blocked storage — silently ignore, same as every
+    // other localStorage access in this app.
   }
 }
 

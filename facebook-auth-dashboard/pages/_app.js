@@ -5,6 +5,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { AccountProvider } from "@/components/AccountProvider";
 import ApiLogsFab from "@/components/ApiLogsFab";
 import { getThemePreference } from "@/lib/clientStorage";
+import { sweepAllKnownCaches } from "@/lib/clientCache";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -38,11 +39,27 @@ function useSyncThemeWithOs() {
   }, []);
 }
 
+// Runs once per app load (this component doesn't remount between
+// client-side route changes, only on a hard reload or first visit) — every
+// visitor self-heals their own accumulated localStorage bloat the moment
+// this ships, rather than needing to be individually told to run a console
+// snippet or clear site data. See lib/clientCache.js's own comment for why
+// this has to be a hardcoded list of every cache family rather than each
+// page registering itself on import: a per-module registration would only
+// ever sweep whichever caches the page someone happened to land on actually
+// touches.
+function useSweepStaleCaches() {
+  useEffect(() => {
+    sweepAllKnownCaches();
+  }, []);
+}
+
 export default function App({
   Component,
   pageProps: { session, ...pageProps },
 }) {
   useSyncThemeWithOs();
+  useSweepStaleCaches();
   return (
     <SessionProvider session={session}>
       <AccountProvider>

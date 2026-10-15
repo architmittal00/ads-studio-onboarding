@@ -10,6 +10,10 @@ import { fetchCustomEvents } from "@/lib/customEvents";
 import styles from "@/styles/Home.module.css";
 
 const CACHE_PREFIX = "recent-changes-investigate:";
+// Keep in sync with lib/clientCache.js's KNOWN_CACHE_FAMILIES entry for this
+// same prefix — that registry is what a one-time sweep on app load enforces,
+// this is what keeps it bounded between sweeps within one long session.
+const CACHE_MAX_ENTRIES = 40;
 
 const DEFAULT_METRIC_KEYS = DEFAULT_COMPARISON_METRIC_KEYS;
 
@@ -118,7 +122,7 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
           return;
         }
         setData(json);
-        setCachedEntry(cacheKey, json);
+        setCachedEntry(cacheKey, json, { prefix: CACHE_PREFIX, maxEntriesForPrefix: CACHE_MAX_ENTRIES });
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
