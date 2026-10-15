@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #171.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #173.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`06ae5b3`** — "Add 'New Recent Changes' tab: narrower, entity-grouped, day-grouped changes feed" (PR #171, merged 2026-10-15).
+Latest commit as of this writing: **`7570a9d`** — "Add opt-in ?debug=1 diagnostic to new-recent-changes for the Ad-level-changes investigation" (PR #173, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -79,6 +79,10 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-15)
+
+### PR #173 — Diagnostic for "Ad-level changes don't show up under their Ad Set"
+
+User-reported, immediately after PR #171 shipped: Ad Launched/Paused changes never appear in their Ad Set's bucket. The likely cause is exactly the caveat PR #171 shipped with — `classifyAction()`'s `object_type`/text matching for "ad" was never checked against a real account's Activity Log, and the obvious candidate theory (a legacy `"AD_GROUP"` object_type spelling, the way `"AD_SET"`/`"ADSET"` both already need handling) was considered and **ruled out**: if Meta's API still used the old `CAMPAIGN_GROUP`/`CAMPAIGN`/`AD_GROUP` three-tier naming, `recent-changes.js`'s own already-proven-live `isCampaignOrAdSet`/`resolveLevel` would be broken too (it treats raw `"CAMPAIGN"` as today's Campaign, not legacy Ad Set), so that's not it. Rather than ship another guess, this adds an opt-in `?debug=1` param — `meta.debugSamples` returns one example of every distinct `(raw object_type, resolved object_type, event_type, translated_event_type)` combination seen in the window, classified or not. **Next step (needs the user):** hit `/api/fb/new-recent-changes?accountId=<id>&hours=72&debug=1` shortly after launching/pausing an ad live, and share back `meta.debugSamples` — that will show definitively whether Ad-level entries arrive with an unexpected `object_type`, arrive but don't match the on/off text heuristics, or don't arrive from the account-level Activity Log at all. `classifyAction`/`resolveObjectType` in `pages/api/fb/new-recent-changes.js` get corrected from that, then this diagnostic comes back out.
 
 ### PR #171 — New "New Recent Changes" tab
 
@@ -156,7 +160,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 **Three open items waiting on the user, nothing else queued:**
 1. PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it.
 2. The "no weekly/monthly/daily data at account level" report (see §5, PR #167) couldn't be reproduced against current `origin/main` code via a mocked preview — needs the reporter to describe the actual symptom (error message text, blank table, missing column, etc.) against a live account so this can be properly diagnosed. Don't re-guess at a fix without that information first.
-3. PR #171's "New Recent Changes" action classification (which Activity Log text means "ad launched" vs. "ad paused," "budget change," "paused," for each of the three object types) hasn't been checked against a live account's real Activity Log — worth a spot-check next time someone actually launches/pauses an ad or ad set, or changes a budget, to confirm the right bucket/action shows up.
+3. **Active bug** (see §5, PR #173): Ad-level changes confirmed NOT showing up under their Ad Set in "New Recent Changes." A `?debug=1` diagnostic is shipped and waiting on one live data point — hit `/api/fb/new-recent-changes?accountId=<id>&hours=72&debug=1` right after launching/pausing an ad, and bring back `meta.debugSamples` so `classifyAction`/`resolveObjectType` can be fixed with confidence instead of guessed at again.
 
 Everything else in §5 is fully shipped and verified as of 2026-10-15.
 
