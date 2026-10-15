@@ -4,11 +4,12 @@ import Thumb from "./Thumb";
 import CreativeLightbox from "./CreativeLightbox";
 import RowActions from "./RowActions";
 import EntityDetailDrawer from "./EntityDetailDrawer";
+import CopyIdButton from "./CopyIdButton";
 import { ChevronIcon } from "./icons";
 import WindowComparisonTable from "./WindowComparisonTable";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { parseJsonResponse } from "@/lib/fetchJson";
+import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 const DRILLDOWN_CACHE_PREFIX = "recent-changes-drilldown-investigate:";
@@ -123,7 +124,7 @@ async function readExploreInsightsStream(res) {
 
 async function fetchChildren({ accountId, level, idField, parentId, eventTime }) {
   const { since, until } = sinceChangeRange(eventTime);
-  const res = await fetch("/api/fb/explore-insights", {
+  const res = await fetchWithTimeout("/api/fb/explore-insights", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -165,7 +166,7 @@ async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customM
     .filter((ce) => sortedKeys.includes(ce.id))
     .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
   if (selectedCustomEvents.length > 0) params.set("customEvents", JSON.stringify(selectedCustomEvents));
-  const res = await fetch(`/api/fb/recent-changes/investigate?${params.toString()}`);
+  const res = await fetchWithTimeout(`/api/fb/recent-changes/investigate?${params.toString()}`);
   const json = await parseJsonResponse(res);
   if (json.error) throw new Error(json.error);
   setCachedEntry(cacheKey, json, { prefix: DRILLDOWN_CACHE_PREFIX, maxEntriesForPrefix: DRILLDOWN_CACHE_MAX_ENTRIES });
@@ -199,17 +200,21 @@ export default function EntityDrillDown({
   customMetrics,
   customEvents,
   launchedAdIds = [],
+  pausedAdIds = [],
 }) {
   const [stack, setStack] = useState([]);
   const [lightboxItem, setLightboxItem] = useState(null);
   // Read-only "View Details" drawer, same component/convention as Explore's
   // own RowActions + EntityDetailDrawer pairing.
   const [detailEntity, setDetailEntity] = useState(null);
-  // Narrows the "ad" level down to just the ads launched as part of the day
-  // being investigated, when there were any — off by default (every ad
-  // shown) so turning it on is a deliberate choice, not a surprise filter.
-  const [onlyLaunched, setOnlyLaunched] = useState(false);
+  // Narrows the "ad" level down to just the ads that actually changed
+  // (launched or paused) as part of the day being investigated, when there
+  // were any — off by default (every ad shown) so turning it on is a
+  // deliberate choice, not a surprise filter.
+  const [onlyChanged, setOnlyChanged] = useState(false);
   const launchedAdIdSet = new Set(launchedAdIds);
+  const pausedAdIdSet = new Set(pausedAdIds);
+  const changedAdIdSet = new Set([...launchedAdIds, ...pausedAdIds]);
 
   // Kicks off (and caches) the before/after fetch for whichever rows just
   // became visible/expanded and don't have it yet — called after the
@@ -361,24 +366,24 @@ export default function EntityDrillDown({
 
   const current = stack[stack.length - 1];
   const childLevel = CHILD_LEVEL[current.level];
-  const showLaunchedToggle = current.level === "ad" && launchedAdIdSet.size > 0;
+  const showChangedToggle = current.level === "ad" && changedAdIdSet.size > 0;
 
-  function applyFilter(rows, onlyLaunchedFlag) {
-    if (!showLaunchedToggle || !onlyLaunchedFlag) return rows;
-    return rows.filter((r) => r.entityId && launchedAdIdSet.has(r.entityId));
+  function applyFilter(rows, onlyChangedFlag) {
+    if (!showChangedToggle || !onlyChangedFlag) return rows;
+    return rows.filter((r) => r.entityId && changedAdIdSet.has(r.entityId));
   }
 
-  const sortedRows = current.rows ? applyFilter(sortRows(current.rows, current.sort), onlyLaunched) : [];
+  const sortedRows = current.rows ? applyFilter(sortRows(current.rows, current.sort), onlyChanged) : [];
   const visibleRows = sortedRows.slice(0, current.visibleCount);
 
   function handleSortChange(sortKey) {
     updateCurrent({ sort: sortKey, visibleCount: PAGE_SIZE });
-    loadRowWindows(current.level, applyFilter(sortRows(current.rows || [], sortKey), onlyLaunched).slice(0, PAGE_SIZE));
+    loadRowWindows(current.level, applyFilter(sortRows(current.rows || [], sortKey), onlyChanged).slice(0, PAGE_SIZE));
   }
 
-  function handleToggleOnlyLaunched() {
-    const next = !onlyLaunched;
-    setOnlyLaunched(next);
+  function handleToggleOnlyChanged() {
+    const next = !onlyChanged;
+    setOnlyChanged(next);
     updateCurrent({ visibleCount: PAGE_SIZE });
     loadRowWindows(current.level, applyFilter(sortRows(current.rows || [], current.sort), next).slice(0, PAGE_SIZE));
   }
@@ -418,21 +423,21 @@ export default function EntityDrillDown({
           {CHILD_LEVEL_PLURAL[current.level]} · Since Change
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {showLaunchedToggle && (
+          {showChangedToggle && (
             <div className={styles.tabGroup}>
               <button
                 type="button"
-                className={!onlyLaunched ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                onClick={() => onlyLaunched && handleToggleOnlyLaunched()}
+                className={!onlyChanged ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => onlyChanged && handleToggleOnlyChanged()}
               >
                 All Ads
               </button>
               <button
                 type="button"
-                className={onlyLaunched ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                onClick={() => !onlyLaunched && handleToggleOnlyLaunched()}
+                className={onlyChanged ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => !onlyChanged && handleToggleOnlyChanged()}
               >
-                Launched This Day ({launchedAdIdSet.size})
+                Changed This Day ({changedAdIdSet.size})
               </button>
             </div>
           )}
@@ -455,8 +460,8 @@ export default function EntityDrillDown({
       {current.error && <div className={styles.error}>{current.error}</div>}
       {!current.loading && !current.error && sortedRows.length === 0 && (
         <p className={styles.sub}>
-          {onlyLaunched
-            ? "None of the ads launched this day had any delivery since the change."
+          {onlyChanged
+            ? "None of the ads that changed this day had any delivery since the change."
             : `No ${CHILD_LEVEL_PLURAL[current.level].toLowerCase()} with delivery since the change.`}
         </p>
       )}
@@ -494,11 +499,20 @@ export default function EntityDrillDown({
                         <p style={{ fontWeight: 600, fontSize: 13.5, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {row.entityLabel || "—"}
                         </p>
+                        {entityId && <CopyIdButton id={entityId} />}
                         {row.status && (
                           <span className={statusBadgeClass(row.status)} style={{ flexShrink: 0 }}>
                             {humanizeStatus(row.status)}
                           </span>
                         )}
+                        {/* Answers "what's the logic" at a glance, independent
+                            of the Changed This Day toggle above — a row is
+                            tagged here the moment it's one of the ads the
+                            day's own activity log actually recorded as
+                            launched or paused, whether or not that filter is
+                            currently on. */}
+                        {entityId && launchedAdIdSet.has(entityId) && <span className={styles.badgeGood}>Launched</span>}
+                        {entityId && pausedAdIdSet.has(entityId) && <span className={styles.badgeDanger}>Paused</span>}
                       </div>
                       <p className={styles.muted} style={{ margin: 0, fontSize: 12 }}>
                         Spend: <strong>{formatMetricValue(row.spend, "currency", currency)}</strong> · ROAS:{" "}

@@ -113,22 +113,24 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
             const lowerIsBetter = LOWER_IS_BETTER_METRIC_KEYS.has(metric.key);
 
             // Best/worst highlighting only ever considers a "clean" window —
-            // one that neither overlaps the change (mixes pre- and
-            // post-change delivery) nor is still a partial, still-accruing
-            // total (see `partial` below). Those two still render their own
-            // real number in the cell (or, for `overlapsChange`, a muted
-            // explanation instead) — they're just never crowned "best" or
-            // "worst" against a set of genuinely comparable windows. This
-            // only ever runs on `isUnitMetric` rows (ROAS, CTR, Cost Per
-            // Purchase, …) — rates that are already window-length-
-            // independent — so comparing each window's raw value here (a
-            // genuine sum for an additive metric like Spend, same
-            // aggregation convention as the rest of this app) rather than a
-            // per-day average never makes a longer window's bigger total
-            // misleadingly "win."
+            // one that doesn't overlap the change (mix pre- and post-change
+            // delivery into one number). That window still renders its own
+            // real value in the cell (a muted explanation instead, for
+            // `overlapsChange`) — it's just never crowned "best" or "worst"
+            // against a set of genuinely comparable windows. This only ever
+            // runs on `isUnitMetric` rows (ROAS, CTR, Cost Per Purchase, …) —
+            // rates that are already window-length-independent, so a
+            // `partial`, still-accruing window (e.g. "Since Change" or "3
+            // Days Post Change" before its 3rd day has elapsed) is just as
+            // comparable as a complete one: its rate isn't biased short by
+            // having fewer days behind it the way an additive metric's raw
+            // sum would be. Excluding partial windows used to mean every
+            // "after" column (all of which stay partial until well past the
+            // change) never won or lost against the "before" columns, making
+            // this highlighting look like it only worked on one side.
             const comparableValues = visibleWindowNames.map((name) => {
               const w = windows?.[name];
-              if (!w || w.overlapsChange || w.partial) return null;
+              if (!w || w.overlapsChange) return null;
               return w.metrics?.[key] ?? null;
             });
             let bestValue = null;
