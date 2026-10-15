@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { formatMetricValue, LEVEL_OPTIONS } from "@/lib/insightsMetrics";
-import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon, CopyIcon } from "./icons";
+import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon, CopyIcon, InfoIcon } from "./icons";
 import DuplicateEntityModal from "./DuplicateEntityModal";
 
 // Quick budget bumps — the common "cut it back" / "push it harder" pacing
@@ -28,8 +28,14 @@ const BUDGET_PRESETS = [-50, -20, -10, 10, 20, 50];
 //    Launch tab. Needs `row.accountId` (always present — see
 //    pages/api/fb/explore-insights.js's row-building code) to know which
 //    account to fetch destinations from.
+//  - View Details (every level, including Campaign — which otherwise has no
+//    actions at all once it's PAUSED with no budget) opens
+//    EntityDetailDrawer, read-only, in Explore's own side drawer — never a
+//    reason to change anything, so it's offered unconditionally whenever
+//    there's a real entity to show, listed first since it's the one every
+//    row can always use.
 function determineActions(row, level) {
-  const actions = [];
+  const actions = [{ key: "details", kind: "details", label: "View Details" }];
   if (row.status === "ACTIVE") {
     actions.push({ key: "pause", kind: "status", label: "Pause", nextStatus: "PAUSED" });
   } else if (row.status === "PAUSED") {
@@ -50,7 +56,7 @@ function determineActions(row, level) {
 // Explore's results table — one action shown directly as a button, several
 // shown behind a small "Take Action" menu, nothing shown at all when this
 // row has no single entity to act on or nothing about it is actionable.
-export default function RowActions({ row, level, currency, onActionApplied }) {
+export default function RowActions({ row, level, currency, onActionApplied, onViewDetails }) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Viewport-relative {top, right} for the open menu, computed from the
   // trigger button's own getBoundingClientRect() at open time — see the
@@ -79,12 +85,15 @@ export default function RowActions({ row, level, currency, onActionApplied }) {
 
   if (!row.entityId) return null;
   const actions = determineActions(row, level);
-  if (actions.length === 0) return <span className={styles.muted}>—</span>;
 
   function openAction(action) {
     setMenuOpen(false);
     if (action.kind === "duplicate") {
       setDuplicating(true);
+      return;
+    }
+    if (action.kind === "details") {
+      onViewDetails({ level, id: row.entityId, name: row.entityLabel || row.label });
       return;
     }
     setPendingAction(action);
@@ -159,6 +168,8 @@ function ActionTriggerButton({ action, onClick }) {
         )
       ) : action.kind === "duplicate" ? (
         <CopyIcon size={11} />
+      ) : action.kind === "details" ? (
+        <InfoIcon size={11} />
       ) : null}
       {action.label}
     </button>
