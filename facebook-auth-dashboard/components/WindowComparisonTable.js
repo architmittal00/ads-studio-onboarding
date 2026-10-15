@@ -9,13 +9,13 @@ import styles from "@/styles/Home.module.css";
 // cheaper-looking summary.
 export const DEFAULT_COMPARISON_METRIC_KEYS = ["spend", "purchases", "cost_per_purchase", "roas"];
 
-// Strictly chronological, left to right: furthest-back "before" window down
-// to the day right before the change, then the change itself, then the
-// nearest "after" window out to the two "right now" snapshots. Grouped (see
-// WINDOW_GROUP) so the table can draw one visible divider at the change
-// itself instead of leaving "when did metrics start, when did they end"
-// to be inferred from the column labels alone.
-export const WINDOW_ORDER = ["sevenDaysBefore", "threeDaysBefore", "oneDayBefore", "sinceChange", "threeDaysAfter", "last3Days", "last7Days"];
+// Per explicit ask: the two "right now" snapshots first (widest window
+// first), then the change's own cumulative total and its immediate
+// aftermath, then the "before" windows nearest-to-furthest. Still grouped
+// (see WINDOW_GROUP) so the table draws one visible divider at the change
+// itself — "after" windows all land contiguously on the left of it here,
+// "before" windows contiguously on the right.
+export const WINDOW_ORDER = ["last7Days", "last3Days", "sinceChange", "threeDaysAfter", "oneDayBefore", "threeDaysBefore", "sevenDaysBefore"];
 export const WINDOW_LABEL = {
   sevenDaysBefore: "7 Days Before",
   threeDaysBefore: "3 Days Before",

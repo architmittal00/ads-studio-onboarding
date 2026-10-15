@@ -141,9 +141,17 @@ export default async function handler(req, res) {
 
   const windowNames = Object.keys(windows).filter((name) => windows[name] !== null);
   const settled = await Promise.allSettled(
-    windowNames.map((name) =>
-      graphGetInsights(`/${objectId}/insights`, token, { time_range: windows[name], fields })
-    )
+    windowNames.map((name) => {
+      // Graph's `time_range` param only accepts `since`/`until` — passing
+      // the whole window object (which also carries this endpoint's own
+      // `overlapsChange`/`partial` bookkeeping flags) fails outright with
+      // "(#100) Invalid keys ... were found in param time_range" for every
+      // window that has either flag set (last3Days/last7Days always carry
+      // overlapsChange; sinceChange carries partial for a very recent
+      // change) — confirmed live via that exact error message.
+      const { since, until } = windows[name];
+      return graphGetInsights(`/${objectId}/insights`, token, { time_range: { since, until }, fields });
+    })
   );
 
   const results = {};
