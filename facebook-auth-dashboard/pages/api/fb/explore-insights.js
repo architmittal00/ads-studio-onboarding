@@ -591,18 +591,65 @@ export default async function handler(req, res) {
   // should serialize that cost. allSettled (not all) so one revoked/erroring
   // account — or one failed chunk — doesn't block the rest from returning
   // data.
+  // Ad-level rows × a time-increment grouping is, by a wide margin, the
+  // single heaviest shape this endpoint ever requests (row count scales with
+  // ads × date buckets, vs. one row per bucket at Account level or far fewer
+  // entities than ads at Campaign/Ad Set) — the shape most likely to tip
+  // Facebook into its async-job path and most likely to still be running
+  // past graphGetInsights' default 15s poll window. Raised well within this
+  // route's own 60s `maxDuration` (vercel.json) rather than left to fail a
+  // query that was still going to succeed a few seconds later.
+  const insightsTimeoutMs = fetchLevel === "ad" && validTimeIncrement ? 45000 : undefined;
+
   const callPlan = [];
-  const calls = [];
+  const rawCalls = [];
   for (const accountId of accountIds) {
     for (const chunk of currentChunks) {
-      calls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: chunk }));
+      rawCalls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: chunk }, { timeoutMs: insightsTimeoutMs }));
       callPlan.push({ accountId, period: "current" });
     }
     if (compareToPrevious) {
-      calls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: previousRange }));
+      rawCalls.push(graphGetInsights(`/${accountId}/insights`, token, { ...baseParams, time_range: previousRange }, { timeoutMs: insightsTimeoutMs }));
       callPlan.push({ accountId, period: "previous" });
     }
   }
+
+  // From here on, the response streams newline-delimited JSON (same
+  // convention as pages/api/fb/launch-campaign.js) instead of one plain JSON
+  // body — everything above this point is cheap, synchronous validation, so
+  // every early `res.status(...).json(...)` return above stays untouched; a
+  // validation failure never costs the client a dropped connection with
+  // headers already sent. From here down, every remaining response (the
+  // "every account failed" branch below and the final success response) is a
+  // streamed "done" event instead, since headers can't be resent once
+  // `writeHead` below has run.
+  //
+  // `calls.length` is known up front (the fan-out plan above is fixed before
+  // any of them resolve), so each one's own completion — in whatever order
+  // they actually finish, since this stays Promise.allSettled underneath,
+  // not sequential — can report truthful "N of M" progress without changing
+  // the deliberate full-parallelism this endpoint already relies on (see the
+  // comment on `calls` above: one slow/erroring account shouldn't block the
+  // rest).
+  res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" });
+  function progress(message) {
+    res.write(`${JSON.stringify({ type: "progress", message })}\n`);
+  }
+  let completedCalls = 0;
+  const calls = rawCalls.map((p) =>
+    p.then(
+      (value) => {
+        completedCalls++;
+        progress(`Fetched ${completedCalls} of ${rawCalls.length}…`);
+        return value;
+      },
+      (err) => {
+        completedCalls++;
+        progress(`Fetched ${completedCalls} of ${rawCalls.length}…`);
+        throw err;
+      }
+    )
+  );
 
   const settled = await Promise.allSettled(calls);
 
@@ -628,8 +675,11 @@ export default async function handler(req, res) {
   // to show.
   if (accountIds.every((id) => byAccount.get(id).current.length === 0)) {
     // Every account failed — nothing to show, surface it as a real error
-    // rather than an empty-but-200 response.
-    return res.status(firstFailure?.graphResponse ? 400 : 500).json({ error: firstFailure?.message || "Request failed" });
+    // rather than an empty-but-200 response. Streamed as a "done" event with
+    // an `error` field (not a fresh res.status(...).json(...)) — headers
+    // were already sent above once streaming started.
+    res.write(`${JSON.stringify({ type: "done", error: firstFailure?.message || "Request failed" })}\n`);
+    return res.end();
   }
 
   const allKeys = [...effectiveMetricKeys, ...outputCustomFields];
@@ -833,6 +883,10 @@ export default async function handler(req, res) {
       const budget = budgetById[row.entityId];
       row.dailyBudget = budget?.dailyBudget ?? null;
       row.lifetimeBudget = budget?.lifetimeBudget ?? null;
+      // Overwrites the `budget` field's placeholder `null` from the generic
+      // metric-extraction pass above (see METRIC_CATALOG's own comment) with
+      // whichever of the two is actually set — an entity never has both.
+      row.budget = row.dailyBudget ?? row.lifetimeBudget ?? null;
     }
   }
 
@@ -905,52 +959,51 @@ export default async function handler(req, res) {
       .filter(Boolean);
   }
 
-  res.status(200).json({
-    rows,
-    meta: {
-      level,
-      breakdownGroup,
-      metricKeys: effectiveMetricKeys,
-      customFields: outputCustomFields,
-      accountIds,
-      accountErrors,
-      since,
-      until,
-      timeIncrement: validTimeIncrement,
-      compareToPrevious: !!compareToPrevious,
-      previousSince: previousRange?.since || null,
-      previousUntil: previousRange?.until || null,
-      rowCount: rows.length,
-      // Lets the UI explain itself: whether a name filter forced fetching at
-      // a finer level than requested and rolling the result back up (and, if
-      // so, which requested metrics got dropped because they can't be
-      // correctly re-aggregated — see REACH_DEPENDENT_KEYS), and how many
-      // underlying entities a filter (exclude or include) actually filtered out.
-      nameFiltersApplied: cleanNameFilters.length > 0,
-      idFilterApplied: !!cleanIdFilter,
-      rollupApplied: needsRollup,
-      excludedMetrics,
-      filteredByNameCount,
-      // Tells the client whether rows carry a real `status` and the Status
-      // filter is worth showing at all — false only at the account level,
-      // which has no single entity to check.
-      statusAvailable: canHaveStatus,
-      // Tells the client whether rows carry real `dailyBudget`/`lifetimeBudget`
-      // fields worth checking for the "Change Budget" row action — false at
-      // the account level and the Ad level, where a budget action never makes
-      // sense; true at Campaign/Ad Set level even though any individual row
-      // there might still come back with neither field set (ABO campaign /
-      // CBO-parented ad set, respectively — see fetchEntityBudgets).
-      budgetAvailable: canHaveBudget,
-      // A pinned "Total" row the client renders outside normal sort/search/
-      // pagination (see pages/explore.js) — `null` at the account level,
-      // where there's nothing to total (one row per account already).
-      totalsRow,
-      // One aggregated row per entity when time grouping is active at a real
-      // level (see the computation above) — `null` otherwise, including at
-      // the account level or whenever a breakdown is also active, where
-      // there's no single-entity pivot to offer.
-      pivotRows,
-    },
-  });
+  const meta = {
+    level,
+    breakdownGroup,
+    metricKeys: effectiveMetricKeys,
+    customFields: outputCustomFields,
+    accountIds,
+    accountErrors,
+    since,
+    until,
+    timeIncrement: validTimeIncrement,
+    compareToPrevious: !!compareToPrevious,
+    previousSince: previousRange?.since || null,
+    previousUntil: previousRange?.until || null,
+    rowCount: rows.length,
+    // Lets the UI explain itself: whether a name filter forced fetching at
+    // a finer level than requested and rolling the result back up (and, if
+    // so, which requested metrics got dropped because they can't be
+    // correctly re-aggregated — see REACH_DEPENDENT_KEYS), and how many
+    // underlying entities a filter (exclude or include) actually filtered out.
+    nameFiltersApplied: cleanNameFilters.length > 0,
+    idFilterApplied: !!cleanIdFilter,
+    rollupApplied: needsRollup,
+    excludedMetrics,
+    filteredByNameCount,
+    // Tells the client whether rows carry a real `status` and the Status
+    // filter is worth showing at all — false only at the account level,
+    // which has no single entity to check.
+    statusAvailable: canHaveStatus,
+    // Tells the client whether rows carry real `dailyBudget`/`lifetimeBudget`
+    // fields worth checking for the "Change Budget" row action — false at
+    // the account level and the Ad level, where a budget action never makes
+    // sense; true at Campaign/Ad Set level even though any individual row
+    // there might still come back with neither field set (ABO campaign /
+    // CBO-parented ad set, respectively — see fetchEntityBudgets).
+    budgetAvailable: canHaveBudget,
+    // A pinned "Total" row the client renders outside normal sort/search/
+    // pagination (see pages/explore.js) — `null` at the account level,
+    // where there's nothing to total (one row per account already).
+    totalsRow,
+    // One aggregated row per entity when time grouping is active at a real
+    // level (see the computation above) — `null` otherwise, including at
+    // the account level or whenever a breakdown is also active, where
+    // there's no single-entity pivot to offer.
+    pivotRows,
+  };
+  res.write(`${JSON.stringify({ type: "done", rows, meta })}\n`);
+  res.end();
 }
