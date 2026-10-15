@@ -4,7 +4,7 @@ import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowC
 import Thumb from "./Thumb";
 import CreativeLightbox from "./CreativeLightbox";
 import { CloseIcon, ChevronIcon } from "./icons";
-import { buildEffectiveCatalog } from "@/lib/insightsMetrics";
+import { buildEffectiveCatalog, humanizeStatus } from "@/lib/insightsMetrics";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { getCustomMetrics } from "@/lib/clientStorage";
@@ -354,35 +354,45 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
 
   const levelLabel = LEVEL_LABEL[entity.level] || "Entity";
   const dayGroups = groupByDay(entity.changes);
+  // Ad ids actually launched as part of the day being investigated — lets
+  // EntityDrillDown offer "just the ads we launched" instead of every ad in
+  // the set, so a launch's own impact is quick to isolate from pre-existing
+  // ads' unrelated performance.
+  const launchedAdIds = investigatingDay ? investigatingDay.changes.filter((c) => c.action === "ad_launched").map((c) => c.sourceObjectId) : [];
 
   return (
     <div className={styles.drawerOverlay} onClick={onClose}>
       <div className={styles.drawerPanel} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            {investigatingDay ? (
-              <button
-                type="button"
-                onClick={() => setInvestigatingDay(null)}
-                className={styles.btnSecondary}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, marginBottom: 10 }}
-              >
-                <ChevronIcon direction="left" size={12} />
-                Back to {entity.entityName || "this entity"}&apos;s changes
-              </button>
-            ) : (
-              <p className={styles.muted} style={{ marginBottom: 2 }}>
-                {levelLabel}
-              </p>
-            )}
-            <h2 className={styles.h2} style={{ marginBottom: 4 }}>
-              {entity.entityName || entity.entityId}
-            </h2>
-            {investigatingDay && <p className={styles.sub}>{formatDayLabel(investigatingDay.date)}</p>}
-          </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          {investigatingDay ? (
+            <button
+              type="button"
+              onClick={() => setInvestigatingDay(null)}
+              className={styles.btnSecondary}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
+            >
+              <ChevronIcon direction="left" size={12} />
+              Back
+            </button>
+          ) : (
+            <p className={styles.muted} style={{ margin: 0 }}>
+              {levelLabel}
+            </p>
+          )}
           <button type="button" onClick={onClose} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
             <CloseIcon size={14} />
           </button>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h2 className={styles.h2} style={{ marginBottom: 4 }}>
+              {entity.entityName || entity.entityId}
+            </h2>
+            {entity.status && (
+              <span className={entity.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo}>{humanizeStatus(entity.status)}</span>
+            )}
+          </div>
+          {investigatingDay && <p className={styles.sub}>{formatDayLabel(investigatingDay.date)}</p>}
         </div>
 
         {!investigatingDay && (
@@ -472,6 +482,7 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
               catalog={effectiveCatalog}
               customMetrics={customMetrics}
               customEvents={customEvents}
+              launchedAdIds={launchedAdIds}
             />
           </>
         )}

@@ -29,6 +29,7 @@ import {
   METRIC_CATALOG,
   formatMetricValue,
   buildEffectiveCatalog,
+  humanizeStatus,
 } from "@/lib/insightsMetrics";
 import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_COLORS } from "@/lib/tabGroups";
 import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
@@ -226,16 +227,6 @@ function applyResultFilters(rows, resultFilters, availableMetricKeys) {
     out = out.filter((row) => resultFilters.statusValues.includes(row.status));
   }
   return out;
-}
-
-function humanizeStatus(status) {
-  return status
-    ? status
-        .toLowerCase()
-        .split("_")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ")
-    : "—";
 }
 
 // One independent tab: its own account(s), its own query spec, its own

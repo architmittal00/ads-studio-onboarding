@@ -9,22 +9,12 @@ import styles from "@/styles/Home.module.css";
 // cheaper-looking summary.
 export const DEFAULT_COMPARISON_METRIC_KEYS = ["spend", "purchases", "cost_per_purchase", "roas"];
 
-// Per explicit ask: the two "right now" snapshots first (widest window
-// first), then the change's own cumulative total and its immediate
-// aftermath, then the "before" windows nearest-to-furthest. Still grouped
-// (see WINDOW_GROUP) so the table draws one visible divider at the change
-// itself — "after" windows all land contiguously on the left of it here,
-// "before" windows contiguously on the right.
-export const WINDOW_ORDER = [
-  "last7Days",
-  "last3Days",
-  "sinceChange",
-  "threeDaysAfter",
-  "sevenDaysAfter",
-  "oneDayBefore",
-  "threeDaysBefore",
-  "sevenDaysBefore",
-];
+// Per explicit ask: the change's own cumulative total and its immediate
+// aftermath first, then the "before" windows nearest-to-furthest. Still
+// grouped (see WINDOW_GROUP) so the table draws one visible divider at the
+// change itself — "after" windows all land contiguously on the left of it
+// here, "before" windows contiguously on the right.
+export const WINDOW_ORDER = ["sinceChange", "threeDaysAfter", "sevenDaysAfter", "oneDayBefore", "threeDaysBefore", "sevenDaysBefore"];
 export const WINDOW_LABEL = {
   sevenDaysBefore: "7 Days Before",
   threeDaysBefore: "3 Days Before",
@@ -32,8 +22,6 @@ export const WINDOW_LABEL = {
   sinceChange: "Since Change",
   threeDaysAfter: "3 Days Post Change",
   sevenDaysAfter: "7 Days Post Change",
-  last3Days: "Last 3 Days",
-  last7Days: "Last 7 Days",
 };
 const WINDOW_GROUP = {
   sevenDaysBefore: "before",
@@ -42,8 +30,6 @@ const WINDOW_GROUP = {
   sinceChange: "after",
   threeDaysAfter: "after",
   sevenDaysAfter: "after",
-  last3Days: "after",
-  last7Days: "after",
 };
 const GROUP_LABEL = { before: "Before the Change", after: "After the Change" };
 

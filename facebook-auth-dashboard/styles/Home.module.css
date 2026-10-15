@@ -689,14 +689,13 @@ button.stat:hover {
   top: 0;
   right: 0;
   height: 100vh;
-  /* Wide enough that the 8-column before/after WindowComparisonTable
-     (components/WindowComparisonTable.js, used by both this drawer's own
-     Investigate view and components/InvestigateDrawer.js — now 8 columns
-     since the addition of "7 Days Post Change") fits without needing its own
-     horizontal scrollbar on a typical desktop viewport — confirmed via the
-     table's own scrollWidth (1223px at this panel's 28px padding) needing a
-     panel of at least ~1279px; 1300px leaves a small margin. */
-  width: min(1300px, 96vw);
+  /* Wide enough that the 6-column before/after WindowComparisonTable
+     (components/WindowComparisonTable.js, used by this drawer's own
+     Investigate view — back down from 8 columns now that Last 3/7 Days were
+     removed) fits comfortably on a typical desktop viewport, while still
+     being roomy enough for EntityDrillDown's own ad/ad-set rows (thumbnail,
+     name, status badge, RowActions) below it. */
+  width: min(1150px, 96vw);
   background: var(--bg);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-md);

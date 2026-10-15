@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import Loader from "./Loader";
 import Thumb from "./Thumb";
 import CreativeLightbox from "./CreativeLightbox";
+import RowActions from "./RowActions";
+import EntityDetailDrawer from "./EntityDetailDrawer";
 import { ChevronIcon } from "./icons";
 import WindowComparisonTable from "./WindowComparisonTable";
-import { formatMetricValue } from "@/lib/insightsMetrics";
+import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
@@ -33,6 +35,14 @@ const SORT_OPTIONS = [
   { key: "roas_asc", label: "Lowest Performer (ROAS)" },
 ];
 
+// ACTIVE reads as the one unambiguously "good" state; everything else
+// (Paused, Archived, Pending Review, Disapproved, ...) is lumped together as
+// a muted/neutral badge rather than trying to assign good/bad to Facebook's
+// full review-pipeline vocabulary.
+function statusBadgeClass(status) {
+  return status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo;
+}
+
 function sortRows(rows, sortKey) {
   const sorted = [...rows];
   switch (sortKey) {
@@ -60,27 +70,18 @@ function addDaysUTC(dateStr, days) {
   return isoDateUTC(d);
 }
 
-// A fixed, always-available fallback window — only used when the change
-// being investigated happened too recently for "Since Change" below to
-// cover any full day yet (so "highest spend"/"highest performer" would
-// otherwise have nothing to rank by).
-function last30DaysRange() {
-  const until = addDaysUTC(isoDateUTC(new Date()), -1);
-  return { since: addDaysUTC(until, -29), until };
-}
-
 // Mirrors pages/api/fb/recent-changes/investigate.js's own buildWindows()
-// sinceChange calculation exactly, so "highest spend"/"highest performer"
-// here means the same thing as the "Since Change" column in every
-// comparison table on this page — performance strictly after the change,
-// not a change-agnostic trailing window. Returns null when the change
-// happened today (no full day has elapsed yet to rank by).
+// sinceChange calculation exactly (always through *today*, degrading to the
+// change's own day only when the change happened today itself) — so
+// "highest spend"/"highest performer" here means the same thing as the
+// "Since Change" column in every comparison table on this page, and always
+// has a valid window to rank by (never "too recent," unlike before PR #187
+// made sinceChange itself always-available the same way).
 function sinceChangeRange(eventTime) {
   const changeDay = isoDateUTC(new Date(eventTime));
-  const yesterday = addDaysUTC(isoDateUTC(new Date()), -1);
+  const today = isoDateUTC(new Date());
   const since = addDaysUTC(changeDay, 1);
-  if (since > yesterday) return null;
-  return { since, until: yesterday };
+  return { since: since <= today ? since : changeDay, until: today };
 }
 
 // /api/fb/explore-insights always streams newline-delimited JSON once
@@ -121,8 +122,7 @@ async function readExploreInsightsStream(res) {
 }
 
 async function fetchChildren({ accountId, level, idField, parentId, eventTime }) {
-  const sinceChange = sinceChangeRange(eventTime);
-  const { since, until } = sinceChange || last30DaysRange();
+  const { since, until } = sinceChangeRange(eventTime);
   const res = await fetch("/api/fb/explore-insights", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -140,7 +140,7 @@ async function fetchChildren({ accountId, level, idField, parentId, eventTime })
     }),
   });
   const json = await readExploreInsightsStream(res);
-  return { rows: json.rows || [], usedFallback: !sinceChange };
+  return { rows: json.rows || [] };
 }
 
 // Fetches the same before/after window comparison components/EntityChangesDrawer.js
@@ -198,9 +198,18 @@ export default function EntityDrillDown({
   catalog,
   customMetrics,
   customEvents,
+  launchedAdIds = [],
 }) {
   const [stack, setStack] = useState([]);
   const [lightboxItem, setLightboxItem] = useState(null);
+  // Read-only "View Details" drawer, same component/convention as Explore's
+  // own RowActions + EntityDetailDrawer pairing.
+  const [detailEntity, setDetailEntity] = useState(null);
+  // Narrows the "ad" level down to just the ads launched as part of the day
+  // being investigated, when there were any — off by default (every ad
+  // shown) so turning it on is a deliberate choice, not a surprise filter.
+  const [onlyLaunched, setOnlyLaunched] = useState(false);
+  const launchedAdIdSet = new Set(launchedAdIds);
 
   // Kicks off (and caches) the before/after fetch for whichever rows just
   // became visible/expanded and don't have it yet — called after the
@@ -293,14 +302,11 @@ export default function EntityDrillDown({
         visibleCount: PAGE_SIZE,
         collapsedIds: new Set(),
         rowWindows: {},
-        usedFallbackWindow: false,
       },
     ]);
     fetchChildren({ accountId, level, idField: CHILD_ID_FILTER_FIELD[level], parentId: forParentId, eventTime })
-      .then(({ rows, usedFallback }) => {
-        setStack((prev) =>
-          prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, rows, loading: false, usedFallbackWindow: usedFallback } : entry))
-        );
+      .then(({ rows }) => {
+        setStack((prev) => prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, rows, loading: false } : entry)));
         loadRowWindows(level, sortRows(rows, "spend_desc").slice(0, PAGE_SIZE));
       })
       .catch((err) => {
@@ -310,6 +316,20 @@ export default function EntityDrillDown({
 
   function updateCurrent(patch) {
     setStack((prev) => prev.map((entry, i) => (i === prev.length - 1 ? { ...entry, ...patch } : entry)));
+  }
+
+  // Merges a RowActions result (Pause/Activate/Change Budget) into this
+  // row's own cached data in place — same pattern as pages/explore.js's own
+  // applyChildActionPatch, scanning every stack entry (not just the current
+  // one) since a row acted on could in principle belong to an earlier,
+  // now-collapsed breadcrumb level.
+  function applyRowActionPatch(entityId, patch) {
+    setStack((prev) =>
+      prev.map((entry) => ({
+        ...entry,
+        rows: entry.rows ? entry.rows.map((r) => (r.entityId === entityId ? { ...r, ...patch } : r)) : entry.rows,
+      }))
+    );
   }
 
   function toggleRow(entry, row) {
@@ -341,12 +361,26 @@ export default function EntityDrillDown({
 
   const current = stack[stack.length - 1];
   const childLevel = CHILD_LEVEL[current.level];
-  const sortedRows = current.rows ? sortRows(current.rows, current.sort) : [];
+  const showLaunchedToggle = current.level === "ad" && launchedAdIdSet.size > 0;
+
+  function applyFilter(rows, onlyLaunchedFlag) {
+    if (!showLaunchedToggle || !onlyLaunchedFlag) return rows;
+    return rows.filter((r) => r.entityId && launchedAdIdSet.has(r.entityId));
+  }
+
+  const sortedRows = current.rows ? applyFilter(sortRows(current.rows, current.sort), onlyLaunched) : [];
   const visibleRows = sortedRows.slice(0, current.visibleCount);
 
   function handleSortChange(sortKey) {
     updateCurrent({ sort: sortKey, visibleCount: PAGE_SIZE });
-    loadRowWindows(current.level, sortRows(current.rows || [], sortKey).slice(0, PAGE_SIZE));
+    loadRowWindows(current.level, applyFilter(sortRows(current.rows || [], sortKey), onlyLaunched).slice(0, PAGE_SIZE));
+  }
+
+  function handleToggleOnlyLaunched() {
+    const next = !onlyLaunched;
+    setOnlyLaunched(next);
+    updateCurrent({ visibleCount: PAGE_SIZE });
+    loadRowWindows(current.level, applyFilter(sortRows(current.rows || [], current.sort), next).slice(0, PAGE_SIZE));
   }
 
   function handleLoadMore() {
@@ -380,20 +414,40 @@ export default function EntityDrillDown({
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        <p className={styles.muted} style={{ margin: 0 }} title={current.usedFallbackWindow ? "The change happened too recently for a since-change window yet, so this falls back to the last 30 days." : undefined}>
-          {CHILD_LEVEL_PLURAL[current.level]} · {current.usedFallbackWindow ? "Last 30 Days" : "Since Change"}
+        <p className={styles.muted} style={{ margin: 0 }}>
+          {CHILD_LEVEL_PLURAL[current.level]} · Since Change
         </p>
-        <div className={styles.tabGroup}>
-          {SORT_OPTIONS.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              className={current.sort === opt.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-              onClick={() => handleSortChange(opt.key)}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {showLaunchedToggle && (
+            <div className={styles.tabGroup}>
+              <button
+                type="button"
+                className={!onlyLaunched ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => onlyLaunched && handleToggleOnlyLaunched()}
+              >
+                All Ads
+              </button>
+              <button
+                type="button"
+                className={onlyLaunched ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => !onlyLaunched && handleToggleOnlyLaunched()}
+              >
+                Launched This Day ({launchedAdIdSet.size})
+              </button>
+            </div>
+          )}
+          <div className={styles.tabGroup}>
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={current.sort === opt.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => handleSortChange(opt.key)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -401,7 +455,9 @@ export default function EntityDrillDown({
       {current.error && <div className={styles.error}>{current.error}</div>}
       {!current.loading && !current.error && sortedRows.length === 0 && (
         <p className={styles.sub}>
-          No {CHILD_LEVEL_PLURAL[current.level].toLowerCase()} with delivery {current.usedFallbackWindow ? "in the last 30 days" : "since the change"}.
+          {onlyLaunched
+            ? "None of the ads launched this day had any delivery since the change."
+            : `No ${CHILD_LEVEL_PLURAL[current.level].toLowerCase()} with delivery since the change.`}
         </p>
       )}
 
@@ -434,14 +490,30 @@ export default function EntityDrillDown({
                       />
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontWeight: 600, fontSize: 13.5, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {row.entityLabel || "—"}
-                      </p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <p style={{ fontWeight: 600, fontSize: 13.5, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {row.entityLabel || "—"}
+                        </p>
+                        {row.status && (
+                          <span className={statusBadgeClass(row.status)} style={{ flexShrink: 0 }}>
+                            {humanizeStatus(row.status)}
+                          </span>
+                        )}
+                      </div>
                       <p className={styles.muted} style={{ margin: 0, fontSize: 12 }}>
                         Spend: <strong>{formatMetricValue(row.spend, "currency", currency)}</strong> · ROAS:{" "}
                         <strong>{formatMetricValue(row.roas, "decimal", currency)}</strong>
                       </p>
                     </div>
+                    {entityId && (
+                      <RowActions
+                        row={row}
+                        level={current.level}
+                        currency={currency}
+                        onActionApplied={applyRowActionPatch}
+                        onViewDetails={setDetailEntity}
+                      />
+                    )}
                     {childLevel && entityId && (
                       <button
                         type="button"
@@ -504,6 +576,7 @@ export default function EntityDrillDown({
       )}
 
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
     </div>
   );
 }

@@ -353,6 +353,20 @@ export default async function handler(req, res) {
   });
   entities.sort((a, b) => new Date(b.lastChangeTime) - new Date(a.lastChangeTime));
 
+  // Each entity's own current live status (Active/Paused/...), for the
+  // landing page's Active/Inactive filter and status badge — one more
+  // batched `?ids=` node lookup via the same fetchParents() helper already
+  // used above, not a bulk Insights call, so it carries none of the
+  // pagination/timeout risk the Activity Log fetch above does.
+  const statusById = await fetchParents(
+    entities.map((e) => e.entityId),
+    token,
+    "effective_status"
+  );
+  for (const e of entities) {
+    e.status = statusById[e.entityId]?.effective_status || null;
+  }
+
   // Performance-impact eligibility (Spend/Purchases/ROAS, one day before vs.
   // one day after each entity's own most recent change) is decided here —
   // cheap date math only, zero extra Graph calls — exactly the same
