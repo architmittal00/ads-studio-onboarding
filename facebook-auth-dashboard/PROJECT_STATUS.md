@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-14**, by Claude, right after merging PR #161.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #163.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`573c286`** — "Fix date range popover rendering behind the tab strip" (PR #161, merged 2026-10-14).
+Latest commit as of this writing: **`1fbe3b5`** — "Explore: remove CPP, fix Ad-level time grouping, searchable custom-metric picker, contextual loader, fix column-drag on drill-down rows, add Budget metric" (PR #163, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -77,19 +77,17 @@ No open PRs. Everything described below is merged and live.
 
 ---
 
-## 5. Most recent work (2026-10-14)
+## 5. Most recent work (2026-10-15)
 
-### PR #161 — Fix date range popover rendering behind the tab strip
+### PR #163 — Remove CPP, fix Ad-level time grouping, searchable custom-metric picker, contextual loader, fix column-drag on drill-down rows, add Budget metric
 
-The `DateRangeMenu` popover (`position: fixed; z-index: 50`) was still confined to the stacking context of its own sticky wrapper row (`z-index: 4`) — a sticky element with an explicit z-index creates a stacking context, and nothing inside it can out-rank a *sibling* stacking context no matter its own z-index, so the tab strip's sticky wrapper (`z-index: 5`) rendered on top of the entire popover. Most visible when the popover had to flip above its trigger (not enough room below) — the tab strip then visibly overlapped the calendar. Fixed by rendering the popover through `createPortal` to `document.body`, escaping any ancestor's stacking context entirely — the general fix for this class of bug, not just this one instance of it.
-
-### PR #159 — Fix date range Update, theme its calendar/compare controls, stop defaulting duplicate destinations
-
-Follow-up feedback on #155 and #157: (1) `DateRangeMenu`'s "Update" button only patched the view's query spec, it never actually re-ran the query — the table kept showing stale data no matter what you picked. Now it re-runs the active query immediately (when the view is otherwise runnable), matching Meta's own picker. (2) The "Compare to previous period" → "Custom start date" field was a bare native `<input type="date">`, popping the OS's own unstyled calendar — replaced with a themed single-month picker reusing the same `Month` component as the main range calendar. (3) "Compare to previous period" is now a toggle switch, not a checkbox, consistent with the rest of the popover. (4) `DuplicateEntityModal` no longer defaults the destination to wherever the source already lives (the "default + Change escape hatch" design #157 shipped) — every duplicate path now starts unresolved ("Not selected yet") and requires an explicit pick; duplicating an ad cascades "choose a destination campaign" → "choose a destination ad set" scoped to that campaign, duplicating an ad set requires explicitly choosing a destination campaign. No backend/endpoint changes.
+A six-item batch of Explore feedback: (1) CPP removed from the metric catalog for now (commented out in `lib/insightsMetrics.js` with a note on exactly what to restore to bring it back). (2) Ad-level + Day-on-day/Week-on-week/Month-on-month grouping was failing outright — that combination is this app's heaviest query shape (ads × date buckets), routinely tipping Facebook into its async-job path and blowing past `graphGetInsights`' flat 15s poll timeout; raised to 45s specifically for that shape (`lib/facebookGraph.js` now takes an optional per-call `timeoutMs`), within this route's existing 60s `maxDuration`. **Not verifiable via mocked fetch — needs a live-account check against a real large ad account before being considered fully confirmed.** (3) Custom ratio metric's numerator/denominator are now a search-as-you-type combo box (`MetricSelect`, mirroring `AccountSelect`'s pattern) instead of the one remaining pair of plain native `<select>`s. (4) A contextual loader: past 5s of a query running, the spinner's label switches to real backend progress ("Fetched 2 of 3…") — `pages/api/fb/explore-insights.js` now streams NDJSON (same convention as `launch-campaign.js`) instead of one blocking JSON response, progress emitted per account/chunk as each completes, full parallelism unchanged underneath. (5) Dragging a column header to reorder it only moved the top-level rows, not a drilled-into row's children (rendered outside `SortableTable`'s own order-aware body loop, via `renderRowExtra`) — now mirrored into a `childColOrder` state the same way `childFrozenKey` already was. (6) Budget added as a selectable metric at Campaign/Ad Set level, reusing data already fetched unconditionally for the existing "Change Budget" row action.
 
 ### Earlier rounds (compressed)
 
-- **PR #157 / #154–155**: Explore's "Duplicate" row action moved from navigating to `/launch` into an in-place `DuplicateEntityModal` popup (`pages/launch.js`'s now-dead `?duplicateAdId=`/`?duplicateAdsetId=` hand-off removed; its own standalone "Duplicate an Ad Set" entry card is unchanged). A collapsed tab group used to still show its active member tab (fixed to hide every member when collapsed, matching Chrome), the same grouping feature was ported to Recent Changes, and date range + "Compare to previous period" moved out of Explore's collapsible Query panel into the `DateRangeMenu` control (later revised by #159/#161 above).
+- **PR #161**: `DateRangeMenu`'s popover was confined to its sticky wrapper's stacking context (`z-index: 4`), losing to the tab strip's own sticky wrapper (`z-index: 5`) regardless of the popover's own `z-index: 50` — most visible when it flipped above its trigger. Fixed via `createPortal` to `document.body`.
+- **PR #159**: Date range "Update" wasn't re-running the query (only patched the view's spec); compare's "Custom start date" used a native `<input type="date">`, re-themed to match the main calendar; "Compare to previous period" became a toggle switch; `DuplicateEntityModal` stopped defaulting the destination to wherever the source already lives — every duplicate path now requires an explicit pick.
+- **PR #157 / #154–155**: Explore's "Duplicate" row action moved from navigating to `/launch` into an in-place `DuplicateEntityModal` popup (`pages/launch.js`'s now-dead `?duplicateAdId=`/`?duplicateAdsetId=` hand-off removed; its own standalone "Duplicate an Ad Set" entry card is unchanged). A collapsed tab group used to still show its active member tab (fixed to hide every member when collapsed, matching Chrome), the same grouping feature was ported to Recent Changes, and date range + "Compare to previous period" moved out of Explore's collapsible Query panel into the `DateRangeMenu` control.
 - **PR #152**: Explore's RowActions gained `Duplicate` on ad/ad-set rows. Duplicating an ad points the new ad at the same creative by id (so a partnership/branded-content ad duplicates correctly for free); duplicating an ad set carries over all of its own ads the same way. Both always create paused.
 - **PR #148–150**: "Monthly" time-grouping, a "% Change / Absolute value" comparison toggle, a real Level+"Group by time" pivot table (per-entity aggregation had to move server-side — several metrics' `aggregate()` functions read Facebook's *raw* field names that never reach the client); per-tab persistence of the results table's own sort/search/column-order/frozen-column state; the original Chrome-style tab groups feature.
 - **PR #140–146**: column-order reconciliation on re-query, frozen-column/sticky-header z-index and chart `connectNulls` fixes, clickable campaign/ad-set names for expand/collapse, and the Total row rebuilt as a genuinely separate always-visible table.
@@ -146,7 +144,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Nothing is currently queued.** Every batch of user-requested Explore fixes in §5 is fully shipped. There is no known open task, bug, or plan waiting to be picked up as of 2026-10-14.
+**One open item to verify, nothing else queued.** PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — it needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it. Everything else in §5 is fully shipped and verified as of 2026-10-15.
 
 When new work comes in:
 1. Read this whole file first, then skim `README.md` for the relevant feature area.
