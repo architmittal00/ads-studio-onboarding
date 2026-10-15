@@ -21,62 +21,103 @@ function validateHours(raw) {
   return VALID_HOURS.includes(hours) ? hours : null;
 }
 
-// Same normalization pages/api/fb/recent-changes.js uses — both "AD_SET" and
-// "ADSET" (Meta has used both spellings) need to match the same check.
 function normalizeObjectType(objectType) {
   return String(objectType || "").toUpperCase().replace(/_/g, "");
 }
 
-// Mirrors pages/api/fb/recent-changes.js's own resolveLevel() exactly, for
-// the same confirmed-live reason: Facebook's object_type isn't always
-// reliable for a Campaign vs. Ad Set budget change specifically, and this
-// endpoint's entity attribution (which bucket a budget change belongs to)
-// would silently misfile a change onto the wrong entity if it trusted
-// object_type alone. Only ever corrects between CAMPAIGN and ADSET — there's
-// no confirmed equivalent confusion involving AD, so this doesn't touch that
-// case.
-function resolveObjectType(objectType, eventType, translatedEventType) {
+// Confirmed live (via this endpoint's own ?debug=1 diagnostic, see below,
+// against a real account): the Activity Log's `object_type` field reports
+// Meta's legacy three-tier object names, not the Campaign/Ad Set/Ad
+// terminology used everywhere else in this API (campaign/ad set/ad CRUD,
+// Insights, …) — a real Campaign's own activity comes back as
+// "CAMPAIGN_GROUP", a real Ad Set's as "CAMPAIGN", and a real Ad's as
+// "ADGROUP". This isn't an occasional mislabeling, it's simply this edge's
+// naming — a raw "CAMPAIGN" entry's own translated_event_type read "Ad set
+// ... updated" in every single example seen, never "Campaign ... updated".
+// Modern spellings are still mapped too, defensively, in case Meta ever
+// actually sends them here.
+const RAW_OBJECT_TYPE_TO_LEVEL = {
+  CAMPAIGNGROUP: "CAMPAIGN",
+  CAMPAIGN: "ADSET",
+  ADSET: "ADSET",
+  ADGROUP: "AD",
+  AD: "AD",
+  ACCOUNT: "ACCOUNT",
+};
+
+function canonicalLevel(objectType) {
   const normalized = normalizeObjectType(objectType);
-  if (normalized !== "CAMPAIGN" && normalized !== "ADSET") return normalized;
+  return RAW_OBJECT_TYPE_TO_LEVEL[normalized] || normalized;
+}
+
+// A defensive safety net on top of the mapping above, mirroring
+// pages/api/fb/recent-changes.js's own resolveLevel() — even within the
+// legacy naming scheme, Meta's own text occasionally disagrees with the
+// structural object_type for a Campaign vs. Ad Set change specifically, and
+// this endpoint's entity attribution would silently misfile such a change
+// onto the wrong entity if it trusted the mapping alone. Only ever corrects
+// between CAMPAIGN and ADSET — there's no confirmed equivalent confusion
+// involving AD.
+function resolveObjectType(objectType, eventType, translatedEventType) {
+  const level = canonicalLevel(objectType);
+  if (level !== "CAMPAIGN" && level !== "ADSET") return level;
   const haystack = `${eventType || ""} ${translatedEventType || ""}`.toLowerCase();
   const mentionsAdSet = /\bad ?set\b/.test(haystack);
   const mentionsCampaign = /\bcampaign\b/.test(haystack);
-  if (normalized === "CAMPAIGN" && mentionsAdSet && !mentionsCampaign) return "ADSET";
-  if (normalized === "ADSET" && mentionsCampaign && !mentionsAdSet) return "CAMPAIGN";
-  return normalized;
+  if (level === "CAMPAIGN" && mentionsAdSet && !mentionsCampaign) return "ADSET";
+  if (level === "ADSET" && mentionsCampaign && !mentionsAdSet) return "CAMPAIGN";
+  return level;
+}
+
+// Confirmed live: a run-status change's own event_type/translated_event_type
+// is generic at every level — "Ad status updated" / "Ad set status updated" /
+// "Campaign status updated" — it never actually says "paused" or
+// "activated"/"turned on". The real before/after state lives only in
+// extra_data, as a plain `new_value` string ("Active", "Paused"/"Inactive",
+// plus review-pipeline states like "Pending Review"/"Pending process" that
+// aren't a deliberate pause — not tracked). The "..._to_be_set_after_review"
+// event_type variant is a forward-looking "what this will become once
+// review finishes" setting, not a completed status change, so only the
+// plain "update_..._run_status" event_type is read here.
+function statusFromExtraData(extraData) {
+  const newValue = extraData?.new_value;
+  if (newValue === "Active") return "on";
+  if (newValue === "Paused" || newValue === "Inactive") return "off";
+  return null;
+}
+
+// Budget-change detection stays text-based — confirmed live, Meta's own
+// translated_event_type reliably contains "budget" for both an Ad Set's own
+// budget update and a Campaign's own (e.g. "Ad set budget updated",
+// "Campaign budget updated") — unlike run-status changes, there's no
+// direction to get wrong here.
+function isBudgetChange(eventType, translatedEventType) {
+  return `${eventType || ""} ${translatedEventType || ""}`.toLowerCase().includes("budget");
 }
 
 // The entire tracked-action taxonomy for this page, by deliberate, explicit
 // design — "only certain actions... for now" per the original ask. Anything
 // not matching one of these six is dropped silently (not shown as "Other"
 // the way pages/api/fb/recent-changes.js does) — this feed is meant to stay
-// narrow, not grow into a second copy of the general one.
-//
-// Not verified against a live account in this environment — the substring
-// checks mirror pages/api/fb/recent-changes.js's own categorize() style
-// (lowercased event_type + translated_event_type text), extended with
-// "turn(ed) on/off" phrasing Meta commonly uses specifically for ad-level
-// status changes. Revisit if a real account's Activity Log text doesn't
-// match one of these.
-function classifyAction(objectType, eventType, translatedEventType) {
-  const haystack = `${eventType || ""} ${translatedEventType || ""}`.toLowerCase();
-  const isOn = haystack.includes("activat") || haystack.includes("resum") || haystack.includes("turned on") || haystack.includes("turn on");
-  const isOff = haystack.includes("turned off") || haystack.includes("turn off") || haystack.includes("pause");
-  const isBudget = haystack.includes("budget");
-
+// narrow, not grow into a second copy of the general one. `extraData` is the
+// already-JSON.parse()'d extra_data (or null) — needed for run-status
+// direction, see statusFromExtraData above.
+function classifyAction(objectType, eventType, translatedEventType, extraData) {
   if (objectType === "AD") {
-    if (isOn) return "ad_launched";
-    if (isOff) return "ad_paused";
+    if (eventType !== "update_ad_run_status") return null;
+    const status = statusFromExtraData(extraData);
+    if (status === "on") return "ad_launched";
+    if (status === "off") return "ad_paused";
     return null;
   }
   if (objectType === "ADSET") {
-    if (isBudget) return "adset_budget_change";
-    if (isOff) return "adset_paused";
+    if (isBudgetChange(eventType, translatedEventType)) return "adset_budget_change";
+    if (eventType === "update_ad_set_run_status" && statusFromExtraData(extraData) === "off") return "adset_paused";
     return null;
   }
   if (objectType === "CAMPAIGN") {
-    if (isBudget) return "campaign_budget_change";
-    if (isOff) return "campaign_paused";
+    if (isBudgetChange(eventType, translatedEventType)) return "campaign_budget_change";
+    if (eventType === "update_campaign_run_status" && statusFromExtraData(extraData) === "off") return "campaign_paused";
     return null;
   }
   return null;
@@ -179,30 +220,31 @@ export default async function handler(req, res) {
     return res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
   }
 
-  // Temporary diagnostic, opt-in via ?debug=1 — not rendered anywhere in the
-  // UI. Added specifically to answer "why don't Ad-level changes show up":
-  // one example of every distinct (raw object_type, resolved object_type,
-  // event_type, translated_event_type) combination this account's Activity
-  // Log actually returned in this window, whether or not it matched one of
-  // the six tracked actions. This endpoint's own classification is a
-  // best-effort guess at Meta's real text (see classifyAction's own comment)
-  // never checked against a live account — this is how that finally gets
-  // confirmed instead of guessed at again, same reasoning
-  // lib/activityChangeDetail.js's own comment gives for keeping rawExtraData
-  // around. Remove once the real shape is confirmed and classifyAction (and
-  // this comment) are updated to match it.
+  // Opt-in diagnostic (?debug=1), not rendered anywhere in the UI — kept
+  // around (not just for the original Ad-level investigation) since
+  // classifyAction's text/extra_data assumptions are still only confirmed
+  // against one account; this is how a future mismatch gets confirmed
+  // instead of guessed at again, same reasoning lib/activityChangeDetail.js's
+  // own comment gives for keeping rawExtraData around.
   const debugMode = req.query.debug === "1";
   const debugSamples = [];
   const seenDebugCombos = new Set();
 
-  // First pass: resolve each entry's corrected object_type and tracked
-  // action, dropping anything that isn't one of the six up front — only
-  // entries that survive this need a parent-id lookup at all.
+  // First pass: resolve each entry's corrected object_type, parse its
+  // extra_data once, and classify — dropping anything that isn't one of the
+  // six tracked actions up front, so only entries that survive need a
+  // parent-id lookup at all.
   const classified = [];
   for (const entry of activity.data || []) {
     const objectType = resolveObjectType(entry.object_type, entry.event_type, entry.translated_event_type);
-    const action = classifyAction(objectType, entry.event_type, entry.translated_event_type);
+    const extraData = parseExtraData(entry.extra_data);
+    const action = classifyAction(objectType, entry.event_type, entry.translated_event_type, extraData);
     if (debugMode) {
+      // Deliberately excludes extra_data from the dedup key — two budget
+      // changes with the same event_type but different amounts would
+      // otherwise both count as "distinct," crowding out the 50-sample cap
+      // with near-duplicates instead of actual variety. extraData is still
+      // included in the sample itself below.
       const combo = `${entry.object_type}|${objectType}|${entry.event_type}|${entry.translated_event_type}`;
       if (!seenDebugCombos.has(combo) && debugSamples.length < 50) {
         seenDebugCombos.add(combo);
@@ -211,12 +253,13 @@ export default async function handler(req, res) {
           resolvedObjectType: objectType,
           eventType: entry.event_type,
           translatedEventType: entry.translated_event_type,
+          extraData,
           matchedAction: action,
         });
       }
     }
     if (!action) continue;
-    classified.push({ entry, objectType, action });
+    classified.push({ entry, objectType, action, extraData });
   }
 
   const adIdsNeeded = [...new Set(classified.filter((c) => c.action === "ad_launched" || c.action === "ad_paused").map((c) => c.entry.object_id))];
@@ -230,7 +273,7 @@ export default async function handler(req, res) {
   const buckets = new Map();
   let rowCount = 0;
 
-  for (const { entry, action } of classified) {
+  for (const { entry, action, extraData } of classified) {
     let bucketLevel = BUCKET_LEVEL[action];
     let bucketId = null;
     let bucketName = null;
@@ -268,7 +311,7 @@ export default async function handler(req, res) {
       actionLabel: ACTION_LABELS[action],
       eventTime,
       actorName: entry.actor_name || "Unknown",
-      rawExtraData: parseExtraData(entry.extra_data),
+      rawExtraData: extraData,
       // The actual object this specific change happened to — e.g. for an
       // ad_launched change bucketed onto its parent ad set, this is the ad
       // itself, not the ad set. Lets the client show "Ad 'X' launched"
