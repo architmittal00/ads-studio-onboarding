@@ -21,6 +21,24 @@ const DEFAULT_METRIC_KEYS = DEFAULT_COMPARISON_METRIC_KEYS;
 
 const LEVEL_LABEL = { campaign: "Campaign", adset: "Ad Set" };
 
+// Color-codes each tracked action the same way pages/recent-changes.js's own
+// CATEGORY_BADGE does (budget = warn, a pause/stop = danger, a launch =
+// good) — gives the change list a scannable signal at a glance instead of
+// every entry reading as plain bold text.
+const ACTION_BADGE_CLASS = {
+  ad_launched: "badgeGood",
+  ad_paused: "badgeDanger",
+  adset_paused: "badgeDanger",
+  campaign_paused: "badgeDanger",
+  adset_budget_change: "badgeWarn",
+  campaign_budget_change: "badgeWarn",
+};
+
+// A list of changes is capped at this height and scrolls internally — keeps
+// a day with many changes (e.g. 8 ads paused at once) from pushing
+// everything else in the drawer far down the page.
+const CHANGE_LIST_MAX_HEIGHT = 240;
+
 function isoDateOf(iso) {
   return iso ? iso.slice(0, 10) : null;
 }
@@ -72,14 +90,21 @@ function formatDayLabel(dateStr) {
 // One change within a day group's own list — the actual object it happened
 // to (sourceObjectName) is shown as the subject, not the bucket entity's own
 // name, so "Ad 'Summer Sale' launched" reads correctly inside an Ad Set's
-// day group whose own name is the ad set's, not the ad's.
+// day group whose own name is the ad set's, not the ad's. The action itself
+// is a color-coded badge (see ACTION_BADGE_CLASS) rather than plain bold
+// text, so a long list of mixed changes is scannable at a glance.
 function ChangeLine({ change }) {
   const detail = describeChangeDetail(change.rawExtraData);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <p style={{ margin: 0, fontSize: 12.5 }}>
-        <strong>{change.actionLabel}</strong> — {change.sourceObjectName || change.sourceObjectId}
-      </p>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span className={styles[ACTION_BADGE_CLASS[change.action]] || styles.badgeInfo} style={{ fontSize: 10.5, flexShrink: 0 }}>
+          {change.actionLabel}
+        </span>
+        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {change.sourceObjectName || change.sourceObjectId}
+        </p>
+      </div>
       {detail && (
         <p className={styles.sub} style={{ margin: 0, fontSize: 12 }}>
           {detail.from} → {detail.to}
@@ -88,6 +113,61 @@ function ChangeLine({ change }) {
       <p className={styles.muted} style={{ margin: 0, fontSize: 11 }}>
         By {change.actorName} · {relativeAndAbsolute(change.eventTime).relative}
       </p>
+    </div>
+  );
+}
+
+// A day's (or a day group's) change list, with a small tab row filtering by
+// action type when more than one kind of change happened — "indicating how
+// many of these changes were added," per the ask — and a bounded, internally
+// scrolling list underneath so e.g. 8 "Ad Paused" entries don't dominate the
+// drawer. Each call site (the landing day-card list and the Investigate
+// view's "Changes that day" list) gets its own independent filter, since
+// each is its own component instance keyed by day.
+function DayChangesList({ changes }) {
+  const [filter, setFilter] = useState("all");
+
+  const counts = useMemo(() => {
+    const byAction = new Map();
+    for (const change of changes) {
+      if (!byAction.has(change.action)) byAction.set(change.action, { action: change.action, label: change.actionLabel, count: 0 });
+      byAction.get(change.action).count++;
+    }
+    return [...byAction.values()].sort((a, b) => b.count - a.count);
+  }, [changes]);
+
+  const visible = filter === "all" ? changes : changes.filter((c) => c.action === filter);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {counts.length > 1 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={filter === "all" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+            style={{ padding: "4px 10px", fontSize: 11 }}
+          >
+            All ({changes.length})
+          </button>
+          {counts.map((c) => (
+            <button
+              key={c.action}
+              type="button"
+              onClick={() => setFilter(c.action)}
+              className={filter === c.action ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              style={{ padding: "4px 10px", fontSize: 11 }}
+            >
+              {c.label} ({c.count})
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: CHANGE_LIST_MAX_HEIGHT, overflowY: "auto", paddingRight: 4 }}>
+        {visible.map((change) => (
+          <ChangeLine key={change.id} change={change} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -211,9 +291,10 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
               <button
                 type="button"
                 onClick={() => setInvestigatingDay(null)}
-                style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: "var(--t2)", fontSize: 12, padding: 0, marginBottom: 6 }}
+                className={styles.btnSecondary}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, marginBottom: 10 }}
               >
-                <ChevronIcon direction="left" size={11} />
+                <ChevronIcon direction="left" size={12} />
                 Back to {entity.entityName || "this entity"}&apos;s changes
               </button>
             ) : (
@@ -242,11 +323,7 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
                     Investigate
                   </button>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {group.changes.map((change) => (
-                    <ChangeLine key={change.id} change={change} />
-                  ))}
-                </div>
+                <DayChangesList changes={group.changes} />
               </div>
             ))}
           </div>
@@ -258,11 +335,7 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
               <p className={styles.muted} style={{ marginBottom: 6 }}>
                 Changes that day
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {investigatingDay.changes.map((change) => (
-                  <ChangeLine key={change.id} change={change} />
-                ))}
-              </div>
+              <DayChangesList changes={investigatingDay.changes} />
             </div>
 
             <div style={{ marginTop: 24 }}>

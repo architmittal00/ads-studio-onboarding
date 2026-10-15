@@ -191,24 +191,25 @@ export function setRecentChangesQueryPanelCollapsed(collapsed) {
   }
 }
 
-const NEW_RECENT_CHANGES_QUERY_KEY = "fb-dashboard:new-recent-changes-query";
+const NEW_RECENT_CHANGES_TABS_KEY = "fb-dashboard:new-recent-changes-tabs";
 
-// The "New Recent Changes" page's own query state — a single account + time
-// window, not a multi-tab list of saved views the way Explore/Recent
-// Changes persist theirs (getExploreViews/getRecentChangesViews above) —
-// this page is deliberately simpler, one query at a time.
-export function getNewRecentChangesQuery() {
+// The "New Recent Changes" page's own open tabs — same shape/purpose as
+// getRecentChangesViews above (each tab's own account/time-window/campaign-
+// filter spec, plus which one is active), just one account per tab rather
+// than a multi-account list, matching this page's own narrower single-
+// account design.
+export function getNewRecentChangesTabs() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(NEW_RECENT_CHANGES_QUERY_KEY) || "null");
-    return parsed && typeof parsed === "object" ? parsed : null;
+    const parsed = JSON.parse(localStorage.getItem(NEW_RECENT_CHANGES_TABS_KEY) || "null");
+    return parsed && Array.isArray(parsed.tabs) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-export function setNewRecentChangesQuery(data) {
+export function setNewRecentChangesTabs(data) {
   try {
-    localStorage.setItem(NEW_RECENT_CHANGES_QUERY_KEY, JSON.stringify(data));
+    localStorage.setItem(NEW_RECENT_CHANGES_TABS_KEY, JSON.stringify(data));
   } catch {
     // Private browsing / blocked storage / quota exceeded — silently ignore.
   }

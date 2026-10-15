@@ -13,11 +13,12 @@ export const DEFAULT_COMPARISON_METRIC_KEYS = ["spend", "purchases", "cost_per_p
 // first, then the change's own cumulative total (which can be short or very
 // long depending on how long ago the change happened), then progressively
 // further back in time relative to the change itself.
-export const WINDOW_ORDER = ["last3Days", "last7Days", "sinceChange", "oneDayBefore", "threeDaysBefore", "sevenDaysBefore"];
+export const WINDOW_ORDER = ["last3Days", "last7Days", "sinceChange", "threeDaysAfter", "oneDayBefore", "threeDaysBefore", "sevenDaysBefore"];
 export const WINDOW_LABEL = {
   last3Days: "Last 3 Days",
   last7Days: "Last 7 Days",
   sinceChange: "Since Change",
+  threeDaysAfter: "3 Days Post Change",
   oneDayBefore: "1 Day Before",
   threeDaysBefore: "3 Days Before",
   sevenDaysBefore: "7 Days Before",
@@ -40,25 +41,19 @@ export function normalizedValue(metric, rawValue, days) {
 
 // Renders the metric-rows × window-columns comparison grid — the shared core
 // of both the top-level Investigate drawer and each per-entity drill-down
-// row. `windows` is the `{ [windowName]: {since,until,days,metrics,tooRecent?,overlapsChange?} }`
+// row. `windows` is the `{ [windowName]: {since,until,days,metrics,overlapsChange?,partial?} }`
 // shape returned by pages/api/fb/recent-changes/investigate.js; `catalog` is
 // the metric catalog to resolve `metricKeys` labels/formats against.
 export default function WindowComparisonTable({ windows, metricKeys, catalog, loading, currency }) {
   // Drops a window entirely (header and every metric's cell) rather than
-  // rendering a column of "—" when its fetch outright failed — `metrics` is
-  // only ever null on a rejected Graph call (see
-  // pages/api/fb/recent-changes/investigate.js), never on a genuine zero
-  // (an ad with no delivery that window still gets real 0-valued metrics).
-  // `tooRecent` keeps its own column — it already renders an explanatory
-  // message instead of a dash. While still loading, every window is kept so
-  // the skeleton doesn't jump once data arrives.
-  const visibleWindowNames = loading
-    ? WINDOW_ORDER
-    : WINDOW_ORDER.filter((name) => {
-        const w = windows?.[name];
-        if (!w) return false;
-        return w.tooRecent || w.metrics != null;
-      });
+  // rendering a column of "—" when its fetch outright failed or it isn't
+  // available yet (e.g. `threeDaysAfter` before 3 full days have passed —
+  // see buildWindows in pages/api/fb/recent-changes/investigate.js) —
+  // `metrics` is only ever null on a rejected Graph call, never on a genuine
+  // zero (an ad with no delivery that window still gets real 0-valued
+  // metrics). While still loading, every window is kept so the skeleton
+  // doesn't jump once data arrives.
+  const visibleWindowNames = loading ? WINDOW_ORDER : WINDOW_ORDER.filter((name) => windows?.[name]?.metrics != null);
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -71,7 +66,7 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
               return (
                 <th key={name} className={name === "sinceChange" ? styles.drawerSinceChangeCol : undefined}>
                   {WINDOW_LABEL[name]}
-                  {w && !w.tooRecent && <span className={styles.muted}> ({w.days}d)</span>}
+                  {w && <span className={styles.muted}> ({w.days}d{w.partial ? ", so far" : ""})</span>}
                 </th>
               );
             })}
@@ -84,22 +79,22 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
             const unit = isUnitMetric(metric);
             const lowerIsBetter = LOWER_IS_BETTER_METRIC_KEYS.has(metric.key);
 
-            // Pre-compute every window's displayed value once, so the
-            // best/worst comparison below (unit metrics only) reads the
-            // exact same numbers the cells render, never a second,
-            // possibly-divergent one. A window that's too recent or
-            // overlaps the change (mixes pre- and post-change delivery) is
-            // excluded from the comparison entirely, the same way it's
-            // excluded from the rendered value.
-            const cellValues = visibleWindowNames.map((name) => {
+            // Best/worst highlighting only ever considers a "clean" window —
+            // one that neither overlaps the change (mixes pre- and
+            // post-change delivery) nor is still a partial, still-accruing
+            // total (see `partial` below). Those two still render their own
+            // real number in the cell (or, for `overlapsChange`, a muted
+            // explanation instead) — they're just never crowned "best" or
+            // "worst" against a set of genuinely comparable windows.
+            const comparableValues = visibleWindowNames.map((name) => {
               const w = windows?.[name];
-              if (!w || w.tooRecent || w.overlapsChange) return null;
+              if (!w || w.overlapsChange || w.partial) return null;
               return normalizedValue(metric, w.metrics?.[key], w.days);
             });
             let bestValue = null;
             let worstValue = null;
             if (unit && !loading) {
-              const numeric = cellValues.filter((v) => typeof v === "number" && !isNaN(v));
+              const numeric = comparableValues.filter((v) => typeof v === "number" && !isNaN(v));
               if (numeric.length > 1) {
                 const max = Math.max(...numeric);
                 const min = Math.min(...numeric);
@@ -113,7 +108,7 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
             return (
               <tr key={key}>
                 <td>{metric.label}</td>
-                {visibleWindowNames.map((name, i) => {
+                {visibleWindowNames.map((name) => {
                   const cellClass = name === "sinceChange" ? styles.drawerSinceChangeCol : undefined;
                   if (loading) {
                     return (
@@ -124,13 +119,6 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
                   }
                   const w = windows?.[name];
                   if (!w) return <td key={name} className={cellClass}>—</td>;
-                  if (w.tooRecent) {
-                    return (
-                      <td key={name} className={`${styles.muted} ${cellClass || ""}`}>
-                        Not enough time yet
-                      </td>
-                    );
-                  }
                   if (w.overlapsChange) {
                     return (
                       <td
@@ -142,11 +130,16 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
                       </td>
                     );
                   }
-                  const value = cellValues[i];
+                  const value = normalizedValue(metric, w.metrics?.[key], w.days);
                   const tone = value === bestValue ? "var(--green)" : value === worstValue ? "var(--red)" : undefined;
                   return (
                     <td key={name} className={cellClass} style={tone ? { color: tone, fontWeight: 700 } : undefined}>
                       {formatMetricValue(value, metric.format, currency)}
+                      {w.partial && (
+                        <span className={styles.muted} style={{ marginLeft: 4, fontWeight: 400 }} title="Today isn't over yet — this total is still accruing.">
+                          *
+                        </span>
+                      )}
                     </td>
                   );
                 })}
