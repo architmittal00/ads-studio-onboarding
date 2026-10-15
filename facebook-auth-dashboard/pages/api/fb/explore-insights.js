@@ -16,7 +16,7 @@ import {
   rowBreakdownLabel,
 } from "@/lib/insightsMetrics";
 
-const MAX_RANGE_DAYS = 90;
+const MAX_RANGE_DAYS = 365;
 const MAX_ACCOUNTS = 10;
 // Multiple of 7 — when `time_increment=7` (weekly grouping), Facebook buckets
 // days starting from each call's own `time_range.since`, so a chunk boundary
@@ -574,11 +574,11 @@ export default async function handler(req, res) {
   // chunked, where each chunk's rows are already independent and safe to
   // concatenate. (compareToPrevious is already mutually exclusive with
   // time_increment, so the previous-period call is never chunked.)
-  // "monthly" buckets stay unchunked regardless of range length — at most
-  // 4 buckets for a 90-day (MAX_RANGE_DAYS) range, nowhere near enough rows
-  // to need splitting, and a fixed-day chunk size like CHUNK_DAYS would cut
-  // across calendar month boundaries anyway (the exact problem CHUNK_DAYS
-  // being a multiple of 7 exists to avoid for weekly).
+  // "monthly" buckets stay unchunked regardless of range length — even a
+  // full MAX_RANGE_DAYS range is at most ~13 calendar-month buckets, nowhere
+  // near enough rows to need splitting, and a fixed-day chunk size like
+  // CHUNK_DAYS would cut across calendar month boundaries anyway (the exact
+  // problem CHUNK_DAYS being a multiple of 7 exists to avoid for weekly).
   const currentChunks =
     validTimeIncrement && validTimeIncrement !== "monthly" ? splitRangeIntoChunks(since, until, CHUNK_DAYS) : [{ since, until }];
 
@@ -891,10 +891,18 @@ export default async function handler(req, res) {
   }
 
   // Same one-lookup-for-everything shape as the status/budget blocks above —
-  // opt-in (only components/EntityDrillDown.js's per-ad RCA list asks for
-  // this today, via `includeCreative`) since it's an extra Graph round trip
-  // per ad that most Explore queries never need. Only meaningful at the ad
-  // level — campaigns/ad sets have no creative of their own.
+  // opt-in via `includeCreative`, since it's an extra, much slower (one
+  // Graph call per 50 ads) round trip that most Explore queries never need.
+  // Only meaningful at the ad level — campaigns/ad sets have no creative of
+  // their own. A *top-level* Ad-level Explore query deliberately sends
+  // `includeCreative: false` and fetches thumbnails separately, in the
+  // background, via /api/fb/ad-thumbnails — see pages/explore.js's
+  // loadThumbnailsForView() — so the table can render the moment Insights
+  // data itself is back instead of also waiting on this. Every other
+  // `includeCreative` caller (the campaign/ad-set drill-down expand,
+  // components/EntityDrillDown.js's per-ad RCA list) still asks for it here
+  // synchronously — their id lists are small enough that the wait was never
+  // the problem.
   if (includeCreative && level === "ad") {
     const idsNeeded = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
     let detailsByAdId = {};
@@ -1003,6 +1011,13 @@ export default async function handler(req, res) {
     // the account level or whenever a breakdown is also active, where
     // there's no single-entity pivot to offer.
     pivotRows,
+    // Tells the client whether Ad-level rows already carry real
+    // `thumbnailUrl`/`isVideo` values (true only when the caller actually
+    // asked for them via `includeCreative`) or still need the separate,
+    // lazy /api/fb/ad-thumbnails fetch — see pages/explore.js's
+    // loadThumbnailsForView(). Meaningless (and left false) at every other
+    // level, which never carries creative data regardless.
+    thumbnailsFetched: includeCreative && level === "ad",
   };
   res.write(`${JSON.stringify({ type: "done", rows, meta })}\n`);
   res.end();

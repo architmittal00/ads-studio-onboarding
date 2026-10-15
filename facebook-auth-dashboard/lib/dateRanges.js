@@ -11,6 +11,7 @@ export const RANGE_PRESETS = [
   { key: "last_14d", label: "Last 14 Days" },
   { key: "last_30d", label: "Last 30 Days" },
   { key: "last_90d", label: "Last 90 Days" },
+  { key: "last_365d", label: "Last 365 Days" },
   { key: "this_month", label: "This Month" },
   { key: "last_month", label: "Last Month" },
   { key: "custom", label: "Custom" },
@@ -64,6 +65,8 @@ export function computeRange(preset, customSince, customUntil) {
       return lastNDaysRangeExcludingToday(30, today);
     case "last_90d":
       return lastNDaysRangeExcludingToday(90, today);
+    case "last_365d":
+      return lastNDaysRangeExcludingToday(365, today);
     // Unlike every "Last N Days" preset above, month-to-date includes today
     // — the natural reading of "This Month" is "so far," not "excluding
     // whatever's still accumulating," the way a trailing N-day window is.

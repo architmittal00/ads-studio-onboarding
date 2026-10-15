@@ -38,7 +38,7 @@ import styles from "@/styles/Home.module.css";
 // server-rendered — loaded only on this route, only on the client.
 const ExploreChart = dynamic(() => import("@/components/ExploreChart"), { ssr: false });
 
-const MAX_RANGE_DAYS = 90;
+const MAX_RANGE_DAYS = 365;
 const EXPLORE_CACHE_PREFIX = "explore:";
 const EXPLORE_CACHE_MAX_ENTRIES = 50;
 // Per-account-set cache of discovered Custom Conversions (see
@@ -365,12 +365,15 @@ function buildQuerySpecFromView(view, customMetrics) {
     // same cache key / request body.
     accountIds: [...view.accountIds].sort(),
     level: view.level,
-    // Only an ad has a creative to show a thumbnail for — matches the same
-    // flag the drill-down child fetch already sends (see startFetch below),
-    // which this top-level query was missing: querying Ad level directly
-    // (not by drilling into a campaign/ad set) never requested the
-    // thumbnail/preview data in the first place.
-    includeCreative: view.level === "ad",
+    // Always false here, even at Ad level — unlike the drill-down child
+    // fetch (see startFetch below), which still asks for creative data
+    // inline since its id lists are small. A top-level Ad-level query's own
+    // thumbnails are fetched separately afterwards, in the background (see
+    // loadThumbnailsForView()), so the table can render the moment Insights
+    // data itself is back instead of also waiting on Facebook's
+    // one-call-per-50-ads creative lookup — the biggest single contributor
+    // to a large Ad-level query feeling slow.
+    includeCreative: false,
     breakdownGroup: view.breakdownGroup,
     metricKeys: view.metricKeys,
     customMetrics: (customMetrics || [])
@@ -458,6 +461,19 @@ async function fetchExploreInsights(body, onProgress) {
   if (!finalResult) throw new Error("Request ended unexpectedly");
   if (finalResult.error) throw new Error(finalResult.error);
   return finalResult;
+}
+
+// Background creative lookup for a top-level Ad-level query's rows — see
+// loadThumbnailsForView() below for how this gets fired and merged in.
+async function fetchAdThumbnails(adIds) {
+  const res = await fetch("/api/fb/ad-thumbnails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adIds }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+  return json.thumbnails || {};
 }
 
 // Keeps at most MAX_VIEWS tabs, evicting the oldest one that isn't the
@@ -886,6 +902,49 @@ export default function Explore() {
     return () => observer.disconnect();
   }, []);
 
+  function updateView(id, patch) {
+    setViews((prev) => prev.map((v) => (v.id === id ? { ...v, ...(typeof patch === "function" ? patch(v) : patch) } : v)));
+  }
+
+  function updateActive(patch) {
+    updateView(activeViewId, patch);
+  }
+
+  // Fires the background per-ad creative lookup for a top-level Ad-level
+  // result whose rows don't carry real thumbnails yet (see
+  // buildQuerySpecFromView's `includeCreative: false` and the server's own
+  // `meta.thumbnailsFetched`), then merges the result back into this exact
+  // view/result once it resolves — Thumb renders its loading spinner for
+  // every row in between. Guarded by `v.result === json` so a
+  // since-superseded result (the user re-ran the query, or switched tabs,
+  // before this resolved) never clobbers whatever's now on screen with stale
+  // thumbnails. Re-caches the thumbnail-enriched result so reopening this
+  // same view from cache doesn't have to re-fetch them.
+  function loadThumbnailsForView(viewId, json, cacheKey) {
+    if (json.meta.level !== "ad" || json.meta.thumbnailsFetched) return;
+    const adIds = [...new Set(json.rows.map((r) => r.entityId).filter(Boolean))];
+    if (adIds.length === 0) return;
+
+    const applyThumbnails = (thumbnails) => {
+      const withThumbnails = (list) =>
+        list?.map((r) =>
+          r.entityId ? { ...r, thumbnailUrl: thumbnails[r.entityId]?.thumbnailUrl ?? null, isVideo: !!thumbnails[r.entityId]?.isVideo } : r
+        ) ?? list;
+      const updatedJson = {
+        ...json,
+        rows: withThumbnails(json.rows),
+        meta: { ...json.meta, pivotRows: withThumbnails(json.meta.pivotRows), thumbnailsFetched: true },
+      };
+      updateView(viewId, (v) => (v.result === json ? { result: updatedJson } : {}));
+      setCachedEntry(cacheKey, updatedJson, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
+    };
+
+    // Soft-fail — same reasoning as every other creative lookup in this app:
+    // a failed fetch just means every row keeps its blank "no creative"
+    // thumbnail instead of spinning forever, not a failed query.
+    fetchAdThumbnails(adIds).then(applyThumbnails).catch(() => applyThumbnails({}));
+  }
+
   // One-time restore of previously-open tabs from localStorage — replaces
   // the single deterministic blank tab wholesale. Pre-populates each
   // restored tab's result from the shared query cache when still fresh, so
@@ -928,10 +987,21 @@ export default function Explore() {
         groupId: v.groupId ?? null,
       };
       delete migrated.accountId;
-      const cached =
+      const cacheKey =
         accountIds.length > 0 && v.metricKeys?.length > 0
-          ? getCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(migrated, customMetricsAtMount)))
+          ? EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(migrated, customMetricsAtMount))
           : null;
+      const cached = cacheKey ? getCachedEntry(cacheKey) : null;
+      // Rare edge case: the tab was closed (or the browser reloaded) while
+      // this exact result's background thumbnail fetch (see
+      // loadThumbnailsForView()) was still in flight, so what got cached was
+      // the pre-thumbnails snapshot — picked back up here. Safe to call
+      // before `setViews(hydrated)` below actually lands: the fetch itself
+      // is a real network round trip, which by itself outlasts the
+      // synchronous state update this effect makes right after.
+      if (cached?.data && !cached.data.meta.thumbnailsFetched && cached.data.meta.level === "ad") {
+        loadThumbnailsForView(migrated.id, cached.data, cacheKey);
+      }
       return {
         ...migrated,
         result: cached?.data ?? null,
@@ -950,6 +1020,7 @@ export default function Explore() {
     setViews(hydrated);
     setActiveViewId(hydrated.some((v) => v.id === persisted.activeViewId) ? persisted.activeViewId : hydrated[0].id);
     setGroups(restoredGroups);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- genuinely a one-time mount restore; loadThumbnailsForView has no meaningful "staleness" here, it's only ever called above with the exact cached.data it closes over
   }, []);
 
   // Seeds only the very first tab's account from the shared selector, once
@@ -982,14 +1053,6 @@ export default function Explore() {
       groups: liveGroups,
     });
   }, [views, activeViewId, liveGroups]);
-
-  function updateView(id, patch) {
-    setViews((prev) => prev.map((v) => (v.id === id ? { ...v, ...(typeof patch === "function" ? patch(v) : patch) } : v)));
-  }
-
-  function updateActive(patch) {
-    updateView(activeViewId, patch);
-  }
 
   // Applied after a row action (pause/activate/change budget, see
   // components/RowActions.js) succeeds on Facebook's side — patches every
@@ -1025,6 +1088,7 @@ export default function Explore() {
           error: null,
           chartMetricKey: firstChartableKey(cached.data.meta.metricKeys, effectiveCatalog, cached.data.meta.accountIds.length),
         });
+        loadThumbnailsForView(view.id, cached.data, cacheKey);
         return;
       }
     }
@@ -1054,6 +1118,7 @@ export default function Explore() {
           chartMetricKey: firstChartableKey(json.meta.metricKeys, effectiveCatalog, json.meta.accountIds.length),
         });
         setCachedEntry(cacheKey, json, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
+        loadThumbnailsForView(view.id, json, cacheKey);
       })
       .catch((err) => updateView(view.id, { error: err.message }))
       .finally(() => updateView(view.id, { loading: false, progressMessage: null }));
@@ -2025,7 +2090,7 @@ export default function Explore() {
         <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
           <h1 className={styles.h1}>Custom Views</h1>
           <p className={styles.sub} style={{ marginTop: -8 }}>
-            Build any view of Facebook Ads data — pick an account, a date range (up to 90 days), a level, a
+            Build any view of Facebook Ads data — pick an account, a date range (up to 365 days), a level, a
             breakdown, and whatever metrics you want, then view it as a table or chart. Keep several views open at
             once, like browser tabs — each with its own account and query.
           </p>
@@ -2884,6 +2949,10 @@ function ExploreResultsTable({
                 <Thumb
                   src={row.thumbnailUrl}
                   isVideo={row.isVideo}
+                  // `thumbnailUrl` is `undefined` (not `null`) until the
+                  // background fetch in loadThumbnailsForView() resolves —
+                  // `null` means it resolved and this ad genuinely has none.
+                  loading={row.thumbnailUrl === undefined}
                   size={22}
                   onClick={() =>
                     setLightboxItem({ id: row.entityId, name: row[def.key] || row.entityId, thumbnailUrl: row.thumbnailUrl, isVideo: row.isVideo })
