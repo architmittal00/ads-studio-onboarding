@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #167.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #169.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`9fa155e`** — "Explore: raise date range cap to 365 days, lazy-load Ad-level thumbnails" (PR #167, merged 2026-10-15).
+Latest commit as of this writing: **`b74a417`** — "Explore: add 'View Details' side drawer for Campaign/Ad Set/Ad setup" (PR #169, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -79,18 +79,19 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-15)
 
+### PR #169 — "View Details" side drawer for Campaign/Ad Set/Ad setup
+
+New row action in Explore: "View Details" (first entry in every row's "Take Action" menu, including Campaign rows, which previously had no actions at all once paused with no budget), opening a read-only side drawer showing how that entity is actually configured on Facebook — never a navigation away from the table, per the explicit ask. Campaign shows Objective; Ad Set shows Locations (+ excluded), Interests/Behaviors, Age, Gender, Language, Placement; Ad shows Primary Text/Headlines/Descriptions (each a list when an Advantage+/dynamic-creative ad has several variants), CTA, and a live creative preview reusing the existing `/api/fb/ad-preview` endpoint. New `lib/entityDetails.js` does the level-specific Graph fetching and resolves raw ids to display-ready labels server-side — country codes via `Intl.DisplayNames` (zero-dependency, no Graph call), Facebook's numeric locale ids via the existing `adlocale` targeting-search endpoint called with an empty query (returns its complete, fairly static ~100-entry list in one shot). New `components/EntityDetailDrawer.js` reuses `InvestigateDrawer`'s own `.drawerOverlay`/`.drawerPanel` CSS convention.
+
 ### PR #167 — Raise date range cap to 365 days, lazy-load Ad-level thumbnails
 
 Two more Explore items: (1) the 90-day date range cap is now 365 (server validation in `explore-insights.js`, the client constant, and a new "Last 365 Days" preset in `lib/dateRanges.js`) — "monthly" grouping stays deliberately unchunked regardless of range length (still nowhere near enough buckets to need it), only daily/weekly chunking math scales with the larger range. (2) User-reported: an Ad-level query felt much slower than other levels — root cause was that it always blocked its response on Facebook's per-ad creative lookup (`fetchAdDetails`, one Graph call per 50 ads) before returning anything. Decoupled: the top-level query now sends `includeCreative: false` and renders metrics immediately, with `Thumb` showing a small spinner in the thumbnail slot; a new `/api/fb/ad-thumbnails` endpoint fetches creative data in the background and `pages/explore.js`'s `loadThumbnailsForView()` merges it into the live result (and pivot rows, for Ad-level + daily/weekly/monthly grouping) once it resolves, re-caching the enriched result. Drill-down expand and `EntityDrillDown.js` are untouched — still synchronous, since their id lists are small enough that this was never the bottleneck there.
 
 **Not resolved this round:** the same feedback batch also reported "no weekly/monthly/daily data at account level, only at campaign/ad set/ad level." Traced the full pipeline (server row-building, `meta.pivotRows`, `leadingColumnDefs`'s Date column, `timePivotEnabled`) end to end and could not find an account-level-specific code path at fault — a mocked preview harness confirmed Account level + Daily grouping does return one row per date with a Date column, against the server logic as it exists today on `origin/main`. This may have been tested before PR #163 shipped, or could be a live Graph API behavior this harness can't reproduce (no real Facebook token available in this environment). **Needs the reporter to say what they actually saw** (an error banner, a blank table, a missing Date column, something else) against a live account before this can be diagnosed further — see §7.
 
-### PR #165 — Stop localStorage cache bloat: active expiry, cap two unbounded caches, self-heal on app load
-
-User-reported: localStorage had far more `fb-dashboard:cache:*` entries than the number of open tabs implied, some days old. Two root causes in `lib/clientCache.js`: (1) `getCachedEntry` only ever treated an expired entry as a read-time miss, never deleted it — a one-off query (a custom date range picked once) is never looked up again with that exact key, so it sat there dead forever; now it's removed the moment it's found expired. (2) Two cache families — `recent-changes-investigate:` (`InvestigateDrawer.js`) and `recent-changes-drilldown-investigate:` (`EntityDrillDown.js`) — called `setCachedEntry` without ever passing a `{prefix, maxEntriesForPrefix}`, unlike Explore/Recent Changes/custom-conversions, so they had no cap at all and grew forever; both now capped at 40. Added `sweepAllKnownCaches()`, run once per app load from `pages/_app.js` — a one-shot TTL-expiry sweep plus cap re-enforcement across all five known cache families, which self-heals every existing user's already-accumulated bloat the moment this ships (the actual concern driving this fix: 50+ users already on the app, no way to reach each one individually to tell them to clear site data).
-
 ### Earlier rounds (compressed)
 
+- **PR #165**: localStorage had far more `fb-dashboard:cache:*` entries than the open-tab count implied, some days old — `getCachedEntry` only ever treated an expired entry as a read-time miss, never deleted it, and two cache families (`InvestigateDrawer.js`/`EntityDrillDown.js`) had no cap at all. Fixed with active expiry + caps, plus a `sweepAllKnownCaches()` run once per app load from `pages/_app.js` to self-heal every existing user's already-accumulated bloat (50+ users already on the app, no way to reach each one individually).
 - **PR #163**: six-item Explore feedback batch — CPP removed from the metric catalog (commented out in `lib/insightsMetrics.js` with restore instructions); Ad-level + Day/Week/Month-on-month grouping's async-job poll timeout raised 15s → 45s for that one heavy shape (`graphGetInsights` now takes an optional per-call `timeoutMs`) — **still not verified against a live large ad account**, see §7; custom ratio metric numerator/denominator became a searchable `MetricSelect` combo box; a contextual loader via NDJSON streaming (`explore-insights.js`, same convention as `launch-campaign.js`); column-drag-to-reorder fixed for drilled-into child rows (`childColOrder`, mirroring `childFrozenKey`); Budget added as a Campaign/Ad Set-level metric.
 - **PR #161**: `DateRangeMenu`'s popover was confined to its sticky wrapper's stacking context (`z-index: 4`), losing to the tab strip's own sticky wrapper (`z-index: 5`) regardless of the popover's own `z-index: 50` — most visible when it flipped above its trigger. Fixed via `createPortal` to `document.body`.
 - **PR #159**: Date range "Update" wasn't re-running the query (only patched the view's spec); compare's "Custom start date" used a native `<input type="date">`, re-themed to match the main calendar; "Compare to previous period" became a toggle switch; `DuplicateEntityModal` stopped defaulting the destination to wherever the source already lives — every duplicate path now requires an explicit pick.
