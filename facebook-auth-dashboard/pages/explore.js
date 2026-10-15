@@ -11,6 +11,7 @@ import AccountSelect from "@/components/AccountSelect";
 import RowActions from "@/components/RowActions";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
+import EntityDetailDrawer from "@/components/EntityDetailDrawer";
 import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon, ChartIcon, RocketIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
@@ -2701,6 +2702,7 @@ function ExploreResultsTable({
   const drillDownEnabled = !!CHILD_LEVEL[meta.level] && meta.breakdownGroup === "none" && !meta.timeIncrement;
   const [expansions, setExpansions] = useState({});
   const [lightboxItem, setLightboxItem] = useState(null);
+  const [detailEntity, setDetailEntity] = useState(null);
 
   // Pivot mode: Level + "Group by time" together, e.g. Campaign level with
   // Daily grouping. The backend already returns one row per (entity, date)
@@ -3047,6 +3049,7 @@ function ExploreResultsTable({
                   level={meta.level}
                   currency={currencyByAccountId.get(row.accountId)}
                   onActionApplied={onActionApplied}
+                  onViewDetails={setDetailEntity}
                 />
               ) : null,
           },
@@ -3098,7 +3101,13 @@ function ExploreResultsTable({
           if (col.key === "__actions") {
             return (
               <td key={col.key} style={frozenStyle(col)}>
-                <RowActions row={row} level={level} currency={currencyByAccountId.get(row.accountId)} onActionApplied={applyChildActionPatch} />
+                <RowActions
+                  row={row}
+                  level={level}
+                  currency={currencyByAccountId.get(row.accountId)}
+                  onActionApplied={applyChildActionPatch}
+                  onViewDetails={setDetailEntity}
+                />
               </td>
             );
           }
@@ -3386,6 +3395,7 @@ function ExploreResultsTable({
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
     </div>
   );
 }

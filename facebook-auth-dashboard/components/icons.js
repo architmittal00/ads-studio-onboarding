@@ -239,3 +239,13 @@ export function RocketIcon(props) {
     </Svg>
   );
 }
+
+export function InfoIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="11" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </Svg>
+  );
+}
