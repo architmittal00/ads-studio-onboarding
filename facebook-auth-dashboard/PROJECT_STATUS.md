@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #185.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #187.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`2c36c56`** — "Fix slow/timing-out New Recent Changes fetch, restructure cards, widen page" (PR #185, merged 2026-10-15).
+Latest commit as of this writing: **`d48d3a9`** — "Since Change always runs through today, add 7 Days Post Change window" (PR #187, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -71,7 +71,7 @@ No open PRs. Everything described below is merged and live.
 | `/strategy` | **Figure Out Strategy** — recommends one of 8 funnel-shaped campaign strategies from `lib/strategyEngine.js`, with a data-driven "does this account have history" signal | Stable, mature |
 | `/launch` | **Launch** — direct, self-serve campaign/ad-set creation (new ad set → new or existing campaign, or duplicate an existing ad set), Indian-D2C defaults throughout, live Meta search-backed location/language/interest pickers | **Shipped** (PR #124–126 and others) — see §6, this was a full plan that is now fully implemented, not pending |
 | `/recent-changes` | **Recent Changes** — detects recent account-level changes (budget, targeting, creative, status) and their before/after performance impact, with an Investigate drill-down (campaign → ad set → ad, RCA tables); has its own multi-tab system mirroring Explore's (multi-account per tab, localStorage persistence, Chrome-style tab groups) | Stable, mature, many rounds of polish (PRs #110–123, #154) |
-| `/new-recent-changes` | **New Recent Changes** — deliberately narrower, differently-designed sibling: multi-tab (own account/24h-72h-7d window/campaign filter per tab) with a right-side collapsible Accounts/Time Window panel (mirrors `/recent-changes`' own landing layout), six tracked actions rolled up to Campaign/Ad Set, landing view lists affected entities (not raw changes), opening one groups its changes by day with per-day action-type filter tabs + ad thumbnails for "Investigate" (before/after-grouped window comparison) | **Shipped** (PR #171, #175, #177, #179, #183, #185) — see §5; timeout fix in #185 needs live re-check, §7 item 1 |
+| `/new-recent-changes` | **New Recent Changes** — deliberately narrower, differently-designed sibling: multi-tab (own account/24h-72h-7d window/campaign filter per tab) with a right-side collapsible Accounts/Time Window panel (mirrors `/recent-changes`' own landing layout), six tracked actions rolled up to Campaign/Ad Set, landing view lists affected entities (not raw changes), opening one groups its changes by day with per-day action-type filter tabs + ad thumbnails for "Investigate" (before/after-grouped window comparison) | **Shipped** (PR #171, #175, #177, #179, #183, #185, #187) — see §5; timeout fix in #185 needs live re-check, §7 item 1 |
 | `/explore` | **Custom Views (Explore)** — build-your-own report: pick account(s)/level/breakdown/metrics/date-range, multi-tab views + tab groups, drill-down (Campaign→AdSet→Ad), charting with axis customization, custom ratio metrics, name/ID filters, result filters (value or %-change), Total row, CSV export, a Meta-Ads-Manager-style date range/compare picker, row actions (pause/activate/change budget/duplicate — the last via its own in-page popup, not a navigation) | **Most actively developed area right now** — see §5 for the latest round |
 | `/dashboard` | Raw Data — raw profile/Pages/Ad Accounts payload + manual ROAS check | Stable, simple |
 | `/logs` | API Logs — recent Graph API call log (method/path/status/duration) | Stable, simple |
@@ -80,17 +80,21 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-15)
 
-### PR #185 — Fixed a real FUNCTION_INVOCATION_TIMEOUT on `/new-recent-changes`, restructured cards, widened page
+### PR #187 — "Since Change" now always runs through today; new "7 Days Post Change" window
 
-The user reported `Request failed (504): ... FUNCTION_INVOCATION_TIMEOUT` on the landing fetch for a busy account/"Last 7 Days", plus "there's a lot of unused space left/right" and asked for better per-card readability (campaign/ad set name).
+The user asked for the exact window math to be walked through for a concrete example (change on Oct 10, "today" Oct 15) — see chat — which surfaced that `sinceChange` was still capping at *yesterday* for an older change (only falling through to today as a fallback for a very recent one), not "always through today" as originally asked back in PR #171/#177's round. The user then specified the exact window table they wanted, including a brand-new "7 Days Post Change" column.
 
-**Root cause, confirmed by code inspection (not reproduced live — no account with that much activity volume available in testing):** `pages/api/fb/new-recent-changes.js`'s Activity Log call (`/${accountId}/activities`) passed no `limit` param, so Facebook used its own small default page size. `lib/facebookGraph.js`'s `graphGetAllPages` follows `paging.next` **strictly sequentially** — one full network round-trip per page, never in parallel — so a 7-day window on a busy account (thousands of raw activity entries; the Activity Log reports *every* action, not just the six this endpoint tracks) needed enough sequential round-trips to exceed the endpoint's already-configured 60s `maxDuration`. Fixed by adding `limit: 500`, the same page-size convention already used by `campaigns-list.js`, `adsets-list.js`, `custom-audiences.js`, and others — cuts the round-trip count ~20x. **This needs a live re-check** (see §7) — I couldn't reproduce the original timeout in a mocked harness.
+**Changed:**
+- `sinceChange` now **always** ends `today` (previously `yesterday`, with a today-fallback only for a change too recent to have one full elapsed day) — always flagged `partial` as a result, since it now always includes today's still-accruing data.
+- New `sevenDaysAfter` window ("7 Days Post Change"), same shape as the existing `threeDaysAfter` (`changeDay+1` to `changeDay+N`), via a shared `daysAfterChangeWindow()` helper.
+- Both `threeDaysAfter` and `sevenDaysAfter` now show a **real, growing partial total** capped at today instead of returning `null` until the full N days have elapsed (same convention as `sinceChange`) — only `null` in the one edge case where the change happened today itself and not even one post-change day exists yet.
+- `WindowComparisonTable`'s `WINDOW_ORDER`/`WINDOW_LABEL`/`WINDOW_GROUP` updated for the 8th column; `.drawerPanel` widened `1040px` → `1300px` (measured via the table's own `scrollWidth`, not guessed) so all 8 columns still fit without a horizontal scrollbar on a normal desktop viewport.
 
-Also, per the same report:
-- Page widened `maxWidth: 1000` → `1400`, matching `recent-changes.js`/`explore.js` — was leaving large unused left/right margins on a normal desktop width.
-- `EntityRow` (the landing-page card) restructured: entity name and its parent campaign now stack on their own lines instead of sitting inline competing for space (previously both truncated awkwardly on longer names), and the change-count/last-changed stats are right-aligned as a clear two-line block instead of one crowded string.
+Verified via the mocked-preview-harness convention with a crafted investigate response matching the Oct 10 → Oct 15 example exactly — confirmed column order/labels, the partial asterisk landing on `Since Change` and `7 Days Post Change` but correctly not on the already-fully-elapsed `3 Days Post Change`, `Last 7 Days` still correctly showing "Includes pre-change days" (`overlapsChange`), and no horizontal scroll at 1600px (table `scrollWidth` 1243px fit inside the widened panel). `npm run lint && npm run build` clean.
 
-Verified visually via the mocked-preview-harness convention at 1600px width — full-width layout, clear stacked card text. `npm run lint && npm run build` clean. The perf fix itself is unverified against a real slow account — pure code-reading diagnosis from the reported error.
+### Earlier rounds (compressed)
+
+- **PR #185**: Fixed a real `FUNCTION_INVOCATION_TIMEOUT` on `/new-recent-changes`'s landing fetch: `pages/api/fb/new-recent-changes.js`'s Activity Log call passed no `limit`, so Facebook used its own small default page size, and `graphGetAllPages` walks pagination strictly sequentially — a busy account's 7-day window needed enough round-trips to exceed the 60s `maxDuration`. Fixed with `limit: 500` (same convention as `campaigns-list.js` etc.) — **unverified against a real slow account**, see §7. Also widened the page (`maxWidth` 1000→1400) and restructured each landing-page card so the entity name/parent campaign stack on their own lines instead of competing inline.
 
 - **PR #183**: Fixed the real investigate Graph error (§7 item 4, now resolved): `pages/api/fb/recent-changes/investigate.js` passed each window's *entire* object — including this endpoint's own `overlapsChange`/`partial` bookkeeping flags — straight through as the Graph API's `time_range` param, instead of just `{since, until}`; Facebook rejects any extra key in that param outright (`(#100) Invalid keys "overlapsChange" were found in param "time_range"`, confirmed from the user's own error-cell tooltip text). Fixed by destructuring only `{since, until}`. Also reordered `WindowComparisonTable`'s columns to Last 7 Days → Last 3 Days → Since Change → 3 Days Post Change → 1/3/7 Days Before, and widened `.drawerPanel` (760px → `min(1040px, 96vw)`) so the 7-column table fits without its own horizontal scrollbar.
 
