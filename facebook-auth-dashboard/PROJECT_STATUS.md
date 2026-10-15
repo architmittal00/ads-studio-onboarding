@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #187.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #189.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`d48d3a9`** — "Since Change always runs through today, add 7 Days Post Change window" (PR #187, merged 2026-10-15).
+Latest commit as of this writing: **`66fd3cb`** — "Show window totals as real sums, box off \"Changes that day\"" (PR #189, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -71,7 +71,7 @@ No open PRs. Everything described below is merged and live.
 | `/strategy` | **Figure Out Strategy** — recommends one of 8 funnel-shaped campaign strategies from `lib/strategyEngine.js`, with a data-driven "does this account have history" signal | Stable, mature |
 | `/launch` | **Launch** — direct, self-serve campaign/ad-set creation (new ad set → new or existing campaign, or duplicate an existing ad set), Indian-D2C defaults throughout, live Meta search-backed location/language/interest pickers | **Shipped** (PR #124–126 and others) — see §6, this was a full plan that is now fully implemented, not pending |
 | `/recent-changes` | **Recent Changes** — detects recent account-level changes (budget, targeting, creative, status) and their before/after performance impact, with an Investigate drill-down (campaign → ad set → ad, RCA tables); has its own multi-tab system mirroring Explore's (multi-account per tab, localStorage persistence, Chrome-style tab groups) | Stable, mature, many rounds of polish (PRs #110–123, #154) |
-| `/new-recent-changes` | **New Recent Changes** — deliberately narrower, differently-designed sibling: multi-tab (own account/24h-72h-7d window/campaign filter per tab) with a right-side collapsible Accounts/Time Window panel (mirrors `/recent-changes`' own landing layout), six tracked actions rolled up to Campaign/Ad Set, landing view lists affected entities (not raw changes), opening one groups its changes by day with per-day action-type filter tabs + ad thumbnails for "Investigate" (before/after-grouped window comparison) | **Shipped** (PR #171, #175, #177, #179, #183, #185, #187) — see §5; timeout fix in #185 needs live re-check, §7 item 1 |
+| `/new-recent-changes` | **New Recent Changes** — deliberately narrower, differently-designed sibling: multi-tab (own account/24h-72h-7d window/campaign filter per tab) with a right-side collapsible Accounts/Time Window panel (mirrors `/recent-changes`' own landing layout), six tracked actions rolled up to Campaign/Ad Set, landing view lists affected entities (not raw changes), opening one groups its changes by day with per-day action-type filter tabs + ad thumbnails for "Investigate" (before/after-grouped window comparison) | **Shipped** (PR #171, #175, #177, #179, #183, #185, #187, #189) — see §5; timeout fix in #185 needs live re-check, §7 item 1 |
 | `/explore` | **Custom Views (Explore)** — build-your-own report: pick account(s)/level/breakdown/metrics/date-range, multi-tab views + tab groups, drill-down (Campaign→AdSet→Ad), charting with axis customization, custom ratio metrics, name/ID filters, result filters (value or %-change), Total row, CSV export, a Meta-Ads-Manager-style date range/compare picker, row actions (pause/activate/change budget/duplicate — the last via its own in-page popup, not a navigation) | **Most actively developed area right now** — see §5 for the latest round |
 | `/dashboard` | Raw Data — raw profile/Pages/Ad Accounts payload + manual ROAS check | Stable, simple |
 | `/logs` | API Logs — recent Graph API call log (method/path/status/duration) | Stable, simple |
@@ -80,19 +80,17 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-15)
 
-### PR #187 — "Since Change" now always runs through today; new "7 Days Post Change" window
+### PR #189 — Window totals were being divided by day-count instead of summed; boxed off "Changes that day"
 
-The user asked for the exact window math to be walked through for a concrete example (change on Oct 10, "today" Oct 15) — see chat — which surfaced that `sinceChange` was still capping at *yesterday* for an older change (only falling through to today as a fallback for a very recent one), not "always through today" as originally asked back in PR #171/#177's round. The user then specified the exact window table they wanted, including a brand-new "7 Days Post Change" column.
+The user sent a screenshot showing the three post-change columns (Since Change, 3 Days Post Change, 7 Days Post Change — all "2d, so far" in that example) displaying the exact same Spend/Purchases/CPR/ROAS numbers, and separately noted the "Before" columns' Spend values looked suspiciously close in magnitude across 1d/3d/7d windows instead of scaling up. Root cause: `WindowComparisonTable.js`'s `normalizedValue()` divided every additive metric (Spend, Purchases) by the window's own day-count before display — a deliberate design from an earlier round meant to make different-length windows "look" comparable at a glance, but the user explicitly wants the real aggregated total ("3 Days Before has to be a sum of spends"), matching how every other aggregation in this app works (`lib/insightsMetrics.js`'s own `aggregate()` functions sum, never average). **Fixed by removing the division entirely** — every cell now shows the raw Graph-aggregated total. Best/worst highlighting (green/red) is unaffected: it only ever ran on rate metrics (ROAS, CPR, ...), which were never divided by days in the first place (confirmed via `isUnitMetric`'s own exclusion of additive metrics).
 
-**Changed:**
-- `sinceChange` now **always** ends `today` (previously `yesterday`, with a today-fallback only for a change too recent to have one full elapsed day) — always flagged `partial` as a result, since it now always includes today's still-accruing data.
-- New `sevenDaysAfter` window ("7 Days Post Change"), same shape as the existing `threeDaysAfter` (`changeDay+1` to `changeDay+N`), via a shared `daysAfterChangeWindow()` helper.
-- Both `threeDaysAfter` and `sevenDaysAfter` now show a **real, growing partial total** capped at today instead of returning `null` until the full N days have elapsed (same convention as `sinceChange`) — only `null` in the one edge case where the change happened today itself and not even one post-change day exists yet.
-- `WindowComparisonTable`'s `WINDOW_ORDER`/`WINDOW_LABEL`/`WINDOW_GROUP` updated for the 8th column; `.drawerPanel` widened `1040px` → `1300px` (measured via the table's own `scrollWidth`, not guessed) so all 8 columns still fit without a horizontal scrollbar on a normal desktop viewport.
+Also, per the same report: `EntityChangesDrawer`'s "Changes that day" list (shown above the Metrics picker and comparison table when drilled into a specific day) was a plain unstyled block, visually blending into the sections below it. Wrapped it in the same `styles.card` box the landing page's own per-day groups already use.
 
-Verified via the mocked-preview-harness convention with a crafted investigate response matching the Oct 10 → Oct 15 example exactly — confirmed column order/labels, the partial asterisk landing on `Since Change` and `7 Days Post Change` but correctly not on the already-fully-elapsed `3 Days Post Change`, `Last 7 Days` still correctly showing "Includes pre-change days" (`overlapsChange`), and no horizontal scroll at 1600px (table `scrollWidth` 1243px fit inside the widened panel). `npm run lint && npm run build` clean.
+Verified via the mocked-preview-harness convention with deliberately scaled daily-spend numbers (~27-30k/day) specifically chosen so day-count division would be visually obvious if it regressed — confirmed 1 Day Before / 3 Days Before / 7 Days Before now scale up as real sums (₹30,160.79 → ₹82,267.17 → ₹1,89,375.34) instead of clustering near the same per-day value, and that "Changes that day" renders as its own distinct bordered card. `npm run lint && npm run build` clean.
 
 ### Earlier rounds (compressed)
+
+- **PR #187**: "Since Change" now always runs through today (previously stopped at yesterday for an older change) — always flagged `partial`. New "7 Days Post Change" window (`sevenDaysAfter`), same `changeDay+1` to `changeDay+N` shape as the existing "3 Days Post Change." Both post-change windows now show a real, growing partial total capped at today instead of hiding until fully elapsed. `.drawerPanel` widened 1040px → 1300px for the new 8th column.
 
 - **PR #185**: Fixed a real `FUNCTION_INVOCATION_TIMEOUT` on `/new-recent-changes`'s landing fetch: `pages/api/fb/new-recent-changes.js`'s Activity Log call passed no `limit`, so Facebook used its own small default page size, and `graphGetAllPages` walks pagination strictly sequentially — a busy account's 7-day window needed enough round-trips to exceed the 60s `maxDuration`. Fixed with `limit: 500` (same convention as `campaigns-list.js` etc.) — **unverified against a real slow account**, see §7. Also widened the page (`maxWidth` 1000→1400) and restructured each landing-page card so the entity name/parent campaign stack on their own lines instead of competing inline.
 
