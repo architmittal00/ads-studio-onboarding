@@ -179,6 +179,22 @@ export default async function handler(req, res) {
     return res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
   }
 
+  // Temporary diagnostic, opt-in via ?debug=1 — not rendered anywhere in the
+  // UI. Added specifically to answer "why don't Ad-level changes show up":
+  // one example of every distinct (raw object_type, resolved object_type,
+  // event_type, translated_event_type) combination this account's Activity
+  // Log actually returned in this window, whether or not it matched one of
+  // the six tracked actions. This endpoint's own classification is a
+  // best-effort guess at Meta's real text (see classifyAction's own comment)
+  // never checked against a live account — this is how that finally gets
+  // confirmed instead of guessed at again, same reasoning
+  // lib/activityChangeDetail.js's own comment gives for keeping rawExtraData
+  // around. Remove once the real shape is confirmed and classifyAction (and
+  // this comment) are updated to match it.
+  const debugMode = req.query.debug === "1";
+  const debugSamples = [];
+  const seenDebugCombos = new Set();
+
   // First pass: resolve each entry's corrected object_type and tracked
   // action, dropping anything that isn't one of the six up front — only
   // entries that survive this need a parent-id lookup at all.
@@ -186,6 +202,19 @@ export default async function handler(req, res) {
   for (const entry of activity.data || []) {
     const objectType = resolveObjectType(entry.object_type, entry.event_type, entry.translated_event_type);
     const action = classifyAction(objectType, entry.event_type, entry.translated_event_type);
+    if (debugMode) {
+      const combo = `${entry.object_type}|${objectType}|${entry.event_type}|${entry.translated_event_type}`;
+      if (!seenDebugCombos.has(combo) && debugSamples.length < 50) {
+        seenDebugCombos.add(combo);
+        debugSamples.push({
+          rawObjectType: entry.object_type,
+          resolvedObjectType: objectType,
+          eventType: entry.event_type,
+          translatedEventType: entry.translated_event_type,
+          matchedAction: action,
+        });
+      }
+    }
     if (!action) continue;
     classified.push({ entry, objectType, action });
   }
@@ -262,5 +291,8 @@ export default async function handler(req, res) {
   });
   entities.sort((a, b) => new Date(b.lastChangeTime) - new Date(a.lastChangeTime));
 
-  res.status(200).json({ entities, meta: { accountId, hours, rowCount } });
+  res.status(200).json({
+    entities,
+    meta: { accountId, hours, rowCount, ...(debugMode ? { debugSamples } : {}) },
+  });
 }
