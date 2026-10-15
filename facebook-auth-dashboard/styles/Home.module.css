@@ -689,7 +689,12 @@ button.stat:hover {
   top: 0;
   right: 0;
   height: 100vh;
-  width: min(760px, 100vw);
+  /* Wide enough that the 7-column before/after WindowComparisonTable
+     (components/WindowComparisonTable.js, used by both this drawer's own
+     Investigate view and components/InvestigateDrawer.js) fits without
+     needing its own horizontal scrollbar on a typical desktop viewport —
+     760px left several of its currency columns cramped enough to force one. */
+  width: min(1040px, 96vw);
   background: var(--bg);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-md);
