@@ -93,27 +93,37 @@ function EntityRow({ entity, onOpen }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 12,
+        gap: 24,
         width: "100%",
         textAlign: "left",
         cursor: "pointer",
+        padding: "16px 22px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <span className={LEVEL_BADGE_CLASS[entity.level] || styles.badgeInfo}>{levelLabel}</span>
-        <p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {entity.entityName || entity.entityId}
-        </p>
-        {entity.level === "adset" && entity.campaignName && (
-          <span className={styles.muted} style={{ fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            in {entity.campaignName}
-          </span>
-        )}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <span className={styles.muted} style={{ fontSize: 12 }}>
-          {entity.changeCount} change{entity.changeCount === 1 ? "" : "s"} · last {relativeTime(entity.lastChangeTime)}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+        <span className={LEVEL_BADGE_CLASS[entity.level] || styles.badgeInfo} style={{ flexShrink: 0 }}>
+          {levelLabel}
         </span>
+        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {entity.entityName || entity.entityId}
+          </p>
+          {entity.level === "adset" && entity.campaignName && (
+            <p className={styles.muted} style={{ margin: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              in {entity.campaignName}
+            </p>
+          )}
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, flexShrink: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+          <span style={{ fontWeight: 700, fontSize: 12.5 }}>
+            {entity.changeCount} change{entity.changeCount === 1 ? "" : "s"}
+          </span>
+          <span className={styles.muted} style={{ fontSize: 11.5 }}>
+            last {relativeTime(entity.lastChangeTime)}
+          </span>
+        </div>
         <ChevronIcon direction="right" size={13} />
       </div>
     </button>
@@ -387,7 +397,7 @@ export default function NewRecentChanges() {
         <title>New Recent Changes · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 1000, margin: "0 auto" }}>
+        <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
           <h1 className={styles.h1}>New Recent Changes</h1>
           <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
             Pick an account and a time window to see which Campaigns and Ad Sets had activity — Ads launched or

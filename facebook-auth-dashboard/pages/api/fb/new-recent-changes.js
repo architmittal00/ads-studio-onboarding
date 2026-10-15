@@ -211,9 +211,20 @@ export default async function handler(req, res) {
 
   let activity;
   try {
+    // `limit` matters a lot here: graphGetAllPages (lib/facebookGraph.js)
+    // walks `paging.next` strictly sequentially, one full round-trip per
+    // page, and Facebook's own default page size for this edge is small
+    // (tens of rows). A busy account's 7-day Activity Log can easily be
+    // thousands of raw entries (every action, not just the six this endpoint
+    // tracks) — at the default page size that's enough sequential
+    // round-trips to blow past the 60s function budget (confirmed: this was
+    // the cause of a live FUNCTION_INVOCATION_TIMEOUT). 500/page (the same
+    // cap used everywhere else list data is paginated in this app, e.g.
+    // pages/api/fb/campaigns-list.js) cuts the round-trip count by ~20x.
     activity = await graphGetAllPages(`/${accountId}/activities`, token, {
       since: sinceUnix,
       until: nowUnix,
+      limit: 500,
       fields: "actor_name,event_type,event_time,object_id,object_name,object_type,extra_data,translated_event_type",
     });
   } catch (err) {
