@@ -36,6 +36,9 @@
     "pages/api/fb/recent-changes/impact.js": {
       "maxDuration": 60
     },
+    "pages/api/fb/recent-changes/investigate.js": {
+      "maxDuration": 60
+    },
     "pages/api/fb/new-recent-changes.js": {
       "maxDuration": 60
     }

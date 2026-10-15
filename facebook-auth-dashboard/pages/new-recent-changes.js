@@ -10,6 +10,7 @@ import EntityChangesDrawer from "@/components/EntityChangesDrawer";
 import { ChevronIcon, CloseIcon, RefreshIcon, SettingsIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
+import { parseJsonResponse } from "@/lib/fetchJson";
 import {
   getNewRecentChangesTabs,
   setNewRecentChangesTabs,
@@ -290,7 +291,7 @@ export default function NewRecentChanges() {
     }
     updateTab(tabId, { loading: true, error: null });
     fetch(`/api/fb/new-recent-changes?accountId=${encodeURIComponent(accountId)}&hours=${hours}`)
-      .then((res) => res.json())
+      .then(parseJsonResponse)
       .then((json) => {
         if (json.error) {
           updateTab(tabId, { error: json.error, loading: false });

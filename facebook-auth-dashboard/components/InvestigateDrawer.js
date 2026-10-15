@@ -7,6 +7,7 @@ import { describeChangeDetail } from "@/lib/activityChangeDetail";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { getCustomMetrics } from "@/lib/clientStorage";
 import { fetchCustomEvents } from "@/lib/customEvents";
+import { parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 const CACHE_PREFIX = "recent-changes-investigate:";
@@ -115,7 +116,7 @@ export default function InvestigateDrawer({ change, onClose, currency }) {
       .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
     if (selectedCustomEvents.length > 0) params.set("customEvents", JSON.stringify(selectedCustomEvents));
     fetch(`/api/fb/recent-changes/investigate?${params.toString()}`)
-      .then((res) => res.json())
+      .then(parseJsonResponse)
       .then((json) => {
         if (json.error) {
           setError(json.error);

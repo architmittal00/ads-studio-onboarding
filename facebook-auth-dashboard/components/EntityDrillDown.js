@@ -6,6 +6,7 @@ import { ChevronIcon } from "./icons";
 import WindowComparisonTable from "./WindowComparisonTable";
 import { formatMetricValue } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
+import { parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 const DRILLDOWN_CACHE_PREFIX = "recent-changes-drilldown-investigate:";
@@ -167,7 +168,7 @@ async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customM
     .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
   if (selectedCustomEvents.length > 0) params.set("customEvents", JSON.stringify(selectedCustomEvents));
   const res = await fetch(`/api/fb/recent-changes/investigate?${params.toString()}`);
-  const json = await res.json();
+  const json = await parseJsonResponse(res);
   if (json.error) throw new Error(json.error);
   setCachedEntry(cacheKey, json, { prefix: DRILLDOWN_CACHE_PREFIX, maxEntriesForPrefix: DRILLDOWN_CACHE_MAX_ENTRIES });
   return json.windows;
