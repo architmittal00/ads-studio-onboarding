@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-15**, by Claude, right after merging PR #181.
+> Last updated: **2026-10-15**, by Claude, right after merging PR #183.
 
 ---
 
@@ -58,7 +58,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`681406d`** — "Fix cryptic JSON parse crash on Recent Changes investigate timeout" (PR #181, merged 2026-10-15).
+Latest commit as of this writing: **`2334faa`** — "Fix investigate Graph API error, reorder columns, widen drawer" (PR #183, merged 2026-10-15).
 
 No open PRs. Everything described below is merged and live.
 
@@ -80,18 +80,23 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work (2026-10-15)
 
-### PR #181 — Fixed cryptic JSON parse crash on Recent Changes investigate timeout
+### PR #183 — Fixed the real investigate Graph error (§7 item 4, now resolved), reordered columns, widened drawer
 
-User-reported, immediately after using PR #179: `Unexpected token 'A', "An error o"... is not valid JSON` — self-resolving on reload. Root cause: `pages/api/fb/recent-changes/investigate.js` was the **only** Insights-heavy endpoint in `vercel.json` with no `maxDuration` override, despite firing up to 7 parallel Graph Insights calls per request (grown from 6 once PR #177/#179 added the "3 Days Post Change" window) — defaulting to the platform's standard timeout. A slow-enough request there returns Vercel's own HTML/plain-text timeout page instead of JSON, and every client's plain `res.json()` call choked on it with a raw parse error instead of a real message; a reload "just works" because it simply doesn't re-hit the same slow path.
+The user sent the actual error-cell tooltip text §7 item 4 was waiting on:
+```
+(#100) Invalid keys "overlapsChange" were found in param "time_range"
+```
+**Root cause, now confirmed and fixed:** `pages/api/fb/recent-changes/investigate.js` passed each window's *entire* object — including this endpoint's own `overlapsChange`/`partial` bookkeeping flags — straight through as the Graph API's `time_range` param, instead of just `{since, until}`. Facebook rejects any extra key in that param outright. `last3Days`/`last7Days` always carry `overlapsChange` (this bug predates this session's work entirely), and `sinceChange` now also carries `partial` (added in PR #177) — exactly the three "after" columns that failed in the bug report screenshot, while the "before" columns (plain `{since, until}`, no extra keys) kept working. Fixed by destructuring only `{since, until}` before the Graph call. **This supersedes PR #181's "important distinction" note — it turned out to be the same underlying sloppiness (passing bookkeeping fields somewhere they don't belong), just two different failure modes (per-window Graph rejection vs. whole-request timeout).**
 
-- Added the missing `maxDuration: 60`, matching this file's siblings (`recent-changes.js`, `recent-changes/impact.js`, `new-recent-changes.js`).
-- New `lib/fetchJson.js#parseJsonResponse` — reads the body as text and parses it manually, so a non-JSON response surfaces as `"Request failed (504): ..."` instead of throwing. Applied everywhere this endpoint is called from the client: `components/EntityChangesDrawer.js`, `components/InvestigateDrawer.js` (both Investigate drawers), `components/EntityDrillDown.js`'s row-level fetch, and `pages/new-recent-changes.js`'s own main query fetch (same unguarded pattern, different endpoint).
+Also, per explicit follow-up feedback:
+- `WindowComparisonTable`'s column order changed to the exact requested sequence — Last 7 Days, Last 3 Days, Since Change, (3 Days Post Change kept alongside it), 1/3/7 Days Before — still forming one contiguous "after" block and one contiguous "before" block, so the existing before/after divider still lands in the right place.
+- `.drawerPanel` widened (760px → `min(1040px, 96vw)`) so the 7-column table fits without its own horizontal scrollbar on a normal desktop viewport — "not using the full space left to right" was the drawer being too narrow for this many columns, not a table CSS issue. Benefits the original Recent Changes page's own Investigate drawer too, which shares this class.
 
-**Important distinction from §7 item 4 below (do not treat as the same bug):** item 4 is a *partial* failure — some individual windows within an otherwise-successful response come back with `metrics: null` and an `error` field (visible as "Error" cells since PR #179's own fix), while others in the same response succeed. This PR's bug was a *total* failure — the whole response wasn't JSON at all, which could only happen on a full request timeout, not a per-window one. Fixing this timeout may or may not also reduce how often item 4 happens (a generous `maxDuration` gives Facebook's own calls more room before `graphGetInsights`' internal retry/timeout logic kicks in) — but item 4 is **not confirmed resolved** by this PR; it still needs the real error-cell tooltip text to actually diagnose.
-
-Verified by writing `parseJsonResponse` as a small pure function and testing it directly against a simulated Vercel timeout response (plain-text 504) and a valid-JSON response, confirming both paths behave correctly, in addition to `npm run lint && npm run build`.
+Verified visually via the mocked-preview-harness convention at both a wide (1400px) and normal desktop viewport — table renders in the new order with no horizontal scrollbar either way. `npm run lint && npm run build` clean.
 
 ### Earlier rounds (compressed)
+
+- **PR #181**: Fixed a *different*, now-superseded-in-understanding bug — `pages/api/fb/recent-changes/investigate.js` had no `vercel.json` `maxDuration` override, so a slow (not per-window-erroring, but outright timed-out) request returned Vercel's own HTML error page instead of JSON, crashing every client's `res.json()` with a cryptic parse error (`"Unexpected token 'A'..."`). Added the missing override, plus a new `lib/fetchJson.js#parseJsonResponse` (reads the body as text, parses manually, surfaces a real message) applied everywhere this endpoint — and the main New Recent Changes query — is called from the client.
 
 - **PR #179**: Follow-up UX pass on `/new-recent-changes` (tabs restyled as proper folder tabs; landing-page layout rebuilt to mirror `/recent-changes`' own right-side collapsible panel + empty state exactly; Investigate CTA recolored to the primary purple; ad thumbnails added to ad-level changes, clickable to the shared `CreativeLightbox`; repeated per-row action badges hidden once a day's filter narrows to one type; `WindowComparisonTable` regrouped into "Before the Change"/"After the Change" with a divider; a failed window now renders a visible "Error" cell instead of disappearing — see §7 item 4). Also fixed a real, independent bug: `EntityDrillDown.js`'s "View Ads" fetch did a plain `res.json()` against `/api/fb/explore-insights`, which has streamed NDJSON unconditionally since PR #163 — this also fixed the same crash in the original `/recent-changes` page's own Investigate drill-down, which shares this component.
 
@@ -162,11 +167,12 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Four open items, nothing else queued:**
+**Three open items, nothing else queued:**
 1. PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it.
 2. The "no weekly/monthly/daily data at account level" report (see §5, PR #167) couldn't be reproduced against current `origin/main` code via a mocked preview — needs the reporter to describe the actual symptom (error message text, blank table, missing column, etc.) against a live account so this can be properly diagnosed. Don't re-guess at a fix without that information first.
 3. **Likely real, unfixed bug in the original `/recent-changes` page** (found while fixing #175, see §5): its `isCampaignOrAdSet`/`resolveLevel` in `pages/api/fb/recent-changes.js` has the same gap just fixed in the new page — a genuine Campaign's Activity Log entries come back with `object_type: "CAMPAIGN_GROUP"`, which fails `isCampaignOrAdSet`'s `normalized === "CAMPAIGN"` check and gets silently dropped. That page has very likely never shown true Campaign-level changes, only Ad-Set-level ones (raw `object_type: "CAMPAIGN"`, Meta's own legacy naming for Ad Set). Deliberately **not fixed this round** — that page is "stable, mature" and wasn't in scope for the New Recent Changes work, so this needs a deliberate go-ahead from the user rather than a drive-by change to existing behavior. If confirmed worth fixing, it's the same fix shape as PR #175's `RAW_OBJECT_TYPE_TO_LEVEL` mapping.
-4. **Real but still-root-cause-unknown Graph failure on some `investigate` windows** (found via user report, see §5 PR #179 item 6): the user saw `WindowComparisonTable` showing only the three "before" columns with every "after" column (Since Change, 3 Days Post Change, Last 3/7 Days) missing entirely for a specific Ad Set with zero historical spend. PR #179 made this failure *visible* (an "Error" cell with the Graph error message in a tooltip, instead of the column silently vanishing) but did **not** fix whatever is actually failing server-side — that requires either the tooltip's actual error text from the user's own browser, or live access to reproduce against that same ad set. Don't re-guess at a root cause (e.g. "it's a rate limit" or "it's the zero-spend ad set") without that error text first — same discipline as item 2 above.
+
+(The `investigate` "after" columns Graph error flagged here previously is **resolved** — see §5, PR #183: `time_range` was being sent with extra, Facebook-rejected keys.)
 
 Everything else in §5 is fully shipped and verified as of 2026-10-15.
 
