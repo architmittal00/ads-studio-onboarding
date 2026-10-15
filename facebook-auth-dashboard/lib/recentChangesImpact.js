@@ -27,20 +27,38 @@ function addDaysUTC(dateStr, days) {
   return isoDate(d);
 }
 
+function daysBetweenUTC(fromDateStr, toDateStr) {
+  const from = new Date(`${fromDateStr}T00:00:00Z`);
+  const to = new Date(`${toDateStr}T00:00:00Z`);
+  return Math.round((to - from) / 86400000);
+}
+
 // Facebook's Insights `time_range` only supports whole-day {since, until}
 // windows (YYYY-MM-DD), not arbitrary sub-day timestamps — there's no way to
 // ask for "the 24 hours immediately before/after 14:32" the way a change's
 // own event_time is precise to the second. So the comparison is day-level
-// instead: the single full calendar day immediately before the change's own
-// day, vs. the single full calendar day immediately after it. "Too recent"
-// means that *after* day hasn't fully elapsed yet (the change happened today
-// or yesterday) — comparing against a still-in-progress partial day would be
-// misleading, so it's skipped entirely rather than shown as a real number.
+// instead, and its length scales with how long ago the change actually
+// happened rather than always being a fixed single day each way: a change
+// from 2 days ago compares the 2 days immediately before it to the 2 days
+// since it (today included, still accruing — same "so far" convention as
+// pages/api/fb/recent-changes/investigate.js's own buildWindows), a change
+// from 5 days ago compares 5 days each way, and so on. A change from today
+// itself has no "after" data of any kind yet — not even a partial one — so
+// that's the one case this calls `tooRecent` and skips outright rather than
+// showing a window of length 0.
 export function impactWindowFor(eventTimeIso) {
   const changeDay = isoDate(new Date(eventTimeIso));
-  const dayBefore = addDaysUTC(changeDay, -1);
-  const dayAfter = addDaysUTC(changeDay, 1);
-  return { dayBefore, dayAfter, tooRecent: dayAfter >= isoDate(new Date()) };
+  const today = isoDate(new Date());
+  const daysElapsed = daysBetweenUTC(changeDay, today);
+  if (daysElapsed <= 0) {
+    return { before: null, after: null, tooRecent: true, daysElapsed: 0 };
+  }
+  return {
+    before: { since: addDaysUTC(changeDay, -daysElapsed), until: addDaysUTC(changeDay, -1) },
+    after: { since: addDaysUTC(changeDay, 1), until: today },
+    tooRecent: false,
+    daysElapsed,
+  };
 }
 
 // Spend/Purchases/ROAS — the same three values lib/insightsMetrics.js's own

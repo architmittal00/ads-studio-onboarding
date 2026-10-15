@@ -36,12 +36,12 @@ export default async function handler(req, res) {
   const impactPlan = [];
   const impactCalls = [];
   for (const c of changes) {
-    const { dayBefore, dayAfter, tooRecent } = impactWindowFor(c.eventTime);
+    const { before, after, tooRecent } = impactWindowFor(c.eventTime);
     if (tooRecent) continue;
-    for (const [period, day] of [["before", dayBefore], ["after", dayAfter]]) {
+    for (const [period, range] of [["before", before], ["after", after]]) {
       impactCalls.push(
         graphGetInsights(`/${c.objectId}/insights`, token, {
-          time_range: { since: day, until: day },
+          time_range: range,
           fields: "spend,actions,action_values,purchase_roas",
         })
       );
@@ -59,8 +59,8 @@ export default async function handler(req, res) {
       target.set(id, null); // soft-fail this one side — "—" in the UI, not a failed response
       return;
     }
-    // An empty data array means no delivery that day — a real zero, not a
-    // missing value, so a zeroed stand-in row flows through the normal
+    // An empty data array means no delivery in that window — a real zero,
+    // not a missing value, so a zeroed stand-in row flows through the normal
     // extraction path rather than needing its own special case.
     const row = (result.value.data || [])[0] || { spend: "0", actions: [], action_values: [], purchase_roas: [] };
     target.set(id, extractImpactMetrics(row));

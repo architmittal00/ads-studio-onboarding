@@ -689,13 +689,12 @@ button.stat:hover {
   top: 0;
   right: 0;
   height: 100vh;
-  /* Wide enough that the 6-column before/after WindowComparisonTable
+  /* 70% of this panel's former 1150px width, per explicit ask — narrower
+     than the 6-column before/after WindowComparisonTable
      (components/WindowComparisonTable.js, used by this drawer's own
-     Investigate view — back down from 8 columns now that Last 3/7 Days were
-     removed) fits comfortably on a typical desktop viewport, while still
-     being roomy enough for EntityDrillDown's own ad/ad-set rows (thumbnail,
-     name, status badge, RowActions) below it. */
-  width: min(1150px, 96vw);
+     Investigate view) can show without its own horizontal scroll, which the
+     table's `overflowX: auto` wrapper already handles. */
+  width: min(805px, 96vw);
   background: var(--bg);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-md);

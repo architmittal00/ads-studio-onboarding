@@ -3,6 +3,7 @@ import EntityDrillDown from "./EntityDrillDown";
 import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowComparisonTable";
 import Thumb from "./Thumb";
 import CreativeLightbox from "./CreativeLightbox";
+import CopyIdButton from "./CopyIdButton";
 import { CloseIcon, ChevronIcon } from "./icons";
 import { buildEffectiveCatalog, humanizeStatus } from "@/lib/insightsMetrics";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
@@ -354,145 +355,162 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
 
   const levelLabel = LEVEL_LABEL[entity.level] || "Entity";
   const dayGroups = groupByDay(entity.changes);
-  // Ad ids actually launched as part of the day being investigated — lets
-  // EntityDrillDown offer "just the ads we launched" instead of every ad in
-  // the set, so a launch's own impact is quick to isolate from pre-existing
-  // ads' unrelated performance.
+  // Ad ids actually launched, or paused, as part of the day being
+  // investigated — lets EntityDrillDown offer "just the ads that changed"
+  // instead of every ad in the set, so a launch or pause's own impact is
+  // quick to isolate from pre-existing ads' unrelated performance, and lets
+  // it badge each one with which of the two actually happened.
   const launchedAdIds = investigatingDay ? investigatingDay.changes.filter((c) => c.action === "ad_launched").map((c) => c.sourceObjectId) : [];
+  const pausedAdIds = investigatingDay ? investigatingDay.changes.filter((c) => c.action === "ad_paused").map((c) => c.sourceObjectId) : [];
 
   return (
     <div className={styles.drawerOverlay} onClick={onClose}>
-      <div className={styles.drawerPanel} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          {investigatingDay ? (
-            <button
-              type="button"
-              onClick={() => setInvestigatingDay(null)}
-              className={styles.btnSecondary}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
-            >
-              <ChevronIcon direction="left" size={12} />
-              Back
+      <div
+        className={styles.drawerPanel}
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: "flex", flexDirection: "column", padding: 0, overflowY: "hidden" }}
+      >
+        {/* A fixed, non-scrolling header — split out from the panel's own
+            scrollable body below so the entity name/status and back/close
+            controls stay in view no matter how far down a long day list or
+            Investigate view is scrolled, instead of scrolling away with it. */}
+        <div style={{ flexShrink: 0, padding: "28px 28px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            {investigatingDay ? (
+              <button
+                type="button"
+                onClick={() => setInvestigatingDay(null)}
+                className={styles.btnSecondary}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
+              >
+                <ChevronIcon direction="left" size={12} />
+                Back
+              </button>
+            ) : (
+              <p className={styles.muted} style={{ margin: 0 }}>
+                {levelLabel}
+              </p>
+            )}
+            <button type="button" onClick={onClose} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
+              <CloseIcon size={14} />
             </button>
-          ) : (
-            <p className={styles.muted} style={{ margin: 0 }}>
-              {levelLabel}
-            </p>
-          )}
-          <button type="button" onClick={onClose} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
-            <CloseIcon size={14} />
-          </button>
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <h2 className={styles.h2} style={{ marginBottom: 4 }}>
-              {entity.entityName || entity.entityId}
-            </h2>
-            {entity.status && (
-              <span className={entity.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo}>{humanizeStatus(entity.status)}</span>
-            )}
           </div>
-          {investigatingDay && <p className={styles.sub}>{formatDayLabel(investigatingDay.date)}</p>}
-        </div>
-
-        {!investigatingDay && (
-          <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-            {dayGroups.length === 0 && <p className={styles.sub}>No changes in the selected time window.</p>}
-            {dayGroups.map((group) => (
-              <div key={group.date} className={styles.card} style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{formatDayLabel(group.date)}</p>
-                  <button type="button" className={styles.btnPrimary} onClick={() => setInvestigatingDay(group)}>
-                    Investigate
-                  </button>
-                </div>
-                <DayChangesList changes={group.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {investigatingDay && (
-          <>
-            <div className={styles.card} style={{ marginTop: 20, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>Changes that day</p>
-              <DayChangesList changes={investigatingDay.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h2 className={styles.h2} style={{ marginBottom: 4 }}>
+                {entity.entityName || entity.entityId}
+              </h2>
+              <CopyIdButton id={entity.entityId} />
+              {entity.status && (
+                <span className={entity.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo}>{humanizeStatus(entity.status)}</span>
+              )}
             </div>
+            {investigatingDay && <p className={styles.sub}>{formatDayLabel(investigatingDay.date)}</p>}
+          </div>
+        </div>
 
-            <div style={{ marginTop: 24 }}>
-              <p className={styles.muted} style={{ marginBottom: 6 }}>
-                Metrics
-              </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {effectiveCatalog.map((m) => {
-                  const selected = selectedKeys.includes(m.key);
-                  return (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => toggleMetric(m.key)}
-                      className={selected ? styles.badgeInfo : styles.pill}
-                      style={{
-                        cursor: "pointer",
-                        background: selected ? undefined : "transparent",
-                        border: selected ? undefined : "1px dashed var(--border)",
-                        color: selected ? undefined : "var(--t2)",
-                      }}
-                    >
-                      {m.label}
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 28px 28px" }}>
+          {!investigatingDay && (
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+              {dayGroups.length === 0 && <p className={styles.sub}>No changes in the selected time window.</p>}
+              {dayGroups.map((group) => (
+                <div key={group.date} className={styles.card} style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{formatDayLabel(group.date)}</p>
+                    <button type="button" className={styles.btnPrimary} onClick={() => setInvestigatingDay(group)}>
+                      Investigate
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                  <DayChangesList changes={group.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
+                </div>
+              ))}
             </div>
+          )}
 
-            {error && (
-              <div className={styles.error} style={{ marginTop: 16 }}>
-                {error}
+          {investigatingDay && (
+            <>
+              <div className={styles.card} style={{ marginTop: 20, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>Changes that day</p>
+                <DayChangesList changes={investigatingDay.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
               </div>
-            )}
 
-            {selectedKeys.length === 0 && (
-              <p className={styles.sub} style={{ marginTop: 16 }}>
-                Pick at least one metric above.
-              </p>
-            )}
-
-            {!error && selectedKeys.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <WindowComparisonTable
-                  windows={data?.windows}
-                  metricKeys={selectedKeys}
-                  catalog={effectiveCatalog}
-                  loading={loading}
-                  currency={currency}
-                />
+              <div style={{ marginTop: 24 }}>
+                <p className={styles.muted} style={{ marginBottom: 6 }}>
+                  Metrics
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {effectiveCatalog.map((m) => {
+                    const selected = selectedKeys.includes(m.key);
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => toggleMetric(m.key)}
+                        className={selected ? styles.badgeInfo : styles.pill}
+                        style={{
+                          cursor: "pointer",
+                          background: selected ? undefined : "transparent",
+                          border: selected ? undefined : "1px dashed var(--border)",
+                          color: selected ? undefined : "var(--t2)",
+                        }}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
 
-            <EntityDrillDown
-              key={`${entity.entityId}:${investigatingDay.date}`}
-              accountId={entity.accountId}
-              currency={currency}
-              parentLevel={entity.level}
-              parentObjectId={entity.entityId}
-              parentLabel={entity.entityName || entity.entityId}
-              eventTime={dayAnchorEventTime(investigatingDay.date)}
-              metricKeys={selectedKeys}
-              catalog={effectiveCatalog}
-              customMetrics={customMetrics}
-              customEvents={customEvents}
-              launchedAdIds={launchedAdIds}
-            />
-          </>
-        )}
+              {error && (
+                <div className={styles.error} style={{ marginTop: 16 }}>
+                  {error}
+                </div>
+              )}
 
-        {/* Rendered inside the panel (not as a sibling of drawerOverlay)
-            specifically so its own backdrop click bubbles into this panel's
-            stopPropagation and never reaches drawerOverlay's onClick={onClose}
-            — otherwise a click to dismiss the lightbox would also close the
-            entire entity drawer behind it. */}
-        <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+              {selectedKeys.length === 0 && (
+                <p className={styles.sub} style={{ marginTop: 16 }}>
+                  Pick at least one metric above.
+                </p>
+              )}
+
+              {!error && selectedKeys.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <WindowComparisonTable
+                    windows={data?.windows}
+                    metricKeys={selectedKeys}
+                    catalog={effectiveCatalog}
+                    loading={loading}
+                    currency={currency}
+                  />
+                </div>
+              )}
+
+              <EntityDrillDown
+                key={`${entity.entityId}:${investigatingDay.date}`}
+                accountId={entity.accountId}
+                currency={currency}
+                parentLevel={entity.level}
+                parentObjectId={entity.entityId}
+                parentLabel={entity.entityName || entity.entityId}
+                eventTime={dayAnchorEventTime(investigatingDay.date)}
+                metricKeys={selectedKeys}
+                catalog={effectiveCatalog}
+                customMetrics={customMetrics}
+                customEvents={customEvents}
+                launchedAdIds={launchedAdIds}
+                pausedAdIds={pausedAdIds}
+              />
+            </>
+          )}
+
+          {/* Rendered inside the scrolling body (not as a sibling of
+              drawerOverlay) specifically so its own backdrop click bubbles
+              into this panel's stopPropagation and never reaches
+              drawerOverlay's onClick={onClose} — otherwise a click to
+              dismiss the lightbox would also close the entire entity drawer
+              behind it. */}
+          <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+        </div>
       </div>
     </div>
   );

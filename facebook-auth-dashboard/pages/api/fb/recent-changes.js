@@ -381,7 +381,13 @@ export default async function handler(req, res) {
   const impactEligible = entities.slice(0, MAX_IMPACT_CHANGES).filter((e) => e.lastChangeTime);
   const impactEligibleIds = new Set(impactEligible.map((e) => `${e.level}:${e.entityId}`));
   for (const e of impactEligible) {
-    e.tooRecent = impactWindowFor(e.lastChangeTime).tooRecent;
+    const window = impactWindowFor(e.lastChangeTime);
+    e.tooRecent = window.tooRecent;
+    // How many days each side of the before/after comparison actually covers
+    // — surfaced so pages/recent-changes.js can label its quick-signal
+    // badges with the window they're actually summarizing instead of always
+    // implying a fixed "1 day vs 1 day" the way this used to work.
+    e.impactDays = window.daysElapsed;
   }
   for (const e of entities) {
     // Beyond MAX_IMPACT_CHANGES (or, rarely, missing a lastChangeTime to

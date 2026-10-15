@@ -12,7 +12,8 @@ import RowActions from "@/components/RowActions";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import EntityDetailDrawer from "@/components/EntityDetailDrawer";
-import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon, CheckIcon, ChartIcon, RocketIcon } from "@/components/icons";
+import CopyIdButton from "@/components/CopyIdButton";
+import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
 import {
@@ -3409,37 +3410,6 @@ function SelectAllCheckbox({ checked, indeterminate, onChange }) {
       onClick={(e) => e.stopPropagation()}
       aria-label="Select all rows"
     />
-  );
-}
-
-function CopyIdButton({ id, onCopy }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onCopy(id);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      title={`Copy ID (${id})`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        background: "none",
-        border: "none",
-        padding: 2,
-        cursor: "pointer",
-        color: copied ? "var(--green)" : "var(--t3)",
-        flexShrink: 0,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
-      {copied && <span style={{ fontSize: 10.5, fontWeight: 700 }}>Copied</span>}
-    </button>
   );
 }
 

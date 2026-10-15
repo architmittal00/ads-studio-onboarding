@@ -6,10 +6,11 @@ import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import EntityChangesDrawer from "@/components/EntityChangesDrawer";
+import CopyIdButton from "@/components/CopyIdButton";
 import { ChevronIcon, CloseIcon, RefreshIcon, SearchIcon, SettingsIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { parseJsonResponse } from "@/lib/fetchJson";
+import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import { IMPACT_BATCH_SIZE, MAX_IMPACT_CHANGES } from "@/lib/recentChangesImpact";
 import { humanizeStatus } from "@/lib/insightsMetrics";
 import { getRecentChangesTabs, setRecentChangesTabs, getRecentChangesQueryPanelCollapsed, setRecentChangesQueryPanelCollapsed } from "@/lib/clientStorage";
@@ -87,12 +88,47 @@ function entityKey(e) {
   return `${e.level}:${e.entityId}`;
 }
 
-// A quick before/after % badge — one full calendar day immediately before an
-// entity's most recent change vs. the one immediately after it (computed
-// server-side by lib/recentChangesImpact.js's impactWindowFor; see
-// fetchImpactProgressively below for how `before`/`after` get filled in).
-// Renders nothing when either side is missing or both are zero — a 0%-to-0%
-// "change" is noise, not a signal.
+// The %-change in ROAS between an entity's own impact before/after window —
+// same math as QuickSignal's own badge below, duplicated rather than shared
+// since QuickSignal renders a badge and this just needs the raw number to
+// sort by. `null` means "no usable signal yet" (impact still loading,
+// unavailable, capped, or too recent) — sorted to the end of its day group
+// rather than treated as the worst performer, since it isn't a real reading
+// at all.
+function roasImpactPct(entity) {
+  const before = entity.impact?.before?.roas;
+  const after = entity.impact?.after?.roas;
+  if (typeof before !== "number" || typeof after !== "number") return null;
+  if (before === 0 && after === 0) return 0;
+  return before !== 0 ? ((after - before) / Math.abs(before)) * 100 : 100;
+}
+
+// Primary: the calendar day of an entity's own most recent change, newest
+// first — matches "last change date (most recent)" per the ask. Secondary,
+// within the same day: ROAS impact ascending (the worst movers — most
+// negative % change — surface first, trailing off toward the best), so a
+// reviewer's eye lands on what needs attention before what's already
+// trending well. Entities with no ROAS signal yet sort after ones that have
+// it; exact time (most recent first) breaks any remaining tie.
+function compareEntities(a, b) {
+  const dayA = (a.lastChangeTime || "").slice(0, 10);
+  const dayB = (b.lastChangeTime || "").slice(0, 10);
+  if (dayA !== dayB) return dayB.localeCompare(dayA);
+  const pctA = roasImpactPct(a);
+  const pctB = roasImpactPct(b);
+  if (pctA !== null && pctB !== null && pctA !== pctB) return pctA - pctB;
+  if (pctA === null && pctB !== null) return 1;
+  if (pctA !== null && pctB === null) return -1;
+  return new Date(b.lastChangeTime) - new Date(a.lastChangeTime);
+}
+
+// A quick before/after % badge — the N calendar days immediately before an
+// entity's most recent change vs. the N days since it (N scaling with how
+// long ago the change actually happened, computed server-side by
+// lib/recentChangesImpact.js's impactWindowFor; see fetchImpactProgressively
+// below for how `before`/`after` get filled in). Renders nothing when either
+// side is missing or both are zero — a 0%-to-0% "change" is noise, not a
+// signal.
 function QuickSignal({ label, before, after }) {
   if (typeof before !== "number" || typeof after !== "number") return null;
   if (before === 0 && after === 0) return null;
@@ -109,17 +145,30 @@ function QuickSignal({ label, before, after }) {
 // One row on the landing list — enough to tell there's something worth
 // opening ("some change took place at each level," per the original ask)
 // plus a quick performance-since-last-change signal; the changes themselves
-// live behind EntityChangesDrawer. The signal compares the one full calendar
-// day before the entity's own most recent change to the one full day after
-// it (see lib/recentChangesImpact.js) — filled in progressively after the
-// list itself renders, never blocking first paint (see
-// fetchImpactProgressively below).
+// live behind EntityChangesDrawer. The signal compares the N calendar days
+// before the entity's own most recent change to the N days since it, N
+// scaling with how long ago the change happened (see
+// lib/recentChangesImpact.js) — filled in progressively after the list
+// itself renders, never blocking first paint (see fetchImpactProgressively
+// below).
 function EntityRow({ entity, onOpen }) {
   const levelLabel = LEVEL_LABEL[entity.level] || entity.level;
+  // A plain <button> here would make this row's own CopyIdButton a <button>
+  // nested inside a <button> — invalid HTML (and a real React hydration
+  // error) now that there's an interactive child in the row, not just text.
+  // A div with button semantics (role, tabIndex, Enter/Space handling) keeps
+  // the whole row clickable and keyboard-operable without that nesting.
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(entity)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(entity);
+        }
+      }}
       className={styles.card}
       style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", padding: "16px 22px" }}
     >
@@ -134,9 +183,12 @@ function EntityRow({ entity, onOpen }) {
             </span>
           )}
           <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {entity.entityName || entity.entityId}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {entity.entityName || entity.entityId}
+              </p>
+              <CopyIdButton id={entity.entityId} />
+            </div>
             {entity.level === "adset" && entity.campaignName && (
               <p className={styles.muted} style={{ margin: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 in {entity.campaignName}
@@ -175,13 +227,18 @@ function EntityRow({ entity, onOpen }) {
         )}
         {!entity.tooRecent && entity.impact && (
           <>
+            {entity.impactDays > 0 && (
+              <span className={styles.muted} style={{ fontSize: 11 }}>
+                {entity.impactDays}d before vs {entity.impactDays}d since:
+              </span>
+            )}
             <QuickSignal label="Spend" before={entity.impact.before?.spend} after={entity.impact.after?.spend} />
             <QuickSignal label="Purchases" before={entity.impact.before?.purchases} after={entity.impact.after?.purchases} />
             <QuickSignal label="ROAS" before={entity.impact.before?.roas} after={entity.impact.after?.roas} />
           </>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -357,7 +414,7 @@ export default function RecentChanges() {
       }
     }
     updateTab(tabId, { loading: true, error: null });
-    fetch(`/api/fb/recent-changes?accountId=${encodeURIComponent(accountId)}&hours=${hours}`)
+    fetchWithTimeout(`/api/fb/recent-changes?accountId=${encodeURIComponent(accountId)}&hours=${hours}`)
       .then(parseJsonResponse)
       .then((json) => {
         if (json.error) {
@@ -419,7 +476,7 @@ export default function RecentChanges() {
       // impact…" spinner never resolves. Falling back to an explicit `null`
       // per entity marks it as "tried, couldn't measure" instead.
       const explicitFailure = Object.fromEntries(chunk.map((e) => [entityKey(e), null]));
-      fetch("/api/fb/recent-changes/impact", {
+      fetchWithTimeout("/api/fb/recent-changes/impact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ changes: chunk.map((e) => ({ id: entityKey(e), objectId: e.entityId, eventTime: e.lastChangeTime })) }),
@@ -445,22 +502,28 @@ export default function RecentChanges() {
   // tab's search query — case-insensitive substring match, same convention
   // as every other free-text filter in this app (Explore's name/ID filters).
   // A Campaign-level entity's own id/name is its own campaign; an Ad Set
-  // entity carries its parent campaignId/campaignName from the API.
+  // entity carries its parent campaignId/campaignName from the API. Sorted
+  // by compareEntities above (last-change day, then ROAS impact) rather than
+  // trusting the API's own plain lastChangeTime-desc order as final — this
+  // re-sorts client-side as each entity's impact streams in via
+  // fetchImpactProgressively, since the ROAS tiebreak isn't known until then.
   const visibleEntities = useMemo(() => {
     if (!activeTab.result) return [];
     const query = activeTab.searchQuery.trim().toLowerCase();
-    return activeTab.result.entities.filter((e) => {
-      if (activeTab.statusFilter === "active" && e.status !== "ACTIVE") return false;
-      // An entity with no known status (lookup failed or missing) always
-      // stays visible under "inactive" too — same "never silently hide
-      // something with no way to un-hide it" reasoning as the old campaign
-      // filter had for a missing parent campaign.
-      if (activeTab.statusFilter === "inactive" && e.status === "ACTIVE") return false;
-      if (!query) return true;
-      const name = (e.entityName || "").toLowerCase();
-      const campaignName = (e.campaignName || "").toLowerCase();
-      return name.includes(query) || campaignName.includes(query);
-    });
+    return activeTab.result.entities
+      .filter((e) => {
+        if (activeTab.statusFilter === "active" && e.status !== "ACTIVE") return false;
+        // An entity with no known status (lookup failed or missing) always
+        // stays visible under "inactive" too — same "never silently hide
+        // something with no way to un-hide it" reasoning as the old campaign
+        // filter had for a missing parent campaign.
+        if (activeTab.statusFilter === "inactive" && e.status === "ACTIVE") return false;
+        if (!query) return true;
+        const name = (e.entityName || "").toLowerCase();
+        const campaignName = (e.campaignName || "").toLowerCase();
+        return name.includes(query) || campaignName.includes(query);
+      })
+      .sort(compareEntities);
   }, [activeTab.result, activeTab.searchQuery, activeTab.statusFilter]);
 
   // Forces the Accounts/Time Window panel open until there's a result to
@@ -475,7 +538,7 @@ export default function RecentChanges() {
     <RecentChangesEmptyState canRun={runnable} loading={activeTab.loading} onRun={() => runQuery(false)} />
   ) : (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ position: "relative", width: "100%", maxWidth: 320 }}>
           <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--t3)", pointerEvents: "none" }}>
             <SearchIcon size={13} />
@@ -505,7 +568,7 @@ export default function RecentChanges() {
             </button>
           ))}
         </div>
-        <button type="button" className={styles.btnSecondary} onClick={() => runQuery(true)} style={{ flexShrink: 0 }}>
+        <button type="button" className={styles.btnSecondary} onClick={() => runQuery(true)} style={{ flexShrink: 0, marginLeft: "auto" }}>
           Hard Refresh
         </button>
       </div>
