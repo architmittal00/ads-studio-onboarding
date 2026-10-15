@@ -51,16 +51,13 @@ function daysAfterChangeWindow(changeDay, sinceChangeStart, today, days) {
   return { since: sinceChangeStart, until, partial: until === today };
 }
 
-// Eight comparison windows for one entity around one change — three anchored
-// to the change itself and always fully in the past (never unavailable), two
-// fixed-length windows for the change's aftermath that grow in step with
-// today until each is fully elapsed, one uncapped window that grows with how
-// long ago the change happened, and two anchored to *now* instead of the
-// change (most useful for an older change, where "Since Change" alone would
-// average over a long, diluted period and not show where things stand
-// today). All whole-day, matching the same Insights time_range constraint
-// pages/api/fb/recent-changes.js's bulk impact computation already works
-// around (no sub-day windows exist on this API).
+// Six comparison windows for one entity around one change — three anchored
+// to the change itself and always fully in the past (never unavailable), and
+// three anchored to the change's own aftermath, two of them fixed-length and
+// growing in step with today until each is fully elapsed, one uncapped and
+// growing with how long ago the change happened. All whole-day, matching the
+// same Insights time_range constraint pages/api/fb/recent-changes.js's bulk
+// impact computation already works around (no sub-day windows on this API).
 function buildWindows(eventTimeIso) {
   const changeDay = isoDate(new Date(eventTimeIso));
   const today = isoDate(new Date());
@@ -74,10 +71,6 @@ function buildWindows(eventTimeIso) {
   // after" doesn't exist yet) — without this fallback the window would be
   // empty rather than showing the change day's own partial data.
   const sinceChangeSince = sinceChangeStart <= today ? sinceChangeStart : changeDay;
-
-  const last3DaysSince = addDaysUTC(today, -3);
-  const last7DaysSince = addDaysUTC(today, -7);
-  const yesterday = addDaysUTC(today, -1);
 
   return {
     sevenDaysBefore: { since: addDaysUTC(changeDay, -7), until: addDaysUTC(changeDay, -1) },
@@ -97,19 +90,10 @@ function buildWindows(eventTimeIso) {
     },
     threeDaysAfter: daysAfterChangeWindow(changeDay, sinceChangeStart, today, 3),
     sevenDaysAfter: daysAfterChangeWindow(changeDay, sinceChangeStart, today, 7),
-    // `overlapsChange` flags a now-anchored window whose start falls on or
-    // before the change's own day — it mixes pre-change and post-change
-    // delivery into one number, which would misleadingly read as a clean
-    // "since the change" value. Only possible for a change more recent than
-    // the window is long (e.g. a change from 2 days ago inside a "Last 7
-    // Days" window) — components/WindowComparisonTable.js shows a muted
-    // explanation instead of the number when this is set.
-    last3Days: { since: last3DaysSince, until: yesterday, overlapsChange: last3DaysSince <= changeDay },
-    last7Days: { since: last7DaysSince, until: yesterday, overlapsChange: last7DaysSince <= changeDay },
   };
 }
 
-// Per-change, on-demand drill-down — a single entity lookup across up to 8
+// Per-change, on-demand drill-down — a single entity lookup across up to 6
 // windows for a user-chosen metric set, not a bulk list (unlike
 // pages/api/fb/recent-changes.js's own impact computation), so no MAX_*
 // cap or vercel.json maxDuration entry is needed here.
@@ -153,10 +137,9 @@ export default async function handler(req, res) {
       // Graph's `time_range` param only accepts `since`/`until` — passing
       // the whole window object (which also carries this endpoint's own
       // `overlapsChange`/`partial` bookkeeping flags) fails outright with
-      // "(#100) Invalid keys ... were found in param time_range" for every
-      // window that has either flag set (last3Days/last7Days always carry
-      // overlapsChange; sinceChange carries partial for a very recent
-      // change) — confirmed live via that exact error message.
+      // "(#100) Invalid keys ... were found in param time_range" for any
+      // window that has either flag set (sinceChange always carries
+      // `partial`) — confirmed live via that exact error message.
       const { since, until } = windows[name];
       return graphGetInsights(`/${objectId}/insights`, token, { time_range: { since, until }, fields });
     })

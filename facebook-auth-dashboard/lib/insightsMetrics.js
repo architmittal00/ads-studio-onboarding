@@ -676,6 +676,22 @@ export function formatMetricValue(value, format, currency) {
   }
 }
 
+// Facebook's own `effective_status` values ("ACTIVE", "PAUSED",
+// "CAMPAIGN_PAUSED", "PENDING_REVIEW", ...) title-cased for display — shared
+// by Explore's results table and anywhere else a row carries a `status`
+// field (pages/api/fb/explore-insights.js injects it onto every row at
+// campaign/adset/ad level; pages/api/fb/recent-changes.js does the same for
+// its own entities via a lighter-weight batched lookup).
+export function humanizeStatus(status) {
+  return status
+    ? status
+        .toLowerCase()
+        .split("_")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
+    : "—";
+}
+
 // Only these formats are plottable as a numeric axis — "text" rankings
 // (quality_ranking etc.) are table-only.
 const CHARTABLE_FORMATS = new Set(["number", "currency", "percent", "decimal"]);

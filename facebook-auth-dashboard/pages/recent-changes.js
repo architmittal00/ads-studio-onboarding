@@ -11,6 +11,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { IMPACT_BATCH_SIZE, MAX_IMPACT_CHANGES } from "@/lib/recentChangesImpact";
+import { humanizeStatus } from "@/lib/insightsMetrics";
 import { getRecentChangesTabs, setRecentChangesTabs, getRecentChangesQueryPanelCollapsed, setRecentChangesQueryPanelCollapsed } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -39,9 +40,9 @@ function newTabId() {
   return `t${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
-// One independent tab: its own account, time window, and name/campaign
-// search, plus its own fetched result/loading/error — switching tabs never
-// touches another tab's state.
+// One independent tab: its own account, time window, name/campaign search,
+// and status filter, plus its own fetched result/loading/error — switching
+// tabs never touches another tab's state.
 function createBlankTab(seedAccountId = "") {
   return {
     id: newTabId(),
@@ -49,6 +50,10 @@ function createBlankTab(seedAccountId = "") {
     accountId: seedAccountId,
     hours: 72,
     searchQuery: "",
+    // "all" | "active" | "inactive" — "inactive" lumps every non-ACTIVE
+    // effective_status together (Paused, Archived, Pending Review, ...),
+    // same simplification as the user's own "active/inactive" framing.
+    statusFilter: "all",
     result: null,
     loading: false,
     error: null,
@@ -123,6 +128,11 @@ function EntityRow({ entity, onOpen }) {
           <span className={LEVEL_BADGE_CLASS[entity.level] || styles.badgeInfo} style={{ flexShrink: 0 }}>
             {levelLabel}
           </span>
+          {entity.status && (
+            <span className={entity.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo} style={{ flexShrink: 0 }}>
+              {humanizeStatus(entity.status)}
+            </span>
+          )}
           <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
             <p style={{ margin: 0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {entity.entityName || entity.entityId}
@@ -263,6 +273,7 @@ export default function RecentChanges() {
         ...createBlankTab(),
         ...t,
         searchQuery: t.searchQuery ?? "",
+        statusFilter: t.statusFilter ?? "all",
         result: cached?.data ?? null,
         loading: false,
         error: null,
@@ -438,13 +449,19 @@ export default function RecentChanges() {
   const visibleEntities = useMemo(() => {
     if (!activeTab.result) return [];
     const query = activeTab.searchQuery.trim().toLowerCase();
-    if (!query) return activeTab.result.entities;
     return activeTab.result.entities.filter((e) => {
+      if (activeTab.statusFilter === "active" && e.status !== "ACTIVE") return false;
+      // An entity with no known status (lookup failed or missing) always
+      // stays visible under "inactive" too — same "never silently hide
+      // something with no way to un-hide it" reasoning as the old campaign
+      // filter had for a missing parent campaign.
+      if (activeTab.statusFilter === "inactive" && e.status === "ACTIVE") return false;
+      if (!query) return true;
       const name = (e.entityName || "").toLowerCase();
       const campaignName = (e.campaignName || "").toLowerCase();
       return name.includes(query) || campaignName.includes(query);
     });
-  }, [activeTab.result, activeTab.searchQuery]);
+  }, [activeTab.result, activeTab.searchQuery, activeTab.statusFilter]);
 
   // Forces the Accounts/Time Window panel open until there's a result to
   // fall back to showing instead of a blank page.
@@ -472,6 +489,22 @@ export default function RecentChanges() {
             style={{ width: "100%", paddingLeft: 30 }}
           />
         </div>
+        <div className={styles.tabGroup} style={{ flexShrink: 0 }}>
+          {[
+            { key: "all", label: "All" },
+            { key: "active", label: "Active" },
+            { key: "inactive", label: "Inactive" },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              className={activeTab.statusFilter === opt.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              onClick={() => updateTab(activeTab.id, { statusFilter: opt.key })}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <button type="button" className={styles.btnSecondary} onClick={() => runQuery(true)} style={{ flexShrink: 0 }}>
           Hard Refresh
         </button>
@@ -489,7 +522,10 @@ export default function RecentChanges() {
         <p className={styles.sub}>No tracked changes (Ad launches/pauses, budget changes, Ad Set/Campaign pauses) in this window.</p>
       )}
       {visibleEntities.length === 0 && activeTab.result.entities.length > 0 && (
-        <p className={styles.sub}>No campaigns or ad sets match &quot;{activeTab.searchQuery}&quot;.</p>
+        <p className={styles.sub}>
+          No campaigns or ad sets match{activeTab.searchQuery ? ` "${activeTab.searchQuery}"` : ""}
+          {activeTab.statusFilter !== "all" ? ` with status ${activeTab.statusFilter}` : ""}.
+        </p>
       )}
       {visibleEntities.map((entity) => (
         <EntityRow key={`${entity.level}:${entity.entityId}`} entity={entity} onOpen={setOpenEntity} />
