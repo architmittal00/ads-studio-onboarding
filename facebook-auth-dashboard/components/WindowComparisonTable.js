@@ -15,13 +15,23 @@ export const DEFAULT_COMPARISON_METRIC_KEYS = ["spend", "purchases", "cost_per_p
 // (see WINDOW_GROUP) so the table draws one visible divider at the change
 // itself — "after" windows all land contiguously on the left of it here,
 // "before" windows contiguously on the right.
-export const WINDOW_ORDER = ["last7Days", "last3Days", "sinceChange", "threeDaysAfter", "oneDayBefore", "threeDaysBefore", "sevenDaysBefore"];
+export const WINDOW_ORDER = [
+  "last7Days",
+  "last3Days",
+  "sinceChange",
+  "threeDaysAfter",
+  "sevenDaysAfter",
+  "oneDayBefore",
+  "threeDaysBefore",
+  "sevenDaysBefore",
+];
 export const WINDOW_LABEL = {
   sevenDaysBefore: "7 Days Before",
   threeDaysBefore: "3 Days Before",
   oneDayBefore: "1 Day Before",
   sinceChange: "Since Change",
   threeDaysAfter: "3 Days Post Change",
+  sevenDaysAfter: "7 Days Post Change",
   last3Days: "Last 3 Days",
   last7Days: "Last 7 Days",
 };
@@ -31,6 +41,7 @@ const WINDOW_GROUP = {
   oneDayBefore: "before",
   sinceChange: "after",
   threeDaysAfter: "after",
+  sevenDaysAfter: "after",
   last3Days: "after",
   last7Days: "after",
 };
@@ -59,7 +70,9 @@ export function normalizedValue(metric, rawValue, days) {
 export default function WindowComparisonTable({ windows, metricKeys, catalog, loading, currency }) {
   // Drops a window entirely (header and every metric's cell) only when it
   // genuinely doesn't apply yet (the window object itself is `null` — e.g.
-  // `threeDaysAfter` before 3 full days have passed, see buildWindows in
+  // `threeDaysAfter`/`sevenDaysAfter` when the change happened today itself,
+  // so not even one post-change day exists yet; otherwise they show a real,
+  // growing `partial` total instead — see `daysAfterChangeWindow` in
   // pages/api/fb/recent-changes/investigate.js). A window whose Graph call
   // actually failed still has a real object (with `error` set and
   // `metrics: null`) and stays visible, rendered as a dedicated error cell

@@ -38,40 +38,46 @@ function parseJsonArrayParam(raw) {
   }
 }
 
-// Seven comparison windows for one entity around one change — three anchored
-// to the change itself and always fully in the past (never unavailable), one
-// fixed-length window for the change's immediate aftermath, one that grows
-// with how long ago the change happened, and two anchored to *now* instead
-// of the change (most useful for an older change, where "Since Change" alone
-// would average over a long, diluted period and not show where things stand
+// A fixed-length "N days after the change" window (3 Days Post Change, 7
+// Days Post Change): starts the day after the change and runs N days,
+// capped at today — so it shows a real, growing partial total from the first
+// post-change day onward instead of hiding as "not enough data" until the
+// full N days have elapsed. Only `null` (no window at all) when not even one
+// post-change day exists yet, i.e. the change happened today itself — there
+// is no "after" data to show, partial or otherwise, until at least tomorrow.
+function daysAfterChangeWindow(changeDay, sinceChangeStart, today, days) {
+  if (sinceChangeStart > today) return null;
+  const until = addDaysUTC(changeDay, days) > today ? today : addDaysUTC(changeDay, days);
+  return { since: sinceChangeStart, until, partial: until === today };
+}
+
+// Eight comparison windows for one entity around one change — three anchored
+// to the change itself and always fully in the past (never unavailable), two
+// fixed-length windows for the change's aftermath that grow in step with
+// today until each is fully elapsed, one uncapped window that grows with how
+// long ago the change happened, and two anchored to *now* instead of the
+// change (most useful for an older change, where "Since Change" alone would
+// average over a long, diluted period and not show where things stand
 // today). All whole-day, matching the same Insights time_range constraint
 // pages/api/fb/recent-changes.js's bulk impact computation already works
 // around (no sub-day windows exist on this API).
 function buildWindows(eventTimeIso) {
   const changeDay = isoDate(new Date(eventTimeIso));
   const today = isoDate(new Date());
-  const yesterday = addDaysUTC(today, -1);
 
   const sinceChangeStart = addDaysUTC(changeDay, 1);
-  // A full day hasn't elapsed since the change yet (it happened today, or
-  // yesterday with "yesterday" itself not over) — rather than reporting "not
-  // enough data," fall back to a window that runs through *today*, so a
-  // change made this morning still shows whatever has accrued so far instead
-  // of nothing at all. `since` degrades to the change's own day when even
-  // that day isn't over (change happened today) so the window is never empty.
-  const sinceChangeFullDayAvailable = sinceChangeStart <= yesterday;
-  const sinceChangeUntil = sinceChangeFullDayAvailable ? yesterday : today;
-  // Not available means sinceChangeStart is today or later: today itself
-  // (the change happened yesterday — the window is just today, so far) or
-  // tomorrow (the change happened today — fall back to the change's own day,
-  // since "the day after" doesn't exist yet).
-  const sinceChangeSince = sinceChangeFullDayAvailable ? sinceChangeStart : sinceChangeStart <= today ? sinceChangeStart : changeDay;
-
-  const threeDaysAfterUntil = addDaysUTC(changeDay, 3);
-  const threeDaysAfterAvailable = threeDaysAfterUntil <= yesterday;
+  // Always runs through *today* — per explicit ask, a change should show
+  // whatever has accrued so far even on the same day it happened, not stop
+  // at "yesterday" and wait for a full day to close. `since` degrades to the
+  // change's own day only in the one edge case where `sinceChangeStart`
+  // itself is still in the future (the change happened today, so "the day
+  // after" doesn't exist yet) — without this fallback the window would be
+  // empty rather than showing the change day's own partial data.
+  const sinceChangeSince = sinceChangeStart <= today ? sinceChangeStart : changeDay;
 
   const last3DaysSince = addDaysUTC(today, -3);
   const last7DaysSince = addDaysUTC(today, -7);
+  const yesterday = addDaysUTC(today, -1);
 
   return {
     sevenDaysBefore: { since: addDaysUTC(changeDay, -7), until: addDaysUTC(changeDay, -1) },
@@ -82,13 +88,15 @@ function buildWindows(eventTimeIso) {
     // from yet, so this necessarily mixes pre- and post-change delivery.
     // `partial` means the window's last day is today, which hasn't finished
     // yet — the number is real but still accruing, not a clean closed total.
+    // Since this window always runs through today, it is always partial.
     sinceChange: {
       since: sinceChangeSince,
-      until: sinceChangeUntil,
-      partial: !sinceChangeFullDayAvailable,
+      until: today,
+      partial: true,
       overlapsChange: sinceChangeSince <= changeDay,
     },
-    threeDaysAfter: threeDaysAfterAvailable ? { since: sinceChangeStart, until: threeDaysAfterUntil } : null,
+    threeDaysAfter: daysAfterChangeWindow(changeDay, sinceChangeStart, today, 3),
+    sevenDaysAfter: daysAfterChangeWindow(changeDay, sinceChangeStart, today, 7),
     // `overlapsChange` flags a now-anchored window whose start falls on or
     // before the change's own day — it mixes pre-change and post-change
     // delivery into one number, which would misleadingly read as a clean
@@ -101,7 +109,7 @@ function buildWindows(eventTimeIso) {
   };
 }
 
-// Per-change, on-demand drill-down — a single entity lookup across up to 7
+// Per-change, on-demand drill-down — a single entity lookup across up to 8
 // windows for a user-chosen metric set, not a bulk list (unlike
 // pages/api/fb/recent-changes.js's own impact computation), so no MAX_*
 // cap or vercel.json maxDuration entry is needed here.
