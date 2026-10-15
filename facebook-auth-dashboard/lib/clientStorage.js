@@ -215,6 +215,28 @@ export function setNewRecentChangesTabs(data) {
   }
 }
 
+const NEW_RECENT_CHANGES_QUERY_PANEL_COLLAPSED_KEY = "fb-dashboard:new-recent-changes-query-panel-collapsed";
+
+// Same per-device collapsed/expanded preference as
+// getRecentChangesQueryPanelCollapsed above, for this page's own "Accounts,
+// Time Window & Campaigns" side panel.
+export function getNewRecentChangesQueryPanelCollapsed() {
+  try {
+    const value = localStorage.getItem(NEW_RECENT_CHANGES_QUERY_PANEL_COLLAPSED_KEY);
+    return value == null ? null : value === "1";
+  } catch {
+    return null;
+  }
+}
+
+export function setNewRecentChangesQueryPanelCollapsed(collapsed) {
+  try {
+    localStorage.setItem(NEW_RECENT_CHANGES_QUERY_PANEL_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
+
 const CUSTOM_METRICS_KEY = "fb-dashboard:explore-custom-metrics";
 
 // User-defined ratio metrics for Explore (numerator metric ÷ denominator

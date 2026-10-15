@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import EntityDrillDown from "./EntityDrillDown";
 import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowComparisonTable";
+import Thumb from "./Thumb";
+import CreativeLightbox from "./CreativeLightbox";
 import { CloseIcon, ChevronIcon } from "./icons";
 import { buildEffectiveCatalog } from "@/lib/insightsMetrics";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
@@ -38,6 +40,11 @@ const ACTION_BADGE_CLASS = {
 // a day with many changes (e.g. 8 ads paused at once) from pushing
 // everything else in the drawer far down the page.
 const CHANGE_LIST_MAX_HEIGHT = 240;
+
+// The only two tracked actions whose `sourceObjectId` is an actual Ad (every
+// other action's source is an Ad Set or Campaign, which has no creative to
+// thumbnail) — see pages/api/fb/new-recent-changes.js's own ACTION_LABELS.
+const AD_LEVEL_ACTIONS = new Set(["ad_launched", "ad_paused"]);
 
 function isoDateOf(iso) {
   return iso ? iso.slice(0, 10) : null;
@@ -90,29 +97,48 @@ function formatDayLabel(dateStr) {
 // One change within a day group's own list — the actual object it happened
 // to (sourceObjectName) is shown as the subject, not the bucket entity's own
 // name, so "Ad 'Summer Sale' launched" reads correctly inside an Ad Set's
-// day group whose own name is the ad set's, not the ad's. The action itself
-// is a color-coded badge (see ACTION_BADGE_CLASS) rather than plain bold
-// text, so a long list of mixed changes is scannable at a glance.
-function ChangeLine({ change }) {
+// day group whose own name is the ad set's, not the ad's. An ad-level change
+// gets its actual creative thumbnail (clickable, opens the same full-size
+// CreativeLightbox preview used elsewhere in this app) instead of a blank
+// row — a day with a dozen "Ad Paused" entries is scannable by the actual
+// creative instead of reading as identical repeated text. `showBadge` is
+// false once the day's own action-type tabs (see DayChangesList) have
+// already filtered the list down to one kind of change — repeating the same
+// colored label on every single row at that point is pure noise.
+function ChangeLine({ change, thumbnailInfo, onOpenThumb, showBadge }) {
   const detail = describeChangeDetail(change.rawExtraData);
+  const isAdLevel = AD_LEVEL_ACTIONS.has(change.action);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span className={styles[ACTION_BADGE_CLASS[change.action]] || styles.badgeInfo} style={{ fontSize: 10.5, flexShrink: 0 }}>
-          {change.actionLabel}
-        </span>
-        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {change.sourceObjectName || change.sourceObjectId}
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      {isAdLevel && (
+        <Thumb
+          src={thumbnailInfo?.thumbnailUrl}
+          isVideo={!!thumbnailInfo?.isVideo}
+          loading={!thumbnailInfo}
+          size={32}
+          onClick={() => onOpenThumb?.(change)}
+        />
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {showBadge && (
+            <span className={styles[ACTION_BADGE_CLASS[change.action]] || styles.badgeInfo} style={{ fontSize: 10.5, flexShrink: 0 }}>
+              {change.actionLabel}
+            </span>
+          )}
+          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {change.sourceObjectName || change.sourceObjectId}
+          </p>
+        </div>
+        {detail && (
+          <p className={styles.sub} style={{ margin: 0, fontSize: 12 }}>
+            {detail.from} → {detail.to}
+          </p>
+        )}
+        <p className={styles.muted} style={{ margin: 0, fontSize: 11 }}>
+          By {change.actorName} · {relativeAndAbsolute(change.eventTime).relative}
         </p>
       </div>
-      {detail && (
-        <p className={styles.sub} style={{ margin: 0, fontSize: 12 }}>
-          {detail.from} → {detail.to}
-        </p>
-      )}
-      <p className={styles.muted} style={{ margin: 0, fontSize: 11 }}>
-        By {change.actorName} · {relativeAndAbsolute(change.eventTime).relative}
-      </p>
     </div>
   );
 }
@@ -124,7 +150,7 @@ function ChangeLine({ change }) {
 // drawer. Each call site (the landing day-card list and the Investigate
 // view's "Changes that day" list) gets its own independent filter, since
 // each is its own component instance keyed by day.
-function DayChangesList({ changes }) {
+function DayChangesList({ changes, thumbnails, onOpenThumb }) {
   const [filter, setFilter] = useState("all");
 
   const counts = useMemo(() => {
@@ -137,6 +163,10 @@ function DayChangesList({ changes }) {
   }, [changes]);
 
   const visible = filter === "all" ? changes : changes.filter((c) => c.action === filter);
+  // Once the list is down to a single action type — either because that's
+  // all there ever was, or because a filter tab narrowed it — every row's
+  // badge would say the exact same thing, so it's dropped from each line.
+  const showBadge = filter === "all" && counts.length > 1;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -165,7 +195,7 @@ function DayChangesList({ changes }) {
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: CHANGE_LIST_MAX_HEIGHT, overflowY: "auto", paddingRight: 4 }}>
         {visible.map((change) => (
-          <ChangeLine key={change.id} change={change} />
+          <ChangeLine key={change.id} change={change} thumbnailInfo={thumbnails?.[change.sourceObjectId]} onOpenThumb={onOpenThumb} showBadge={showBadge} />
         ))}
       </div>
     </div>
@@ -204,6 +234,55 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
     };
   }, [entity?.accountId]);
   const effectiveCatalog = useMemo(() => buildEffectiveCatalog(customMetrics, customEvents), [customMetrics, customEvents]);
+
+  // Thumbnails for every ad-level change's own ad, fetched once per entity —
+  // same /api/fb/ad-thumbnails endpoint components/EntityDrillDown.js and
+  // pages/explore.js both already use. Keyed by level+id (not the whole
+  // `entity` object) so a silent refresh of the same entity's data (see
+  // pages/new-recent-changes.js's own re-sync effect) doesn't re-fetch
+  // thumbnails for ads it already has.
+  const [thumbnails, setThumbnails] = useState({});
+  const [lightboxItem, setLightboxItem] = useState(null);
+  useEffect(() => {
+    if (!entity) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing stale thumbnails from a previously-opened entity, not derivable from props/state
+      setThumbnails({});
+      return;
+    }
+    const adIds = [...new Set(entity.changes.filter((c) => AD_LEVEL_ACTIONS.has(c.action)).map((c) => c.sourceObjectId))];
+    if (adIds.length === 0) {
+      setThumbnails({});
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/fb/ad-thumbnails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adIds }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled) setThumbnails(json.thumbnails || {});
+      })
+      .catch(() => {
+        // Best-effort — a failed thumbnail lookup just leaves every row's
+        // Thumb showing its blank placeholder instead of blocking anything.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity?.level, entity?.entityId]);
+
+  function openAdLightbox(change) {
+    const info = thumbnails[change.sourceObjectId];
+    setLightboxItem({
+      id: change.sourceObjectId,
+      name: change.sourceObjectName || change.sourceObjectId,
+      thumbnailUrl: info?.thumbnailUrl,
+      isVideo: !!info?.isVideo,
+    });
+  }
 
   useEffect(() => {
     if (!entity) return;
@@ -319,11 +398,11 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
               <div key={group.date} className={styles.card} style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{formatDayLabel(group.date)}</p>
-                  <button type="button" className={styles.btnSecondary} onClick={() => setInvestigatingDay(group)}>
+                  <button type="button" className={styles.btnPrimary} onClick={() => setInvestigatingDay(group)}>
                     Investigate
                   </button>
                 </div>
-                <DayChangesList changes={group.changes} />
+                <DayChangesList changes={group.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
               </div>
             ))}
           </div>
@@ -335,7 +414,7 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
               <p className={styles.muted} style={{ marginBottom: 6 }}>
                 Changes that day
               </p>
-              <DayChangesList changes={investigatingDay.changes} />
+              <DayChangesList changes={investigatingDay.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
             </div>
 
             <div style={{ marginTop: 24 }}>
@@ -404,6 +483,13 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
             />
           </>
         )}
+
+        {/* Rendered inside the panel (not as a sibling of drawerOverlay)
+            specifically so its own backdrop click bubbles into this panel's
+            stopPropagation and never reaches drawerOverlay's onClick={onClose}
+            — otherwise a click to dismiss the lightbox would also close the
+            entire entity drawer behind it. */}
+        <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       </div>
     </div>
   );
