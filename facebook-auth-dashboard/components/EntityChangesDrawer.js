@@ -411,10 +411,8 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
 
         {investigatingDay && (
           <>
-            <div style={{ marginTop: 20 }}>
-              <p className={styles.muted} style={{ marginBottom: 6 }}>
-                Changes that day
-              </p>
+            <div className={styles.card} style={{ marginTop: 20, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>Changes that day</p>
               <DayChangesList changes={investigatingDay.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
             </div>
 

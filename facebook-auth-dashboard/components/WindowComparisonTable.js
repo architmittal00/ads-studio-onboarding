@@ -1,5 +1,5 @@
 import Loader from "./Loader";
-import { RATE_METRIC_KEYS, LOWER_IS_BETTER_METRIC_KEYS, isUnitMetric, formatMetricValue } from "@/lib/insightsMetrics";
+import { LOWER_IS_BETTER_METRIC_KEYS, isUnitMetric, formatMetricValue } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
 // Shared with components/EntityDrillDown.js, which renders one of these per
@@ -46,21 +46,6 @@ const WINDOW_GROUP = {
   last7Days: "after",
 };
 const GROUP_LABEL = { before: "Before the Change", after: "After the Change" };
-
-// Additive metrics (a genuine total over the window — Spend, Purchases, …)
-// need dividing by the window's own day-count before two different-length
-// windows are actually comparable at a glance — a 7-day Spend total next to
-// a 1-day one is 7x larger for no interesting reason. Rate/ratio metrics
-// (percent/decimal format — ROAS, CTR — plus the currency-format ones in
-// RATE_METRIC_KEYS, like Cost Per Purchase, which are already "cost ÷
-// something" and would get silently diluted by a second division) are
-// window-independent and shown as-is.
-export function normalizedValue(metric, rawValue, days) {
-  if (rawValue == null) return null;
-  const isAdditiveTotal = (metric.format === "number" || metric.format === "currency") && !RATE_METRIC_KEYS.has(metric.key);
-  if (isAdditiveTotal && days > 1) return rawValue / days;
-  return rawValue;
-}
 
 // Renders the metric-rows × window-columns comparison grid — the shared core
 // of both the top-level Investigate drawer and each per-entity drill-down
@@ -147,11 +132,18 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
             // total (see `partial` below). Those two still render their own
             // real number in the cell (or, for `overlapsChange`, a muted
             // explanation instead) — they're just never crowned "best" or
-            // "worst" against a set of genuinely comparable windows.
+            // "worst" against a set of genuinely comparable windows. This
+            // only ever runs on `isUnitMetric` rows (ROAS, CTR, Cost Per
+            // Purchase, …) — rates that are already window-length-
+            // independent — so comparing each window's raw value here (a
+            // genuine sum for an additive metric like Spend, same
+            // aggregation convention as the rest of this app) rather than a
+            // per-day average never makes a longer window's bigger total
+            // misleadingly "win."
             const comparableValues = visibleWindowNames.map((name) => {
               const w = windows?.[name];
               if (!w || w.overlapsChange || w.partial) return null;
-              return normalizedValue(metric, w.metrics?.[key], w.days);
+              return w.metrics?.[key] ?? null;
             });
             let bestValue = null;
             let worstValue = null;
@@ -201,7 +193,7 @@ export default function WindowComparisonTable({ windows, metricKeys, catalog, lo
                       </td>
                     );
                   }
-                  const value = normalizedValue(metric, w.metrics?.[key], w.days);
+                  const value = w.metrics?.[key] ?? null;
                   const tone = value === bestValue ? "var(--green)" : value === worstValue ? "var(--red)" : undefined;
                   return (
                     <td key={name} className={cellClass} style={{ ...dividerStyle, ...(tone ? { color: tone, fontWeight: 700 } : undefined) }}>
