@@ -41,7 +41,7 @@ export default function SelectionBar({ count, needPermissionCount, readyCount, o
         </button>
       )}
       {readyCount > 0 && (
-        <button type="button" className={styles.btnPrimary} onClick={onAddToQueue} disabled title="Coming in a follow-up update">
+        <button type="button" className={styles.btnPrimary} onClick={onAddToQueue}>
           Add to Queue ({readyCount})
         </button>
       )}

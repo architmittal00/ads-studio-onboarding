@@ -297,3 +297,71 @@ export function addPermissionRequestLogEntry(igUserId, entry) {
     // Private browsing / blocked storage / quota exceeded — silently ignore.
   }
 }
+
+const PARTNERSHIP_QUEUE_KEY = "fb-dashboard:partnership-queue";
+
+// The pre-launch queue — items added from Explore Ads ("Add to Queue") or
+// the Partnership Code tab, each carrying everything pages/api/fb/partnership/launch.js
+// needs: {id, source: "explore"|"code", contentId?, adCode?, name, mediaType,
+// permalink?, primaryText, headline, description, cta, redirectionLink}.
+// Per-account, same keying convention as getPixelMapping — there is no
+// server-side queue (see the saved plan's persistence decision), so this is
+// the actual source of truth for "what's queued," not just a cache of it.
+function readQueueMap() {
+  try {
+    return JSON.parse(localStorage.getItem(PARTNERSHIP_QUEUE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function getPartnershipQueue(accountId) {
+  return readQueueMap()[accountId] || [];
+}
+
+export function setPartnershipQueue(accountId, items) {
+  try {
+    const all = readQueueMap();
+    all[accountId] = items;
+    localStorage.setItem(PARTNERSHIP_QUEUE_KEY, JSON.stringify(all));
+  } catch {
+    // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}
+
+export function addToPartnershipQueue(accountId, newItems) {
+  const existing = getPartnershipQueue(accountId);
+  const existingIds = new Set(existing.map((i) => i.id));
+  const deduped = newItems.filter((i) => !existingIds.has(i.id));
+  setPartnershipQueue(accountId, [...existing, ...deduped]);
+  return deduped.length;
+}
+
+const PARTNERSHIP_SETTINGS_KEY = "fb-dashboard:partnership-settings";
+
+// The launch wizard's Step 1 ("Pre-filled Settings" in the mockup) — Pixel
+// ID, UTM parameter, Facebook Page, Instagram Page, remembered per ad
+// account. Unlike the mockup's own hardcoded placeholder values, this is the
+// real "General Settings" the mockup's own copy claims it is — edits here
+// are what persists, nothing is actually fake-prefilled.
+function readPartnershipSettingsMap() {
+  try {
+    return JSON.parse(localStorage.getItem(PARTNERSHIP_SETTINGS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function getPartnershipSettings(accountId) {
+  return readPartnershipSettingsMap()[accountId] || null;
+}
+
+export function setPartnershipSettings(accountId, settings) {
+  try {
+    const all = readPartnershipSettingsMap();
+    all[accountId] = settings;
+    localStorage.setItem(PARTNERSHIP_SETTINGS_KEY, JSON.stringify(all));
+  } catch {
+    // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}

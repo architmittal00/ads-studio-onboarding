@@ -38,6 +38,24 @@
     },
     "pages/api/fb/recent-changes/investigate.js": {
       "maxDuration": 60
+    },
+    "pages/api/fb/partnership/mine.js": {
+      "maxDuration": 60
+    },
+    "pages/api/fb/partnership/overview.js": {
+      "maxDuration": 60
+    },
+    "pages/api/fb/partnership/content.js": {
+      "maxDuration": 45
+    },
+    "pages/api/fb/partnership/content-lookup-bulk.js": {
+      "maxDuration": 60
+    },
+    "pages/api/fb/partnership/request-permission-bulk.js": {
+      "maxDuration": 60
+    },
+    "pages/api/fb/partnership/launch.js": {
+      "maxDuration": 60
     }
   }
 }
