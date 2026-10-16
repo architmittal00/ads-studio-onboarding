@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
-import { graphGet, graphPost } from "@/lib/facebookGraph";
+import { graphPost } from "@/lib/facebookGraph";
 import {
-  COPY_AD_FIELDS,
+  fetchAdForCopy,
   classifyAd,
   collectImageHashes,
   collectVideoIds,
@@ -75,10 +75,13 @@ export default async function handler(req, res) {
     // Re-fetched fresh rather than trusted from the client's earlier
     // picker load — the creative can change between browsing and
     // confirming, same reasoning as partnership/launch.js's own
-    // re-verification step.
+    // re-verification step. fetchAdForCopy itself falls back to dropping
+    // the Instagram field on Meta's "(#12) Old Instagram ID is deprecated"
+    // error (a real one hit in production) — see lib/adCopy.js for why.
     let ad;
+    let instagramOmitted = false;
     try {
-      ad = await graphGet(`/${adId}`, token, { fields: COPY_AD_FIELDS });
+      ({ ad, instagramOmitted } = await fetchAdForCopy(token, adId));
     } catch (err) {
       overallSuccess = false;
       steps.push({ type: "ad", label: "Ad", name: customName || adId, success: false, error: `Could not re-fetch ad: ${err.message}` });
@@ -120,7 +123,19 @@ export default async function handler(req, res) {
         creativeId,
       });
       createdAdIds.push(newAdId);
-      steps.push({ type: "ad", label: "Ad", name: ad.name, success: true, id: newAdId });
+      steps.push({
+        type: "ad",
+        label: "Ad",
+        name: ad.name,
+        success: true,
+        id: newAdId,
+        // Non-blocking — the ad was still created successfully, just
+        // without an explicit Instagram actor, so it'll default to the
+        // destination Page's own connected Instagram account for IG
+        // placements rather than necessarily matching whichever one the
+        // source ad used.
+        warning: instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
+      });
     } catch (err) {
       overallSuccess = false;
       steps.push({ type: "ad", label: "Ad", name: ad.name || adId, success: false, error: err.message });
