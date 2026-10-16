@@ -3,8 +3,11 @@ import Loader from "../Loader";
 import DateRangeMenu from "../DateRangeMenu";
 import PartnerCard from "./PartnerCard";
 import ExpandedCardModal from "./ExpandedCardModal";
+import SelectionBar from "./SelectionBar";
+import BulkPermissionModal from "./BulkPermissionModal";
 import { permissionState } from "@/lib/partnershipContent";
 import { computeRange } from "@/lib/dateRanges";
+import { addPermissionRequestLogEntry } from "@/lib/clientStorage";
 import { SearchIcon } from "../icons";
 import styles from "@/styles/Home.module.css";
 
@@ -35,9 +38,9 @@ function engagementScore(item) {
 }
 
 // Explore Ads: browse a Business's partner-eligible Instagram content via
-// Meta's Content Discovery API. Read-only in this round — selection,
-// permission requests, and "add to queue" ship in a follow-up (see
-// ExpandedCardModal's own disabled action button).
+// Meta's Content Discovery API. Selection + permission requests (single from
+// the expanded card, bulk from the floating selection bar) are wired up;
+// "Add to Queue" stays a disabled placeholder until the launch queue ships.
 export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
   const [media, setMedia] = useState("all");
   const [usage, setUsage] = useState("all");
@@ -52,6 +55,36 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [expandedItem, setExpandedItem] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+
+  function toggleSelect(contentId) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(contentId)) next.delete(contentId);
+      else next.add(contentId);
+      return next;
+    });
+  }
+
+  // Marks one piece of content as having just had permission requested —
+  // applied optimistically (Graph's own list, pages/api/fb/partnership/permissions.js,
+  // won't reflect a brand-new request instantly) so its card/badge update
+  // without waiting on a refetch.
+  function markRequested(contentId) {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.content_id !== contentId) return item;
+        const info = item.partnership_info?.[0];
+        return { ...item, partnership_info: [{ ...(info || {}), permission_status: "PENDING" }] };
+      })
+    );
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(contentId);
+      return next;
+    });
+  }
 
   const dateRange = useMemo(() => computeRange(range.rangePreset, range.customSince, range.customUntil), [range]);
 
@@ -137,6 +170,54 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
     return sorted;
   }, [items, media, eligibility, sort]);
 
+  const selectedItems = useMemo(() => items.filter((i) => selectedIds.has(i.content_id)), [items, selectedIds]);
+  const needPermissionItems = useMemo(() => selectedItems.filter((i) => permissionState(i) === "need"), [selectedItems]);
+  const readyCount = selectedItems.filter((i) => permissionState(i) === "ready").length;
+
+  // One entry per unique creator among the selected items that still need
+  // permission — several selected posts can belong to the same creator, and
+  // Graph's own permission grant is account-level per creator anyway (see
+  // lib/partnershipAds.js's listPermissions), so a bulk request should only
+  // ever ask once per creator, not once per post.
+  const creatorsNeedingPermission = useMemo(() => {
+    const byCreator = new Map();
+    for (const item of needPermissionItems) {
+      const key = item.author?.ig_user_id || item.author?.display_name;
+      if (!key) continue;
+      if (!byCreator.has(key)) {
+        byCreator.set(key, {
+          creatorIgId: item.author?.ig_user_id,
+          creatorUsername: item.author?.display_name,
+          label: `@${item.author?.display_name || "unknown"}`,
+          contentIds: [],
+        });
+      }
+      byCreator.get(key).contentIds.push(item.content_id);
+    }
+    return [...byCreator.values()].map((c) => ({ ...c, contentCount: c.contentIds.length }));
+  }, [needPermissionItems]);
+
+  function handleBulkDone(result) {
+    if (!result) return;
+    const successfulKeys = new Set(result.results.filter((r) => r.success).map((r) => r.creatorIgId || r.creatorUsername));
+    const affectedContentIds = creatorsNeedingPermission
+      .filter((c) => successfulKeys.has(c.creatorIgId || c.creatorUsername))
+      .flatMap((c) => c.contentIds);
+    for (const contentId of affectedContentIds) markRequested(contentId);
+    for (const c of creatorsNeedingPermission) {
+      if (!successfulKeys.has(c.creatorIgId || c.creatorUsername)) continue;
+      for (const contentId of c.contentIds) {
+        addPermissionRequestLogEntry(igUserId, {
+          creatorIgId: c.creatorIgId,
+          creatorUsername: c.creatorUsername,
+          contentId,
+          brandName: c.creatorUsername,
+          requestedAt: new Date().toISOString(),
+        });
+      }
+    }
+  }
+
   if (!ready) {
     return <p className={styles.sub}>Pick an ad account and Instagram Business Account above to browse content.</p>;
   }
@@ -216,7 +297,13 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
         <>
           <div className={styles.partnerGrid}>
             {visibleItems.map((item) => (
-              <PartnerCard key={item.content_id} item={item} onExpand={setExpandedItem} />
+              <PartnerCard
+                key={item.content_id}
+                item={item}
+                selected={selectedIds.has(item.content_id)}
+                onToggleSelect={toggleSelect}
+                onExpand={setExpandedItem}
+              />
             ))}
           </div>
           {nextCursor && (
@@ -229,7 +316,29 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
         </>
       )}
 
-      <ExpandedCardModal item={expandedItem} onClose={() => setExpandedItem(null)} />
+      <ExpandedCardModal
+        item={expandedItem}
+        igUserId={igUserId}
+        onClose={() => setExpandedItem(null)}
+        onPermissionRequested={markRequested}
+      />
+
+      <SelectionBar
+        count={selectedIds.size}
+        needPermissionCount={needPermissionItems.length}
+        readyCount={readyCount}
+        onClear={() => setSelectedIds(new Set())}
+        onRequestPermission={() => setBulkModalOpen(true)}
+      />
+
+      {bulkModalOpen && (
+        <BulkPermissionModal
+          igUserId={igUserId}
+          creators={creatorsNeedingPermission}
+          onClose={() => setBulkModalOpen(false)}
+          onDone={handleBulkDone}
+        />
+      )}
     </div>
   );
 }

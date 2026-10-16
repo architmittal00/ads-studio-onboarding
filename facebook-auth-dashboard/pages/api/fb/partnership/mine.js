@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { graphGetInsights } from "@/lib/facebookGraph";
 import { fetchPartnershipAds } from "@/lib/partnershipDetection";
+import { lookupContent } from "@/lib/partnershipAds";
 import { roasFromRow, pickPurchaseCount, pickPurchaseValue } from "@/lib/metrics";
 import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 
@@ -15,6 +16,38 @@ import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 // uses — not reinvented here.
 const INSIGHTS_FIELDS = "ad_id,spend,actions,action_values,purchase_roas,ctr,cpm";
 const INSIGHTS_CHUNK_SIZE = 50;
+// The Content Discovery API's own direct-lookup cap on how many permalinks
+// one call can resolve at once (same limit lib/partnershipAds.js's
+// lookupContent documents for ad_codes/permalinks/content_ids).
+const PERMALINK_LOOKUP_CHUNK_SIZE = 50;
+
+// Resolves each ad's underlying creator (display name/ig id) by matching its
+// creative's own `instagram_permalink_url` back through the Content
+// Discovery API's permalink lookup — there's no `creator`/`author` field on
+// an Ad or AdCreative object directly, so this is the only path from "an ad
+// that happens to be branded content" to "whose content it actually is."
+// Best-effort: an ad whose permalink doesn't resolve (deleted post, access
+// restriction, lookup failure) just keeps `creatorUsername: null` rather
+// than failing the whole request — only used by Creator Hub's own grouping,
+// which already treats a missing creator as its own bucket.
+async function resolveCreators(token, businessId, igUserId, ads) {
+  const byPermalink = new Map();
+  const withPermalink = ads.filter((a) => a.instagramPermalinkUrl);
+  if (!businessId || !igUserId || withPermalink.length === 0) return byPermalink;
+
+  const chunks = chunk(
+    withPermalink.map((a) => a.instagramPermalinkUrl),
+    PERMALINK_LOOKUP_CHUNK_SIZE
+  );
+  const results = await Promise.allSettled(chunks.map((permalinks) => lookupContent(token, businessId, { igUserId, permalinks })));
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const item of result.value) {
+      if (item.permalink) byPermalink.set(item.permalink, item.author);
+    }
+  }
+  return byPermalink;
+}
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -26,7 +59,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId } = req.query;
+  const { accountId, businessId, igUserId } = req.query;
   if (!accountId) {
     return res.status(400).json({ error: "accountId is required" });
   }
@@ -42,17 +75,20 @@ export default async function handler(req, res) {
       ads.map((a) => a.adId),
       INSIGHTS_CHUNK_SIZE
     );
-    const insightsResults = await Promise.allSettled(
-      idChunks.map((ids) =>
-        graphGetInsights(`/${accountId}/insights`, token, {
-          level: "ad",
-          fields: INSIGHTS_FIELDS,
-          filtering: [{ field: "ad.id", operator: "IN", value: ids }],
-          time_range: lastNDaysRange(30, new Date()),
-          limit: 500,
-        })
-      )
-    );
+    const [insightsResults, creatorsByPermalink] = await Promise.all([
+      Promise.allSettled(
+        idChunks.map((ids) =>
+          graphGetInsights(`/${accountId}/insights`, token, {
+            level: "ad",
+            fields: INSIGHTS_FIELDS,
+            filtering: [{ field: "ad.id", operator: "IN", value: ids }],
+            time_range: lastNDaysRange(30, new Date()),
+            limit: 500,
+          })
+        )
+      ),
+      resolveCreators(token, businessId, igUserId, ads).catch(() => new Map()),
+    ]);
 
     const metricsByAdId = new Map();
     for (const result of insightsResults) {
@@ -73,7 +109,15 @@ export default async function handler(req, res) {
       }
     }
 
-    const enriched = ads.map((ad) => ({ ...ad, ...(metricsByAdId.get(ad.adId) || {}) }));
+    const enriched = ads.map((ad) => {
+      const author = ad.instagramPermalinkUrl ? creatorsByPermalink.get(ad.instagramPermalinkUrl) : null;
+      return {
+        ...ad,
+        ...(metricsByAdId.get(ad.adId) || {}),
+        creatorUsername: author?.display_name || null,
+        creatorIgId: author?.ig_user_id || null,
+      };
+    });
     res.status(200).json({ ads: enriched });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });

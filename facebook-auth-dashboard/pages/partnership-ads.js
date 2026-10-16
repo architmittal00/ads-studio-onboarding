@@ -7,6 +7,9 @@ import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
 import OverviewTab from "@/components/partnership/OverviewTab";
 import ExploreTab from "@/components/partnership/ExploreTab";
+import RequestsTab from "@/components/partnership/RequestsTab";
+import MyAdsTab from "@/components/partnership/MyAdsTab";
+import CreatorHubTab from "@/components/partnership/CreatorHubTab";
 import ComingSoonTab from "@/components/partnership/ComingSoonTab";
 import styles from "@/styles/Home.module.css";
 
@@ -110,9 +113,13 @@ export default function PartnershipAds() {
           {tab === "explore" && (
             <ExploreTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} />
           )}
-          {tab === "mine" && <ComingSoonTab label="My Partnership Ads" />}
-          {tab === "creators" && <ComingSoonTab label="Creator Hub" />}
-          {tab === "requests" && <ComingSoonTab label="My Requests" />}
+          {tab === "mine" && (
+            <MyAdsTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
+          )}
+          {tab === "creators" && (
+            <CreatorHubTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
+          )}
+          {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
           {tab === "code" && <ComingSoonTab label="Partnership Code" />}
         </main>
       </div>
