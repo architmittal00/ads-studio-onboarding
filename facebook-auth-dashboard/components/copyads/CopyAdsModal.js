@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import { CloseIcon, ChevronIcon } from "@/components/icons";
+import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 // Minimal searchable list for picking a destination ad set — same pattern
@@ -119,8 +120,8 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
   function loadAdsets(accountId) {
     setAdsetsLoading(true);
     setAdsetsError(null);
-    fetch(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
-      .then((res) => res.json())
+    fetchWithTimeout(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
+      .then(parseJsonResponse)
       .then((json) => {
         if (json.error) setAdsetsError(json.error);
         else setAdsets(json.adsets || []);
