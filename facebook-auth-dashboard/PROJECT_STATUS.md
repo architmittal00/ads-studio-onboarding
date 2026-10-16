@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-16**, by Claude, right after merging PR #195.
+> Last updated: **2026-10-16**, by Claude, right after merging PR #197.
 
 ---
 
@@ -53,12 +53,13 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 - When something *does* turn out to be real new work sitting in this checkout (rare, but happened with the Explore "Part 3" batch — see §5), extract it by diffing against `origin/main`, confirm the diff is scoped to what you expect, then copy just those files into a fresh worktree branched off `origin/main` and ship from there. Full worked example: PR #140 (this session) and PR #77 (earlier).
 - This checkout is also what `preview_start`'s dev server convention points at in `.claude/launch.json` (port 3000) — if you need to browser-test a worktree's code instead, run `npm run dev` manually on a different port inside the worktree and open it via `preview_start` with an explicit `url` (see §5).
 - **Possible future cleanup** (not yet done, needs user confirmation since it's a bit destructive): this checkout could be reset to track `main` properly (`git checkout main && git pull`) and have its stale working-tree cruft reconciled or discarded. Nobody has done this yet — raise it with the user before doing it, since there could in principle be real uncommitted work buried in there that hasn't been triaged.
+- **This cuts both ways**, confirmed again during PR #197: a `find`/`grep` run from this checkout can *also* report a file as **missing** when it actually exists on `origin/main` (not just the already-documented "shows as modified when it's actually unchanged" direction) — `components/DateRangeMenu.js` genuinely exists and is a fully-built dual-calendar date-range picker, but checking for it from this checkout (instead of the actual worktree) turned up nothing, very nearly leading to rebuilding a component that was already there. Always run existence checks (`ls`, `find`, `grep`) from inside the actual worktree you're working in, or against `origin/main` directly via `git cat-file -e origin/main:<path>` — never from this checkout, in either direction.
 
 ---
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`705b68c`** — "Investigate tab round 2: scaling impact window, copy IDs, sort, paused-ad badges, layout fixes" (PR #195, merged 2026-10-16).
+Latest commit as of this writing: **`bb50b66`** — "Partnership Ads foundation: IG account linkage, Explore Ads grid, Overview" (PR #197, merged 2026-10-16).
 
 No open PRs. Everything described below is merged and live.
 
@@ -74,10 +75,27 @@ No open PRs. Everything described below is merged and live.
 | `/explore` | **Custom Views (Explore)** — build-your-own report: pick account(s)/level/breakdown/metrics/date-range, multi-tab views + tab groups, drill-down (Campaign→AdSet→Ad), charting with axis customization, custom ratio metrics, name/ID filters, result filters (value or %-change), Total row, CSV export, a Meta-Ads-Manager-style date range/compare picker, row actions (pause/activate/change budget/duplicate — the last via its own in-page popup, not a navigation) | **Most actively developed area right now** — see §5 for the latest round |
 | `/dashboard` | Raw Data — raw profile/Pages/Ad Accounts payload + manual ROAS check | Stable, simple |
 | `/logs` | API Logs — recent Graph API call log (method/path/status/duration) | Stable, simple |
+| `/partnership-ads` | **Partnership Ads** — new, in progress (see §5, PR #197). Replicates a static mockup (`dark-theme/partnership-ads.html` + `ready-to-launch.html`) with real Meta API calls: browse a Business's partner-eligible Instagram content (Content Discovery API), request branded-content permission from creators, launch real ads from it. 6 sub-nav tabs sharing one Ad Account + Instagram Business Account selection; **Overview** (live Partnership vs. Normal Ads comparison) and **Explore Ads** (the masonry content-discovery grid) are built; My Partnership Ads/Creator Hub/My Requests/Partnership Code are "coming in a follow-up update" placeholders | **In progress** — foundation shipped (PR #197), see §7 for what's next and the real-account checks still needed |
 
 ---
 
 ## 5. Most recent work (2026-10-16)
+
+### PR #197 — Partnership Ads foundation: IG account linkage, Explore Ads grid, Overview
+
+A brand-new feature, not a round of fixes on an existing one: **Partnership Ads** (branded content ads) — replicating a static mockup (`dark-theme/partnership-ads.html`, 2798 lines, plus its downstream launch screen `ready-to-launch.html`, 933 lines) with real Meta Marketing API calls, at the user's explicit "everything at once" scope. Full plan saved at `.claude/plans/optimized-pondering-avalanche.md` — this PR is the first of several; see §7 for what's next.
+
+What shipped this round:
+1. **Instagram Business Account linkage** — `pages/api/fb/data.js` now fetches each Page's `instagram_business_account{id,username,profile_picture_url}` and each ad account's owning `business{id,name}` (the Content Discovery API below is keyed by Business id, not ad account id). `AccountProvider` derives `igAccounts` from Pages that actually have one linked (most won't — a normal, handled state, not an error) and exposes `selectedIgAccountId`/`setSelectedIgAccountId` the same way `selectedAccountId` already works, with a `getLastIgAccountId`/`setLastIgAccountId` convenience default in `lib/clientStorage.js`.
+2. **New OAuth scope** (`instagram_basic`) added to `pages/api/auth/[...nextauth].js` — a best-effort guess, since neither the Content Discovery API nor the Branded Content Ad Permissions API documents an exact minimum scope anywhere in the reference material this was built from. Users need to sign out/in once to pick it up.
+3. **`lib/partnershipAds.js`** — every Partnership Ads Graph call this app makes, modeled on Meta's own reference implementation (`Facebook Curls/partnership_ads_booster.py`, a raw-`requests` Python script, not the `facebook_business` SDK) rather than guessed: Content Discovery (`listPermissions`, `requestPermission`, `discoverContent`, `lookupContent`), and the ad-creation chain (`registerVideoSource`, `createBrandedCreative`, `createAd`) for a later PR.
+4. **`lib/partnershipDetection.js`** — finds which of an ad account's *existing* ads are partnership ads by reading back `facebook_branded_content`/`instagram_branded_content`/`branded_content` on each ad's creative — the same fields the (not-yet-shipped) creation call writes. This is a live Graph check, not a locally-tracked "ads we created" log, specifically so ads created manually in Ads Manager show up too once "My Partnership Ads" ships — **unverified against a real account yet**, flagged in the plan and in §7.
+5. **New `/partnership-ads` page** — 6 sub-nav tabs (Overview, My Partnership Ads, Creator Hub, Explore Ads, My Requests, Partnership Code) sharing one Ad Account + Instagram Business Account selection above them. **Overview** (new `pages/api/fb/partnership/overview.js`) shows a live last-30-days Partnership vs. Normal Ads comparison (two rollup cards + 6 %-delta cards), computed via account-level Insights calls filtered by `ad.id IN/NOT_IN` the detected partnership-ad id list — correctly deduplicated Reach/Frequency, not a naive per-ad sum. **Explore Ads** (new `pages/api/fb/partnership/content.js`, `components/partnership/ExploreTab.js`/`PartnerCard.js`/`ExpandedCardModal.js`) is the masonry content-discovery grid — CSS-columns layout (new, no existing masonry precedent in this app), Media/Usage/Eligibility/Sort filters (native `<select>`, no bespoke dropdown component), search, the **existing** `components/DateRangeMenu.js` reused as-is for the date range (a dual-calendar picker that already existed in this repo — initially missed in research, since a stale primary-checkout check wrongly suggested it didn't exist; verifying against the actual worktree found it), and a read-only expanded-card detail modal. The other 4 tabs are "coming in a follow-up update" placeholders — permission requests, the launch flow, My Partnership Ads, and Creator Hub ship in later PRs.
+6. **Known limitation, not a bug**: the Content Discovery API returns no media URL at all — only a public `permalink` (confirmed against the reference implementation, which never requests a media-url field). Cards show a placeholder media block (with a play/photo icon) plus a "View post ↗" link to the real content, rather than faking a thumbnail that would just 404.
+
+Caught and fixed a real bug during verification: `PartnerCard` was a `<button>` containing a nested `<button>` ("Details") and `<a>` ("View post") — invalid HTML, the exact same class of bug fixed in PR #195's `EntityRow` just one round earlier in this project. Converted to `div[role="button"]` with Enter/Space keyboard support, same fix pattern.
+
+Verified via the mocked-preview-harness convention: account/IG-account auto-seeding, Overview's comparison + delta cards, Explore's filters/search/"Load more" pagination, and the expanded-card modal's badge states (Recommended/Launch Ready/Permission Requested/Need Permission). `npm run lint && npm run build` clean.
 
 ### PR #195 — Investigate tab round 2: scaling impact window, copy IDs, sort, paused-ad badges, layout fixes
 
@@ -181,15 +199,17 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Four open items, nothing else queued:**
-1. **PR #185's `/recent-changes` timeout fix needs a live re-check** — I diagnosed and fixed the missing `limit` param from code reading alone (couldn't reproduce the original 504 in a mocked harness, no account with that much activity volume available in testing). Please re-run "Last 7 Days" on the account from the original report and confirm it completes without `FUNCTION_INVOCATION_TIMEOUT`.
-2. PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it.
-3. The "no weekly/monthly/daily data at account level" report (see §5, PR #167) couldn't be reproduced against current `origin/main` code via a mocked preview — needs the reporter to describe the actual symptom (error message text, blank table, missing column, etc.) against a live account so this can be properly diagnosed. Don't re-guess at a fix without that information first.
-4. **PR #195's scaled impact window and Launched/Paused badges need a live spot-check** — the day-count math (N days before vs. N days since) and the badge-to-change matching were only verified against hand-built mock data; please confirm the numbers and badges look right for a few real changes 1-7 days old on an actual account.
+**Partnership Ads (PR #197) — the active feature, several PRs still queued:**
+1. **Next PRs, in order** (per the saved plan at `.claude/plans/optimized-pondering-avalanche.md`): (a) permission request flows (single + bulk) + My Requests tab; (b) Partnership Code (single + CSV) + the launch queue + the 3-step launch wizard + real ad creation (`pages/api/fb/partnership/launch.js` — the first PR in this whole app to create real `ad`/`adcreative` objects, not just campaigns/ad sets); (c) My Partnership Ads + Creator Hub.
+2. **Live-account verification needed before PR 1's own foundation is fully trusted** — none of this could be checked against a real account from here: (a) sign out/in to pick up the new `instagram_basic` scope, confirm the Instagram Business Account picker actually finds a linked account; (b) confirm the Explore Ads grid loads real content — depends on the Business having the Content Discovery API's `pa_content_discovery_api` gatekeeper flag enabled (the user says they already use Partnership Ads manually, so likely fine, but unconfirmed against this exact endpoint); (c) once "My Partnership Ads" ships, confirm `facebook_branded_content`/`instagram_branded_content`/`branded_content` actually read back non-null on an ad's creative — `lib/partnershipDetection.js`'s whole mechanism depends on this and the reference material only ever writes these fields, never reads them back.
+3. **PR #185's `/recent-changes` timeout fix needs a live re-check** — I diagnosed and fixed the missing `limit` param from code reading alone (couldn't reproduce the original 504 in a mocked harness, no account with that much activity volume available in testing). Please re-run "Last 7 Days" on the account from the original report and confirm it completes without `FUNCTION_INVOCATION_TIMEOUT`.
+4. PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it.
+5. The "no weekly/monthly/daily data at account level" report (see §5, PR #167) couldn't be reproduced against current `origin/main` code via a mocked preview — needs the reporter to describe the actual symptom (error message text, blank table, missing column, etc.) against a live account so this can be properly diagnosed. Don't re-guess at a fix without that information first.
+6. **PR #195's scaled impact window and Launched/Paused badges need a live spot-check** — the day-count math (N days before vs. N days since) and the badge-to-change matching were only verified against hand-built mock data; please confirm the numbers and badges look right for a few real changes 1-7 days old on an actual account.
 
 (The old `/recent-changes` page's `CAMPAIGN_GROUP`-dropping bug flagged here previously is no longer an open item — see the PR #173+#175 entry above: the affected file was deleted outright in PR #191's consolidation, so there's nothing left to fix. The `investigate` "after" columns Graph error flagged here even earlier is **resolved** — see PR #183: `time_range` was being sent with extra, Facebook-rejected keys.)
 
-Everything else in §5 is fully shipped and verified as of 2026-10-15.
+Everything else in §5 is fully shipped and verified as of 2026-10-16, except Partnership Ads, which is deliberately mid-rollout (item 1 above).
 
 When new work comes in:
 1. Read this whole file first, then skim `README.md` for the relevant feature area.
