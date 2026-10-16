@@ -9,6 +9,7 @@ import SortableTable from "@/components/SortableTable";
 import SelectionBar from "@/components/copyads/SelectionBar";
 import CopyAdsModal from "@/components/copyads/CopyAdsModal";
 import { useAccounts } from "@/components/AccountProvider";
+import { RANGE_PRESETS, computeRange } from "@/lib/dateRanges";
 import styles from "@/styles/Home.module.css";
 
 // Cross-account ad cloning: pick ads already running in one ad account and
@@ -29,16 +30,29 @@ export default function CopyAdsPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Defaults to a bounded window rather than "every ad ever" — an
+  // unfiltered account-wide pull with this picker's heavy per-ad creative
+  // fields is exactly what triggers Meta's "Please reduce the amount of
+  // data you're asking for" error on any account with real history. `range`
+  // resolves to `null` only while "Custom" is picked and one of the two
+  // date inputs is still empty, in which case the fetch effect below just
+  // waits rather than firing with a half-filled range.
+  const [rangePreset, setRangePreset] = useState("last_90d");
+  const [customSince, setCustomSince] = useState("");
+  const [customUntil, setCustomUntil] = useState("");
+  const range = computeRange(rangePreset, customSince, customUntil);
+
   useEffect(() => {
-    if (!selectedAccountId) return;
-    // Reacting to the source account changing (re-fetch its ads, drop any
-    // selection that belonged to the previous account) — same shape as
-    // every other account-scoped data load in this app.
+    if (!selectedAccountId || !range) return;
+    // Reacting to the source account or date range changing (re-fetch its
+    // ads, drop any selection that belonged to the previous account/range)
+    // — same shape as every other account-scoped data load in this app.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAdsLoading(true);
     setAdsError(null);
     setSelectedIds(new Set());
-    fetch(`/api/fb/copy-ads/source-ads?accountId=${encodeURIComponent(selectedAccountId)}`)
+    const params = new URLSearchParams({ accountId: selectedAccountId, since: range.since, until: range.until });
+    fetch(`/api/fb/copy-ads/source-ads?${params.toString()}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) setAdsError(json.error);
@@ -46,7 +60,8 @@ export default function CopyAdsPage() {
       })
       .catch((err) => setAdsError(err.message))
       .finally(() => setAdsLoading(false));
-  }, [selectedAccountId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately keyed on range's two resolved fields, not the `range` object itself, which is a plain `const` recomputed fresh every render and would otherwise re-fire this effect on every unrelated re-render
+  }, [selectedAccountId, range?.since, range?.until]);
 
   function toggle(adId, copyable) {
     if (!copyable) return;
@@ -115,18 +130,46 @@ export default function CopyAdsPage() {
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-          <div className={styles.card} style={{ marginBottom: 20 }}>
-            <p className={styles.sub} style={{ marginBottom: 6 }}>
-              Source ad account
-            </p>
-            <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
+          <div className={styles.card} style={{ marginBottom: 20, display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px" }}>
+              <p className={styles.sub} style={{ marginBottom: 6 }}>
+                Source ad account
+              </p>
+              <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
+            </div>
+            <div style={{ flex: "1 1 240px" }}>
+              <p className={styles.sub} style={{ marginBottom: 6 }}>
+                Only show ads active in
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select className={styles.select} value={rangePreset} onChange={(e) => setRangePreset(e.target.value)}>
+                  {RANGE_PRESETS.map((p) => (
+                    <option key={p.key} value={p.key}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                {rangePreset === "custom" && (
+                  <>
+                    <input type="date" className={styles.select} value={customSince} onChange={(e) => setCustomSince(e.target.value)} />
+                    <input type="date" className={styles.select} value={customUntil} onChange={(e) => setCustomUntil(e.target.value)} />
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
           {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}
+          {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates above to load ads.</p>}
           {adsLoading && <Loader label="Loading ads…" />}
-          {adsError && <div className={styles.error}>{adsError}</div>}
+          {adsError && (
+            <div className={styles.error}>
+              {adsError}
+              {adsError.toLowerCase().includes("reduce the amount of data") && " — try a narrower date range above."}
+            </div>
+          )}
 
-          {!adsLoading && !adsError && selectedAccountId && (
+          {!adsLoading && !adsError && selectedAccountId && range && (
             <SortableTable
               columns={columns}
               rows={ads}

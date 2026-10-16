@@ -18,10 +18,20 @@ export const COPY_AD_FIELDS =
   "video_data{video_id,message,image_url,call_to_action}}," +
   "asset_feed_spec{bodies{text}}}";
 
-export async function fetchCopyableAds(token, accountId) {
+// `since`/`until` (YYYY-MM-DD) are optional but strongly recommended for any
+// account with real history: an unfiltered account-wide `/ads` pull with
+// this fields string's depth (nested object_story_spec, carousel
+// child_attachments) is exactly the shape Meta's API rejects outright with
+// "Please reduce the amount of data you're asking for" once an account has
+// enough ads — confirmed live. `time_range` is a real, documented filter on
+// this edge (same as `date_preset`/`effective_status`/`updated_since`), not
+// an insights-only concept, so this narrows what Graph returns in the first
+// place rather than fetching everything and filtering client-side.
+export async function fetchCopyableAds(token, accountId, { since, until } = {}) {
   const result = await graphGetAllPages(`/${accountId}/ads`, token, {
     fields: COPY_AD_FIELDS,
     limit: 200,
+    ...(since && until ? { time_range: { since, until } } : {}),
   });
   return result.data || [];
 }
