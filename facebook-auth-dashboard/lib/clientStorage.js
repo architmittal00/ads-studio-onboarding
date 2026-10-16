@@ -257,3 +257,43 @@ export function setThemePreference(theme) {
     // Private browsing / blocked storage — silently ignore, nothing to persist to.
   }
 }
+
+const PARTNERSHIP_REQUEST_LOG_KEY = "fb-dashboard:partnership-request-log";
+const PARTNERSHIP_REQUEST_LOG_MAX_PER_ACCOUNT = 200;
+
+// Branded-content permission is account-level per creator, not per post —
+// Meta's own `branded_content_ad_permissions` list (see
+// pages/api/fb/partnership/permissions.js) only ever returns
+// {creator_ig_id, creator_username, permission_status}, nothing about which
+// specific piece of content prompted a request. "My Requests" wants to show
+// that context anyway (what post you were actually looking at when you
+// clicked "Request Permission"), so it's kept here, locally, purely as
+// decoration — the live permissions list from Graph is always the actual
+// source of truth for status; a missing/stale log entry just means that one
+// row loses its content thumbnail/caption context, not its status.
+function readRequestLog() {
+  try {
+    return JSON.parse(localStorage.getItem(PARTNERSHIP_REQUEST_LOG_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function getPermissionRequestLog(igUserId) {
+  return readRequestLog()[igUserId] || [];
+}
+
+// `entry`: {creatorIgId, creatorUsername, contentId, brandName, mediaType, requestedAt}.
+// Newest first, capped per IG account so a heavy user's log can't grow
+// localStorage without bound — same reasoning as lib/clientCache.js's own
+// per-prefix entry caps.
+export function addPermissionRequestLogEntry(igUserId, entry) {
+  try {
+    const all = readRequestLog();
+    const existing = all[igUserId] || [];
+    all[igUserId] = [entry, ...existing].slice(0, PARTNERSHIP_REQUEST_LOG_MAX_PER_ACCOUNT);
+    localStorage.setItem(PARTNERSHIP_REQUEST_LOG_KEY, JSON.stringify(all));
+  } catch {
+    // Private browsing / blocked storage / quota exceeded — silently ignore.
+  }
+}
