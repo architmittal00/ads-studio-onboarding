@@ -160,8 +160,12 @@ export default function CopyAdsPage() {
               <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
             </div>
             <div style={{ flex: "1 1 240px" }}>
-              <p className={styles.sub} style={{ marginBottom: 6 }}>
-                Only show ads active in
+              <p
+                className={styles.sub}
+                style={{ marginBottom: 6 }}
+                title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
+              >
+                Only show ads with spend in
               </p>
               <div style={{ display: "flex", gap: 8 }}>
                 <select className={styles.select} value={rangePreset} onChange={(e) => setRangePreset(e.target.value)}>

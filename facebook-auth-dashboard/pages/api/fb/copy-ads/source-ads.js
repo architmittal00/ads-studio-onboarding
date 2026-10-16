@@ -10,12 +10,17 @@ import { fetchCopyableAds, classifyAd } from "@/lib/adCopy";
 // why) so an unsupported ad (Catalog, Dynamic Creative) is shown disabled in
 // the picker rather than selectable and only failing later in the copy step.
 //
-// Optional `since`/`until` (YYYY-MM-DD) narrow the pull to ads active in
-// that window — for any account with real history, an unfiltered pull of
-// every ad ever created with this fields string's depth is exactly what
-// trips Meta's "Please reduce the amount of data you're asking for" error.
-// pages/copy-ads.js defaults to a bounded preset rather than leaving this
-// unset, precisely to avoid landing back in that error by default.
+// Required `since`/`until` (YYYY-MM-DD) bound the pull to ads with real
+// delivery in that window — see lib/adCopy.js's fetchCopyableAds for why
+// this can't be optional: there is no way to list only "recent" ads
+// straight off `/ads` itself (that edge's own `time_range`/`date_preset`
+// params don't filter which rows come back at all, despite looking like
+// they should), so skipping the range here would walk every ad the account
+// has ever had, with this fields string's depth — exactly what previously
+// produced both a "reduce the amount of data" error and, after a first
+// (incomplete) fix, a straight FUNCTION_INVOCATION_TIMEOUT on a busier
+// account. pages/copy-ads.js never lets "Load Ads" be clicked without a
+// resolved range, so this 400 should only ever be hit by a direct API call.
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session?.accessToken) {
@@ -25,6 +30,9 @@ export default async function handler(req, res) {
   const { accountId, since, until } = req.query;
   if (!accountId) {
     return res.status(400).json({ error: "accountId is required" });
+  }
+  if (!since || !until) {
+    return res.status(400).json({ error: "since and until are required" });
   }
 
   try {
