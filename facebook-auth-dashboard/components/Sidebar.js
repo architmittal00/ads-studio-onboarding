@@ -17,6 +17,7 @@ import {
   HistoryIcon,
   RocketIcon,
   HandshakeIcon,
+  CopyIcon,
 } from "./icons";
 
 const LINKS = [
@@ -26,6 +27,7 @@ const LINKS = [
   { href: "/explore", label: "Custom Views", icon: ChartIcon },
   { href: "/recent-changes", label: "Recent Changes", icon: HistoryIcon },
   { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },
+  { href: "/copy-ads", label: "Copy Ads", icon: CopyIcon },
   { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
   { href: "/logs", label: "API Logs", icon: ListIcon },
 ];

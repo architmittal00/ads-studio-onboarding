@@ -56,6 +56,12 @@
     },
     "pages/api/fb/partnership/launch.js": {
       "maxDuration": 60
+    },
+    "pages/api/fb/copy-ads/source-ads.js": {
+      "maxDuration": 45
+    },
+    "pages/api/fb/copy-ads/copy.js": {
+      "maxDuration": 60
     }
   }
 }
