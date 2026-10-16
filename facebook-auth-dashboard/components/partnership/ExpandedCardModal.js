@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CloseIcon } from "../icons";
 import { firstPartnershipInfo, permissionState, formatCompactNumber } from "@/lib/partnershipContent";
-import { addPermissionRequestLogEntry } from "@/lib/clientStorage";
+import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 function EngCell({ label, value }) {
@@ -15,14 +15,14 @@ function EngCell({ label, value }) {
   );
 }
 
-// Read-only detail view for one piece of discovered content, plus the one
-// action that's actually wired up here: requesting branded-content
-// permission from its creator, inline (no separate confirm modal stacked on
-// top — this view already has everything a confirm step would show). "Add
-// to Queue" stays a disabled placeholder until the launch queue ships.
-export default function ExpandedCardModal({ item, igUserId, onClose, onPermissionRequested }) {
+// Read-only detail view for one piece of discovered content, plus its two
+// real actions: requesting branded-content permission (inline, no separate
+// confirm modal stacked on top — this view already shows everything a
+// confirm step would), and queuing it for launch once ready.
+export default function ExpandedCardModal({ item, accountId, igUserId, onClose, onPermissionRequested, onQueued }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [queued, setQueued] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -40,15 +40,39 @@ export default function ExpandedCardModal({ item, igUserId, onClose, onPermissio
     // eslint-disable-next-line react-hooks/set-state-in-effect -- genuine reset of this modal's own confirm/sent state when a different card opens, not derivable from render
     setSending(false);
     setSent(false);
+    setQueued(false);
     setError(null);
   }, [item?.content_id]);
 
   if (!item) return null;
+  const info = firstPartnershipInfo(item);
   const permState = permissionState(item);
   const eng = item.organic_insights || {};
   const isVideo = item.media_type === "VIDEO";
   const creatorIgId = item.author?.ig_user_id;
   const creatorUsername = item.author?.display_name;
+
+  function handleAddToQueue() {
+    if (queued) return;
+    addToPartnershipQueue(accountId, [
+      {
+        id: `explore_${item.content_id}`,
+        source: "explore",
+        contentId: item.content_id,
+        adCode: info.ad_code,
+        name: `@${item.author?.display_name || "unknown"} — ${item.caption?.slice(0, 40) || item.content_id}`,
+        mediaType: item.media_type,
+        permalink: item.permalink,
+        primaryText: "",
+        headline: "",
+        description: "",
+        cta: "SHOP_NOW",
+        redirectionLink: "",
+      },
+    ]);
+    setQueued(true);
+    onQueued?.();
+  }
 
   async function handleRequestPermission() {
     if (sending || !creatorIgId) return;
@@ -163,8 +187,8 @@ export default function ExpandedCardModal({ item, igUserId, onClose, onPermissio
           )}
 
           {permState === "ready" ? (
-            <button type="button" className={styles.btnPrimary} style={{ width: "100%" }} disabled title="Coming in a follow-up update">
-              Add to Queue
+            <button type="button" className={styles.btnPrimary} style={{ width: "100%" }} onClick={handleAddToQueue} disabled={queued}>
+              {queued ? "Added to Queue ✓" : "Add to Queue"}
             </button>
           ) : sent || permState === "requested" ? (
             <button type="button" className={styles.btnSecondary} style={{ width: "100%" }} disabled>

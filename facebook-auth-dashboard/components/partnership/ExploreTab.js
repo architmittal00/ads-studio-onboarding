@@ -5,9 +5,9 @@ import PartnerCard from "./PartnerCard";
 import ExpandedCardModal from "./ExpandedCardModal";
 import SelectionBar from "./SelectionBar";
 import BulkPermissionModal from "./BulkPermissionModal";
-import { permissionState } from "@/lib/partnershipContent";
+import { permissionState, firstPartnershipInfo } from "@/lib/partnershipContent";
 import { computeRange } from "@/lib/dateRanges";
-import { addPermissionRequestLogEntry } from "@/lib/clientStorage";
+import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
 import { SearchIcon } from "../icons";
 import styles from "@/styles/Home.module.css";
 
@@ -38,10 +38,10 @@ function engagementScore(item) {
 }
 
 // Explore Ads: browse a Business's partner-eligible Instagram content via
-// Meta's Content Discovery API. Selection + permission requests (single from
-// the expanded card, bulk from the floating selection bar) are wired up;
-// "Add to Queue" stays a disabled placeholder until the launch queue ships.
-export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
+// Meta's Content Discovery API. Selection, permission requests (single from
+// the expanded card, bulk from the floating selection bar), and queuing
+// launch-ready content are all wired up.
+export default function ExploreTab({ accountId, businessId, igUserId, ready, onQueueChanged }) {
   const [media, setMedia] = useState("all");
   const [usage, setUsage] = useState("all");
   const [eligibility, setEligibility] = useState("all");
@@ -172,7 +172,34 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
 
   const selectedItems = useMemo(() => items.filter((i) => selectedIds.has(i.content_id)), [items, selectedIds]);
   const needPermissionItems = useMemo(() => selectedItems.filter((i) => permissionState(i) === "need"), [selectedItems]);
-  const readyCount = selectedItems.filter((i) => permissionState(i) === "ready").length;
+  const readyItems = useMemo(() => selectedItems.filter((i) => permissionState(i) === "ready"), [selectedItems]);
+
+  function handleAddSelectedToQueue() {
+    const toQueue = readyItems.map((item) => {
+      const info = firstPartnershipInfo(item);
+      return {
+        id: `explore_${item.content_id}`,
+        source: "explore",
+        contentId: item.content_id,
+        adCode: info.ad_code,
+        name: `@${item.author?.display_name || "unknown"} — ${item.caption?.slice(0, 40) || item.content_id}`,
+        mediaType: item.media_type,
+        permalink: item.permalink,
+        primaryText: "",
+        headline: "",
+        description: "",
+        cta: "SHOP_NOW",
+        redirectionLink: "",
+      };
+    });
+    addToPartnershipQueue(accountId, toQueue);
+    onQueueChanged?.();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const item of readyItems) next.delete(item.content_id);
+      return next;
+    });
+  }
 
   // One entry per unique creator among the selected items that still need
   // permission — several selected posts can belong to the same creator, and
@@ -318,17 +345,20 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready }) {
 
       <ExpandedCardModal
         item={expandedItem}
+        accountId={accountId}
         igUserId={igUserId}
         onClose={() => setExpandedItem(null)}
         onPermissionRequested={markRequested}
+        onQueued={onQueueChanged}
       />
 
       <SelectionBar
         count={selectedIds.size}
         needPermissionCount={needPermissionItems.length}
-        readyCount={readyCount}
+        readyCount={readyItems.length}
         onClear={() => setSelectedIds(new Set())}
         onRequestPermission={() => setBulkModalOpen(true)}
+        onAddToQueue={handleAddSelectedToQueue}
       />
 
       {bulkModalOpen && (

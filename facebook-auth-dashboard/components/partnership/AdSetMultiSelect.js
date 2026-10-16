@@ -1,0 +1,121 @@
+import { useEffect, useRef, useState } from "react";
+import Loader from "../Loader";
+import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
+import styles from "@/styles/Home.module.css";
+
+// Multi-select ad-set picker for the launch wizard's Step 2 — chip + combo
+// dropdown interaction pattern copied from components/CustomAudiencePicker.js
+// (same reasoning there: no live Graph search for "my own ad sets," fetch
+// once per account and filter client-side), but hitting
+// pages/api/fb/adsets-list.js's existing `?accountId=` list mode instead —
+// already returns exactly what the mockup's own "Selected Ad Set" detail
+// card shows (budget/status/objective via its own `campaign`/`performance`
+// fields), no new endpoint needed.
+export default function AdSetMultiSelect({ accountId, currency, values, onChange }) {
+  const [all, setAll] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const blurTimer = useRef(null);
+
+  useEffect(() => {
+    let ignore = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount reset, same pattern as CustomAudiencePicker.js
+    setLoading(true);
+    setError(null);
+    fetch(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (ignore) return;
+        if (json.error) setError(json.error);
+        else setAll(json.adsets || []);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.message);
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [accountId]);
+
+  const selectedIds = new Set(values.map((v) => v.id));
+  const filtered = query.trim() ? all.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase())) : all;
+
+  function toggle(adset) {
+    if (selectedIds.has(adset.id)) onChange(values.filter((v) => v.id !== adset.id));
+    else onChange([...values, adset]);
+  }
+
+  function handleBlur() {
+    blurTimer.current = setTimeout(() => setOpen(false), 150);
+  }
+  function handleFocus() {
+    clearTimeout(blurTimer.current);
+    setOpen(true);
+  }
+
+  if (loading) return <Loader inline label="Loading ad sets…" />;
+  if (error) return <p className={styles.sub} style={{ color: "var(--red)" }}>{error}</p>;
+
+  return (
+    <div>
+      {values.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          {values.map((v) => (
+            <span key={v.id} className={styles.badgeInfo} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {v.name}
+              <button
+                type="button"
+                onClick={() => toggle(v)}
+                aria-label={`Remove ${v.name}`}
+                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, fontSize: 13, lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.comboWrapper}>
+        <input
+          type="text"
+          className={styles.select}
+          style={{ width: "100%" }}
+          placeholder={all.length === 0 ? "No ad sets on this account" : "Search target ad sets…"}
+          disabled={all.length === 0}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+        />
+        {open && all.length > 0 && (
+          <div className={styles.comboDropdown}>
+            {filtered.length === 0 && <div className={styles.comboOption}>No matches.</div>}
+            {filtered.map((a) => (
+              <div key={a.id} className={styles.comboOption} onMouseDown={() => toggle(a)}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontWeight: 600 }}>
+                    {a.name}
+                    {selectedIds.has(a.id) ? " (added)" : ""}
+                  </span>
+                  <span className={a.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo} style={{ flexShrink: 0 }}>
+                    {humanizeStatus(a.status)}
+                  </span>
+                </div>
+                <span className={styles.muted} style={{ fontSize: 11 }}>
+                  {a.campaign?.name} · {formatMetricValue((a.daily_budget || a.lifetime_budget) / 100, "currency", currency)}
+                  {a.daily_budget ? "/day" : a.lifetime_budget ? " lifetime" : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

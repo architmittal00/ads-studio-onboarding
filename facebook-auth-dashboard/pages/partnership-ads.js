@@ -1,6 +1,7 @@
 import Head from "next/head";
+import Link from "next/link";
 import { getServerSession } from "next-auth/next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import AccountSelect from "@/components/AccountSelect";
@@ -10,7 +11,8 @@ import ExploreTab from "@/components/partnership/ExploreTab";
 import RequestsTab from "@/components/partnership/RequestsTab";
 import MyAdsTab from "@/components/partnership/MyAdsTab";
 import CreatorHubTab from "@/components/partnership/CreatorHubTab";
-import ComingSoonTab from "@/components/partnership/ComingSoonTab";
+import PartnershipCodeTab from "@/components/partnership/PartnershipCodeTab";
+import { getPartnershipQueue } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 const TABS = [
@@ -41,6 +43,18 @@ export default function PartnershipAds() {
 
   const ready = !!selectedAccountId && !!selectedIgAccountId && !!businessId;
 
+  // The header's own "Ready to Launch" badge count — re-read from
+  // localStorage (the queue's real source of truth, see
+  // lib/clientStorage.js's own comment) whenever a child tab queues
+  // something, rather than kept as shared state threaded through every tab.
+  const [queueCount, setQueueCount] = useState(0);
+  const refreshQueueCount = () => setQueueCount(selectedAccountId ? getPartnershipQueue(selectedAccountId).length : 0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of this account's localStorage queue when the account changes, not derivable from props/state
+    refreshQueueCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshQueueCount is stable in intent, re-created each render only incidentally
+  }, [selectedAccountId]);
+
   return (
     <Layout>
       <Head>
@@ -48,11 +62,19 @@ export default function PartnershipAds() {
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Partnership Ads</h1>
-          <p className={styles.sub} style={{ marginTop: -8, marginBottom: 16 }}>
-            Browse content your creator partners have authorized for ads, request branded-content permission, and
-            launch real ads from it.
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h1 className={styles.h1}>Partnership Ads</h1>
+              <p className={styles.sub} style={{ marginTop: -8, marginBottom: 16 }}>
+                Browse content your creator partners have authorized for ads, request branded-content permission, and
+                launch real ads from it.
+              </p>
+            </div>
+            <Link href="/partnership-ads/queue" className={styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+              Ready to Launch
+              <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
+            </Link>
+          </div>
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
@@ -111,7 +133,13 @@ export default function PartnershipAds() {
 
           {tab === "overview" && <OverviewTab accountId={selectedAccountId} ready={ready} currency={selectedAccount?.currency} />}
           {tab === "explore" && (
-            <ExploreTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} />
+            <ExploreTab
+              accountId={selectedAccountId}
+              businessId={businessId}
+              igUserId={selectedIgAccountId}
+              ready={ready}
+              onQueueChanged={refreshQueueCount}
+            />
           )}
           {tab === "mine" && (
             <MyAdsTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
@@ -120,7 +148,15 @@ export default function PartnershipAds() {
             <CreatorHubTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
           )}
           {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
-          {tab === "code" && <ComingSoonTab label="Partnership Code" />}
+          {tab === "code" && (
+            <PartnershipCodeTab
+              accountId={selectedAccountId}
+              businessId={businessId}
+              igUserId={selectedIgAccountId}
+              ready={ready}
+              onQueueChanged={refreshQueueCount}
+            />
+          )}
         </main>
       </div>
     </Layout>
