@@ -8,7 +8,14 @@ export const authOptions = {
       clientSecret: process.env.FACEBOOK_APP_SECRET,
       authorization: {
         params: {
-          scope: "public_profile,email,pages_show_list,pages_read_engagement,ads_read,ads_management",
+          // instagram_basic: added for Partnership Ads (branded content ads)
+          // — reading a Page's linked Instagram Business Account and calling
+          // the Content Discovery / Branded Content Permissions APIs needs
+          // it. Nothing in Meta's own docs for those two APIs lists an exact
+          // minimum scope; this is a best-effort guess, not a confirmed
+          // requirement — if either API rejects a call with a permissions
+          // error, that's the first thing to revisit.
+          scope: "public_profile,email,pages_show_list,pages_read_engagement,ads_read,ads_management,instagram_basic",
         },
       },
     }),

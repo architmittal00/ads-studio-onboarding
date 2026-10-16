@@ -248,6 +248,18 @@ export function RocketIcon(props) {
   );
 }
 
+export function HandshakeIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="m11 17 2 2a1 1 0 1 0 3-3" />
+      <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3L15 9a3 3 0 0 0-4.5 0L9 10.5" />
+      <path d="M8 13l-3 3a1 1 0 1 0 3 3l1-1" />
+      <path d="M2 10l6-6 4.5 4.5" />
+      <path d="M22 10l-6-6-2 2" />
+    </Svg>
+  );
+}
+
 export function InfoIcon(props) {
   return (
     <Svg {...props}>

@@ -23,6 +23,28 @@ export function setLastAccountId(id) {
   }
 }
 
+const LAST_IG_ACCOUNT_KEY = "fb-dashboard:last-ig-account-id";
+
+// Which Instagram Business Account (Partnership Ads) was last selected on
+// this device — a convenience default only, same "last used, not load-
+// bearing" status as getLastAccountId above, never the source of truth for
+// which IG account a given ad account is actually paired with.
+export function getLastIgAccountId() {
+  try {
+    return localStorage.getItem(LAST_IG_ACCOUNT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setLastIgAccountId(id) {
+  try {
+    localStorage.setItem(LAST_IG_ACCOUNT_KEY, id);
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
+
 // The date range the report opens to by default on this device — a user
 // preference, not tied to whatever range they happened to leave it on last
 // (that's a different thing: the report always lands here first, every
