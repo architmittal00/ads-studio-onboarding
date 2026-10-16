@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-16**, by Claude, right after merging PR #197.
+> Last updated: **2026-10-16**, by Claude, right after merging PR #199.
 
 ---
 
@@ -59,7 +59,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`bb50b66`** — "Partnership Ads foundation: IG account linkage, Explore Ads grid, Overview" (PR #197, merged 2026-10-16).
+Latest commit as of this writing: **`0bc8ab1`** — "Fix double act_ prefix on ad account ids in Partnership Ads Graph calls" (PR #199, merged 2026-10-16).
 
 No open PRs. Everything described below is merged and live.
 
@@ -84,6 +84,8 @@ No open PRs. Everything described below is merged and live.
 ### PR #197 — Partnership Ads foundation: IG account linkage, Explore Ads grid, Overview
 
 A brand-new feature, not a round of fixes on an existing one: **Partnership Ads** (branded content ads) — replicating a static mockup (`dark-theme/partnership-ads.html`, 2798 lines, plus its downstream launch screen `ready-to-launch.html`, 933 lines) with real Meta Marketing API calls, at the user's explicit "everything at once" scope. Full plan saved at `.claude/plans/optimized-pondering-avalanche.md` — this PR is the first of several; see §7 for what's next.
+
+**Follow-up fix, PR #199**: the very first real-account test hit `Object with ID 'act_act_<number>' does not exist` — every new Graph call below built its path as `/act_${accountId}/...`, but `accountId` already carries its own `act_` prefix throughout this app (same convention as `pages/api/fb/adsets-list.js`'s `/${accountId}/adsets`). Fixed across `lib/partnershipAds.js`, `lib/partnershipDetection.js`, and both `pages/api/fb/partnership/*` routes that hit an ad-account-scoped endpoint, with the convention now spelled out in `lib/partnershipAds.js`'s own file header so it doesn't get reintroduced as later PRs add more endpoints (the launch flow in particular will add several more `act_`-scoped calls).
 
 What shipped this round:
 1. **Instagram Business Account linkage** — `pages/api/fb/data.js` now fetches each Page's `instagram_business_account{id,username,profile_picture_url}` and each ad account's owning `business{id,name}` (the Content Discovery API below is keyed by Business id, not ad account id). `AccountProvider` derives `igAccounts` from Pages that actually have one linked (most won't — a normal, handled state, not an error) and exposes `selectedIgAccountId`/`setSelectedIgAccountId` the same way `selectedAccountId` already works, with a `getLastIgAccountId`/`setLastIgAccountId` convenience default in `lib/clientStorage.js`.
@@ -201,7 +203,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 **Partnership Ads (PR #197) — the active feature, several PRs still queued:**
 1. **Next PRs, in order** (per the saved plan at `.claude/plans/optimized-pondering-avalanche.md`): (a) permission request flows (single + bulk) + My Requests tab; (b) Partnership Code (single + CSV) + the launch queue + the 3-step launch wizard + real ad creation (`pages/api/fb/partnership/launch.js` — the first PR in this whole app to create real `ad`/`adcreative` objects, not just campaigns/ad sets); (c) My Partnership Ads + Creator Hub.
-2. **Live-account verification needed before PR 1's own foundation is fully trusted** — none of this could be checked against a real account from here: (a) sign out/in to pick up the new `instagram_basic` scope, confirm the Instagram Business Account picker actually finds a linked account; (b) confirm the Explore Ads grid loads real content — depends on the Business having the Content Discovery API's `pa_content_discovery_api` gatekeeper flag enabled (the user says they already use Partnership Ads manually, so likely fine, but unconfirmed against this exact endpoint); (c) once "My Partnership Ads" ships, confirm `facebook_branded_content`/`instagram_branded_content`/`branded_content` actually read back non-null on an ad's creative — `lib/partnershipDetection.js`'s whole mechanism depends on this and the reference material only ever writes these fields, never reads them back.
+2. **Live-account verification needed before PR 1's own foundation is fully trusted** — none of this could be checked against a real account from here: (a) sign out/in to pick up the new `instagram_basic` scope, confirm the Instagram Business Account picker actually finds a linked account; (b) confirm the Explore Ads grid loads real content now that PR #199 fixed the `act_act_<number>` 400 the very first live test hit — still depends on the Business having the Content Discovery API's `pa_content_discovery_api` gatekeeper flag enabled (the user says they already use Partnership Ads manually, so likely fine, but unconfirmed against this exact endpoint); (c) once "My Partnership Ads" ships, confirm `facebook_branded_content`/`instagram_branded_content`/`branded_content` actually read back non-null on an ad's creative — `lib/partnershipDetection.js`'s whole mechanism depends on this and the reference material only ever writes these fields, never reads them back.
 3. **PR #185's `/recent-changes` timeout fix needs a live re-check** — I diagnosed and fixed the missing `limit` param from code reading alone (couldn't reproduce the original 504 in a mocked harness, no account with that much activity volume available in testing). Please re-run "Last 7 Days" on the account from the original report and confirm it completes without `FUNCTION_INVOCATION_TIMEOUT`.
 4. PR #163's Ad-level + time-grouping fix (raising the async-job poll timeout to 45s for that one heavy shape) couldn't be exercised from a mocked preview — needs a real check against a live, large ad account (many active ads, 90-day daily grouping) to confirm the longer timeout actually resolves the failure rather than just delaying it.
 5. The "no weekly/monthly/daily data at account level" report (see §5, PR #167) couldn't be reproduced against current `origin/main` code via a mocked preview — needs the reporter to describe the actual symptom (error message text, blank table, missing column, etc.) against a live account so this can be properly diagnosed. Don't re-guess at a fix without that information first.
