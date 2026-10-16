@@ -104,24 +104,55 @@ export async function fetchCopyableAds(token, accountId, { since, until }) {
   if (adIds.length === 0) return [];
 
   const batches = chunk(adIds, 50);
-  const results = await Promise.allSettled(
-    batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: COPY_AD_FIELDS }))
-  );
-  // The `?ids=` batch endpoint appears to fail a single id's nested-field
-  // error (e.g. the old-Instagram-id error above) in place rather than
-  // failing the whole batch — unlike the single-object GET the actual copy
-  // step uses, which fails outright (see fetchAdForCopy). Defensive filter
-  // in case a batch ever returns an error-shaped entry instead of a real ad
-  // object for one id: anything without its own `id` is dropped rather than
-  // rendered as a broken, nameless row in the picker.
+  const results = await Promise.allSettled(batches.map((batch) => fetchAdsBatchForListing(token, batch)));
+  // Defensive filter in case a batch call ever returns an error-shaped
+  // entry instead of a real ad object for one id: anything without its own
+  // `id` is dropped rather than rendered as a broken, nameless row in the
+  // picker.
   const ads = [];
+  let failedBatches = 0;
   for (const result of results) {
-    if (result.status !== "fulfilled") continue;
+    if (result.status !== "fulfilled") {
+      failedBatches += 1;
+      continue;
+    }
     for (const entry of Object.values(result.value || {})) {
       if (entry?.id) ads.push(entry);
     }
   }
+  // CORRECTION: an earlier version of this loop used plain
+  // `Promise.allSettled` + silently `continue`d past every rejected batch
+  // with no trace at all — which turned "every batch failed" into an
+  // indistinguishable, misleading "No ads found" empty state instead of a
+  // real, visible error. That's exactly what happened for real: PR #212's
+  // instagram_user_id rename (correct per Meta's own reference — the old
+  // field's own deprecation error literally instructs using this one) still
+  // broke every batch here, for reasons this couldn't be diagnosed from
+  // without seeing the real Graph error text, because it was being thrown
+  // away. fetchAdsBatchForListing now retries once without the Instagram
+  // field on that same error (mirroring fetchAdForCopy's already-proven
+  // fallback), and if every batch still fails even after that, this throws
+  // a real error instead of returning an empty array — so the next time
+  // something here breaks, it's visible instead of indistinguishable from
+  // "this account genuinely has no recent ads."
+  if (ads.length === 0 && failedBatches > 0) {
+    throw new Error(`Could not load this account's ads (${failedBatches} batch${failedBatches === 1 ? "" : "es"} failed) — see /logs for the underlying Graph error.`);
+  }
   return ads;
+}
+
+// Same old-Instagram-id fallback as fetchAdForCopy, applied per-batch here:
+// if even one id in a batch of up to 50 has an Instagram field that fails
+// under the current field name/permission, this retries the WHOLE batch
+// without it rather than silently losing every ad in that batch — safer
+// than trying to isolate which one id was the problem.
+async function fetchAdsBatchForListing(token, ids) {
+  try {
+    return await graphGet("", token, { ids: ids.join(","), fields: COPY_AD_FIELDS });
+  } catch (err) {
+    if (!isOldInstagramIdError(err)) throw err;
+    return await graphGet("", token, { ids: ids.join(","), fields: COPY_AD_FIELDS_NO_INSTAGRAM });
+  }
 }
 
 // An ad is copyable by this feature only if it has a standard
