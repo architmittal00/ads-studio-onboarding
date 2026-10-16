@@ -1,4 +1,5 @@
-import { graphGet, graphPost, graphGetAllPages } from "./facebookGraph";
+import { graphGet, graphPost, graphGetInsights } from "./facebookGraph";
+import { chunk } from "./adCreativeDetails";
 
 // Fields needed to fully rebuild a standard ad's creative in a different ad
 // account — a new, purpose-built fields string, NOT lib/adCreativeDetails.js's
@@ -18,22 +19,59 @@ export const COPY_AD_FIELDS =
   "video_data{video_id,message,image_url,call_to_action}}," +
   "asset_feed_spec{bodies{text}}}";
 
-// `since`/`until` (YYYY-MM-DD) are optional but strongly recommended for any
-// account with real history: an unfiltered account-wide `/ads` pull with
+// CORRECTION (this function's second rewrite): `time_range`/`date_preset`
+// on `GET /{accountId}/ads` do NOT filter which ad rows come back — they
+// only scope nested insights-shaped sub-fields requested in the same call.
+// An earlier version of this function passed `time_range` straight to
+// `/ads` believing it bounded the result set (Meta's own `/ads` reference
+// page lists the param with no such caveat); that happened to dodge one
+// "Please reduce the amount of data you're asking for" error on one account
+// — probably by changing the declared query's estimated cost, not its
+// actual row count — but a busier account then timed out outright
+// (FUNCTION_INVOCATION_TIMEOUT) walking its full, unfiltered ad list with
 // this fields string's depth (nested object_story_spec, carousel
-// child_attachments) is exactly the shape Meta's API rejects outright with
-// "Please reduce the amount of data you're asking for" once an account has
-// enough ads — confirmed live. `time_range` is a real, documented filter on
-// this edge (same as `date_preset`/`effective_status`/`updated_since`), not
-// an insights-only concept, so this narrows what Graph returns in the first
-// place rather than fetching everything and filtering client-side.
-export async function fetchCopyableAds(token, accountId, { since, until } = {}) {
-  const result = await graphGetAllPages(`/${accountId}/ads`, token, {
-    fields: COPY_AD_FIELDS,
-    limit: 200,
-    ...(since && until ? { time_range: { since, until } } : {}),
+// child_attachments) regardless of the date range picked in the UI.
+//
+// `/insights` genuinely does respect `time_range` (this is the
+// well-established, correct way to scope by date on this API — the same
+// mechanism pages/api/fb/adsets-list.js already relies on for its own
+// ad-set performance numbers). So this now asks `/insights` which ad ids
+// actually had delivery in the window (cheap: `level: "ad"`, just the id,
+// no real metrics), then fetches this picker's heavy per-ad creative
+// fields only for that bounded candidate set, via the exact chunked
+// `?ids=` batch pattern lib/adCreativeDetails.js's fetchAdDetails already
+// uses for the identical reason (avoid ever listing the account's full ad
+// set when only specific ids are actually needed).
+//
+// Trade-off, stated plainly: an ad that exists but has zero delivery in the
+// window (e.g. brand new, launched minutes ago with no impressions yet)
+// won't show up here even though it's real — there is no other way to get
+// a genuinely server-side-bounded "ads active in X" on this API. For this
+// feature's purpose (pick a proven, already-running ad to replicate
+// elsewhere), that's an acceptable, arguably correct reading of "active."
+export async function fetchCopyableAds(token, accountId, { since, until }) {
+  if (!since || !until) {
+    throw new Error("A date range is required to list ads for this account.");
+  }
+  const insights = await graphGetInsights(`/${accountId}/insights`, token, {
+    level: "ad",
+    fields: "ad_id",
+    time_range: { since, until },
+    limit: 500,
   });
-  return result.data || [];
+  const adIds = [...new Set((insights.data || []).map((row) => row.ad_id).filter(Boolean))];
+  if (adIds.length === 0) return [];
+
+  const batches = chunk(adIds, 50);
+  const results = await Promise.allSettled(
+    batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: COPY_AD_FIELDS }))
+  );
+  const ads = [];
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    ads.push(...Object.values(result.value || {}));
+  }
+  return ads;
 }
 
 // An ad is copyable by this feature only if it has a standard
