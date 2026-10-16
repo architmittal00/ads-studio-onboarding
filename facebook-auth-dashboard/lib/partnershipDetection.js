@@ -19,7 +19,7 @@ import { graphGetAllPages } from "./facebookGraph";
 // created here" fallback is needed instead (same shape, same consumers,
 // see this function's own return shape below so that swap stays contained).
 export async function fetchPartnershipAds(token, adAccountId) {
-  const result = await graphGetAllPages(`/act_${adAccountId}/ads`, token, {
+  const result = await graphGetAllPages(`/${adAccountId}/ads`, token, {
     fields:
       "id,name,status,effective_status,adset{id,name},campaign{id,name}," +
       "creative{id,facebook_branded_content,instagram_branded_content,branded_content,effective_object_story_id,instagram_permalink_url}",

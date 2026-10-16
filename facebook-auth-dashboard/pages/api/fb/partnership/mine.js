@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     );
     const insightsResults = await Promise.allSettled(
       idChunks.map((ids) =>
-        graphGetInsights(`/act_${accountId}/insights`, token, {
+        graphGetInsights(`/${accountId}/insights`, token, {
           level: "ad",
           fields: INSIGHTS_FIELDS,
           filtering: [{ field: "ad.id", operator: "IN", value: ids }],

@@ -22,7 +22,7 @@ async function rollupForAdIds(token, accountId, adIds, operator) {
   const idChunks = adIds.length > 0 ? chunk(adIds, FILTER_CHUNK_SIZE) : [[]];
   const results = await Promise.allSettled(
     idChunks.map((ids) =>
-      graphGetInsights(`/act_${accountId}/insights`, token, {
+      graphGetInsights(`/${accountId}/insights`, token, {
         level: "account",
         fields: ROLLUP_FIELDS,
         ...(ids.length > 0 || operator === "NOT_IN" ? { filtering: [{ field: "ad.id", operator, value: ids }] } : {}),
@@ -94,7 +94,7 @@ export default async function handler(req, res) {
       rollupForAdIds(token, accountId, partnershipAdIds, "NOT_IN"),
       // `summary=true` on a connection returns a count without paginating
       // every row — cheaper than listing every active ad just to count them.
-      graphGet(`/act_${accountId}/ads`, token, {
+      graphGet(`/${accountId}/ads`, token, {
         fields: "id",
         filtering: [{ field: "effective_status", operator: "IN", value: ["ACTIVE"] }],
         summary: true,

@@ -8,6 +8,12 @@ import { graphGet, graphPost, graphGetAllPages } from "./facebookGraph";
 // not guessed from general Marketing API familiarity, since this corner of
 // the API (Content Discovery, Branded Content Ad Permissions) is newer and
 // less documented than the rest of what this app already calls.
+//
+// `adAccountId` everywhere below is this app's own account id as already
+// returned by /me/adaccounts and threaded through every page/API route —
+// i.e. it already carries its own "act_" prefix ("act_12345", not "12345").
+// Every path is built as `/${adAccountId}/...`, never `/act_${adAccountId}/...`
+// — the latter produces a real, confirmed "act_act_12345" 400 from Graph.
 
 // The full field set the Content Discovery API returns per content item —
 // centralized as one constant so the Explore grid, the Partnership Code
@@ -91,7 +97,7 @@ export async function lookupContent(token, businessId, { igUserId, adCodes, perm
   return json.data || [];
 }
 
-// POST /act_{ad_account_id}/advideos — registers an Instagram-hosted video
+// POST /{ad_account_id}/advideos — registers an Instagram-hosted video
 // as a prerequisite to creative creation for video content. `adCode` is only
 // sent (with `is_partnership_ad: true`) when sourcing by Partnership Code.
 export async function registerVideoSource(token, adAccountId, { sourceInstagramMediaId, adCode } = {}) {
@@ -100,12 +106,12 @@ export async function registerVideoSource(token, adAccountId, { sourceInstagramM
     params.partnership_ad_ad_code = adCode;
     params.is_partnership_ad = true;
   }
-  return graphPost(`/act_${adAccountId}/advideos`, token, params);
+  return graphPost(`/${adAccountId}/advideos`, token, params);
 }
 
 const AD_FORMAT_CODES = { BOTH: 1, FIRST: 2, DYNAMIC: 3 };
 
-// POST /act_{ad_account_id}/adcreatives — the branded-content creative.
+// POST /{ad_account_id}/adcreatives — the branded-content creative.
 // Sourcing is mutually exclusive: EITHER `adCode` (sets
 // branded_content.instagram_boost_post_access_token) OR
 // `sourceInstagramMediaId` (sent as its own top-level param) — never both.
@@ -131,14 +137,14 @@ export async function createBrandedCreative(
   if (Object.keys(brandedContent).length > 0) params.branded_content = brandedContent;
   if (!adCode && sourceInstagramMediaId) params.source_instagram_media_id = sourceInstagramMediaId;
 
-  return graphPost(`/act_${adAccountId}/adcreatives`, token, params);
+  return graphPost(`/${adAccountId}/adcreatives`, token, params);
 }
 
-// POST /act_{ad_account_id}/ads — always created PAUSED first, same safety
+// POST /{ad_account_id}/ads — always created PAUSED first, same safety
 // pattern as pages/api/fb/launch-campaign.js; callers flip to ACTIVE in a
 // separate, later call only once every object in the batch has succeeded.
 export async function createAd(token, adAccountId, { name, adsetId, creativeId }) {
-  return graphPost(`/act_${adAccountId}/ads`, token, {
+  return graphPost(`/${adAccountId}/ads`, token, {
     name,
     adset_id: adsetId,
     creative: { creative_id: creativeId },
