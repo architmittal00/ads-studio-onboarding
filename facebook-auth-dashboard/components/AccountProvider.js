@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { getLastAccountId, setLastAccountId } from "@/lib/clientStorage";
+import { getLastAccountId, setLastAccountId, getLastIgAccountId, setLastIgAccountId } from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 
 const ACCOUNT_DATA_CACHE_KEY = "account-data";
@@ -27,6 +27,7 @@ export function AccountProvider({ children }) {
   const [accountsError, setAccountsError] = useState(null);
   const [accountsFetchedAt, setAccountsFetchedAt] = useState(null);
   const [selectedAccountId, setSelectedAccountIdState] = useState("");
+  const [selectedIgAccountId, setSelectedIgAccountIdState] = useState("");
 
   const load = useCallback((force) => {
     if (!force) {
@@ -90,6 +91,41 @@ export function AccountProvider({ children }) {
     if (id) setLastAccountId(id);
   }
 
+  // Pages that actually have a linked Instagram Business Account — most
+  // won't (a Page needs to have been explicitly connected to an IG Business
+  // or Creator account), so this is routinely a small subset of `pages`, not
+  // an error condition. Powers Partnership Ads' own account picker; every
+  // other page in this app ignores it entirely.
+  const igAccounts = useMemo(
+    () =>
+      pages
+        .filter((p) => p.instagram_business_account)
+        .map((p) => ({
+          igUserId: p.instagram_business_account.id,
+          username: p.instagram_business_account.username,
+          profilePictureUrl: p.instagram_business_account.profile_picture_url,
+          pageId: p.id,
+          pageName: p.name,
+        })),
+    [pages]
+  );
+
+  // Seeds from the last IG account used on this device, same convention as
+  // selectedAccountId above — a convenience default only.
+  useEffect(() => {
+    if (igAccounts.length === 0 || selectedIgAccountId) return;
+    const lastId = getLastIgAccountId();
+    const stillExists = igAccounts.some((a) => a.igUserId === lastId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time seed from fetched data + a localStorage read, not a derived-state anti-pattern
+    setSelectedIgAccountIdState(stillExists ? lastId : igAccounts[0].igUserId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedIgAccountId intentionally excluded, see guard above
+  }, [igAccounts]);
+
+  function setSelectedIgAccountId(id) {
+    setSelectedIgAccountIdState(id);
+    if (id) setLastIgAccountId(id);
+  }
+
   const value = {
     profile,
     pages,
@@ -99,6 +135,9 @@ export function AccountProvider({ children }) {
     accountsFetchedAt,
     selectedAccountId,
     setSelectedAccountId,
+    igAccounts,
+    selectedIgAccountId,
+    setSelectedIgAccountId,
     refreshAccounts: () => load(true),
   };
 

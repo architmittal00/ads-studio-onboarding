@@ -16,6 +16,7 @@ import {
   MoonIcon,
   HistoryIcon,
   RocketIcon,
+  HandshakeIcon,
 } from "./icons";
 
 const LINKS = [
@@ -24,6 +25,7 @@ const LINKS = [
   { href: "/launch", label: "Launch", icon: RocketIcon },
   { href: "/explore", label: "Custom Views", icon: ChartIcon },
   { href: "/recent-changes", label: "Recent Changes", icon: HistoryIcon },
+  { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },
   { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
   { href: "/logs", label: "API Logs", icon: ListIcon },
 ];
