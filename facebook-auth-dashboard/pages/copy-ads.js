@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
+import PinLock from "@/components/PinLock";
 import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import SortableTable from "@/components/SortableTable";
@@ -142,98 +143,100 @@ export default function CopyAdsPage() {
       <Head>
         <title>Copy Ads · Facebook Auth Dashboard</title>
       </Head>
-      <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Copy Ads Across Accounts</h1>
-          <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
-            Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad
-            account — the same Page, no retargeting needed.
-          </p>
+      <PinLock>
+        <div className={styles.page}>
+          <main className={styles.main} style={{ maxWidth: 1000, margin: "0 auto" }}>
+            <h1 className={styles.h1}>Copy Ads Across Accounts</h1>
+            <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
+              Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad
+              account — the same Page, no retargeting needed.
+            </p>
 
-          {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
+            {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-          <div className={styles.card} style={{ marginBottom: 20, display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 240px" }}>
-              <p className={styles.sub} style={{ marginBottom: 6 }}>
-                Source ad account
-              </p>
-              <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
-            </div>
-            <div style={{ flex: "1 1 240px" }}>
-              <p
-                className={styles.sub}
-                style={{ marginBottom: 6 }}
-                title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
-              >
-                Only show ads with spend in
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <select className={styles.select} value={rangePreset} onChange={(e) => setRangePreset(e.target.value)}>
-                  {RANGE_PRESETS.map((p) => (
-                    <option key={p.key} value={p.key}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-                {rangePreset === "custom" && (
-                  <>
-                    <input type="date" className={styles.select} value={customSince} onChange={(e) => setCustomSince(e.target.value)} />
-                    <input type="date" className={styles.select} value={customUntil} onChange={(e) => setCustomUntil(e.target.value)} />
-                  </>
-                )}
+            <div className={styles.card} style={{ marginBottom: 20, display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 240px" }}>
+                <p className={styles.sub} style={{ marginBottom: 6 }}>
+                  Source ad account
+                </p>
+                <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
+              </div>
+              <div style={{ flex: "1 1 240px" }}>
+                <p
+                  className={styles.sub}
+                  style={{ marginBottom: 6 }}
+                  title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
+                >
+                  Only show ads with spend in
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <select className={styles.select} value={rangePreset} onChange={(e) => setRangePreset(e.target.value)}>
+                    {RANGE_PRESETS.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                  {rangePreset === "custom" && (
+                    <>
+                      <input type="date" className={styles.select} value={customSince} onChange={(e) => setCustomSince(e.target.value)} />
+                      <input type="date" className={styles.select} value={customUntil} onChange={(e) => setCustomUntil(e.target.value)} />
+                    </>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading}>
+                  {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
+                </button>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end" }}>
-              <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading}>
-                {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
-              </button>
-            </div>
-          </div>
 
-          {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}
-          {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates above, then click Load Ads.</p>}
-          {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
-          {adsLoading && <Loader label="Loading ads…" />}
-          {adsError && (
-            <div className={styles.error}>
-              {adsError}
-              {adsError.toLowerCase().includes("reduce the amount of data") && " — try a narrower date range above, then Reload Ads."}
-            </div>
-          )}
+            {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}
+            {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates above, then click Load Ads.</p>}
+            {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
+            {adsLoading && <Loader label="Loading ads…" />}
+            {adsError && (
+              <div className={styles.error}>
+                {adsError}
+                {adsError.toLowerCase().includes("reduce the amount of data") && " — try a narrower date range above, then Reload Ads."}
+              </div>
+            )}
 
-          {!adsLoading && !adsError && hasLoaded && (
-            <SortableTable
-              columns={columns}
-              rows={ads}
-              defaultSortKey="name"
-              defaultSortDir="asc"
-              searchable
-              searchKeys={["name", "campaignName", "adsetName"]}
-              emptyMessage="No ads found in this account."
-            />
-          )}
-        </main>
-      </div>
+            {!adsLoading && !adsError && hasLoaded && (
+              <SortableTable
+                columns={columns}
+                rows={ads}
+                defaultSortKey="name"
+                defaultSortDir="asc"
+                searchable
+                searchKeys={["name", "campaignName", "adsetName"]}
+                emptyMessage="No ads found in this account."
+              />
+            )}
+          </main>
+        </div>
 
-      <SelectionBar count={selectedAds.length} onClear={() => setSelectedIds(new Set())} onCopy={() => setModalOpen(true)} />
+        <SelectionBar count={selectedAds.length} onClear={() => setSelectedIds(new Set())} onCopy={() => setModalOpen(true)} />
 
-      {modalOpen && (
-        <CopyAdsModal
-          sourceAccountId={selectedAccountId}
-          ads={selectedAds}
-          adAccounts={adAccounts}
-          onClose={() => setModalOpen(false)}
-          onDone={(result) => {
-            if (result?.createdAdIds?.length) {
-              setSelectedIds((prev) => {
-                const next = new Set(prev);
-                for (const id of selectedAds.map((a) => a.id)) next.delete(id);
-                return next;
-              });
-            }
-          }}
-        />
-      )}
+        {modalOpen && (
+          <CopyAdsModal
+            sourceAccountId={selectedAccountId}
+            ads={selectedAds}
+            adAccounts={adAccounts}
+            onClose={() => setModalOpen(false)}
+            onDone={(result) => {
+              if (result?.createdAdIds?.length) {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  for (const id of selectedAds.map((a) => a.id)) next.delete(id);
+                  return next;
+                });
+              }
+            }}
+          />
+        )}
+      </PinLock>
     </Layout>
   );
 }

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
+import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
 import OverviewTab from "@/components/partnership/OverviewTab";
@@ -60,105 +61,107 @@ export default function PartnershipAds() {
       <Head>
         <title>Partnership Ads · Facebook Auth Dashboard</title>
       </Head>
-      <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <h1 className={styles.h1}>Partnership Ads</h1>
-              <p className={styles.sub} style={{ marginTop: -8, marginBottom: 16 }}>
-                Browse content your creator partners have authorized for ads, request branded-content permission, and
-                launch real ads from it.
-              </p>
+      <PinLock>
+        <div className={styles.page}>
+          <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <h1 className={styles.h1}>Partnership Ads</h1>
+                <p className={styles.sub} style={{ marginTop: -8, marginBottom: 16 }}>
+                  Browse content your creator partners have authorized for ads, request branded-content permission, and
+                  launch real ads from it.
+                </p>
+              </div>
+              <Link href="/partnership-ads/queue" className={styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                Ready to Launch
+                <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
+              </Link>
             </div>
-            <Link href="/partnership-ads/queue" className={styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-              Ready to Launch
-              <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
-            </Link>
-          </div>
 
-          {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
+            {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-            <div style={{ minWidth: 220 }}>
-              <p className={styles.muted} style={{ marginBottom: 4, fontSize: 11 }}>
-                Ad Account
-              </p>
-              <AccountSelect
-                accounts={adAccounts}
-                value={selectedAccountId}
-                onChange={setSelectedAccountId}
-                placeholder="Select an ad account…"
-                style={{ width: "100%" }}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+              <div style={{ minWidth: 220 }}>
+                <p className={styles.muted} style={{ marginBottom: 4, fontSize: 11 }}>
+                  Ad Account
+                </p>
+                <AccountSelect
+                  accounts={adAccounts}
+                  value={selectedAccountId}
+                  onChange={setSelectedAccountId}
+                  placeholder="Select an ad account…"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div style={{ minWidth: 220 }}>
+                <p className={styles.muted} style={{ marginBottom: 4, fontSize: 11 }}>
+                  Instagram Business Account
+                </p>
+                <AccountSelect
+                  accounts={igOptions}
+                  value={selectedIgAccountId}
+                  onChange={setSelectedIgAccountId}
+                  placeholder={igOptions.length === 0 ? "No Instagram Business Account found" : "Select an Instagram account…"}
+                  style={{ width: "100%" }}
+                />
+              </div>
+            </div>
+
+            {selectedAccountId && igAccounts.length === 0 && (
+              <div className={styles.error} style={{ marginBottom: 16 }}>
+                None of your connected Pages have a linked Instagram Business Account. Connect one in Meta Business
+                Suite first — Partnership Ads needs it to browse eligible content and request creator permissions.
+              </div>
+            )}
+            {selectedAccountId && igAccounts.length > 0 && !businessId && (
+              <div className={styles.error} style={{ marginBottom: 16 }}>
+                This ad account isn&apos;t associated with a Business Manager — Partnership Ads&apos; content discovery
+                needs one.
+              </div>
+            )}
+
+            <div className={styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={tab === t.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => setTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {tab === "overview" && <OverviewTab accountId={selectedAccountId} ready={ready} currency={selectedAccount?.currency} />}
+            {tab === "explore" && (
+              <ExploreTab
+                accountId={selectedAccountId}
+                businessId={businessId}
+                igUserId={selectedIgAccountId}
+                ready={ready}
+                onQueueChanged={refreshQueueCount}
               />
-            </div>
-            <div style={{ minWidth: 220 }}>
-              <p className={styles.muted} style={{ marginBottom: 4, fontSize: 11 }}>
-                Instagram Business Account
-              </p>
-              <AccountSelect
-                accounts={igOptions}
-                value={selectedIgAccountId}
-                onChange={setSelectedIgAccountId}
-                placeholder={igOptions.length === 0 ? "No Instagram Business Account found" : "Select an Instagram account…"}
-                style={{ width: "100%" }}
+            )}
+            {tab === "mine" && (
+              <MyAdsTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
+            )}
+            {tab === "creators" && (
+              <CreatorHubTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
+            )}
+            {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
+            {tab === "code" && (
+              <PartnershipCodeTab
+                accountId={selectedAccountId}
+                businessId={businessId}
+                igUserId={selectedIgAccountId}
+                ready={ready}
+                onQueueChanged={refreshQueueCount}
               />
-            </div>
-          </div>
-
-          {selectedAccountId && igAccounts.length === 0 && (
-            <div className={styles.error} style={{ marginBottom: 16 }}>
-              None of your connected Pages have a linked Instagram Business Account. Connect one in Meta Business
-              Suite first — Partnership Ads needs it to browse eligible content and request creator permissions.
-            </div>
-          )}
-          {selectedAccountId && igAccounts.length > 0 && !businessId && (
-            <div className={styles.error} style={{ marginBottom: 16 }}>
-              This ad account isn&apos;t associated with a Business Manager — Partnership Ads&apos; content discovery
-              needs one.
-            </div>
-          )}
-
-          <div className={styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                className={tab === t.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                onClick={() => setTab(t.key)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {tab === "overview" && <OverviewTab accountId={selectedAccountId} ready={ready} currency={selectedAccount?.currency} />}
-          {tab === "explore" && (
-            <ExploreTab
-              accountId={selectedAccountId}
-              businessId={businessId}
-              igUserId={selectedIgAccountId}
-              ready={ready}
-              onQueueChanged={refreshQueueCount}
-            />
-          )}
-          {tab === "mine" && (
-            <MyAdsTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
-          )}
-          {tab === "creators" && (
-            <CreatorHubTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
-          )}
-          {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
-          {tab === "code" && (
-            <PartnershipCodeTab
-              accountId={selectedAccountId}
-              businessId={businessId}
-              igUserId={selectedIgAccountId}
-              ready={ready}
-              onQueueChanged={refreshQueueCount}
-            />
-          )}
-        </main>
-      </div>
+            )}
+          </main>
+        </div>
+      </PinLock>
     </Layout>
   );
 }
