@@ -9,15 +9,56 @@ import { chunk } from "./adCreativeDetails";
 // (optional) Instagram actor, the on-image/video asset references
 // (image_hash / video_id, including per-carousel-card), and the copy/CTA
 // fields, which pass through to the new creative completely untouched.
-export const COPY_AD_FIELDS =
-  "id,name,status,effective_status," +
-  "adset{id,name},campaign{id,name}," +
-  "creative{id,object_type,product_set_id,thumbnail_url," +
-  "object_story_spec{page_id,instagram_actor_id," +
-  "link_data{link,message,name,description,call_to_action,image_hash," +
-  "child_attachments{link,name,description,image_hash}}," +
-  "video_data{video_id,message,image_url,call_to_action}}," +
-  "asset_feed_spec{bodies{text}}}";
+//
+// `instagram_actor_id` was Meta's field name for this pre-v22.0; it's been
+// replaced by `instagram_user_id` (confirmed via Meta's v22.0 changelog —
+// querying the old field name now throws outright: "(#12) Old Instagram ID
+// is deprecated for versions v22.0 and higher", which is exactly what hit a
+// real ad during copying before this was caught). `withInstagram` toggles
+// whether that field is requested at all — see fetchAdForCopy below for why
+// a second, Instagram-field-free variant exists: the error's own wording
+// ("Old Instagram ID", not "unsupported field") suggests at least some
+// ads' creative may still carry a never-migrated legacy-format id that
+// fails even under the new field name, not just the old one.
+function copyAdFields(withInstagram) {
+  return (
+    "id,name,status,effective_status," +
+    "adset{id,name},campaign{id,name}," +
+    "creative{id,object_type,product_set_id,thumbnail_url," +
+    `object_story_spec{page_id${withInstagram ? ",instagram_user_id" : ""},` +
+    "link_data{link,message,name,description,call_to_action,image_hash," +
+    "child_attachments{link,name,description,image_hash}}," +
+    "video_data{video_id,message,image_url,call_to_action}}," +
+    "asset_feed_spec{bodies{text}}}"
+  );
+}
+
+export const COPY_AD_FIELDS = copyAdFields(true);
+const COPY_AD_FIELDS_NO_INSTAGRAM = copyAdFields(false);
+
+function isOldInstagramIdError(err) {
+  return err?.graphResponse?.error?.code === 12 || /Old Instagram ID is deprecated/i.test(err?.message || "");
+}
+
+// Re-fetches one ad for the actual copy step (pages/api/fb/copy-ads/copy.js)
+// with a fallback: if the full fields string throws the old-Instagram-id
+// error above, retry once without `instagram_user_id` at all and proceed
+// without an explicit Instagram actor on the copied creative — Meta
+// generally defaults an omitted one to the destination Page's own connected
+// Instagram account, so the copy still succeeds, just without necessarily
+// preserving a *different* Instagram account the original ad may have used.
+// Returns `{ad, instagramOmitted}` so the caller can surface that as a
+// visible (non-blocking) note rather than silently dropping it.
+export async function fetchAdForCopy(token, adId) {
+  try {
+    const ad = await graphGet(`/${adId}`, token, { fields: COPY_AD_FIELDS });
+    return { ad, instagramOmitted: false };
+  } catch (err) {
+    if (!isOldInstagramIdError(err)) throw err;
+    const ad = await graphGet(`/${adId}`, token, { fields: COPY_AD_FIELDS_NO_INSTAGRAM });
+    return { ad, instagramOmitted: true };
+  }
+}
 
 // CORRECTION (this function's second rewrite): `time_range`/`date_preset`
 // on `GET /{accountId}/ads` do NOT filter which ad rows come back — they
@@ -66,10 +107,19 @@ export async function fetchCopyableAds(token, accountId, { since, until }) {
   const results = await Promise.allSettled(
     batches.map((batch) => graphGet("", token, { ids: batch.join(","), fields: COPY_AD_FIELDS }))
   );
+  // The `?ids=` batch endpoint appears to fail a single id's nested-field
+  // error (e.g. the old-Instagram-id error above) in place rather than
+  // failing the whole batch — unlike the single-object GET the actual copy
+  // step uses, which fails outright (see fetchAdForCopy). Defensive filter
+  // in case a batch ever returns an error-shaped entry instead of a real ad
+  // object for one id: anything without its own `id` is dropped rather than
+  // rendered as a broken, nameless row in the picker.
   const ads = [];
   for (const result of results) {
     if (result.status !== "fulfilled") continue;
-    ads.push(...Object.values(result.value || {}));
+    for (const entry of Object.values(result.value || {})) {
+      if (entry?.id) ads.push(entry);
+    }
   }
   return ads;
 }
@@ -193,7 +243,7 @@ export async function copyVideoAcrossAccounts(token, destAccountId, { sourceUrl,
 
 // Deep-clones an object_story_spec, swapping every image_hash / video_id
 // reference for its destination-account equivalent via the maps built while
-// copying assets. Everything else — page_id, instagram_actor_id, link,
+// copying assets. Everything else — page_id, instagram_user_id, link,
 // message, call_to_action, carousel copy — passes through completely
 // untouched. This is the "page details remain same" half of the feature.
 export function rebuildObjectStorySpec(spec, hashMap, videoIdMap) {

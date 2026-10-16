@@ -62,14 +62,19 @@ function BackLink({ onClick }) {
 }
 
 function StepRow({ step }) {
-  const icon = step.success ? "✓" : step.skipped ? "⊘" : "✗";
-  const color = step.success ? "var(--green)" : step.skipped ? "var(--amber)" : "var(--red)";
+  // A succeeded step can still carry a non-blocking `warning` (e.g. copied
+  // without an Instagram actor) — shown with the amber skipped-style icon
+  // so it's visibly distinct from a clean success, without being counted
+  // as a failure anywhere (createdAdIds/overallSuccess already don't).
+  const icon = step.warning ? "⚠" : step.success ? "✓" : step.skipped ? "⊘" : "✗";
+  const color = step.warning ? "var(--amber)" : step.success ? "var(--green)" : step.skipped ? "var(--amber)" : "var(--red)";
   return (
     <div style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "4px 0" }}>
       <span style={{ color, fontWeight: 700, flexShrink: 0 }}>{icon}</span>
       <span>
         {step.label} — {step.name}
         {step.error && <span style={{ color: "var(--t2)" }}> · {step.error}</span>}
+        {step.warning && <span style={{ color: "var(--t2)" }}> · {step.warning}</span>}
       </span>
     </div>
   );
