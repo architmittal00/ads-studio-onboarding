@@ -248,9 +248,11 @@ async function fetchAdsBatchForListing(token, ids) {
 //   already belongs to the same shared Page, the new creative can just
 //   reference it directly via `object_story_id` instead of needing any
 //   spec or asset copy. `isBrandedContent` flags the Partnership-ad case
-//   specifically so the copy step can warn that the paid-partnership
-//   label/sponsor tag — which depends on separate creator permissions this
-//   feature isn't re-requesting — may not carry over to the new ad.
+//   specifically, for the picker's own "Partnership ad — from existing
+//   post" badge — the paid-partnership label/sponsor tag itself is a
+//   property of the referenced *post*, already applied when that post was
+//   originally published, so it carries over to the new ad automatically
+//   (confirmed against a real copy) with nothing extra to re-declare.
 //
 // Dynamic Creative ads (asset_feed_spec only, no object_story_spec and no
 // existing post to reference) permute many bodies/titles/images/videos at
