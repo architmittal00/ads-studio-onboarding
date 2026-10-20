@@ -1,9 +1,15 @@
 import { graphGet, graphGetInsights } from "./facebookGraph";
 import { lastNDaysRange, chunk } from "./adCreativeDetails";
 
+// `effective_instagram_media_id`/`source_instagram_media_id` are what
+// pages/api/fb/partnership/mine.js's creator resolution now reads — a plain
+// GET on that media id directly returns its own `username`, no Business id
+// or Content Discovery scoping needed at all (replaced the old
+// `instagram_permalink_url`-based approach, which never reliably resolved
+// against a real account — see mine.js's own comment for the full history).
 const PARTNERSHIP_AD_FIELDS =
   "id,name,status,effective_status,adset{id,name},campaign{id,name}," +
-  "creative{id,thumbnail_url,facebook_branded_content,instagram_branded_content,branded_content,effective_object_story_id,instagram_permalink_url}";
+  "creative{id,thumbnail_url,facebook_branded_content,instagram_branded_content,branded_content,effective_object_story_id,effective_instagram_media_id,source_instagram_media_id}";
 const AD_ID_CHUNK_SIZE = 50;
 
 // Which ads in this account had real delivery (spend/impressions) in a
@@ -70,7 +76,10 @@ export async function classifyPartnershipAds(token, adIds) {
       adsetId: ad.adset?.id || null,
       adsetName: ad.adset?.name || null,
       creativeId: ad.creative?.id || null,
-      instagramPermalinkUrl: ad.creative?.instagram_permalink_url || null,
+      // Prefer `effective_instagram_media_id` — `source_instagram_media_id`
+      // is the fallback the user's own curl also fetched, implying the
+      // effective one isn't always populated.
+      instagramMediaId: ad.creative?.effective_instagram_media_id || ad.creative?.source_instagram_media_id || null,
       thumbnailUrl: ad.creative?.thumbnail_url || null,
     }));
 }

@@ -1,8 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
-import { graphGetInsights } from "@/lib/facebookGraph";
+import { graphGet, graphGetInsights } from "@/lib/facebookGraph";
 import { fetchPartnershipAds } from "@/lib/partnershipDetection";
-import { lookupContent } from "@/lib/partnershipAds";
 import { roasFromRow, pickPurchaseCount, pickPurchaseValue } from "@/lib/metrics";
 import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 
@@ -16,84 +15,52 @@ import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 // uses — not reinvented here.
 const INSIGHTS_FIELDS = "ad_id,spend,actions,action_values,purchase_roas,ctr,cpm";
 const INSIGHTS_CHUNK_SIZE = 50;
-// The Content Discovery API's own direct-lookup cap on how many permalinks
-// one call can resolve at once (same limit lib/partnershipAds.js's
-// lookupContent documents for ad_codes/permalinks/content_ids).
-const PERMALINK_LOOKUP_CHUNK_SIZE = 50;
+const IG_MEDIA_CHUNK_SIZE = 50;
+const IG_MEDIA_FIELDS = "id,username,permalink,media_type";
 
-// CORRECTION (reported live: "most ads are classified as unknown" — i.e.
-// creatorUsername came back null for nearly every ad): this Map used to be
-// keyed by the exact, byte-for-byte `permalink` string, on both sides —
-// Meta's own echoed-back `item.permalink` from the Content Discovery lookup
-// is not guaranteed to be byte-identical to the ad creative's own
-// `instagram_permalink_url` even when they're the same post (protocol,
-// `www.`, a trailing slash, or a tracking query string are all things Meta's
-// various endpoints are inconsistent about including), so a strict Map.get
-// silently missed real matches far more often than it should have.
-// normalizePermalink reduces both sides to the same bare host+path before
-// comparing, which is safe regardless of which side (if either) included
-// the extra noise. This is the one concrete, confirmable-from-code fix;
-// it does NOT rule out the separate possibility that the Content Discovery
-// API's own "advertisable content" index simply doesn't have a record for
-// some of these ads at all (e.g. ads sourced outside this app's own
-// permission-request flow) — that would still show as no match, and can
-// only be confirmed against a real account. See PROJECT_STATUS.md.
-function normalizePermalink(url) {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    return `${u.hostname.replace(/^www\./, "")}${u.pathname.replace(/\/+$/, "")}`.toLowerCase();
-  } catch {
-    return url.replace(/\/+$/, "").toLowerCase();
-  }
-}
+// CORRECTION, second one (the first — permalink string normalization —
+// didn't fix it either, confirmed live): the whole Content Discovery
+// ("partnership-ads-advertisable-content") permalink-lookup approach is
+// gone. The user supplied two working curls that resolve a creator in two
+// much simpler hops, neither needing a Business id or an Instagram Business
+// Account selected at all:
+//   1. GET /{ad_id}?fields=creative{effective_instagram_media_id,
+//      source_instagram_media_id} — the Instagram media id actually behind
+//      this ad's creative (lib/partnershipDetection.js's own ad-fields fetch
+//      now requests these two directly, no separate call needed for this
+//      step).
+//   2. GET /{media_id}?fields=username,permalink,media_type — a plain,
+//      direct object lookup on that media id. No Business/Content-Discovery
+//      scoping at all; this is just "read this object's own username
+//      field," the same mechanism any other Graph object field read in this
+//      app uses.
+// `effective_instagram_media_id` is preferred when present;
+// `source_instagram_media_id` (same ad-fields fetch) is the fallback — the
+// user's own curl fetched both, implying the first isn't always populated.
+async function resolveCreatorsByMediaId(token, ads) {
+  const byMediaId = new Map();
+  const mediaIds = [...new Set(ads.map((a) => a.instagramMediaId).filter(Boolean))];
+  if (mediaIds.length === 0) return { byMediaId, lookupError: null };
 
-// Resolves each ad's underlying creator (display name/ig id) by matching its
-// creative's own `instagram_permalink_url` back through the Content
-// Discovery API's permalink lookup — there's no `creator`/`author` field on
-// an Ad or AdCreative object directly, so this is the only path from "an ad
-// that happens to be branded content" to "whose content it actually is."
-// Best-effort: an ad whose permalink doesn't resolve (deleted post, access
-// restriction, lookup failure) just keeps `creatorUsername: null` rather
-// than failing the whole request.
-//
-// Reported "persists" after the permalink-normalization fix (see
-// normalizePermalink's own comment) — so that wasn't the whole story.
-// `lookupError` is the other, previously-silent failure mode: every chunk's
-// own Promise.allSettled rejection used to just be `continue`d past with no
-// trace at all (the identical anti-pattern already corrected once in
-// lib/adCopy.js's fetchCopyableAds and again in pages/api/fb/partnership/overview.js's
-// rollupForAdIds) — so a genuinely failing lookupContent call (bad
-// permission, wrong business, malformed param) would look exactly like
-// "found no matches," indistinguishable from the handler's own perspective.
-// Surfaced now (only when NOTHING resolved at all — a partial failure that
-// still produced real matches isn't worth alarming over) so the per-ad
-// `creatorUnresolvedReason` built in the handler below can say which of the
-// real, distinct causes actually applies instead of a single flat "—".
-async function resolveCreators(token, businessId, igUserId, ads) {
-  const byPermalink = new Map();
-  const withPermalink = ads.filter((a) => a.instagramPermalinkUrl);
-  if (!businessId || !igUserId || withPermalink.length === 0) {
-    return { byPermalink, lookupError: null };
-  }
-
-  const chunks = chunk(
-    withPermalink.map((a) => a.instagramPermalinkUrl),
-    PERMALINK_LOOKUP_CHUNK_SIZE
-  );
-  const results = await Promise.allSettled(chunks.map((permalinks) => lookupContent(token, businessId, { igUserId, permalinks })));
+  const idChunks = chunk(mediaIds, IG_MEDIA_CHUNK_SIZE);
+  const results = await Promise.allSettled(idChunks.map((ids) => graphGet("", token, { ids: ids.join(","), fields: IG_MEDIA_FIELDS })));
+  // A failed chunk must not look identical to "no creator found" — see this
+  // file's own git history for the earlier, now-removed version of this
+  // function, which hit exactly that silent-failure anti-pattern once
+  // already (same class of bug lib/adCopy.js's fetchCopyableAds and
+  // pages/api/fb/partnership/overview.js's rollupForAdIds were each
+  // corrected for too).
   let lookupError = null;
   for (const result of results) {
     if (result.status !== "fulfilled") {
-      lookupError = lookupError || result.reason?.message || "Content lookup failed";
+      lookupError = lookupError || result.reason?.message || "Instagram media lookup failed";
       continue;
     }
-    for (const item of result.value) {
-      const key = normalizePermalink(item.permalink);
-      if (key) byPermalink.set(key, item.author);
+    for (const media of Object.values(result.value || {})) {
+      if (media?.id && media.username) byMediaId.set(media.id, media);
     }
   }
-  return { byPermalink, lookupError: byPermalink.size === 0 ? lookupError : null };
+  return { byMediaId, lookupError: byMediaId.size === 0 ? lookupError : null };
 }
 
 export default async function handler(req, res) {
@@ -106,7 +73,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, businessId, igUserId, since, until } = req.query;
+  const { accountId, since, until } = req.query;
   if (!accountId) {
     return res.status(400).json({ error: "accountId is required" });
   }
@@ -138,9 +105,9 @@ export default async function handler(req, res) {
           })
         )
       ),
-      resolveCreators(token, businessId, igUserId, ads).catch((err) => ({ byPermalink: new Map(), lookupError: err.message })),
+      resolveCreatorsByMediaId(token, ads).catch((err) => ({ byMediaId: new Map(), lookupError: err.message })),
     ]);
-    const { byPermalink: creatorsByPermalink, lookupError } = creatorResolution;
+    const { byMediaId, lookupError } = creatorResolution;
 
     const metricsByAdId = new Map();
     for (const result of insightsResults) {
@@ -162,37 +129,32 @@ export default async function handler(req, res) {
     }
 
     // `creatorUnresolvedReason` distinguishes the real, distinct causes an
-    // ad's creator can be missing — previously every one of these collapsed
-    // into the same flat "—" with no way to tell "this ad has no permalink
-    // at all" from "the lookup call itself is failing" from "the lookup
-    // genuinely has no record for this content." See resolveCreators' own
-    // comment above and PROJECT_STATUS.md for which of these turns out to be
-    // the actual dominant cause on a real account — not yet known from here.
-    const summary = { resolved: 0, noPermalink: 0, noAccountSelected: 0, lookupFailed: 0, noMatch: 0 };
+    // ad's creator can still be missing — "no instagram media id on this ad
+    // at all" (a standard, non-branded-content-sourced ad or one whose
+    // branded-content permission predates this field being set) is a
+    // meaningfully different situation from "the media lookup call itself
+    // failed" or "the media id no longer resolves" (deleted post, revoked
+    // access).
+    const summary = { resolved: 0, noMediaId: 0, lookupFailed: 0, noMatch: 0 };
     const enriched = ads.map((ad) => {
-      const key = normalizePermalink(ad.instagramPermalinkUrl);
-      const author = key ? creatorsByPermalink.get(key) : null;
+      const media = ad.instagramMediaId ? byMediaId.get(ad.instagramMediaId) : null;
       let creatorUnresolvedReason = null;
-      if (author) {
+      if (media?.username) {
         summary.resolved += 1;
-      } else if (!ad.instagramPermalinkUrl) {
-        creatorUnresolvedReason = "This ad's creative has no Instagram permalink to look up.";
-        summary.noPermalink += 1;
-      } else if (!businessId || !igUserId) {
-        creatorUnresolvedReason = "No Instagram Business Account selected — pick one (e.g. on the Explore Ads tab) to resolve creator names.";
-        summary.noAccountSelected += 1;
+      } else if (!ad.instagramMediaId) {
+        creatorUnresolvedReason = "This ad's creative has no linked Instagram media id (effective_instagram_media_id/source_instagram_media_id).";
+        summary.noMediaId += 1;
       } else if (lookupError) {
-        creatorUnresolvedReason = `The creator lookup itself failed: ${lookupError}`;
+        creatorUnresolvedReason = `The Instagram media lookup itself failed: ${lookupError}`;
         summary.lookupFailed += 1;
       } else {
-        creatorUnresolvedReason = "No matching content found for this permalink in the Partnership Ads content index.";
+        creatorUnresolvedReason = "Could not read this Instagram media's username (deleted post, or access no longer granted).";
         summary.noMatch += 1;
       }
       return {
         ...ad,
         ...(metricsByAdId.get(ad.adId) || {}),
-        creatorUsername: author?.display_name || null,
-        creatorIgId: author?.ig_user_id || null,
+        creatorUsername: media?.username || null,
         creatorUnresolvedReason,
       };
     });

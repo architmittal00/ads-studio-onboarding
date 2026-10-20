@@ -84,12 +84,11 @@ function columns(currency, onPreview) {
 function describeCreatorSummary(summary) {
   if (!summary) return null;
   const parts = [];
-  if (summary.noPermalink) parts.push(`${summary.noPermalink} with no Instagram permalink on the ad`);
-  if (summary.noAccountSelected) parts.push(`${summary.noAccountSelected} with no Instagram Business Account selected`);
-  if (summary.lookupFailed) parts.push(`${summary.lookupFailed} where the creator lookup itself failed`);
-  if (summary.noMatch) parts.push(`${summary.noMatch} with no match in the Partnership Ads content index`);
+  if (summary.noMediaId) parts.push(`${summary.noMediaId} with no linked Instagram media id on the ad`);
+  if (summary.lookupFailed) parts.push(`${summary.lookupFailed} where the Instagram media lookup itself failed`);
+  if (summary.noMatch) parts.push(`${summary.noMatch} whose Instagram media no longer resolves`);
   if (parts.length === 0) return null;
-  const unresolvedCount = summary.noPermalink + summary.noAccountSelected + summary.lookupFailed + summary.noMatch;
+  const unresolvedCount = summary.noMediaId + summary.lookupFailed + summary.noMatch;
   return `${unresolvedCount} of ${unresolvedCount + summary.resolved} ads have no resolved creator — ${parts.join(", ")}.`;
 }
 
