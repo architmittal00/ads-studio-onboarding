@@ -47,6 +47,7 @@ export default async function handler(req, res) {
         adsetName: ad.adset?.name || null,
         campaignName: ad.campaign?.name || null,
         thumbnailUrl: ad.creative?.thumbnail_url || null,
+        isVideo: !!ad.creative?.object_story_spec?.video_data?.video_id,
         copyable,
         reason,
       };
