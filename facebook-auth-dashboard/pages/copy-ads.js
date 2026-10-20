@@ -13,7 +13,7 @@ import SelectionBar from "@/components/copyads/SelectionBar";
 import CopyAdsModal from "@/components/copyads/CopyAdsModal";
 import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
-import { CloseIcon, SettingsIcon, ChevronIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon, CopyIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { RANGE_PRESETS, computeRange } from "@/lib/dateRanges";
 import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
@@ -66,6 +66,49 @@ function summarizeCopyAdsQuery(accountName, rangePreset, metricCount) {
   const accountLabel = accountName || "No account selected";
   const rangeLabel = RANGE_PRESETS.find((p) => p.key === rangePreset)?.label || "Custom range";
   return `${accountLabel} · ${rangeLabel} · ${metricCount} metric${metricCount === 1 ? "" : "s"}`;
+}
+
+// Shown before ads have ever been loaded for the current account — same
+// "explain the screen, don't just leave it blank" pattern as pages/explore.js's
+// ExploreEmptyState and pages/recent-changes.js's RecentChangesEmptyState
+// (same .exploreEmptyState/.exploreEmptyIcon/.exploreEmptySteps CSS, shared
+// across all three). Replaces what used to be three separate one-line
+// messages ("Pick a source ad account…", "Pick both custom dates…", "Click
+// Load Ads…") picked by whichever precondition wasn't yet met — those read
+// as an afterthought and left most of the page blank; this explains what the
+// page is for regardless of which step the user is currently missing.
+function CopyAdsEmptyState({ canRun, onRun, loading }) {
+  return (
+    <section className={styles.card}>
+      <div className={styles.exploreEmptyState}>
+        <div className={styles.exploreEmptyIcon}>
+          <CopyIcon size={26} />
+        </div>
+        <div>
+          <h2 className={styles.h2} style={{ marginBottom: 6 }}>
+            Clone ads into another ad account
+          </h2>
+          <p className={styles.sub}>
+            Load ads from a source account, pick the ones you want, then copy their creative — Page and all — into an
+            ad set that already exists in a different ad account.
+          </p>
+        </div>
+        <div className={styles.exploreEmptySteps}>
+          {["Pick a source ad account", "Choose a date range with spend", 'Click "Load Ads"', "Select ads and copy them to a destination"].map(
+            (step, i) => (
+              <div key={step} className={styles.exploreEmptyStep}>
+                <span className={styles.exploreEmptyStepNum}>{i + 1}</span>
+                {step}
+              </div>
+            )
+          )}
+        </div>
+        <button type="button" className={styles.btnPrimary} disabled={!canRun || loading} onClick={onRun}>
+          {loading ? "Loading…" : "Load Ads"}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function newFilterId() {
@@ -401,10 +444,10 @@ export default function CopyAdsPage() {
   // there's exactly one copy of this block to keep in sync.
   const resultArea = (
     <>
-      {!selectedAccountId && <p className={styles.sub}>Pick a source ad account to see its ads.</p>}
-      {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates, then click Load Ads.</p>}
-      {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
       {adsLoading && ads.length === 0 && <Loader label="Loading ads…" />}
+      {!hasLoaded && !adsLoading && (
+        <CopyAdsEmptyState canRun={!!selectedAccountId && !!range} loading={adsLoading} onRun={loadAds} />
+      )}
       {adsLoading && ads.length > 0 && <p className={styles.sub}>Loading more ads… ({ads.length} so far)</p>}
       {adsError && (
         <div className={styles.error}>

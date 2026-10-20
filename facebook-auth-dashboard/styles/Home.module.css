@@ -318,6 +318,16 @@ button.stat:hover {
   font-weight: 600;
 }
 
+.success {
+  color: var(--green);
+  background: rgba(var(--green-rgb), 0.08);
+  border: 1px solid rgba(var(--green-rgb), 0.15);
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .avatar {
   border-radius: 50%;
   border: 2px solid rgba(var(--purple-rgb), 0.4);
