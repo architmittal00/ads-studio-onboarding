@@ -55,26 +55,45 @@ function normalizePermalink(url) {
 // that happens to be branded content" to "whose content it actually is."
 // Best-effort: an ad whose permalink doesn't resolve (deleted post, access
 // restriction, lookup failure) just keeps `creatorUsername: null` rather
-// than failing the whole request — only used by Creator Hub's own grouping,
-// which already treats a missing creator as its own bucket.
+// than failing the whole request.
+//
+// Reported "persists" after the permalink-normalization fix (see
+// normalizePermalink's own comment) — so that wasn't the whole story.
+// `lookupError` is the other, previously-silent failure mode: every chunk's
+// own Promise.allSettled rejection used to just be `continue`d past with no
+// trace at all (the identical anti-pattern already corrected once in
+// lib/adCopy.js's fetchCopyableAds and again in pages/api/fb/partnership/overview.js's
+// rollupForAdIds) — so a genuinely failing lookupContent call (bad
+// permission, wrong business, malformed param) would look exactly like
+// "found no matches," indistinguishable from the handler's own perspective.
+// Surfaced now (only when NOTHING resolved at all — a partial failure that
+// still produced real matches isn't worth alarming over) so the per-ad
+// `creatorUnresolvedReason` built in the handler below can say which of the
+// real, distinct causes actually applies instead of a single flat "—".
 async function resolveCreators(token, businessId, igUserId, ads) {
   const byPermalink = new Map();
   const withPermalink = ads.filter((a) => a.instagramPermalinkUrl);
-  if (!businessId || !igUserId || withPermalink.length === 0) return byPermalink;
+  if (!businessId || !igUserId || withPermalink.length === 0) {
+    return { byPermalink, lookupError: null };
+  }
 
   const chunks = chunk(
     withPermalink.map((a) => a.instagramPermalinkUrl),
     PERMALINK_LOOKUP_CHUNK_SIZE
   );
   const results = await Promise.allSettled(chunks.map((permalinks) => lookupContent(token, businessId, { igUserId, permalinks })));
+  let lookupError = null;
   for (const result of results) {
-    if (result.status !== "fulfilled") continue;
+    if (result.status !== "fulfilled") {
+      lookupError = lookupError || result.reason?.message || "Content lookup failed";
+      continue;
+    }
     for (const item of result.value) {
       const key = normalizePermalink(item.permalink);
       if (key) byPermalink.set(key, item.author);
     }
   }
-  return byPermalink;
+  return { byPermalink, lookupError: byPermalink.size === 0 ? lookupError : null };
 }
 
 export default async function handler(req, res) {
@@ -107,7 +126,7 @@ export default async function handler(req, res) {
       ads.map((a) => a.adId),
       INSIGHTS_CHUNK_SIZE
     );
-    const [insightsResults, creatorsByPermalink] = await Promise.all([
+    const [insightsResults, creatorResolution] = await Promise.all([
       Promise.allSettled(
         idChunks.map((ids) =>
           graphGetInsights(`/${accountId}/insights`, token, {
@@ -119,8 +138,9 @@ export default async function handler(req, res) {
           })
         )
       ),
-      resolveCreators(token, businessId, igUserId, ads).catch(() => new Map()),
+      resolveCreators(token, businessId, igUserId, ads).catch((err) => ({ byPermalink: new Map(), lookupError: err.message })),
     ]);
+    const { byPermalink: creatorsByPermalink, lookupError } = creatorResolution;
 
     const metricsByAdId = new Map();
     for (const result of insightsResults) {
@@ -141,17 +161,42 @@ export default async function handler(req, res) {
       }
     }
 
+    // `creatorUnresolvedReason` distinguishes the real, distinct causes an
+    // ad's creator can be missing — previously every one of these collapsed
+    // into the same flat "—" with no way to tell "this ad has no permalink
+    // at all" from "the lookup call itself is failing" from "the lookup
+    // genuinely has no record for this content." See resolveCreators' own
+    // comment above and PROJECT_STATUS.md for which of these turns out to be
+    // the actual dominant cause on a real account — not yet known from here.
+    const summary = { resolved: 0, noPermalink: 0, noAccountSelected: 0, lookupFailed: 0, noMatch: 0 };
     const enriched = ads.map((ad) => {
       const key = normalizePermalink(ad.instagramPermalinkUrl);
       const author = key ? creatorsByPermalink.get(key) : null;
+      let creatorUnresolvedReason = null;
+      if (author) {
+        summary.resolved += 1;
+      } else if (!ad.instagramPermalinkUrl) {
+        creatorUnresolvedReason = "This ad's creative has no Instagram permalink to look up.";
+        summary.noPermalink += 1;
+      } else if (!businessId || !igUserId) {
+        creatorUnresolvedReason = "No Instagram Business Account selected — pick one (e.g. on the Explore Ads tab) to resolve creator names.";
+        summary.noAccountSelected += 1;
+      } else if (lookupError) {
+        creatorUnresolvedReason = `The creator lookup itself failed: ${lookupError}`;
+        summary.lookupFailed += 1;
+      } else {
+        creatorUnresolvedReason = "No matching content found for this permalink in the Partnership Ads content index.";
+        summary.noMatch += 1;
+      }
       return {
         ...ad,
         ...(metricsByAdId.get(ad.adId) || {}),
         creatorUsername: author?.display_name || null,
         creatorIgId: author?.ig_user_id || null,
+        creatorUnresolvedReason,
       };
     });
-    res.status(200).json({ ads: enriched });
+    res.status(200).json({ ads: enriched, creatorResolutionSummary: summary });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
   }

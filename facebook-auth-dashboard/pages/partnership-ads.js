@@ -109,11 +109,11 @@ export default function PartnershipAds() {
   // rows can't give that — while My Partnership Ads/Creator Hub need the
   // per-ad rows themselves), but both are fetched together, cached together,
   // and read by all three tabs from this one piece of state.
-  const [perf, setPerf] = useState({ loading: false, error: null, overview: null, ads: null, hasLoaded: false, rangeUsed: null });
+  const [perf, setPerf] = useState({ loading: false, error: null, overview: null, ads: null, creatorSummary: null, hasLoaded: false, rangeUsed: null });
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to the account changing, not a derived-state anti-pattern
-    setPerf({ loading: false, error: null, overview: null, ads: null, hasLoaded: false, rangeUsed: null });
+    setPerf({ loading: false, error: null, overview: null, ads: null, creatorSummary: null, hasLoaded: false, rangeUsed: null });
   }, [selectedAccountId]);
 
   function checkPerformance() {
@@ -122,11 +122,11 @@ export default function PartnershipAds() {
     const cacheKey = `partnership-perf:${selectedAccountId}:${since}:${until}`;
     const cached = getCachedEntry(cacheKey, PERFORMANCE_CACHE_TTL_MS);
     if (cached) {
-      setPerf({ loading: false, error: null, overview: cached.data.overview, ads: cached.data.ads, hasLoaded: true, rangeUsed: performanceRange });
+      setPerf({ loading: false, error: null, overview: cached.data.overview, ads: cached.data.ads, creatorSummary: cached.data.creatorSummary, hasLoaded: true, rangeUsed: performanceRange });
       return;
     }
 
-    setPerf({ loading: true, error: null, overview: null, ads: null, hasLoaded: false, rangeUsed: performanceRange });
+    setPerf({ loading: true, error: null, overview: null, ads: null, creatorSummary: null, hasLoaded: false, rangeUsed: performanceRange });
     const overviewParams = new URLSearchParams({ accountId: selectedAccountId, since, until });
     const mineParams = new URLSearchParams({ accountId: selectedAccountId, since, until });
     // Optional on mine.js — only used there to resolve each ad's creator
@@ -143,11 +143,11 @@ export default function PartnershipAds() {
       .then(([overviewJson, mineJson]) => {
         if (overviewJson.error) throw new Error(overviewJson.error);
         if (mineJson.error) throw new Error(mineJson.error);
-        const data = { overview: overviewJson, ads: mineJson.ads || [] };
+        const data = { overview: overviewJson, ads: mineJson.ads || [], creatorSummary: mineJson.creatorResolutionSummary || null };
         setCachedEntry(cacheKey, data, { prefix: "partnership-perf:", maxEntriesForPrefix: 20 });
-        setPerf({ loading: false, error: null, overview: data.overview, ads: data.ads, hasLoaded: true, rangeUsed: performanceRange });
+        setPerf({ loading: false, error: null, overview: data.overview, ads: data.ads, creatorSummary: data.creatorSummary, hasLoaded: true, rangeUsed: performanceRange });
       })
-      .catch((err) => setPerf({ loading: false, error: err.message, overview: null, ads: null, hasLoaded: true, rangeUsed: performanceRange }));
+      .catch((err) => setPerf({ loading: false, error: err.message, overview: null, ads: null, creatorSummary: null, hasLoaded: true, rangeUsed: performanceRange }));
   }
 
   // The header's own "Ready to Launch" badge count — re-read from
@@ -237,6 +237,7 @@ export default function PartnershipAds() {
                     error={perf.error}
                     hasLoaded={perf.hasLoaded}
                     ads={perf.ads}
+                    creatorSummary={perf.creatorSummary}
                   />
                 )}
                 {tab === "creators" && (
@@ -276,63 +277,76 @@ export default function PartnershipAds() {
                   <div className={styles.exploreQueryHeader}>
                     <span style={{ fontWeight: 700, fontSize: 13 }}>Account &amp; Filters</span>
                   </div>
+                  {/* Always exactly two field-groups here (Ad Account +
+                      either Instagram Business Account or Date Range,
+                      depending on the active tab) — side by side instead of
+                      .exploreQueryBody's default vertical stack, since two
+                      short selects/pickers don't need a full column each. */}
                   <div className={styles.exploreQueryBody}>
-                    <div>
-                      <p className={styles.sub} style={{ marginBottom: 6 }}>
-                        Ad Account
-                      </p>
-                      <AccountSelect
-                        accounts={adAccounts}
-                        value={selectedAccountId}
-                        onChange={setSelectedAccountId}
-                        placeholder="Select an ad account…"
-                        style={{ width: "100%" }}
-                        loading={accountsLoading}
-                      />
-                    </div>
-
-                    {/* Only the tabs that actually use an Instagram Business
-                        Account (content discovery, creator resolution,
-                        permissions) show its picker — Overview/My Partnership
-                        Ads/Creator Hub don't need it at all. */}
-                    {!isPerformanceTab && (
-                      <div>
+                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 160px", minWidth: 160 }}>
                         <p className={styles.sub} style={{ marginBottom: 6 }}>
-                          Instagram Business Account
+                          Ad Account
                         </p>
                         <AccountSelect
-                          accounts={igOptions}
-                          value={selectedIgAccountId}
-                          onChange={setSelectedIgAccountId}
-                          placeholder={igOptions.length === 0 ? "No Instagram Business Account found" : "Select an Instagram account…"}
+                          accounts={adAccounts}
+                          value={selectedAccountId}
+                          onChange={setSelectedAccountId}
+                          placeholder="Select an ad account…"
                           style={{ width: "100%" }}
                           loading={accountsLoading}
                         />
                       </div>
-                    )}
 
+                      {/* Only the tabs that actually use an Instagram
+                          Business Account (content discovery, creator
+                          resolution, permissions) show its picker —
+                          Overview/My Partnership Ads/Creator Hub don't need
+                          it at all. */}
+                      {!isPerformanceTab && (
+                        <div style={{ flex: "1 1 160px", minWidth: 160 }}>
+                          <p className={styles.sub} style={{ marginBottom: 6 }}>
+                            Instagram Business Account
+                          </p>
+                          <AccountSelect
+                            accounts={igOptions}
+                            value={selectedIgAccountId}
+                            onChange={setSelectedIgAccountId}
+                            placeholder={igOptions.length === 0 ? "No Instagram Business Account found" : "Select an Instagram account…"}
+                            style={{ width: "100%" }}
+                            loading={accountsLoading}
+                          />
+                        </div>
+                      )}
+
+                      {isPerformanceTab && (
+                        <div style={{ flex: "1 1 160px", minWidth: 160 }}>
+                          <p className={styles.sub} style={{ marginBottom: 6 }}>
+                            Date range
+                          </p>
+                          <DateRangeMenu
+                            rangePreset={rangePreset}
+                            customSince={customSince}
+                            customUntil={customUntil}
+                            maxRangeDays={MAX_RANGE_DAYS}
+                            compareToPrevious={false}
+                            compareCustomSince=""
+                            compareDisplay="change"
+                            compareDisabled
+                            compareDisabledReason="Not available here — each of these tabs shows one window at a time, not a comparison view."
+                            onApply={(patch) => {
+                              setRangePreset(patch.rangePreset);
+                              setCustomSince(patch.customSince);
+                              setCustomUntil(patch.customUntil);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
                     {isPerformanceTab && (
-                      <div>
-                        <p className={styles.sub} style={{ marginBottom: 6 }}>
-                          Date range — shared by Overview, My Partnership Ads &amp; Creator Hub
-                        </p>
-                        <DateRangeMenu
-                          rangePreset={rangePreset}
-                          customSince={customSince}
-                          customUntil={customUntil}
-                          maxRangeDays={MAX_RANGE_DAYS}
-                          compareToPrevious={false}
-                          compareCustomSince=""
-                          compareDisplay="change"
-                          compareDisabled
-                          compareDisabledReason="Not available here — each of these tabs shows one window at a time, not a comparison view."
-                          onApply={(patch) => {
-                            setRangePreset(patch.rangePreset);
-                            setCustomSince(patch.customSince);
-                            setCustomUntil(patch.customUntil);
-                          }}
-                        />
-                      </div>
+                      <p className={styles.muted} style={{ fontSize: 11, margin: 0 }}>
+                        Shared by Overview, My Partnership Ads &amp; Creator Hub
+                      </p>
                     )}
                   </div>
 
