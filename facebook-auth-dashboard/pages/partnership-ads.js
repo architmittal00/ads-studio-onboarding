@@ -33,6 +33,12 @@ const TABS = [
 // this app (Recent Changes, Explore) for why this isn't 6 separate routes.
 // Still being built out incrementally (see PROJECT_STATUS.md) — tabs beyond
 // Overview/Explore Ads are placeholders until their own round ships.
+//
+// Overview is the one exception to "every tab needs both selections": its
+// own query is a plain ad-account-level performance rollup with no
+// Instagram-account dependency at all (see overviewReady below) — every
+// other tab genuinely needs an Instagram Business Account for content
+// discovery, creator resolution, or permissions.
 export default function PartnershipAds() {
   const {
     adAccounts,
@@ -51,6 +57,15 @@ export default function PartnershipAds() {
   const igOptions = useMemo(() => igAccounts.map((a) => ({ id: a.igUserId, name: `@${a.username}` })), [igAccounts]);
 
   const ready = !!selectedAccountId && !!selectedIgAccountId && !!businessId;
+  // Overview's own query (pages/api/fb/partnership/overview.js) is just a
+  // partnership-vs-normal performance rollup for the ad account — it never
+  // reads businessId or igUserId at all (unlike every other tab here, which
+  // all need an Instagram Business Account for content discovery, creator
+  // resolution, or permissions). Gating it on the same `ready` as those
+  // other tabs forced picking an Instagram Business Account just to see a
+  // number that doesn't depend on one — reported by the user as
+  // unnecessary, confirmed by checking the route itself.
+  const overviewReady = !!selectedAccountId;
 
   // The header's own "Ready to Launch" badge count — re-read from
   // localStorage (the queue's real source of truth, see
@@ -117,13 +132,16 @@ export default function PartnershipAds() {
               </div>
             </div>
 
-            {selectedAccountId && igAccounts.length === 0 && (
+            {/* Overview doesn't need an Instagram Business Account (see overviewReady's
+                own comment above) — these two warnings would otherwise block it on a
+                requirement it doesn't actually have. */}
+            {tab !== "overview" && selectedAccountId && igAccounts.length === 0 && (
               <div className={styles.error} style={{ marginBottom: 16 }}>
                 None of your connected Pages have a linked Instagram Business Account. Connect one in Meta Business
                 Suite first — Partnership Ads needs it to browse eligible content and request creator permissions.
               </div>
             )}
-            {selectedAccountId && igAccounts.length > 0 && !businessId && (
+            {tab !== "overview" && selectedAccountId && igAccounts.length > 0 && !businessId && (
               <div className={styles.error} style={{ marginBottom: 16 }}>
                 This ad account isn&apos;t associated with a Business Manager — Partnership Ads&apos; content discovery
                 needs one.
@@ -143,7 +161,7 @@ export default function PartnershipAds() {
               ))}
             </div>
 
-            {tab === "overview" && <OverviewTab accountId={selectedAccountId} ready={ready} currency={selectedAccount?.currency} />}
+            {tab === "overview" && <OverviewTab accountId={selectedAccountId} ready={overviewReady} currency={selectedAccount?.currency} />}
             {tab === "explore" && (
               <ExploreTab
                 accountId={selectedAccountId}
