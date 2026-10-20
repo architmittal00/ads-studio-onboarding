@@ -283,7 +283,7 @@ function RecentChangesEmptyState({ canRun, onRun, loading }) {
 // Supports multiple tabs (one query each, switchable), so a user can keep
 // several account/window combinations open side by side.
 export default function RecentChanges() {
-  const { adAccounts, accountsError, selectedAccountId } = useAccounts();
+  const { adAccounts, accountsLoading, accountsError, selectedAccountId } = useAccounts();
 
   const [tabs, setTabs] = useState(() => [createBlankTab("")]);
   const [activeTabId, setActiveTabId] = useState(() => tabs[0].id);
@@ -734,6 +734,7 @@ export default function RecentChanges() {
                       onChange={(id) => updateTab(activeTab.id, { accountId: id, result: null, error: null })}
                       placeholder="Select an ad account…"
                       style={{ width: "100%" }}
+                      loading={accountsLoading}
                     />
                   </div>
 

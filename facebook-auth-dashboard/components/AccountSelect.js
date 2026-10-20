@@ -35,6 +35,13 @@ import styles from "@/styles/Home.module.css";
 // other `createPortal` precedent in this app. Off by default so every
 // existing call site (none of which have this problem) renders identically
 // to before.
+//
+// `loading` (opt-in, default off) shows a disabled "Loading accounts…"
+// placeholder instead of the normal one and prevents opening the dropdown —
+// callers should pass their own `accountsLoading` from
+// components/AccountProvider.js. Without this, an empty `accounts` array
+// mid-load renders identically to "this user genuinely has none," which
+// read as a real empty state rather than a loading one.
 export default function AccountSelect({
   accounts,
   value,
@@ -45,6 +52,7 @@ export default function AccountSelect({
   style,
   multiple = false,
   maxSelected,
+  loading = false,
   usePortal = false,
   // Only matters with usePortal — the modal this is used inside of (if any)
   // may have its own stacking context (CopyAdsModal's overlay is 800), so
@@ -155,15 +163,16 @@ export default function AccountSelect({
             type="text"
             className={styles.select}
             style={{ width: "100%" }}
-            placeholder={atCap ? `Maximum ${maxSelected} accounts` : placeholder}
+            placeholder={loading ? "Loading accounts…" : atCap ? `Maximum ${maxSelected} accounts` : placeholder}
             value={query}
-            disabled={atCap}
+            disabled={atCap || loading}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
           />
           {open &&
             !atCap &&
+            !loading &&
             renderDropdown(
               filtered.length === 0 ? (
                 <div className={styles.comboOption}>No matches.</div>
@@ -203,13 +212,15 @@ export default function AccountSelect({
         type="text"
         className={styles.select}
         style={{ width: "100%" }}
-        placeholder={placeholder}
+        placeholder={loading ? "Loading accounts…" : placeholder}
         value={displayValue}
+        disabled={loading}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={handleFocus}
         onBlur={handleBlur}
       />
       {open &&
+        !loading &&
         renderDropdown(
           filtered.length === 0 ? (
             <div className={styles.comboOption}>No matches.</div>

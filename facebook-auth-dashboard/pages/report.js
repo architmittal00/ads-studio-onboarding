@@ -325,7 +325,7 @@ const SECTIONS = [
 ];
 
 export default function Report() {
-  const { adAccounts: accounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
+  const { adAccounts: accounts, accountsLoading, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
 
   const [groups, setGroups] = useState(() => Object.fromEntries(REPORT_GROUPS.map((g) => [g.key, initialGroupState()])));
   // Bumped on every account/range change (and every Hard Refresh) — each
@@ -659,7 +659,7 @@ export default function Report() {
           <div className={styles.sectionRow}>
             <h1 className={styles.h1}>Account Audit Report</h1>
             {accounts.length > 0 && (
-              <AccountSelect accounts={accounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 240 }} />
+              <AccountSelect accounts={accounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 240 }} loading={accountsLoading} />
             )}
           </div>
 
@@ -720,7 +720,8 @@ export default function Report() {
           )}
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
-          {!accountsError && accounts.length === 0 && !anyLoading && (
+          {!accountsError && accountsLoading && <Loader label="Loading ad accounts…" />}
+          {!accountsError && !accountsLoading && accounts.length === 0 && !anyLoading && (
             <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
           )}
 

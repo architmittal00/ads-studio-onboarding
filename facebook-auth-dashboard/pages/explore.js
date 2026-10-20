@@ -662,7 +662,7 @@ function MetricSelect({ options, value, onChange, placeholder }) {
 }
 
 export default function Explore() {
-  const { adAccounts, accountsError, selectedAccountId } = useAccounts();
+  const { adAccounts, accountsLoading, accountsError, selectedAccountId } = useAccounts();
 
   const [views, setViews] = useState(() => [createBlankView("")]);
   const [activeViewId, setActiveViewId] = useState(() => views[0].id);
@@ -2180,6 +2180,7 @@ export default function Explore() {
                       onChange={(ids) => updateActive({ accountIds: ids })}
                       maxSelected={MAX_ACCOUNTS_PER_VIEW}
                       style={{ width: "100%", maxWidth: 420 }}
+                      loading={accountsLoading}
                     />
                   </div>
 

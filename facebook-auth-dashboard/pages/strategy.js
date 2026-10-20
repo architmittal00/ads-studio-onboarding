@@ -32,6 +32,7 @@ function formatMoney(amount, currency) {
 export default function Strategy() {
   const {
     adAccounts: accounts,
+    accountsLoading,
     accountsError,
     selectedAccountId: sharedAccountId,
     setSelectedAccountId: setSharedAccountId,
@@ -269,6 +270,7 @@ export default function Strategy() {
                 value={accountChoice}
                 onChange={handleAccountChoice}
                 style={{ width: "100%", maxWidth: 420 }}
+                loading={accountsLoading}
               />
 
               {isRealAccount && hasBudget && (
@@ -303,6 +305,7 @@ export default function Strategy() {
                     onChange={setLaunchAccountChoice}
                     placeholder="Select an account to launch to…"
                     style={{ width: "100%", maxWidth: 420 }}
+                    loading={accountsLoading}
                   />
                 </div>
               )}

@@ -34,8 +34,16 @@ const TABS = [
 // Still being built out incrementally (see PROJECT_STATUS.md) — tabs beyond
 // Overview/Explore Ads are placeholders until their own round ships.
 export default function PartnershipAds() {
-  const { adAccounts, igAccounts, accountsError, selectedAccountId, setSelectedAccountId, selectedIgAccountId, setSelectedIgAccountId } =
-    useAccounts();
+  const {
+    adAccounts,
+    igAccounts,
+    accountsLoading,
+    accountsError,
+    selectedAccountId,
+    setSelectedAccountId,
+    selectedIgAccountId,
+    setSelectedIgAccountId,
+  } = useAccounts();
   const [tab, setTab] = useState("overview");
 
   const selectedAccount = useMemo(() => adAccounts.find((a) => a.id === selectedAccountId), [adAccounts, selectedAccountId]);
@@ -91,6 +99,7 @@ export default function PartnershipAds() {
                   onChange={setSelectedAccountId}
                   placeholder="Select an ad account…"
                   style={{ width: "100%" }}
+                  loading={accountsLoading}
                 />
               </div>
               <div style={{ minWidth: 220 }}>
@@ -103,6 +112,7 @@ export default function PartnershipAds() {
                   onChange={setSelectedIgAccountId}
                   placeholder={igOptions.length === 0 ? "No Instagram Business Account found" : "Select an Instagram account…"}
                   style={{ width: "100%" }}
+                  loading={accountsLoading}
                 />
               </div>
             </div>

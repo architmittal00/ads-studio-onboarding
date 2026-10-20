@@ -23,7 +23,17 @@ export function AccountProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [pages, setPages] = useState([]);
   const [adAccounts, setAdAccounts] = useState([]);
-  const [accountsLoading, setAccountsLoading] = useState(false);
+  // Starts `true`, not `false`: every real page that reaches this provider
+  // is already behind a session check (getServerSideProps redirects a
+  // signed-out visitor before any client code runs), so accounts are always
+  // either about to load or already cached — there's no legitimate "nothing
+  // loading, zero accounts" state before the first load attempt even starts.
+  // Defaulting to `false` here previously meant that, on first paint (and
+  // for however long next-auth's own client-side session check took), a
+  // page would see `accountsLoading: false` + `adAccounts: []` simultaneously
+  // and render its real "no accounts found" empty state during an ordinary
+  // loading window, not just when the account genuinely has none.
+  const [accountsLoading, setAccountsLoading] = useState(true);
   const [accountsError, setAccountsError] = useState(null);
   const [accountsFetchedAt, setAccountsFetchedAt] = useState(null);
   const [selectedAccountId, setSelectedAccountIdState] = useState("");
@@ -38,6 +48,7 @@ export function AccountProvider({ children }) {
         setAdAccounts(cached.data.adAccounts || []);
         setAccountsFetchedAt(cached.fetchedAt);
         setAccountsError(null);
+        setAccountsLoading(false);
         return;
       }
     }
@@ -64,11 +75,21 @@ export function AccountProvider({ children }) {
   useEffect(() => {
     // The login page ("/") also renders through pages/_app.js, so without
     // this gate every visitor would trigger a doomed, 401-bound
-    // /api/fb/data call before they've even signed in.
+    // /api/fb/data call before they've even signed in. `status` starts
+    // "loading" (next-auth still determining the session) — `accountsLoading`
+    // deliberately stays at its initial `true` through that window too, so
+    // nothing renders a premature empty state while the session itself is
+    // still being resolved. Only a genuinely signed-out visitor (in practice
+    // never seen here — every real page redirects server-side first) needs
+    // this to explicitly flip back to `false`, since no load will ever fire.
+    if (status === "unauthenticated") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to the session resolving to signed-out, not a derived-state anti-pattern
+      setAccountsLoading(false);
+      return;
+    }
     if (status !== "authenticated") return;
     // Kicks off an async fetch (which itself sets loading/error/result
     // state) — intentional, not a derived-state anti-pattern.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once per authenticated session, `load` is stable
   }, [status]);
