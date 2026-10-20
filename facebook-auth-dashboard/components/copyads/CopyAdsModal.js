@@ -3,9 +3,31 @@ import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
+import CopyIdButton from "@/components/CopyIdButton";
 import { CloseIcon, ChevronIcon } from "@/components/icons";
 import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+
+// Per-ad live-progress phase → badge styling/label, for the table shown
+// while `submitting` below. Added once pages/api/fb/copy-ads/copy.js started
+// copying up to 5 ads concurrently (COPY_CONCURRENCY) — the single rolling
+// progress message it streams stopped being a meaningful "what's happening"
+// indicator (several ads' own messages interleave out of order), so each
+// ad's own `ad_start`/`ad_done` events drive its own row instead.
+const PHASE_BADGE_CLASS = {
+  queued: styles.badgeInfo,
+  copying: styles.badgeInfo,
+  success: styles.badgeGood,
+  skipped: styles.badgeWarn,
+  failed: styles.badgeDanger,
+};
+const PHASE_LABEL = {
+  queued: "Queued",
+  copying: "Copying…",
+  success: "Done",
+  skipped: "Skipped",
+  failed: "Failed",
+};
 
 // Minimal searchable list for picking a destination ad set — same pattern
 // as pages/launch.js's own PickerList and components/DuplicateEntityModal.js's
@@ -71,13 +93,17 @@ function StepRow({ step }) {
   const icon = step.warning ? "⚠" : step.success ? "✓" : step.skipped ? "⊘" : "✗";
   const color = step.warning ? "var(--amber)" : step.success ? "var(--green)" : step.skipped ? "var(--amber)" : "var(--red)";
   return (
-    <div style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "4px 0" }}>
+    <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, padding: "4px 0" }}>
       <span style={{ color, fontWeight: 700, flexShrink: 0 }}>{icon}</span>
-      <span>
+      <span style={{ flex: 1, minWidth: 0 }}>
         {step.label} — {step.name}
         {step.error && <span style={{ color: "var(--t2)" }}> · {step.error}</span>}
         {step.warning && <span style={{ color: "var(--t2)" }}> · {step.warning}</span>}
       </span>
+      {/* Only the "Ad" step (not "Creative") carries the actually-useful id
+          to copy — the new ad's own id, so the user can jump straight to it
+          in Ads Manager. */}
+      {step.type === "ad" && step.success && step.id && <CopyIdButton id={step.id} />}
     </div>
   );
 }
@@ -110,10 +136,15 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
   const [status, setStatus] = useState("PAUSED");
 
   const [submitting, setSubmitting] = useState(false);
-  const [progressMessage, setProgressMessage] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [result, setResult] = useState(null);
   const [lightboxItem, setLightboxItem] = useState(null);
+  // Per-ad live status, keyed by source ad id: { phase: "queued"|"copying"|
+  // "success"|"skipped"|"failed", error?, warning?, newAdId? }. Seeded to
+  // "queued" for every selected ad the moment the copy starts (below), so
+  // every row renders immediately rather than waiting for the first server
+  // event.
+  const [adProgress, setAdProgress] = useState({});
 
   useEffect(() => {
     function handleKey(e) {
@@ -154,7 +185,7 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
   async function handleConfirm() {
     setSubmitting(true);
     setSubmitError(null);
-    setProgressMessage("Starting…");
+    setAdProgress(Object.fromEntries(ads.map((a) => [a.id, { phase: "queued" }])));
     try {
       const res = await fetch("/api/fb/copy-ads/copy", {
         method: "POST",
@@ -184,8 +215,28 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
         for (const line of lines) {
           if (!line.trim()) continue;
           const event = JSON.parse(line);
-          if (event.type === "progress") setProgressMessage(event.message);
-          else if (event.type === "done") finalResult = event;
+          if (event.type === "ad_start") {
+            setAdProgress((prev) => ({ ...prev, [event.adId]: { ...prev[event.adId], phase: "copying" } }));
+          } else if (event.type === "ad_done") {
+            setAdProgress((prev) => ({
+              ...prev,
+              [event.adId]: {
+                phase: event.success ? "success" : event.skipped ? "skipped" : "failed",
+                error: event.error,
+                warning: event.warning,
+                newAdId: event.newAdId,
+              },
+            }));
+          } else if (event.type === "done") {
+            finalResult = event;
+          }
+          // `progress` events (the rolling "Copying ad N of M…"/"Activating…"
+          // log line) are intentionally not surfaced in the UI anymore —
+          // under concurrency it jumps around out of order across several
+          // ads at once, which reads as broken rather than informative. The
+          // per-ad table below is the real signal now; `progress` stays in
+          // the wire protocol only because createAssetCopyCoordinator's
+          // asset-copy messages still go through it server-side.
         }
       }
       setResult(finalResult);
@@ -195,7 +246,6 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
       setSubmitError(err.message);
     } finally {
       setSubmitting(false);
-      setProgressMessage(null);
     }
   }
 
@@ -304,8 +354,39 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
               </div>
   
               {submitting && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <Loader label={progressMessage || "Copying…"} />
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <Loader
+                      label={`${Object.values(adProgress).filter((p) => p.phase === "success" || p.phase === "failed" || p.phase === "skipped").length} of ${ads.length} done`}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      maxHeight: 220,
+                      overflowY: "auto",
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: "8px 12px",
+                    }}
+                  >
+                    {ads.map((ad) => {
+                      const p = adProgress[ad.id] || { phase: "queued" };
+                      return (
+                        <div key={ad.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span style={{ fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+                            {ad.name}
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                            <span className={PHASE_BADGE_CLASS[p.phase] || styles.badgeInfo}>{PHASE_LABEL[p.phase] || "Queued"}</span>
+                            {p.phase === "success" && p.newAdId && <CopyIdButton id={p.newAdId} />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {submitError && <div className={styles.error}>{submitError}</div>}

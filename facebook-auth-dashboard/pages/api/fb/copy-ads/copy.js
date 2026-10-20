@@ -81,6 +81,20 @@ export default async function handler(req, res) {
   function progress(message) {
     res.write(`${JSON.stringify({ type: "progress", message })}\n`);
   }
+  // Per-ad lifecycle events, in addition to `progress` above — added once
+  // ads started copying concurrently (COPY_CONCURRENCY): the single rolling
+  // `progress` message is now written by up to 5 ads interleaved at once
+  // ("Copying ad 2 of 6…" can print after "ad 4 of 6…"), which stopped being
+  // a meaningful way to show per-ad status. These let the client track each
+  // selected ad's own state by id instead of parsing an out-of-order log
+  // line. `res.write` from concurrent callbacks is safe here — each call
+  // writes one complete, self-contained line.
+  function adStart(adId) {
+    res.write(`${JSON.stringify({ type: "ad_start", adId })}\n`);
+  }
+  function adDone(adId, result) {
+    res.write(`${JSON.stringify({ type: "ad_done", adId, ...result })}\n`);
+  }
   function finish(body) {
     res.write(`${JSON.stringify({ type: "done", ...body })}\n`);
     res.end();
@@ -102,6 +116,7 @@ export default async function handler(req, res) {
   const stepsByItem = await mapWithConcurrency(items, COPY_CONCURRENCY, async (item, i) => {
     const { adId, name: customName } = item;
     progress(`Copying ad ${i + 1} of ${items.length}…`);
+    adStart(adId);
 
     // Re-fetched fresh rather than trusted from the client's earlier
     // picker load — the creative can change between browsing and
@@ -115,13 +130,16 @@ export default async function handler(req, res) {
       ({ ad, instagramOmitted } = await fetchAdForCopy(token, adId));
     } catch (err) {
       overallSuccess = false;
-      return [{ type: "ad", label: "Ad", name: customName || adId, success: false, error: `Could not re-fetch ad: ${err.message}` }];
+      const error = `Could not re-fetch ad: ${err.message}`;
+      adDone(adId, { success: false, error });
+      return [{ type: "ad", label: "Ad", name: customName || adId, adId, success: false, error }];
     }
 
     const { copyable, reason } = classifyAd(ad);
     if (!copyable) {
       overallSuccess = false;
-      return [{ type: "ad", label: "Ad", name: ad.name || adId, success: false, skipped: true, error: reason }];
+      adDone(adId, { success: false, skipped: true, error: reason });
+      return [{ type: "ad", label: "Ad", name: ad.name || adId, adId, success: false, skipped: true, error: reason }];
     }
 
     const spec = ad.creative.object_story_spec;
@@ -156,25 +174,22 @@ export default async function handler(req, res) {
         creativeId,
       });
       createdAdIds.push(newAdId);
+      // Non-blocking — the ad was still created successfully, just without
+      // an explicit Instagram actor, so it'll default to the destination
+      // Page's own connected Instagram account for IG placements rather
+      // than necessarily matching whichever one the source ad used.
+      const warning = instagramOmitted
+        ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default."
+        : null;
+      adDone(adId, { success: true, newAdId, creativeId, warning });
       return [
-        { type: "creative", label: "Creative", name: ad.name, success: true, id: creativeId },
-        {
-          type: "ad",
-          label: "Ad",
-          name: ad.name,
-          success: true,
-          id: newAdId,
-          // Non-blocking — the ad was still created successfully, just
-          // without an explicit Instagram actor, so it'll default to the
-          // destination Page's own connected Instagram account for IG
-          // placements rather than necessarily matching whichever one the
-          // source ad used.
-          warning: instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
-        },
+        { type: "creative", label: "Creative", name: ad.name, adId, success: true, id: creativeId },
+        { type: "ad", label: "Ad", name: ad.name, adId, success: true, id: newAdId, warning },
       ];
     } catch (err) {
       overallSuccess = false;
-      return [{ type: "ad", label: "Ad", name: ad.name || adId, success: false, error: err.message }];
+      adDone(adId, { success: false, error: err.message });
+      return [{ type: "ad", label: "Ad", name: ad.name || adId, adId, success: false, error: err.message }];
     }
   });
 
