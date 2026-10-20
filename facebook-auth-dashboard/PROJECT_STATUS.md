@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-20**, by Claude, right after merging PR #217 (Copy Ads: `copy_from` id-format fix + ad previews).
+> Last updated: **2026-10-20**, by Claude, right after merging PR #219 (Copy Ads: fix blank Primary Text/Headline/Description on copy).
 
 ---
 
@@ -59,7 +59,7 @@ A Next.js (Pages Router) internal tool for Indian D2C Facebook/Meta Ads media bu
 
 ## 4. Current state of `origin/main`
 
-Latest commit as of this writing: **`85cae73`** — "Copy Ads: fix copy_from source_account_id format, add ad previews" (PR #217, merged 2026-10-20).
+Latest commit as of this writing: **`0679336`** — "Copy Ads: fix blank Primary Text/Headline/Description on copy" (PR #219, merged 2026-10-20).
 
 No open PRs. Everything described below is merged and live.
 
@@ -76,11 +76,21 @@ No open PRs. Everything described below is merged and live.
 | `/dashboard` | Raw Data — raw profile/Pages/Ad Accounts payload + manual ROAS check | Stable, simple |
 | `/logs` | API Logs — recent Graph API call log (method/path/status/duration) | Stable, simple |
 | `/partnership-ads` + `/partnership-ads/queue` | **Partnership Ads** — replicates a static mockup (`dark-theme/partnership-ads.html` + `ready-to-launch.html`) with real Meta API calls. All 6 sub-nav tabs built: **Overview** (live Partnership vs. Normal Ads comparison), **Explore Ads** (masonry Content Discovery grid with selection, single/bulk permission requests, and queuing), **My Requests** (live permission status by creator), **My Partnership Ads** (every ad on the account detected as branded content, including ones made manually in Ads Manager), **Creator Hub** (per-creator rollup + a per-creator ads drawer), **Partnership Code** (single lookup + bulk CSV, both feeding the queue). A separate `/partnership-ads/queue` route (localStorage-backed, no server-side queue) holds pre-launch items and drives a 3-step launch wizard that creates real Ads/AdCreatives — this app's first launch flow to go past the ad set. Dropped on purpose, not forgotten: the mockup's fabricated AI creative-classification tags (Creator Hub) and AI ad-copy generation (Partnership Code/queue) — both shown as visible, disabled "Coming soon" affordances instead of faked output. Gated behind a shared PIN lock (`components/PinLock.js`, PR #215) — not real security, just a deterrent, same shared pin as Copy Ads | **Shipped** (PR #197, #199, #201, #202, #215) — see §5 and §7 for the real-account checks still needed before trusting this fully, especially the actual ad-creation calls |
-| `/copy-ads` | **Copy Ads** — select ads already running in one ad account and clone their creative into an ad set that already exists in a *different* ad account (same Page, no retargeting needed — built for D2C agency/multi-account setups). Not a campaign migrator: the destination ad set's own targeting/budget are untouched, this is purely a creative+ad clone. First place this app builds a standard `object_story_spec` creative from raw assets (`image_hash`/`video_id`) instead of reusing an existing `creative_id` (impossible cross-account); images copy via Meta's own `copy_from` mechanism, video re-ingests via `file_url` + a short processing poll. Catalog/DPA and Dynamic Creative ads are detected and shown disabled rather than attempted. Ads show the same thumbnail + full-creative-lightbox preview used everywhere else in this app (Thumb/CreativeLightbox), both in the source picker and the pre-copy review screen. Gated behind the same shared PIN lock as Partnership Ads (PR #215) | **Shipped** (PR #204, #206, #208, #210, #212, #214, #215, #217) — see §5 and §7, the picker is confirmed working against a real account but the actual copy/creative-creation path isn't yet |
+| `/copy-ads` | **Copy Ads** — select ads already running in one ad account and clone their creative into an ad set that already exists in a *different* ad account (same Page, no retargeting needed — built for D2C agency/multi-account setups). Not a campaign migrator: the destination ad set's own targeting/budget are untouched, this is purely a creative+ad clone. First place this app builds a standard `object_story_spec` creative from raw assets (`image_hash`/`video_id`) instead of reusing an existing `creative_id` (impossible cross-account); images copy via Meta's own `copy_from` mechanism, video re-ingests via `file_url` + a short processing poll. Also carries over `asset_feed_spec` (Multiple Text Options/Advantage+ creative text) when the source ad has one — see PR #219, this is where Primary Text/Headline/Description actually live for many real ads, not in `object_story_spec.link_data`. Catalog/DPA and Dynamic Creative ads are detected and shown disabled rather than attempted. Ads show the same thumbnail + full-creative-lightbox preview used everywhere else in this app (Thumb/CreativeLightbox), both in the source picker and the pre-copy review screen. Gated behind the same shared PIN lock as Partnership Ads (PR #215) | **Shipped** (PR #204, #206, #208, #210, #212, #214, #215, #217, #219) — see §5 and §7: an image ad has now copied successfully end-to-end against a real account (creative + ad created), but with blank Primary Text/Headline/Description — root-caused and fixed in PR #219, not yet re-confirmed; video/carousel/Instagram-omitted paths still unconfirmed |
 
 ---
 
-## 5. Most recent work (2026-10-16)
+## 5. Most recent work (2026-10-20)
+
+### Copy Ads: real cross-account copy confirmed, but text came through blank — fixed (PR #219)
+
+**First confirmed end-to-end success for this feature**: the user reported a real image ad copied from one ad account into another, creative and all — the first time anything in this app has built a creative from raw assets across accounts and actually worked. But Primary Text, Headline, and Description all came through blank on the copied ad, even though the image/page copied fine.
+
+Root cause: the source ad was built with Meta's **Multiple Text Options** (Advantage+ creative text enhancements — on by default in Ads Manager's own ad composer). Ads built this way store their actual copy in `creative.asset_feed_spec.bodies/titles/descriptions`, not in `object_story_spec.link_data.message/name/description` — those often come back empty for such ads, since Meta renders the live ad from the asset feed rather than the story spec's own text fields. `lib/adCopy.js` already fetched a sliver of `asset_feed_spec` (just `bodies`, added only for `classifyAd`'s Dynamic-Creative-only check) but discarded it entirely when building the new creative — so the image/page/link copied correctly while the text silently dropped.
+
+Fixed by fetching the full `asset_feed_spec` (bodies, titles, descriptions, link_urls, call_to_action_types, images, videos, ad_formats, optimization_type), remapping any `image_hash`/`video_id` it references through the same hash/video maps already used for `object_story_spec` (new `rebuildAssetFeedSpec`), and sending it alongside `object_story_spec` on creative creation whenever it has real content (new `hasAssetFeedContent`) — Meta's `adcreatives` endpoint accepts both together, the same way Ads Manager itself builds these ads. `collectImageHashes`/`collectVideoIds` now take the whole `creative` object instead of just `object_story_spec`, so assets referenced only from the asset feed get copied too.
+
+**Not yet re-confirmed against a real account** — same structural limitation as every other server-side Graph-call fix in this feature's history: there's no way to exercise a real `adcreatives` mutation from this environment. `npm run lint && npm run build` clean; diff scoped to `lib/adCopy.js` + `pages/api/fb/copy-ads/copy.js` only.
 
 ### Copy Ads — clone ads across ad accounts into an existing ad set (PR #204, #206, #208, #210, #212, #214, #217)
 
@@ -236,13 +246,14 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Copy Ads (PR #204, #206, #208, #210, #212, #214, #217) is mid real-account testing** — the source ads picker has round-tripped through three real-account issues in a row (timeout → old-Instagram-id → every-account-empty), each fixed as found, and the copy step itself has now hit and fixed its first real issue too (`copy_from.source_account_id`'s id format). **None of these server-side fixes are verified** (same structural mocked-preview limitation noted repeatedly in §5) — every one of them is "fixed in response to a real error, never confirmed to actually work yet." No copy has succeeded end-to-end against a real account so far. Verification items, in the order they'd actually bite:
-1. **First**: retry copying an ad now that the `copy_from` id format is fixed — confirm an **image** ad's asset actually copies and a working creative/ad appears in the destination account's Ads Manager. This is the first code in the app that builds a creative from raw assets instead of reusing an existing one by id, and it's never actually produced a confirmed-working ad yet.
-2. Then retry "15th August | Women Video" (or any video ad) — this is also the first real test of `copyVideoAcrossAccounts`'s re-ingestion + processing poll (`video_status` field values are a best-effort read, not confirmed against Meta's docs).
-3. If the Instagram-omitted warning step fires on either, confirm the resulting ad actually runs fine on the destination Page's default Instagram account, or decide whether that's good enough in practice.
-4. Try a carousel ad once the single-image/video path is confirmed — `child_attachments` image-hash copying has the same mechanism as the top-level image but hasn't been seen against a real carousel.
-5. Confirm a Catalog/DPA ad and a Dynamic Creative ad both show up correctly **disabled** (not just missing) in the source ads picker, with the right reason text.
-6. Try copying the same source ad twice in one request (two different ads sharing one creative asset) to confirm the per-request asset de-dupe doesn't double-copy or collide.
+**Copy Ads (PR #204, #206, #208, #210, #212, #214, #217, #219) has now had its first confirmed real-account success**: an image ad copied end-to-end (creative + ad created in the destination account) — the first code in this app to build a creative from raw assets across accounts and actually work. That same real attempt surfaced the `asset_feed_spec`/Multiple-Text-Options text-loss bug, fixed in PR #219 but **not yet re-confirmed**. Verification items, in the order they'd actually bite:
+1. **First**: re-copy that same (or another text-option) image ad and confirm Primary Text/Headline/Description now appear correctly on the copied ad in Ads Manager — PR #219's fix is unverified against a real account.
+2. Confirm an **ordinary single-text ad** (no Multiple Text Options) still copies exactly as before — PR #219 touched the shared copy path, so this is the regression check.
+3. Try a video ad (e.g. "15th August | Women Video") — still the first real test of `copyVideoAcrossAccounts`'s re-ingestion + processing poll (`video_status` field values are a best-effort read, not confirmed against Meta's docs), and now also whether a video ad's own Multiple-Text-Options text (if any) carries over correctly.
+4. If the Instagram-omitted warning step fires on either, confirm the resulting ad actually runs fine on the destination Page's default Instagram account, or decide whether that's good enough in practice.
+5. Try a carousel ad once the single-image/video path is confirmed — `child_attachments` image-hash copying has the same mechanism as the top-level image but hasn't been seen against a real carousel.
+6. Confirm a Catalog/DPA ad and a Dynamic Creative ad both show up correctly **disabled** (not just missing) in the source ads picker, with the right reason text.
+7. Try copying the same source ad twice in one request (two different ads sharing one creative asset) to confirm the per-request asset de-dupe doesn't double-copy or collide.
 
 **Separately, not a real-account item**: decide whether `/partnership-ads/queue` should get the same PIN lock as PR #215 added to `/partnership-ads` and `/copy-ads` — right now it's reachable directly by URL, bypassing the lock on the main Partnership Ads page it's normally linked from.
 
