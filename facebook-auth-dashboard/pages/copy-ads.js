@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
-import PinLock from "@/components/PinLock";
 import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import SortableTable from "@/components/SortableTable";
@@ -242,193 +241,191 @@ export default function CopyAdsPage() {
       <Head>
         <title>Copy Ads · Facebook Auth Dashboard</title>
       </Head>
-      <PinLock>
-        <div className={styles.page}>
-          <main className={styles.main} style={{ maxWidth: 1000, margin: "0 auto" }}>
-            <h1 className={styles.h1}>Copy Ads Across Accounts</h1>
-            <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
-              Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad
-              account — the same Page, no retargeting needed.
-            </p>
+      <div className={styles.page}>
+        <main className={styles.main} style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <h1 className={styles.h1}>Copy Ads Across Accounts</h1>
+          <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
+            Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad
+            account — the same Page, no retargeting needed.
+          </p>
 
-            {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
+          {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-            <div className={styles.card} style={{ marginBottom: 20, display: "flex", gap: 20, flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 240px" }}>
-                <p className={styles.sub} style={{ marginBottom: 6 }}>
-                  Source ad account
-                </p>
-                <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
-              </div>
-              <div style={{ flex: "1 1 240px" }}>
-                <p
-                  className={styles.sub}
-                  style={{ marginBottom: 6 }}
-                  title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
-                >
-                  Only show ads with spend in
-                </p>
-                <DateRangeMenu
-                  rangePreset={rangePreset}
-                  customSince={customSince}
-                  customUntil={customUntil}
-                  maxRangeDays={MAX_RANGE_DAYS}
-                  compareToPrevious={false}
-                  compareCustomSince=""
-                  compareDisplay="change"
-                  compareDisabled
-                  compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
-                  onApply={(patch) => {
-                    setRangePreset(patch.rangePreset);
-                    setCustomSince(patch.customSince);
-                    setCustomUntil(patch.customUntil);
-                  }}
-                />
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
-                <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading}>
-                  {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.card} style={{ marginBottom: 20 }}>
-              <p className={styles.sub} style={{ marginBottom: 10 }}>
-                Metrics to show — changes take effect next time you Load Ads.
+          <div className={styles.card} style={{ marginBottom: 20, display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px" }}>
+              <p className={styles.sub} style={{ marginBottom: 6 }}>
+                Source ad account
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {METRIC_GROUPS.map((group) => (
-                  <div key={group}>
-                    <p className={styles.muted} style={{ marginBottom: 6 }}>
-                      {group}
-                    </p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {PICKER_METRIC_CATALOG.filter((m) => m.group === group).map((m) => {
-                        const selected = metricKeys.includes(m.key);
-                        return (
-                          <button
-                            key={m.key}
-                            type="button"
-                            onClick={() => toggleMetric(m.key)}
-                            className={selected ? styles.badgeInfo : styles.pill}
-                            style={
-                              selected
-                                ? { cursor: "pointer" }
-                                : { cursor: "pointer", background: "transparent", border: "1px dashed var(--border)", color: "var(--t2)" }
-                            }
-                          >
-                            {selected ? "✓ " : "+ "}
-                            {m.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
             </div>
+            <div style={{ flex: "1 1 240px" }}>
+              <p
+                className={styles.sub}
+                style={{ marginBottom: 6 }}
+                title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
+              >
+                Only show ads with spend in
+              </p>
+              <DateRangeMenu
+                rangePreset={rangePreset}
+                customSince={customSince}
+                customUntil={customUntil}
+                maxRangeDays={MAX_RANGE_DAYS}
+                compareToPrevious={false}
+                compareCustomSince=""
+                compareDisplay="change"
+                compareDisabled
+                compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
+                onApply={(patch) => {
+                  setRangePreset(patch.rangePreset);
+                  setCustomSince(patch.customSince);
+                  setCustomUntil(patch.customUntil);
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading}>
+                {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
+              </button>
+            </div>
+          </div>
 
-            {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}
-            {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates above, then click Load Ads.</p>}
-            {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
-            {adsLoading && <Loader label="Loading ads…" />}
-            {adsError && (
-              <div className={styles.error}>
-                {adsError}
-                {adsError.toLowerCase().includes("reduce the amount of data") && " — try a narrower date range above, then Reload Ads."}
-              </div>
-            )}
-
-            {!adsLoading && !adsError && hasLoaded && (
-              <>
-                <div className={styles.card} style={{ padding: 12, marginBottom: 20 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <span className={styles.muted} style={{ fontWeight: 600 }}>
-                      Filter results
-                    </span>
-                    <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
-                      + Metric filter
-                    </button>
-                    {(draftConditions.length > 0 || hasPendingFilterChanges) && (
-                      <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
-                        Apply Filters
-                      </button>
-                    )}
+          <div className={styles.card} style={{ marginBottom: 20 }}>
+            <p className={styles.sub} style={{ marginBottom: 10 }}>
+              Metrics to show — changes take effect next time you Load Ads.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {METRIC_GROUPS.map((group) => (
+                <div key={group}>
+                  <p className={styles.muted} style={{ marginBottom: 6 }}>
+                    {group}
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {PICKER_METRIC_CATALOG.filter((m) => m.group === group).map((m) => {
+                      const selected = metricKeys.includes(m.key);
+                      return (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => toggleMetric(m.key)}
+                          className={selected ? styles.badgeInfo : styles.pill}
+                          style={
+                            selected
+                              ? { cursor: "pointer" }
+                              : { cursor: "pointer", background: "transparent", border: "1px dashed var(--border)", color: "var(--t2)" }
+                          }
+                        >
+                          {selected ? "✓ " : "+ "}
+                          {m.label}
+                        </button>
+                      );
+                    })}
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-                  {draftConditions.length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                      {draftConditions.map((c) => (
-                        <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
-                            {metricKeys
-                              .filter((k) => PICKER_METRIC_CATALOG.find((m) => m.key === k)?.format !== "text")
-                              .map((k) => (
-                                <option key={k} value={k}>
-                                  {PICKER_METRIC_CATALOG.find((m) => m.key === k)?.label || k}
-                                </option>
-                              ))}
-                          </select>
-                          <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
-                            {METRIC_FILTER_OPERATORS.map((op) => (
-                              <option key={op.value} value={op.value}>
-                                {op.label}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="number"
-                            className={styles.select}
-                            style={{ width: 110 }}
-                            value={c.value}
-                            onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
-                            onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
-                          />
-                          <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
-                            <CloseIcon size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+          {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}
+          {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates above, then click Load Ads.</p>}
+          {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
+          {adsLoading && <Loader label="Loading ads…" />}
+          {adsError && (
+            <div className={styles.error}>
+              {adsError}
+              {adsError.toLowerCase().includes("reduce the amount of data") && " — try a narrower date range above, then Reload Ads."}
+            </div>
+          )}
+
+          {!adsLoading && !adsError && hasLoaded && (
+            <>
+              <div className={styles.card} style={{ padding: 12, marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span className={styles.muted} style={{ fontWeight: 600 }}>
+                    Filter results
+                  </span>
+                  <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
+                    + Metric filter
+                  </button>
+                  {(draftConditions.length > 0 || hasPendingFilterChanges) && (
+                    <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
+                      Apply Filters
+                    </button>
                   )}
                 </div>
 
-                <SortableTable
-                  columns={columns}
-                  rows={filteredAds}
-                  defaultSortKey="name"
-                  defaultSortDir="asc"
-                  searchable
-                  searchKeys={["name", "campaignName", "adsetName"]}
-                  emptyMessage={appliedConditions.length > 0 ? "No ads match the current filters." : "No ads found in this account."}
-                />
-              </>
-            )}
-          </main>
-        </div>
+                {draftConditions.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                    {draftConditions.map((c) => (
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
+                          {metricKeys
+                            .filter((k) => PICKER_METRIC_CATALOG.find((m) => m.key === k)?.format !== "text")
+                            .map((k) => (
+                              <option key={k} value={k}>
+                                {PICKER_METRIC_CATALOG.find((m) => m.key === k)?.label || k}
+                              </option>
+                            ))}
+                        </select>
+                        <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
+                          {METRIC_FILTER_OPERATORS.map((op) => (
+                            <option key={op.value} value={op.value}>
+                              {op.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          className={styles.select}
+                          style={{ width: 110 }}
+                          value={c.value}
+                          onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                          onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
+                        />
+                        <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
+                          <CloseIcon size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-        <SelectionBar count={selectedAds.length} onClear={() => setSelectedIds(new Set())} onCopy={() => setModalOpen(true)} />
+              <SortableTable
+                columns={columns}
+                rows={filteredAds}
+                defaultSortKey="name"
+                defaultSortDir="asc"
+                searchable
+                searchKeys={["name", "campaignName", "adsetName"]}
+                emptyMessage={appliedConditions.length > 0 ? "No ads match the current filters." : "No ads found in this account."}
+              />
+            </>
+          )}
+        </main>
+      </div>
 
-        {modalOpen && (
-          <CopyAdsModal
-            sourceAccountId={selectedAccountId}
-            ads={selectedAds}
-            adAccounts={adAccounts}
-            onClose={() => setModalOpen(false)}
-            onDone={(result) => {
-              if (result?.createdAdIds?.length) {
-                setSelectedIds((prev) => {
-                  const next = new Set(prev);
-                  for (const id of selectedAds.map((a) => a.id)) next.delete(id);
-                  return next;
-                });
-              }
-            }}
-          />
-        )}
+      <SelectionBar count={selectedAds.length} onClear={() => setSelectedIds(new Set())} onCopy={() => setModalOpen(true)} />
 
-        <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
-      </PinLock>
+      {modalOpen && (
+        <CopyAdsModal
+          sourceAccountId={selectedAccountId}
+          ads={selectedAds}
+          adAccounts={adAccounts}
+          onClose={() => setModalOpen(false)}
+          onDone={(result) => {
+            if (result?.createdAdIds?.length) {
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                for (const id of selectedAds.map((a) => a.id)) next.delete(id);
+                return next;
+              });
+            }
+          }}
+        />
+      )}
+
+      <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
     </Layout>
   );
 }
