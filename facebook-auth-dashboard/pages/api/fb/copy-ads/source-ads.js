@@ -42,26 +42,57 @@ export default async function handler(req, res) {
   // API call with no `metrics` param at all).
   const metricKeys = typeof metrics === "string" && metrics.trim() ? metrics.split(",").map((k) => k.trim()).filter(Boolean) : DEFAULT_COPY_METRIC_KEYS;
 
-  try {
-    const { ads, insightsByAdId } = await fetchCopyableAds(session.accessToken, accountId, { since, until, metricKeys });
-    const shaped = ads.map((ad) => {
-      const { copyable, reason } = classifyAd(ad);
-      return {
-        id: ad.id,
-        name: ad.name,
-        status: ad.status,
-        effectiveStatus: ad.effective_status,
-        adsetName: ad.adset?.name || null,
-        campaignName: ad.campaign?.name || null,
-        thumbnailUrl: ad.creative?.thumbnail_url || null,
-        isVideo: !!ad.creative?.object_story_spec?.video_data?.video_id,
-        copyable,
-        reason,
-        ...deriveRowMetrics(insightsByAdId.get(ad.id) || {}, metricKeys, []),
-      };
-    });
-    res.status(200).json({ ads: shaped, metricKeys });
-  } catch (err) {
-    res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
+  // Streams newline-delimited JSON (same convention as
+  // pages/api/fb/explore-insights.js) instead of one buffered JSON body.
+  // This is what actually fixes the "Failed to fetch" failures: this route
+  // still has to fetch full nested creative objects for every delivering ad
+  // up front (needed to classify copyability and show a thumbnail before
+  // the user picks anything — not changed here), and previously sent
+  // nothing to the client until that entire account-wide fetch finished. If
+  // total server time crept past Vercel's maxDuration, the function was
+  // killed before a single byte went out, and the browser's fetch() then
+  // rejected at the network layer with no HTTP response to even carry an
+  // error message. Streaming means headers (and the first completed batch)
+  // go out almost immediately, so the client's fetch() resolves early
+  // regardless of how long the full account takes, and any later failure
+  // arrives as a real, readable event instead of a raw network error.
+  res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" });
+
+  function shapeAd(ad, insightsByAdId) {
+    const { copyable, reason } = classifyAd(ad);
+    return {
+      id: ad.id,
+      name: ad.name,
+      status: ad.status,
+      effectiveStatus: ad.effective_status,
+      adsetName: ad.adset?.name || null,
+      campaignName: ad.campaign?.name || null,
+      thumbnailUrl: ad.creative?.thumbnail_url || null,
+      isVideo: !!ad.creative?.object_story_spec?.video_data?.video_id,
+      copyable,
+      reason,
+      ...deriveRowMetrics(insightsByAdId.get(ad.id) || {}, metricKeys, []),
+    };
   }
+
+  try {
+    await fetchCopyableAds(session.accessToken, accountId, {
+      since,
+      until,
+      metricKeys,
+      onBatch: (batchAds, insightsByAdId) => {
+        const shaped = batchAds.map((ad) => shapeAd(ad, insightsByAdId));
+        res.write(`${JSON.stringify({ type: "ads_batch", ads: shaped })}\n`);
+      },
+    });
+    res.write(`${JSON.stringify({ type: "done", metricKeys })}\n`);
+  } catch (err) {
+    // Headers are already sent once streaming has started above — a thrown
+    // error can't become a fresh res.status(...).json(...) the way the old,
+    // unstreamed version of this route handled it. Streamed as a "done"
+    // event carrying an `error` field instead, same convention
+    // explore-insights.js already uses for the identical constraint.
+    res.write(`${JSON.stringify({ type: "done", error: err.message })}\n`);
+  }
+  res.end();
 }

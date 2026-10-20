@@ -19,8 +19,43 @@ import { computeRange } from "@/lib/dateRanges";
 import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
 import { METRIC_CATALOG, formatMetricValue } from "@/lib/insightsMetrics";
 import { METRIC_FILTER_OPERATORS, applyResultFilters } from "@/lib/copyAdsFilters";
-import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
+import { fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+
+// Reads /api/fb/copy-ads/source-ads' newline-delimited JSON response (same
+// streaming convention as pages/explore.js's fetchExploreInsights) —
+// `onBatch` fires once per `ads_batch` event, as each 50-id batch on the
+// server resolves, so the table fills in incrementally instead of staying
+// blank until the entire account-wide fetch finishes. `fetchWithTimeout`
+// still guards the initial connection (a true network hang); once the
+// stream is open, it stays open for as long as the server keeps writing.
+async function fetchSourceAdsStream(url, onBatch) {
+  const res = await fetchWithTimeout(url);
+  if (!res.ok || !res.body) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.error || `Request failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let doneEvent = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line);
+      if (event.type === "ads_batch") onBatch(event.ads || []);
+      else if (event.type === "done") doneEvent = event;
+    }
+  }
+  if (!doneEvent) throw new Error("Request ended unexpectedly");
+  if (doneEvent.error) throw new Error(doneEvent.error);
+  return doneEvent;
+}
 
 function newFilterId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -141,18 +176,16 @@ export default function CopyAdsPage() {
     setAdsLoading(true);
     setAdsError(null);
     setSelectedIds(new Set());
+    setAds([]);
     const params = new URLSearchParams({
       accountId: selectedAccountId,
       since: range.since,
       until: range.until,
       metrics: metricKeys.join(","),
     });
-    fetchWithTimeout(`/api/fb/copy-ads/source-ads?${params.toString()}`)
-      .then(parseJsonResponse)
-      .then((json) => {
-        if (json.error) setAdsError(json.error);
-        else setAds(json.ads || []);
-      })
+    fetchSourceAdsStream(`/api/fb/copy-ads/source-ads?${params.toString()}`, (batchAds) => {
+      setAds((prev) => [...prev, ...batchAds]);
+    })
       .catch((err) => setAdsError(err.message))
       .finally(() => {
         setAdsLoading(false);
@@ -323,7 +356,8 @@ export default function CopyAdsPage() {
           {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}
           {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates above, then click Load Ads.</p>}
           {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
-          {adsLoading && <Loader label="Loading ads…" />}
+          {adsLoading && ads.length === 0 && <Loader label="Loading ads…" />}
+          {adsLoading && ads.length > 0 && <p className={styles.sub}>Loading more ads… ({ads.length} so far)</p>}
           {adsError && (
             <div className={styles.error}>
               {adsError}
@@ -331,7 +365,7 @@ export default function CopyAdsPage() {
             </div>
           )}
 
-          {!adsLoading && !adsError && hasLoaded && (
+          {!adsError && (hasLoaded || ads.length > 0) && (
             <>
               <div className={styles.card} style={{ padding: 12, marginBottom: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
