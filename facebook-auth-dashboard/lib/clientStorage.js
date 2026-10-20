@@ -142,6 +142,28 @@ export function setExploreQueryPanelCollapsed(collapsed) {
   }
 }
 
+const COPY_ADS_QUERY_PANEL_COLLAPSED_KEY = "fb-dashboard:copy-ads-query-panel-collapsed";
+
+// Same per-device collapsed/expanded preference as Explore's own query
+// panel above, just a separate key — Copy Ads' panel (source account, date
+// range, metrics) is a different page with its own independent preference.
+export function getCopyAdsQueryPanelCollapsed() {
+  try {
+    const value = localStorage.getItem(COPY_ADS_QUERY_PANEL_COLLAPSED_KEY);
+    return value == null ? null : value === "1";
+  } catch {
+    return null;
+  }
+}
+
+export function setCopyAdsQueryPanelCollapsed(collapsed) {
+  try {
+    localStorage.setItem(COPY_ADS_QUERY_PANEL_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
+
 const EXPLORE_VIEWS_KEY = "fb-dashboard:explore-views";
 
 // The Explore page's open tabs — each tab's query spec (never its fetched
