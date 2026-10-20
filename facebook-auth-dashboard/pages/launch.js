@@ -117,7 +117,7 @@ function PickerList({ loading, error, items, query, onQueryChange, renderRow, em
 }
 
 export default function Launch() {
-  const { adAccounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
+  const { adAccounts, accountsLoading, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
   const currency = adAccounts.find((a) => a.id === selectedAccountId)?.currency;
 
   // screen: entry | pick_campaign | pick_adset | pick_destination | form | review
@@ -293,7 +293,7 @@ export default function Launch() {
             <p className={styles.sub} style={{ marginBottom: 6 }}>
               Ad account
             </p>
-            <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
+            <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" loading={accountsLoading} />
           </div>
 
           {!runnable && <p className={styles.sub}>Pick an ad account above to get started.</p>}

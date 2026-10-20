@@ -18,6 +18,7 @@ export default function Dashboard({ user }) {
     profile,
     pages,
     adAccounts,
+    accountsLoading,
     accountsError: error,
     selectedAccountId,
     setSelectedAccountId,
@@ -136,7 +137,7 @@ export default function Dashboard({ user }) {
                 <div className={styles.card}>
                   <h2 className={styles.h2}>Ad Account Performance (Last 30 Days)</h2>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
-                    <AccountSelect accounts={data.adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 240 }} />
+                    <AccountSelect accounts={data.adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 240 }} loading={accountsLoading} />
                     <button className={styles.btnPrimary} onClick={() => checkPerformance(false)} disabled={insightsLoading}>
                       {insightsLoading ? "Checking…" : "Check ROAS"}
                     </button>

@@ -100,7 +100,7 @@ const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 1
 // anywhere else in this app (every duplicate/launch flow starts from one
 // already-on-screen ad), so this page's source-ads table is new.
 export default function CopyAdsPage() {
-  const { adAccounts, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
+  const { adAccounts, accountsLoading, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
 
   const [ads, setAds] = useState([]);
   const [adsLoading, setAdsLoading] = useState(false);
@@ -500,7 +500,7 @@ export default function CopyAdsPage() {
                       <p className={styles.sub} style={{ marginBottom: 6 }}>
                         Source ad account
                       </p>
-                      <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" style={{ width: "100%" }} />
+                      <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" style={{ width: "100%" }} loading={accountsLoading} />
                     </div>
 
                     <div>
