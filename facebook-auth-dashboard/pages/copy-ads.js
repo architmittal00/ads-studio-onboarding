@@ -12,6 +12,7 @@ import DateRangeMenu from "@/components/DateRangeMenu";
 import SelectionBar from "@/components/copyads/SelectionBar";
 import CopyAdsModal from "@/components/copyads/CopyAdsModal";
 import MetricPicker from "@/components/MetricPicker";
+import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import { CloseIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { computeRange } from "@/lib/dateRanges";
@@ -177,10 +178,31 @@ export default function CopyAdsPage() {
   const selectedAds = ads.filter((a) => selectedIds.has(a.id));
   const filteredAds = applyResultFilters(ads, appliedConditions, metricKeys);
 
+  // "Select all" only ever acts on what's currently visible (filtered) and
+  // actually selectable (copyable) — same scope `toggle` already enforces
+  // one row at a time. Selecting unions into `selectedIds` rather than
+  // replacing it, and deselecting only removes these ids, so a previously
+  // selected ad that's since been filtered out of view (see the comment on
+  // `selectedAds` above) is never silently dropped by a select-all toggle.
+  const selectableIds = filteredAds.filter((a) => a.copyable).map((a) => a.id);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && selectableIds.some((id) => selectedIds.has(id));
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        for (const id of selectableIds) next.delete(id);
+      } else {
+        for (const id of selectableIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
   const columns = [
     {
       key: "select",
-      label: "",
+      label: <SelectAllCheckbox checked={allSelected} indeterminate={someSelected} onChange={toggleSelectAll} />,
       freezeExempt: true,
       maxWidth: 32,
       render: (row) => (
