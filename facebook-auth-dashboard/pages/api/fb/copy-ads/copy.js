@@ -56,6 +56,14 @@ const COPY_CONCURRENCY = 5;
 // (launch-campaign.js, partnership/launch.js): every created ad is PAUSED
 // first, only flipped to ACTIVE in one final step, and only if every ad in
 // the batch copied successfully.
+//
+// Not every ad goes through the "build a creative from raw assets" path
+// above — see lib/adCopy.js's classifyAd for the other two copyable kinds:
+// "catalog" (Catalog/Dynamic Product ads, reuses the same product_set_id +
+// template instead of any per-product asset) and "existing_post" (ads with
+// no inline object_story_spec at all — including every Partnership/
+// branded-content ad — reuses the exact same existing post via
+// object_story_id instead of a spec or asset copy).
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -135,7 +143,7 @@ export default async function handler(req, res) {
       return [{ type: "ad", label: "Ad", name: customName || adId, adId, success: false, error }];
     }
 
-    const { copyable, reason } = classifyAd(ad);
+    const { copyable, reason, kind, isBrandedContent } = classifyAd(ad);
     if (!copyable) {
       overallSuccess = false;
       adDone(adId, { success: false, skipped: true, error: reason });
@@ -152,6 +160,11 @@ export default async function handler(req, res) {
     const assetFeedSpec = ad.creative.asset_feed_spec;
     const hasAssetFeed = hasAssetFeedContent(assetFeedSpec);
     try {
+      // Both empty for "existing_post" (no object_story_spec to look at) and
+      // normally empty for "catalog" (a template's images come from the
+      // product set, not an image_hash on this ad's own creative) — real
+      // asset copying only actually happens for "standard" ads and the rare
+      // catalog template that does set its own fallback image.
       const hashEntries = await Promise.all(
         collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])
       );
@@ -161,12 +174,21 @@ export default async function handler(req, res) {
       const hashMap = new Map(hashEntries);
       const videoIdMap = new Map(videoEntries);
 
-      const rebuiltSpec = rebuildObjectStorySpec(spec, hashMap, videoIdMap);
-      const rebuiltAssetFeedSpec = hasAssetFeed ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
-      const creativeId = await createCopiedCreative(token, destAccountId, {
-        objectStorySpec: rebuiltSpec,
-        assetFeedSpec: rebuiltAssetFeedSpec,
-      });
+      // "existing_post" has no object_story_spec at all — Meta's
+      // object_story_id and object_story_spec are mutually exclusive, so the
+      // new creative just points at the exact same already-existing post
+      // instead. "catalog" keeps the normal rebuilt-spec path (its
+      // template_data is a sibling of link_data/video_data) plus the same
+      // product_set_id, which is a Business-level asset the destination
+      // account already needs access to anyway (see classifyAd's comment).
+      const creativeId =
+        kind === "existing_post"
+          ? await createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id })
+          : await createCopiedCreative(token, destAccountId, {
+              objectStorySpec: rebuildObjectStorySpec(spec, hashMap, videoIdMap),
+              assetFeedSpec: hasAssetFeed ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null,
+              productSetId: kind === "catalog" ? ad.creative.product_set_id : null,
+            });
 
       const newAdId = await createCopiedAd(token, destAccountId, {
         name: (customName && customName.trim()) || `${ad.name} - Copy`,
@@ -174,13 +196,19 @@ export default async function handler(req, res) {
         creativeId,
       });
       createdAdIds.push(newAdId);
-      // Non-blocking — the ad was still created successfully, just without
-      // an explicit Instagram actor, so it'll default to the destination
-      // Page's own connected Instagram account for IG placements rather
-      // than necessarily matching whichever one the source ad used.
+      // Non-blocking warnings — the ad was still created successfully.
+      // instagramOmitted: no explicit Instagram actor, so it'll default to
+      // the destination Page's own connected Instagram account rather than
+      // necessarily matching whichever one the source ad used. Partnership
+      // ads reference the original post directly (see classifyAd) rather
+      // than re-declaring sponsor permissions this feature isn't
+      // re-requesting, so the paid-partnership label/sponsor tag may not
+      // carry over to the new ad the way it does on the original.
       const warning = instagramOmitted
         ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default."
-        : null;
+        : kind === "existing_post" && isBrandedContent
+          ? "Copied by referencing the original post — this was a Partnership (branded content) ad, and its paid-partnership label/sponsor tag may not carry over to the new ad."
+          : null;
       adDone(adId, { success: true, newAdId, creativeId, warning });
       return [
         { type: "creative", label: "Creative", name: ad.name, adId, success: true, id: creativeId },

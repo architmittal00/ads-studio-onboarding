@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" });
 
   function shapeAd(ad, insightsByAdId) {
-    const { copyable, reason } = classifyAd(ad);
+    const { copyable, reason, kind, isBrandedContent } = classifyAd(ad);
     return {
       id: ad.id,
       name: ad.name,
@@ -71,6 +71,12 @@ export default async function handler(req, res) {
       isVideo: !!ad.creative?.object_story_spec?.video_data?.video_id,
       copyable,
       reason,
+      // "standard" (the common case) isn't surfaced in the picker at all —
+      // only "catalog"/"existing_post" get a badge, so the user knows up
+      // front these copy via a different mechanism (same product set /
+      // the exact same existing post) than an ordinary ad.
+      kind,
+      isBrandedContent: !!isBrandedContent,
       ...deriveRowMetrics(insightsByAdId.get(ad.id) || {}, metricKeys, []),
     };
   }
