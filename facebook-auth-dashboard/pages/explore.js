@@ -14,6 +14,7 @@ import CreativeLightbox from "@/components/CreativeLightbox";
 import EntityDetailDrawer from "@/components/EntityDetailDrawer";
 import CopyIdButton from "@/components/CopyIdButton";
 import MetricPicker from "@/components/MetricPicker";
+import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
@@ -3357,27 +3358,6 @@ function ExploreResultsTable({
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
     </div>
-  );
-}
-
-// Small inline "copy this one ID" control used in the results table's
-// leading name column — flashes a checkmark for a moment so clicking it
-// gives some feedback beyond the silent clipboard write.
-// Lives in the "__select" column's own header (a <th> that otherwise toggles
-// sort on click, see SortableTable) — stopPropagation keeps a click on the
-// checkbox from also re-sorting the table underneath it.
-function SelectAllCheckbox({ checked, indeterminate, onChange }) {
-  return (
-    <input
-      type="checkbox"
-      ref={(el) => {
-        if (el) el.indeterminate = indeterminate;
-      }}
-      checked={checked}
-      onChange={onChange}
-      onClick={(e) => e.stopPropagation()}
-      aria-label="Select all rows"
-    />
   );
 }
 
