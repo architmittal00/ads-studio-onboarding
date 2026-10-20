@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
-import { fetchCopyableAds, classifyAd } from "@/lib/adCopy";
+import { fetchCopyableAds, classifyAd, DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
+import { deriveRowMetrics } from "@/lib/insightsMetrics";
 
 // Account-wide ad browser for the Copy Ads feature. There's no other
 // "browse every ad in an account" picker anywhere in this app — every other
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, since, until } = req.query;
+  const { accountId, since, until, metrics } = req.query;
   if (!accountId) {
     return res.status(400).json({ error: "accountId is required" });
   }
@@ -35,8 +36,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "since and until are required" });
   }
 
+  // `metrics` is a comma-separated list of lib/insightsMetrics.js catalog
+  // keys chosen by the picker's metric picker — falls back to this
+  // feature's own default column set when omitted (including on a direct
+  // API call with no `metrics` param at all).
+  const metricKeys = typeof metrics === "string" && metrics.trim() ? metrics.split(",").map((k) => k.trim()).filter(Boolean) : DEFAULT_COPY_METRIC_KEYS;
+
   try {
-    const ads = await fetchCopyableAds(session.accessToken, accountId, { since, until });
+    const { ads, insightsByAdId } = await fetchCopyableAds(session.accessToken, accountId, { since, until, metricKeys });
     const shaped = ads.map((ad) => {
       const { copyable, reason } = classifyAd(ad);
       return {
@@ -50,9 +57,10 @@ export default async function handler(req, res) {
         isVideo: !!ad.creative?.object_story_spec?.video_data?.video_id,
         copyable,
         reason,
+        ...deriveRowMetrics(insightsByAdId.get(ad.id) || {}, metricKeys, []),
       };
     });
-    res.status(200).json({ ads: shaped });
+    res.status(200).json({ ads: shaped, metricKeys });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
   }

@@ -9,12 +9,33 @@ import AccountSelect from "@/components/AccountSelect";
 import SortableTable from "@/components/SortableTable";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
+import DateRangeMenu from "@/components/DateRangeMenu";
 import SelectionBar from "@/components/copyads/SelectionBar";
 import CopyAdsModal from "@/components/copyads/CopyAdsModal";
 import { useAccounts } from "@/components/AccountProvider";
-import { RANGE_PRESETS, computeRange } from "@/lib/dateRanges";
+import { computeRange } from "@/lib/dateRanges";
+import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
+import { METRIC_CATALOG, formatMetricValue } from "@/lib/insightsMetrics";
 import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+
+// Capped tighter than Explore's 365-day ceiling: this picker's per-ad fields
+// are heavier (full object_story_spec/asset_feed_spec, carousel
+// child_attachments), and this feature has already hit real Graph errors
+// twice on wide windows (PR #206's "reduce the amount of data," PR #210's
+// FUNCTION_INVOCATION_TIMEOUT) — 90 days matches the original pre-narrowing
+// default and leaves real headroom given the /insights-first discovery
+// already bounds the heavy fetch to ads with real delivery.
+const MAX_RANGE_DAYS = 90;
+
+// "Budget" isn't a real Insights-API field (see its own comment in
+// lib/insightsMetrics.js — it's only meaningful at Campaign/Ad Set level,
+// fetched via a separate entity lookup Explore does but this page doesn't),
+// so it would always render "—" here. Left out of this page's metric picker
+// entirely rather than offered as a column that can never show a value.
+const PICKER_METRIC_CATALOG = METRIC_CATALOG.filter((m) => m.key !== "budget");
+const METRIC_GROUPS = [...new Set(PICKER_METRIC_CATALOG.map((m) => m.group))];
+const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 100, text: 150 };
 
 // Cross-account ad cloning: pick ads already running in one ad account and
 // copy them — creative and all — into an ad set that already exists in a
@@ -48,6 +69,17 @@ export default function CopyAdsPage() {
   const [customUntil, setCustomUntil] = useState("");
   const range = computeRange(rangePreset, customSince, customUntil);
 
+  // Which lib/insightsMetrics.js catalog columns show in the picker table —
+  // session-only (no persistence), same as every other piece of state on
+  // this page. Changing this does NOT re-fetch on its own (same "explicit
+  // Load Ads" philosophy as the date range below) since it changes which
+  // Graph fields the next fetch requests.
+  const [metricKeys, setMetricKeys] = useState(DEFAULT_COPY_METRIC_KEYS);
+  function toggleMetric(key) {
+    setMetricKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+  const sourceCurrency = adAccounts.find((a) => a.id === selectedAccountId)?.currency;
+
   // Clears out any ads/selection left over from a previously loaded
   // account — doesn't itself fetch anything (that still needs an explicit
   // Load Ads click below), just prevents the table from silently going on
@@ -75,7 +107,12 @@ export default function CopyAdsPage() {
     setAdsLoading(true);
     setAdsError(null);
     setSelectedIds(new Set());
-    const params = new URLSearchParams({ accountId: selectedAccountId, since: range.since, until: range.until });
+    const params = new URLSearchParams({
+      accountId: selectedAccountId,
+      since: range.since,
+      until: range.until,
+      metrics: metricKeys.join(","),
+    });
     fetchWithTimeout(`/api/fb/copy-ads/source-ads?${params.toString()}`)
       .then(parseJsonResponse)
       .then((json) => {
@@ -142,6 +179,17 @@ export default function CopyAdsPage() {
     },
     { key: "campaignName", label: "Campaign", render: (row) => row.campaignName || "—" },
     { key: "adsetName", label: "Ad set", render: (row) => row.adsetName || "—" },
+    ...metricKeys
+      .map((key) => PICKER_METRIC_CATALOG.find((m) => m.key === key))
+      .filter(Boolean)
+      .map((metric) => ({
+        key: metric.key,
+        label: metric.label,
+        align: "right",
+        maxWidth: METRIC_COLUMN_WIDTH[metric.format] || METRIC_COLUMN_WIDTH.number,
+        sortValue: (row) => (typeof row[metric.key] === "number" ? row[metric.key] : -Infinity),
+        render: (row) => formatMetricValue(row[metric.key], metric.format, sourceCurrency),
+      })),
     {
       key: "status",
       label: "Status",
@@ -180,26 +228,63 @@ export default function CopyAdsPage() {
                 >
                   Only show ads with spend in
                 </p>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <select className={styles.select} value={rangePreset} onChange={(e) => setRangePreset(e.target.value)}>
-                    {RANGE_PRESETS.map((p) => (
-                      <option key={p.key} value={p.key}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                  {rangePreset === "custom" && (
-                    <>
-                      <input type="date" className={styles.select} value={customSince} onChange={(e) => setCustomSince(e.target.value)} />
-                      <input type="date" className={styles.select} value={customUntil} onChange={(e) => setCustomUntil(e.target.value)} />
-                    </>
-                  )}
-                </div>
+                <DateRangeMenu
+                  rangePreset={rangePreset}
+                  customSince={customSince}
+                  customUntil={customUntil}
+                  maxRangeDays={MAX_RANGE_DAYS}
+                  compareToPrevious={false}
+                  compareCustomSince=""
+                  compareDisplay="change"
+                  compareDisabled
+                  compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
+                  onApply={(patch) => {
+                    setRangePreset(patch.rangePreset);
+                    setCustomSince(patch.customSince);
+                    setCustomUntil(patch.customUntil);
+                  }}
+                />
               </div>
               <div style={{ display: "flex", alignItems: "flex-end" }}>
                 <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading}>
                   {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
                 </button>
+              </div>
+            </div>
+
+            <div className={styles.card} style={{ marginBottom: 20 }}>
+              <p className={styles.sub} style={{ marginBottom: 10 }}>
+                Metrics to show — changes take effect next time you Load Ads.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {METRIC_GROUPS.map((group) => (
+                  <div key={group}>
+                    <p className={styles.muted} style={{ marginBottom: 6 }}>
+                      {group}
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {PICKER_METRIC_CATALOG.filter((m) => m.group === group).map((m) => {
+                        const selected = metricKeys.includes(m.key);
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            onClick={() => toggleMetric(m.key)}
+                            className={selected ? styles.badgeInfo : styles.pill}
+                            style={
+                              selected
+                                ? { cursor: "pointer" }
+                                : { cursor: "pointer", background: "transparent", border: "1px dashed var(--border)", color: "var(--t2)" }
+                            }
+                          >
+                            {selected ? "✓ " : "+ "}
+                            {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
