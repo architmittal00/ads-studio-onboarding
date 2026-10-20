@@ -6,10 +6,12 @@ import {
   classifyAd,
   collectImageHashes,
   collectVideoIds,
+  hasAssetFeedContent,
   copyImageAcrossAccounts,
   copyVideoAcrossAccounts,
   fetchVideoSourceUrl,
   rebuildObjectStorySpec,
+  rebuildAssetFeedSpec,
   createCopiedCreative,
   createCopiedAd,
 } from "@/lib/adCopy";
@@ -96,15 +98,23 @@ export default async function handler(req, res) {
     }
 
     const spec = ad.creative.object_story_spec;
+    // Carry the asset_feed_spec through too when the source ad has one with
+    // real content — see lib/adCopy.js's bug note near COPY_AD_FIELDS: an
+    // ad built with Meta's Multiple Text Options stores its actual Primary
+    // Text/Headline/Description there, not in object_story_spec.link_data,
+    // so skipping it is exactly what shipped the "copied ad looks right but
+    // all its copy is blank" bug on the first real-account run.
+    const assetFeedSpec = ad.creative.asset_feed_spec;
+    const hasAssetFeed = hasAssetFeedContent(assetFeedSpec);
     try {
-      for (const hash of collectImageHashes(spec)) {
+      for (const hash of collectImageHashes(ad.creative)) {
         if (!hashMap.has(hash)) {
           progress(`Copying creative image for "${ad.name}"…`);
           const newHash = await copyImageAcrossAccounts(token, destAccountId, { sourceAccountId, hash });
           hashMap.set(hash, newHash);
         }
       }
-      for (const videoId of collectVideoIds(spec)) {
+      for (const videoId of collectVideoIds(ad.creative)) {
         if (!videoIdMap.has(videoId)) {
           progress(`Copying creative video for "${ad.name}"…`);
           const sourceUrl = await fetchVideoSourceUrl(token, videoId);
@@ -114,7 +124,11 @@ export default async function handler(req, res) {
       }
 
       const rebuiltSpec = rebuildObjectStorySpec(spec, hashMap, videoIdMap);
-      const creativeId = await createCopiedCreative(token, destAccountId, rebuiltSpec);
+      const rebuiltAssetFeedSpec = hasAssetFeed ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
+      const creativeId = await createCopiedCreative(token, destAccountId, {
+        objectStorySpec: rebuiltSpec,
+        assetFeedSpec: rebuiltAssetFeedSpec,
+      });
       steps.push({ type: "creative", label: "Creative", name: ad.name, success: true, id: creativeId });
 
       const newAdId = await createCopiedAd(token, destAccountId, {

@@ -29,12 +29,34 @@ function copyAdFields(withInstagram) {
     "link_data{link,message,name,description,call_to_action,image_hash," +
     "child_attachments{link,name,description,image_hash}}," +
     "video_data{video_id,message,image_url,call_to_action}}," +
-    "asset_feed_spec{bodies{text}}}"
+    "asset_feed_spec{bodies{text},titles{text},descriptions{text}," +
+    "link_urls{website_url,display_url,deeplink_url},call_to_action_types," +
+    "images{hash},videos{video_id,thumbnail_url},ad_formats,optimization_type}}"
   );
 }
 
 export const COPY_AD_FIELDS = copyAdFields(true);
 const COPY_AD_FIELDS_NO_INSTAGRAM = copyAdFields(false);
+
+// BUG FOUND POST-SHIP (first real cross-account copy): the copied ad's
+// Primary Text/Headline/Description came through blank even though the
+// image/creative itself copied fine. Root cause — any ad built with Meta's
+// "Multiple Text Options" (a.k.a. Advantage+ creative text enhancements,
+// on by default in Ads Manager's ad composer) stores its actual text pool
+// in `creative.asset_feed_spec.bodies/titles/descriptions`, NOT in
+// `object_story_spec.link_data.message/name/description` — those often
+// come back empty or absent on this API for such ads, since Meta renders
+// the live ad from the asset feed, not the story spec's own text fields.
+// Previously this file fetched only `asset_feed_spec{bodies{text}}` (just
+// enough for classifyAd's Dynamic-Creative-only check below) and then
+// discarded it entirely when building the new creative — so an ad that
+// had both an object_story_spec (passing as "copyable") AND a real
+// asset_feed_spec text pool copied its image/page/link but silently
+// dropped all its copy. Fixed by fetching the full asset_feed_spec and
+// carrying it through to the new creative (see hasAssetFeedContent,
+// rebuildAssetFeedSpec, createCopiedCreative below) — Meta's adcreatives
+// endpoint accepts object_story_spec and asset_feed_spec together, which
+// is exactly how Ads Manager itself builds these ads.
 
 function isOldInstagramIdError(err) {
   return err?.graphResponse?.error?.code === 12 || /Old Instagram ID is deprecated/i.test(err?.message || "");
@@ -175,20 +197,49 @@ export function classifyAd(ad) {
   return { copyable: true, reason: null };
 }
 
-// Every image_hash an ad's object_story_spec references — the top-level
-// link_data image plus each carousel child_attachment's own image, if any.
-// De-duplicated since a carousel can repeat the same image across cards.
-export function collectImageHashes(spec) {
+// Every image_hash an ad's creative references — the top-level link_data
+// image, each carousel child_attachment's own image, and (see the
+// asset_feed_spec bug note above) any images in the Multiple-Text-Options
+// asset feed. De-duplicated since a carousel/asset feed can repeat the same
+// image across cards/variants. Takes the whole `creative` object, not just
+// object_story_spec, since asset_feed_spec is a sibling field on it.
+export function collectImageHashes(creative) {
   const hashes = new Set();
+  const spec = creative?.object_story_spec;
   if (spec?.link_data?.image_hash) hashes.add(spec.link_data.image_hash);
   for (const child of spec?.link_data?.child_attachments || []) {
     if (child.image_hash) hashes.add(child.image_hash);
   }
+  for (const img of creative?.asset_feed_spec?.images || []) {
+    if (img.hash) hashes.add(img.hash);
+  }
   return [...hashes];
 }
 
-export function collectVideoIds(spec) {
-  return spec?.video_data?.video_id ? [spec.video_data.video_id] : [];
+export function collectVideoIds(creative) {
+  const ids = new Set();
+  if (creative?.object_story_spec?.video_data?.video_id) {
+    ids.add(creative.object_story_spec.video_data.video_id);
+  }
+  for (const vid of creative?.asset_feed_spec?.videos || []) {
+    if (vid.video_id) ids.add(vid.video_id);
+  }
+  return [...ids];
+}
+
+// An ad's asset_feed_spec is considered "real" only if it actually carries
+// a text/image/video pool — not just an empty object some creatives come
+// back with. Guards createCopiedCreative from sending a pointless empty
+// asset_feed_spec on ordinary single-text ads.
+export function hasAssetFeedContent(assetFeedSpec) {
+  return !!(
+    assetFeedSpec &&
+    (assetFeedSpec.bodies?.length ||
+      assetFeedSpec.titles?.length ||
+      assetFeedSpec.descriptions?.length ||
+      assetFeedSpec.images?.length ||
+      assetFeedSpec.videos?.length)
+  );
 }
 
 function extractNewHash(json, originalHash) {
@@ -293,8 +344,31 @@ export function rebuildObjectStorySpec(spec, hashMap, videoIdMap) {
   return rebuilt;
 }
 
-export async function createCopiedCreative(token, destAccountId, objectStorySpec) {
-  const json = await graphPost(`/${destAccountId}/adcreatives`, token, { object_story_spec: objectStorySpec });
+// Same image_hash/video_id remapping as rebuildObjectStorySpec, applied to
+// an asset_feed_spec's own images[]/videos[] instead. Every text field
+// (bodies, titles, descriptions, link_urls, call_to_action_types,
+// ad_formats, optimization_type) passes through untouched — only the asset
+// references need to point at the destination account's copies.
+export function rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) {
+  if (!assetFeedSpec) return null;
+  const rebuilt = JSON.parse(JSON.stringify(assetFeedSpec));
+  for (const img of rebuilt.images || []) {
+    if (img.hash) img.hash = hashMap.get(img.hash) || img.hash;
+  }
+  for (const vid of rebuilt.videos || []) {
+    if (vid.video_id) vid.video_id = videoIdMap.get(vid.video_id) || vid.video_id;
+  }
+  return rebuilt;
+}
+
+// assetFeedSpec is optional — only sent when the source ad actually used
+// Multiple Text Options (see the bug note near COPY_AD_FIELDS above).
+// Meta's adcreatives endpoint accepts object_story_spec and asset_feed_spec
+// together; this is how Ads Manager itself builds such ads.
+export async function createCopiedCreative(token, destAccountId, { objectStorySpec, assetFeedSpec }) {
+  const payload = { object_story_spec: objectStorySpec };
+  if (assetFeedSpec) payload.asset_feed_spec = assetFeedSpec;
+  const json = await graphPost(`/${destAccountId}/adcreatives`, token, payload);
   return json.id;
 }
 
