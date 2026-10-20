@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import Loader from "../Loader";
+import DateRangeMenu from "../DateRangeMenu";
 import { formatMetricValue } from "@/lib/insightsMetrics";
+import { computeRange } from "@/lib/dateRanges";
+import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+
+// Same cap Copy Ads uses, same reasoning: this tab's own data pull is now
+// bounded by an /insights-first ad-id discovery (see lib/partnershipDetection.js's
+// fetchPartnershipAds) rather than walking the account's full ad history —
+// a generous but real ceiling keeps that discovery query itself cheap.
+const MAX_RANGE_DAYS = 90;
 
 // One rollup's own stat grid — used for both the Partnership and Normal
 // Ads cards below, identical layout, different data and accent color.
@@ -74,41 +83,93 @@ function DeltaCard({ label, partnership, normal, format, currency, lowerIsBetter
 }
 
 export default function OverviewTab({ accountId, ready, currency }) {
-  const [state, setState] = useState({ loading: false, error: null, data: null });
+  // Deliberately NOT an effect that auto-fires when the account becomes
+  // ready — same "explicit action, not a fetch sprung on page load"
+  // convention Copy Ads/Explore already use for their own queries. This
+  // tab's underlying Graph call is heavier than it looks (a full ad-history
+  // walk, see lib/partnershipDetection.js's fetchPartnershipAds), so firing
+  // it automatically — for every account the user happens to land on, before
+  // they've even looked at the page — was also wasted work, not just a UX
+  // preference.
+  const [rangePreset, setRangePreset] = useState("last_30d");
+  const [customSince, setCustomSince] = useState("");
+  const [customUntil, setCustomUntil] = useState("");
+  const range = computeRange(rangePreset, customSince, customUntil);
 
+  const [state, setState] = useState({ loading: false, error: null, data: null, hasLoaded: false });
+
+  // Clears a previous account's stale result rather than leaving it on
+  // screen (misattributed to the newly-selected account) until the user
+  // clicks Check Performance again — same reasoning as Copy Ads' own
+  // account-change reset.
   useEffect(() => {
-    if (!ready || !accountId) return;
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- kicks off an async fetch that itself sets loading/error/result state, not a derived-state anti-pattern
-    setState({ loading: true, error: null, data: null });
-    fetch(`/api/fb/partnership/overview?accountId=${encodeURIComponent(accountId)}`)
-      .then((res) => res.json())
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to the account changing, not a derived-state anti-pattern
+    setState({ loading: false, error: null, data: null, hasLoaded: false });
+  }, [accountId]);
+
+  function checkPerformance() {
+    if (!ready || !accountId || !range) return;
+    setState({ loading: true, error: null, data: null, hasLoaded: false });
+    const params = new URLSearchParams({ accountId, since: range.since, until: range.until });
+    fetchWithTimeout(`/api/fb/partnership/overview?${params.toString()}`)
+      .then(parseJsonResponse)
       .then((json) => {
-        if (cancelled) return;
-        if (json.error) setState({ loading: false, error: json.error, data: null });
-        else setState({ loading: false, error: null, data: json });
+        if (json.error) setState({ loading: false, error: json.error, data: null, hasLoaded: true });
+        else setState({ loading: false, error: null, data: json, hasLoaded: true });
       })
-      .catch((err) => {
-        if (!cancelled) setState({ loading: false, error: err.message, data: null });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accountId, ready]);
+      .catch((err) => setState({ loading: false, error: err.message, data: null, hasLoaded: true }));
+  }
 
   if (!ready) {
     return <p className={styles.sub}>Pick an ad account and Instagram Business Account above to see this.</p>;
   }
-  if (state.loading) return <Loader label="Loading the last 30 days…" />;
-  if (state.error) return <div className={styles.error}>{state.error}</div>;
-  if (!state.data) return null;
-
-  const { partnership, normal } = state.data;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className={styles.card} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span className={styles.muted} style={{ fontWeight: 600 }}>
+          Compare over
+        </span>
+        <DateRangeMenu
+          rangePreset={rangePreset}
+          customSince={customSince}
+          customUntil={customUntil}
+          maxRangeDays={MAX_RANGE_DAYS}
+          compareToPrevious={false}
+          compareCustomSince=""
+          compareDisplay="change"
+          compareDisabled
+          compareDisabledReason="Not available for this overview — it's a Partnership vs. Normal Ads split for one window, not a comparison view."
+          onApply={(patch) => {
+            setRangePreset(patch.rangePreset);
+            setCustomSince(patch.customSince);
+            setCustomUntil(patch.customUntil);
+          }}
+        />
+        <button type="button" className={styles.btnPrimary} onClick={checkPerformance} disabled={!range || state.loading}>
+          {state.loading ? "Checking…" : "Check Performance"}
+        </button>
+      </div>
+
+      {!state.hasLoaded && !state.loading && (
+        <p className={styles.sub} style={{ margin: 0 }}>
+          Pick a date range above and click Check Performance to compare Partnership Ads against your other ads over
+          that window.
+        </p>
+      )}
+      {state.loading && <Loader label="Comparing Partnership vs. Normal Ads…" />}
+      {state.error && <div className={styles.error}>{state.error}</div>}
+      {state.data && <OverviewResult data={state.data} currency={currency} range={range} />}
+    </div>
+  );
+}
+
+function OverviewResult({ data, currency, range }) {
+  const { partnership, normal } = data;
+  return (
+    <>
       <p className={styles.sub} style={{ margin: 0 }}>
-        Last 30 days, live from Meta.
+        {range.since} to {range.until}, live from Meta.
       </p>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         <RollupCard title="Partnership Ads" subtitle="Creator-collaborated" data={partnership} currency={currency} accent="var(--purple)" />
@@ -125,6 +186,6 @@ export default function OverviewTab({ accountId, ready, currency }) {
           <DeltaCard label="Spend" partnership={partnership.spend} normal={normal.spend} format="currency" currency={currency} />
         </div>
       </div>
-    </div>
+    </>
   );
 }

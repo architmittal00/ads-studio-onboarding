@@ -59,14 +59,18 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, businessId, igUserId } = req.query;
+  const { accountId, businessId, igUserId, since, until } = req.query;
   if (!accountId) {
     return res.status(400).json({ error: "accountId is required" });
   }
 
   const token = session.accessToken;
+  // Optional — defaults to the last 30 days, same as this route's own
+  // previously-hardcoded window (see lib/partnershipDetection.js's
+  // fetchPartnershipAds for why it now needs a bounded range at all).
+  const range = since && until ? { since, until } : lastNDaysRange(30, new Date());
   try {
-    const ads = await fetchPartnershipAds(token, accountId);
+    const ads = await fetchPartnershipAds(token, accountId, range);
     if (ads.length === 0) {
       return res.status(200).json({ ads: [] });
     }
@@ -82,7 +86,7 @@ export default async function handler(req, res) {
             level: "ad",
             fields: INSIGHTS_FIELDS,
             filtering: [{ field: "ad.id", operator: "IN", value: ids }],
-            time_range: lastNDaysRange(30, new Date()),
+            time_range: range,
             limit: 500,
           })
         )

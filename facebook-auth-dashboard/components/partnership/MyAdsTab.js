@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Loader from "../Loader";
 import SortableTable from "../SortableTable";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
+import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 const COLUMNS = (currency) => [
@@ -54,8 +55,8 @@ export default function MyAdsTab({ accountId, businessId, igUserId, ready, curre
     const params = new URLSearchParams({ accountId });
     if (businessId) params.set("businessId", businessId);
     if (igUserId) params.set("igUserId", igUserId);
-    fetch(`/api/fb/partnership/mine?${params.toString()}`)
-      .then((res) => res.json())
+    fetchWithTimeout(`/api/fb/partnership/mine?${params.toString()}`)
+      .then(parseJsonResponse)
       .then((json) => {
         if (cancelled) return;
         if (json.error) setState({ loading: false, error: json.error, ads: [] });

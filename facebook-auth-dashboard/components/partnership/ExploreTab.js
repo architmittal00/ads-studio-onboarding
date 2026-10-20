@@ -7,6 +7,7 @@ import SelectionBar from "./SelectionBar";
 import BulkPermissionModal from "./BulkPermissionModal";
 import { permissionState, firstPartnershipInfo } from "@/lib/partnershipContent";
 import { computeRange } from "@/lib/dateRanges";
+import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
 import { SearchIcon } from "../icons";
 import styles from "@/styles/Home.module.css";
@@ -115,8 +116,8 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, onQ
     // eslint-disable-next-line react-hooks/set-state-in-effect -- kicks off an async fetch that itself sets loading/error/result state, not a derived-state anti-pattern
     setLoading(true);
     setError(null);
-    fetch(`/api/fb/partnership/content?${buildQuery()}`)
-      .then((res) => res.json())
+    fetchWithTimeout(`/api/fb/partnership/content?${buildQuery()}`)
+      .then(parseJsonResponse)
       .then((json) => {
         if (cancelled) return;
         if (json.error) {
@@ -142,8 +143,8 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, onQ
   function loadMore() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
-    fetch(`/api/fb/partnership/content?${buildQuery(nextCursor)}`)
-      .then((res) => res.json())
+    fetchWithTimeout(`/api/fb/partnership/content?${buildQuery(nextCursor)}`)
+      .then(parseJsonResponse)
       .then((json) => {
         if (json.error) {
           setError(json.error);

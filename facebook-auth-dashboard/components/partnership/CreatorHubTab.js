@@ -4,6 +4,7 @@ import SortableTable from "../SortableTable";
 import CreatorAdsDrawer from "./CreatorAdsDrawer";
 import { groupByCreator } from "@/lib/partnershipCreatorStats";
 import { formatMetricValue } from "@/lib/insightsMetrics";
+import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 function buildCsv(rows, currency) {
@@ -55,8 +56,8 @@ export default function CreatorHubTab({ accountId, businessId, igUserId, ready, 
     const params = new URLSearchParams({ accountId });
     if (businessId) params.set("businessId", businessId);
     if (igUserId) params.set("igUserId", igUserId);
-    fetch(`/api/fb/partnership/mine?${params.toString()}`)
-      .then((res) => res.json())
+    fetchWithTimeout(`/api/fb/partnership/mine?${params.toString()}`)
+      .then(parseJsonResponse)
       .then((json) => {
         if (cancelled) return;
         if (json.error) setState({ loading: false, error: json.error, ads: [] });
