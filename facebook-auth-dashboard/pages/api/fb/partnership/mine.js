@@ -21,6 +21,33 @@ const INSIGHTS_CHUNK_SIZE = 50;
 // lookupContent documents for ad_codes/permalinks/content_ids).
 const PERMALINK_LOOKUP_CHUNK_SIZE = 50;
 
+// CORRECTION (reported live: "most ads are classified as unknown" — i.e.
+// creatorUsername came back null for nearly every ad): this Map used to be
+// keyed by the exact, byte-for-byte `permalink` string, on both sides —
+// Meta's own echoed-back `item.permalink` from the Content Discovery lookup
+// is not guaranteed to be byte-identical to the ad creative's own
+// `instagram_permalink_url` even when they're the same post (protocol,
+// `www.`, a trailing slash, or a tracking query string are all things Meta's
+// various endpoints are inconsistent about including), so a strict Map.get
+// silently missed real matches far more often than it should have.
+// normalizePermalink reduces both sides to the same bare host+path before
+// comparing, which is safe regardless of which side (if either) included
+// the extra noise. This is the one concrete, confirmable-from-code fix;
+// it does NOT rule out the separate possibility that the Content Discovery
+// API's own "advertisable content" index simply doesn't have a record for
+// some of these ads at all (e.g. ads sourced outside this app's own
+// permission-request flow) — that would still show as no match, and can
+// only be confirmed against a real account. See PROJECT_STATUS.md.
+function normalizePermalink(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return `${u.hostname.replace(/^www\./, "")}${u.pathname.replace(/\/+$/, "")}`.toLowerCase();
+  } catch {
+    return url.replace(/\/+$/, "").toLowerCase();
+  }
+}
+
 // Resolves each ad's underlying creator (display name/ig id) by matching its
 // creative's own `instagram_permalink_url` back through the Content
 // Discovery API's permalink lookup — there's no `creator`/`author` field on
@@ -43,7 +70,8 @@ async function resolveCreators(token, businessId, igUserId, ads) {
   for (const result of results) {
     if (result.status !== "fulfilled") continue;
     for (const item of result.value) {
-      if (item.permalink) byPermalink.set(item.permalink, item.author);
+      const key = normalizePermalink(item.permalink);
+      if (key) byPermalink.set(key, item.author);
     }
   }
   return byPermalink;
@@ -114,7 +142,8 @@ export default async function handler(req, res) {
     }
 
     const enriched = ads.map((ad) => {
-      const author = ad.instagramPermalinkUrl ? creatorsByPermalink.get(ad.instagramPermalinkUrl) : null;
+      const key = normalizePermalink(ad.instagramPermalinkUrl);
+      const author = key ? creatorsByPermalink.get(key) : null;
       return {
         ...ad,
         ...(metricsByAdId.get(ad.adId) || {}),

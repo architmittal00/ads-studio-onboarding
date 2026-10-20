@@ -3,7 +3,7 @@ import { lastNDaysRange, chunk } from "./adCreativeDetails";
 
 const PARTNERSHIP_AD_FIELDS =
   "id,name,status,effective_status,adset{id,name},campaign{id,name}," +
-  "creative{id,facebook_branded_content,instagram_branded_content,branded_content,effective_object_story_id,instagram_permalink_url}";
+  "creative{id,thumbnail_url,facebook_branded_content,instagram_branded_content,branded_content,effective_object_story_id,instagram_permalink_url}";
 const AD_ID_CHUNK_SIZE = 50;
 
 // Which ads in this account had real delivery (spend/impressions) in a
@@ -71,6 +71,7 @@ export async function classifyPartnershipAds(token, adIds) {
       adsetName: ad.adset?.name || null,
       creativeId: ad.creative?.id || null,
       instagramPermalinkUrl: ad.creative?.instagram_permalink_url || null,
+      thumbnailUrl: ad.creative?.thumbnail_url || null,
     }));
 }
 
