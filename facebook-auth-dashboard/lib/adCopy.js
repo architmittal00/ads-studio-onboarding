@@ -325,6 +325,42 @@ export async function copyVideoAcrossAccounts(token, destAccountId, { sourceUrl,
   throw new Error("Video is still processing in the destination account — try copying this ad again shortly.");
 }
 
+// Coordinates image/video asset copies across one whole copy-ads request so
+// that two ads sharing the same source asset — common for an account's own
+// variants of one base creative — copy it exactly once, even when those ads
+// are processed concurrently (pages/api/fb/copy-ads/copy.js runs several ads
+// at once via mapWithConcurrency). A plain `Map<hash, newHash>` checked then
+// set by each ad in turn would race: two ads could both see a miss before
+// either has finished writing the result, double-copying the same asset.
+// Caching the in-flight PROMISE instead of the eventual value fixes that —
+// every concurrent caller for the same hash/video id awaits the exact same
+// copy. The check-then-set below is safe without a lock because it's all
+// synchronous (no `await` between the `has` check and the `set`), so two
+// concurrent callers can never interleave between them.
+export function createAssetCopyCoordinator(token, destAccountId, sourceAccountId, onCopyStart) {
+  const hashJobs = new Map(); // source hash -> Promise<dest hash>
+  const videoJobs = new Map(); // source video id -> Promise<dest video id>
+  return {
+    copyHash(hash, label) {
+      if (!hashJobs.has(hash)) {
+        onCopyStart?.(`Copying creative image for "${label}"…`);
+        hashJobs.set(hash, copyImageAcrossAccounts(token, destAccountId, { sourceAccountId, hash }));
+      }
+      return hashJobs.get(hash);
+    },
+    copyVideo(videoId, label) {
+      if (!videoJobs.has(videoId)) {
+        onCopyStart?.(`Copying creative video for "${label}"…`);
+        videoJobs.set(
+          videoId,
+          fetchVideoSourceUrl(token, videoId).then((sourceUrl) => copyVideoAcrossAccounts(token, destAccountId, { sourceUrl, title: label }))
+        );
+      }
+      return videoJobs.get(videoId);
+    },
+  };
+}
+
 // Deep-clones an object_story_spec, swapping every image_hash / video_id
 // reference for its destination-account equivalent via the maps built while
 // copying assets. Everything else — page_id, instagram_user_id, link,

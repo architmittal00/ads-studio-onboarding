@@ -7,14 +7,26 @@ import {
   collectImageHashes,
   collectVideoIds,
   hasAssetFeedContent,
-  copyImageAcrossAccounts,
-  copyVideoAcrossAccounts,
-  fetchVideoSourceUrl,
+  createAssetCopyCoordinator,
   rebuildObjectStorySpec,
   rebuildAssetFeedSpec,
   createCopiedCreative,
   createCopiedAd,
 } from "@/lib/adCopy";
+import { mapWithConcurrency } from "@/lib/metaInterestSearch";
+
+// How many ads this route copies at once. Each ad is itself several
+// sequential Graph calls (re-fetch, asset copy/video poll, creative create,
+// ad create) — ads used to be copied fully one at a time, so an N-ad batch
+// took roughly N times one ad's own (already multi-call) latency. A modest
+// concurrency cap — rather than firing every ad at once — trades some of
+// that latency back without flooding Meta's per-app/per-user rate limiting
+// (X-App-Usage/X-Business-Use-Case-Usage headers) on a route that already
+// issues several write calls per item; same reasoning and the same
+// mapWithConcurrency runner pages/api/fb/interest-recommendations.js already
+// uses for its own bulk Graph calls. Unverified against a real account at
+// larger batch sizes — see PROJECT_STATUS.md.
+const COPY_CONCURRENCY = 3;
 
 // Clones a batch of ads from one ad account's creative into an existing ad
 // set in a different ad account — the first place this app builds a
@@ -27,8 +39,10 @@ import {
 //
 // Image/video assets are copied at most once per request even when several
 // selected ads share the same creative asset (common for an account's own
-// variants of one base creative) — hashMap/videoIdMap are shared across the
-// whole loop, not reset per ad.
+// variants of one base creative) — lib/adCopy.js's createAssetCopyCoordinator
+// is shared across the whole batch and de-dupes by caching the in-flight
+// copy *promise*, not just the eventual result, which is what makes this
+// safe now that ads are copied concurrently rather than one at a time.
 //
 // Same two-phase safety pattern as every other launch flow in this app
 // (launch-campaign.js, partnership/launch.js): every created ad is PAUSED
@@ -64,14 +78,21 @@ export default async function handler(req, res) {
     res.end();
   }
 
-  const steps = [];
   const createdAdIds = [];
   let overallSuccess = true;
-  const hashMap = new Map(); // source image_hash -> dest image_hash
-  const videoIdMap = new Map(); // source video_id -> dest video_id
+  // Shared across the whole batch so two concurrently-processed ads that
+  // reference the same source image/video copy it exactly once (see
+  // lib/adCopy.js's createAssetCopyCoordinator for why this is safe under
+  // concurrency, unlike a plain Map checked-then-set per ad).
+  const assets = createAssetCopyCoordinator(token, destAccountId, sourceAccountId, progress);
 
-  for (let i = 0; i < items.length; i++) {
-    const { adId, name: customName } = items[i];
+  // One entry per item, each itself an array of 1-2 step objects. Filled in
+  // by mapWithConcurrency at each item's own index (not pushed in completion
+  // order), then flattened below — so the result list always reads in the
+  // user's own selection order regardless of which ad actually finished
+  // copying first.
+  const stepsByItem = await mapWithConcurrency(items, COPY_CONCURRENCY, async (item, i) => {
+    const { adId, name: customName } = item;
     progress(`Copying ad ${i + 1} of ${items.length}…`);
 
     // Re-fetched fresh rather than trusted from the client's earlier
@@ -86,15 +107,13 @@ export default async function handler(req, res) {
       ({ ad, instagramOmitted } = await fetchAdForCopy(token, adId));
     } catch (err) {
       overallSuccess = false;
-      steps.push({ type: "ad", label: "Ad", name: customName || adId, success: false, error: `Could not re-fetch ad: ${err.message}` });
-      continue;
+      return [{ type: "ad", label: "Ad", name: customName || adId, success: false, error: `Could not re-fetch ad: ${err.message}` }];
     }
 
     const { copyable, reason } = classifyAd(ad);
     if (!copyable) {
       overallSuccess = false;
-      steps.push({ type: "ad", label: "Ad", name: ad.name || adId, success: false, skipped: true, error: reason });
-      continue;
+      return [{ type: "ad", label: "Ad", name: ad.name || adId, success: false, skipped: true, error: reason }];
     }
 
     const spec = ad.creative.object_story_spec;
@@ -107,21 +126,14 @@ export default async function handler(req, res) {
     const assetFeedSpec = ad.creative.asset_feed_spec;
     const hasAssetFeed = hasAssetFeedContent(assetFeedSpec);
     try {
-      for (const hash of collectImageHashes(ad.creative)) {
-        if (!hashMap.has(hash)) {
-          progress(`Copying creative image for "${ad.name}"…`);
-          const newHash = await copyImageAcrossAccounts(token, destAccountId, { sourceAccountId, hash });
-          hashMap.set(hash, newHash);
-        }
-      }
-      for (const videoId of collectVideoIds(ad.creative)) {
-        if (!videoIdMap.has(videoId)) {
-          progress(`Copying creative video for "${ad.name}"…`);
-          const sourceUrl = await fetchVideoSourceUrl(token, videoId);
-          const newVideoId = await copyVideoAcrossAccounts(token, destAccountId, { sourceUrl, title: ad.name });
-          videoIdMap.set(videoId, newVideoId);
-        }
-      }
+      const hashEntries = await Promise.all(
+        collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])
+      );
+      const videoEntries = await Promise.all(
+        collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name)])
+      );
+      const hashMap = new Map(hashEntries);
+      const videoIdMap = new Map(videoEntries);
 
       const rebuiltSpec = rebuildObjectStorySpec(spec, hashMap, videoIdMap);
       const rebuiltAssetFeedSpec = hasAssetFeed ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
@@ -129,7 +141,6 @@ export default async function handler(req, res) {
         objectStorySpec: rebuiltSpec,
         assetFeedSpec: rebuiltAssetFeedSpec,
       });
-      steps.push({ type: "creative", label: "Creative", name: ad.name, success: true, id: creativeId });
 
       const newAdId = await createCopiedAd(token, destAccountId, {
         name: (customName && customName.trim()) || `${ad.name} - Copy`,
@@ -137,24 +148,29 @@ export default async function handler(req, res) {
         creativeId,
       });
       createdAdIds.push(newAdId);
-      steps.push({
-        type: "ad",
-        label: "Ad",
-        name: ad.name,
-        success: true,
-        id: newAdId,
-        // Non-blocking — the ad was still created successfully, just
-        // without an explicit Instagram actor, so it'll default to the
-        // destination Page's own connected Instagram account for IG
-        // placements rather than necessarily matching whichever one the
-        // source ad used.
-        warning: instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
-      });
+      return [
+        { type: "creative", label: "Creative", name: ad.name, success: true, id: creativeId },
+        {
+          type: "ad",
+          label: "Ad",
+          name: ad.name,
+          success: true,
+          id: newAdId,
+          // Non-blocking — the ad was still created successfully, just
+          // without an explicit Instagram actor, so it'll default to the
+          // destination Page's own connected Instagram account for IG
+          // placements rather than necessarily matching whichever one the
+          // source ad used.
+          warning: instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
+        },
+      ];
     } catch (err) {
       overallSuccess = false;
-      steps.push({ type: "ad", label: "Ad", name: ad.name || adId, success: false, error: err.message });
+      return [{ type: "ad", label: "Ad", name: ad.name || adId, success: false, error: err.message }];
     }
-  }
+  });
+
+  const steps = stepsByItem.flat();
 
   if (finalStatus === "ACTIVE" && overallSuccess && createdAdIds.length > 0) {
     progress("Activating…");
