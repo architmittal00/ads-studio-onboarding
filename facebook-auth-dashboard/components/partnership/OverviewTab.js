@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
 import Loader from "../Loader";
 import { formatMetricValue } from "@/lib/insightsMetrics";
-import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 // One rollup's own stat grid — used for both the Partnership and Normal
@@ -94,65 +92,30 @@ function DeltaCard({ label, partnership, normal, format, currency, lowerIsBetter
   );
 }
 
-// `range` ({since, until}) is now owned by the parent page (pages/partnership-ads.js)
-// and shared with My Partnership Ads/Creator Hub — one date-range control for
-// all three tabs that actually query the same underlying partnership-vs-rest
-// ad data, instead of Overview picking its own window independently of the
-// other two.
-export default function OverviewTab({ accountId, ready, currency, range }) {
-  // Deliberately NOT an effect that auto-fires when the account becomes
-  // ready — same "explicit action, not a fetch sprung on page load"
-  // convention Copy Ads/Explore already use for their own queries. This
-  // tab's underlying Graph call is heavier than it looks (a full ad-history
-  // walk, see lib/partnershipDetection.js's fetchPartnershipAds), so firing
-  // it automatically — for every account the user happens to land on, before
-  // they've even looked at the page — was also wasted work, not just a UX
-  // preference.
-  const [state, setState] = useState({ loading: false, error: null, data: null, hasLoaded: false });
-
-  // Clears a previous account's stale result rather than leaving it on
-  // screen (misattributed to the newly-selected account) until the user
-  // clicks Check Performance again — same reasoning as Copy Ads' own
-  // account-change reset.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to the account changing, not a derived-state anti-pattern
-    setState({ loading: false, error: null, data: null, hasLoaded: false });
-  }, [accountId]);
-
-  function checkPerformance() {
-    if (!ready || !accountId || !range) return;
-    setState({ loading: true, error: null, data: null, hasLoaded: false });
-    const params = new URLSearchParams({ accountId, since: range.since, until: range.until });
-    fetchWithTimeout(`/api/fb/partnership/overview?${params.toString()}`)
-      .then(parseJsonResponse)
-      .then((json) => {
-        if (json.error) setState({ loading: false, error: json.error, data: null, hasLoaded: true });
-        else setState({ loading: false, error: null, data: json, hasLoaded: true });
-      })
-      .catch((err) => setState({ loading: false, error: err.message, data: null, hasLoaded: true }));
-  }
-
+// Pure display component — no fetch, no local loading/error/data state of
+// its own. `pages/partnership-ads.js` now owns one shared fetch (+ a 5-min
+// client-side cache) for Overview/My Partnership Ads/Creator Hub together,
+// since all three ultimately read the same underlying per-ad data, just
+// aggregated differently; a user switching between these three tabs should
+// see the already-fetched result immediately, not trigger another "Load"
+// (and another round of Graph calls) per tab. See pages/partnership-ads.js's
+// own comment on `checkPerformance` for the full reasoning.
+export default function OverviewTab({ ready, currency, range, loading, error, data }) {
   if (!ready) {
     return <p className={styles.sub}>Pick an ad account above to see this.</p>;
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div>
-        <button type="button" className={styles.btnPrimary} onClick={checkPerformance} disabled={!range || state.loading}>
-          {state.loading ? "Checking…" : "Check Performance"}
-        </button>
-      </div>
-
-      {!state.hasLoaded && !state.loading && (
+      {!data && !loading && !error && (
         <p className={styles.sub} style={{ margin: 0 }}>
-          Pick a date range above and click Check Performance to compare Partnership Ads against your other ads over
-          that window.
+          Pick a date range on the right and click Check Performance to compare Partnership Ads against your other
+          ads over that window.
         </p>
       )}
-      {state.loading && <Loader label="Comparing Partnership vs. Normal Ads…" />}
-      {state.error && <div className={styles.error}>{state.error}</div>}
-      {state.data && <OverviewResult data={state.data} currency={currency} range={range} />}
+      {loading && <Loader label="Comparing Partnership vs. Normal Ads…" />}
+      {error && <div className={styles.error}>{error}</div>}
+      {data && <OverviewResult data={data} currency={currency} range={range} />}
     </div>
   );
 }

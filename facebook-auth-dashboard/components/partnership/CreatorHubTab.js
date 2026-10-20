@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Loader from "../Loader";
 import SortableTable from "../SortableTable";
 import CreatorAdsDrawer from "./CreatorAdsDrawer";
 import { groupByCreator } from "@/lib/partnershipCreatorStats";
 import { formatMetricValue } from "@/lib/insightsMetrics";
-import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 function buildCsv(rows, currency) {
@@ -46,34 +45,15 @@ function downloadCsv(csv, filename) {
 // than this exploratory view warrants right now; every column shown here is
 // a real, single-period number, not a fabricated comparison.
 //
-// Explicit "Check" action rather than auto-fetching on account-ready, same
-// convention as Overview (PR #246) and for the same reason: this is a real
-// ad-history walk, not a cheap lookup.
-export default function CreatorHubTab({ accountId, businessId, igUserId, ready, currency, range }) {
-  const [state, setState] = useState({ loading: false, error: null, ads: [], hasLoaded: false });
+// Pure display component — no fetch, no local loading/error/data state of
+// its own (aside from the creator-drawer's own open/closed state). See
+// pages/partnership-ads.js's own comment on `checkPerformance` for why this
+// (and My Partnership Ads) now share one fetch+cache with Overview instead
+// of each independently calling /api/fb/partnership/mine.
+export default function CreatorHubTab({ ready, currency, ads, loading, error, hasLoaded, range }) {
   const [openCreator, setOpenCreator] = useState(null);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to the account changing, not a derived-state anti-pattern
-    setState({ loading: false, error: null, ads: [], hasLoaded: false });
-  }, [accountId]);
-
-  function loadCreators() {
-    if (!ready || !accountId || !range) return;
-    setState({ loading: true, error: null, ads: [], hasLoaded: false });
-    const params = new URLSearchParams({ accountId, since: range.since, until: range.until });
-    if (businessId) params.set("businessId", businessId);
-    if (igUserId) params.set("igUserId", igUserId);
-    fetchWithTimeout(`/api/fb/partnership/mine?${params.toString()}`)
-      .then(parseJsonResponse)
-      .then((json) => {
-        if (json.error) setState({ loading: false, error: json.error, ads: [], hasLoaded: true });
-        else setState({ loading: false, error: null, ads: json.ads || [], hasLoaded: true });
-      })
-      .catch((err) => setState({ loading: false, error: err.message, ads: [], hasLoaded: true }));
-  }
-
-  const creators = useMemo(() => groupByCreator(state.ads), [state.ads]);
+  const creators = useMemo(() => groupByCreator(ads || []), [ads]);
 
   const columns = [
     { key: "creatorUsername", label: "Creator", render: (row) => `@${row.creatorUsername || row.key}` },
@@ -85,25 +65,20 @@ export default function CreatorHubTab({ accountId, businessId, igUserId, ready, 
   ];
 
   if (!ready) {
-    return <p className={styles.sub}>Pick an ad account and Instagram Business Account above to see this.</p>;
+    return <p className={styles.sub}>Pick an ad account above to see this.</p>;
   }
 
   return (
     <div>
-      <div style={{ marginBottom: 14 }}>
-        <button type="button" className={styles.btnPrimary} onClick={loadCreators} disabled={!range || state.loading}>
-          {state.loading ? "Loading…" : state.hasLoaded ? "Reload" : "Load Creator Hub"}
-        </button>
-      </div>
-      {!state.hasLoaded && !state.loading && (
+      {!hasLoaded && !loading && (
         <p className={styles.sub} style={{ margin: 0 }}>
-          Pick a date range above and click Load Creator Hub to see every creator&apos;s performance, summed across
-          their own partnership ads, over that window.
+          Pick a date range on the right and click Check Performance to see every creator&apos;s performance, summed
+          across their own partnership ads, over that window.
         </p>
       )}
-      {state.loading && <Loader label="Looking for partnership ads…" />}
-      {state.error && <div className={styles.error}>{state.error}</div>}
-      {state.hasLoaded && !state.error && creators.length === 0 && (
+      {loading && <Loader label="Looking for partnership ads…" />}
+      {error && <div className={styles.error}>{error}</div>}
+      {hasLoaded && !error && creators.length === 0 && (
         <section className={styles.card} style={{ textAlign: "center", padding: "48px 24px" }}>
           <p style={{ fontWeight: 700, marginBottom: 6 }}>No creators yet</p>
           <p className={styles.sub}>Once you have partnership ads running, their creators show up here.</p>
