@@ -1,16 +1,8 @@
 import { useEffect, useState } from "react";
 import Loader from "../Loader";
-import DateRangeMenu from "../DateRangeMenu";
 import { formatMetricValue } from "@/lib/insightsMetrics";
-import { computeRange } from "@/lib/dateRanges";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
-
-// Same cap Copy Ads uses, same reasoning: this tab's own data pull is now
-// bounded by an /insights-first ad-id discovery (see lib/partnershipDetection.js's
-// fetchPartnershipAds) rather than walking the account's full ad history —
-// a generous but real ceiling keeps that discovery query itself cheap.
-const MAX_RANGE_DAYS = 90;
 
 // One rollup's own stat grid — used for both the Partnership and Normal
 // Ads cards below, identical layout, different data and accent color.
@@ -26,8 +18,18 @@ function RollupCard({ title, subtitle, data, currency, accent }) {
           </p>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 12 }}>
-        <Stat label="Active Ads" value={data.activeAds != null ? String(data.activeAds) : "—"} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 12 }}>
+        {/* "All Ads" (not "Active Ads") — the count of ads with real delivery
+            in the chosen window, i.e. the same denominator the metrics below
+            it are actually computed over. The live count is a DIFFERENT,
+            current-moment-in-time number (an ad can have delivered in the
+            window but be paused right now, or vice versa) — shown alongside
+            in parens rather than as the headline figure, so the two aren't
+            conflated the way a single "Active Ads" label previously implied. */}
+        <Stat
+          label="All Ads"
+          value={data.allAds != null ? `${data.allAds}${data.activeAds != null ? ` (${data.activeAds} live)` : ""}` : "—"}
+        />
         <Stat label="Reach" value={formatMetricValue(data.reach, "number")} />
         <Stat label="Spend" value={formatMetricValue(data.spend, "currency", currency)} />
         <Stat label="Avg ROAS" value={formatMetricValue(data.roas, "decimal")} highlight />
@@ -42,11 +44,21 @@ function RollupCard({ title, subtitle, data, currency, accent }) {
 
 function Stat({ label, value, highlight }) {
   return (
-    <div>
+    <div style={{ minWidth: 0 }}>
       <p className={styles.muted} style={{ margin: 0, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.3 }}>
         {label}
       </p>
-      <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 800, color: highlight ? "var(--green)" : "var(--t1)" }}>{value}</p>
+      {/* overflowWrap/wordBreak — a long formatted value (a currency amount
+          in the lakhs/crores, or "N (M live)") previously had no way to wrap
+          within its own grid cell and visibly bled into the next column
+          instead, reported as unreadable overlapping numbers on a real
+          account. Letting it wrap onto a second line keeps it inside its own
+          cell at any width instead of relying on the grid column being wide
+          enough for every possible value, which it never reliably is for a
+          rupee amount in crores. */}
+      <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 800, color: highlight ? "var(--green)" : "var(--t1)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -75,14 +87,19 @@ function DeltaCard({ label, partnership, normal, format, currency, lowerIsBetter
         {pct > 0 ? "+" : ""}
         {pct.toFixed(0)}%
       </p>
-      <p className={styles.muted} style={{ margin: 0, fontSize: 11 }}>
+      <p className={styles.muted} style={{ margin: 0, fontSize: 11, overflowWrap: "anywhere" }}>
         Partnership {formatMetricValue(partnership, format, currency)} vs. Normal {formatMetricValue(normal, format, currency)}
       </p>
     </div>
   );
 }
 
-export default function OverviewTab({ accountId, ready, currency }) {
+// `range` ({since, until}) is now owned by the parent page (pages/partnership-ads.js)
+// and shared with My Partnership Ads/Creator Hub — one date-range control for
+// all three tabs that actually query the same underlying partnership-vs-rest
+// ad data, instead of Overview picking its own window independently of the
+// other two.
+export default function OverviewTab({ accountId, ready, currency, range }) {
   // Deliberately NOT an effect that auto-fires when the account becomes
   // ready — same "explicit action, not a fetch sprung on page load"
   // convention Copy Ads/Explore already use for their own queries. This
@@ -91,11 +108,6 @@ export default function OverviewTab({ accountId, ready, currency }) {
   // it automatically — for every account the user happens to land on, before
   // they've even looked at the page — was also wasted work, not just a UX
   // preference.
-  const [rangePreset, setRangePreset] = useState("last_30d");
-  const [customSince, setCustomSince] = useState("");
-  const [customUntil, setCustomUntil] = useState("");
-  const range = computeRange(rangePreset, customSince, customUntil);
-
   const [state, setState] = useState({ loading: false, error: null, data: null, hasLoaded: false });
 
   // Clears a previous account's stale result rather than leaving it on
@@ -126,26 +138,7 @@ export default function OverviewTab({ accountId, ready, currency }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className={styles.card} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span className={styles.muted} style={{ fontWeight: 600 }}>
-          Compare over
-        </span>
-        <DateRangeMenu
-          rangePreset={rangePreset}
-          customSince={customSince}
-          customUntil={customUntil}
-          maxRangeDays={MAX_RANGE_DAYS}
-          compareToPrevious={false}
-          compareCustomSince=""
-          compareDisplay="change"
-          compareDisabled
-          compareDisabledReason="Not available for this overview — it's a Partnership vs. Normal Ads split for one window, not a comparison view."
-          onApply={(patch) => {
-            setRangePreset(patch.rangePreset);
-            setCustomSince(patch.customSince);
-            setCustomUntil(patch.customUntil);
-          }}
-        />
+      <div>
         <button type="button" className={styles.btnPrimary} onClick={checkPerformance} disabled={!range || state.loading}>
           {state.loading ? "Checking…" : "Check Performance"}
         </button>

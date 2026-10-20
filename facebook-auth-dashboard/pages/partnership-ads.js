@@ -6,6 +6,7 @@ import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
+import DateRangeMenu from "@/components/DateRangeMenu";
 import { useAccounts } from "@/components/AccountProvider";
 import OverviewTab from "@/components/partnership/OverviewTab";
 import ExploreTab from "@/components/partnership/ExploreTab";
@@ -14,7 +15,16 @@ import MyAdsTab from "@/components/partnership/MyAdsTab";
 import CreatorHubTab from "@/components/partnership/CreatorHubTab";
 import PartnershipCodeTab from "@/components/partnership/PartnershipCodeTab";
 import { getPartnershipQueue } from "@/lib/clientStorage";
+import { computeRange } from "@/lib/dateRanges";
 import styles from "@/styles/Home.module.css";
+
+// Same cap Copy Ads uses, same reasoning: Overview/My Partnership Ads/
+// Creator Hub's own data pulls are all bounded by an /insights-first ad-id
+// discovery (see lib/partnershipDetection.js) rather than walking the
+// account's full ad history — a generous but real ceiling keeps that
+// discovery query itself cheap.
+const PERFORMANCE_TABS = ["overview", "mine", "creators"];
+const MAX_RANGE_DAYS = 90;
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -66,6 +76,18 @@ export default function PartnershipAds() {
   // number that doesn't depend on one — reported by the user as
   // unnecessary, confirmed by checking the route itself.
   const overviewReady = !!selectedAccountId;
+
+  // Shared by Overview, My Partnership Ads, and Creator Hub — all three
+  // ultimately read the same underlying partnership-vs-rest ad data (see
+  // lib/partnershipDetection.js), just aggregated differently, so one date
+  // range control for all three instead of each either picking its own or
+  // (previously) having none at all. Explore Ads keeps its own separate
+  // date range — it's filtering *content posted* in a window, an unrelated
+  // concept from ad *performance*, not a second copy of this one.
+  const [rangePreset, setRangePreset] = useState("last_30d");
+  const [customSince, setCustomSince] = useState("");
+  const [customUntil, setCustomUntil] = useState("");
+  const performanceRange = computeRange(rangePreset, customSince, customUntil);
 
   // The header's own "Ready to Launch" badge count — re-read from
   // localStorage (the queue's real source of truth, see
@@ -161,7 +183,36 @@ export default function PartnershipAds() {
               ))}
             </div>
 
-            {tab === "overview" && <OverviewTab accountId={selectedAccountId} ready={overviewReady} currency={selectedAccount?.currency} />}
+            {PERFORMANCE_TABS.includes(tab) && (
+              <div className={styles.card} style={{ padding: 12, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span className={styles.muted} style={{ fontWeight: 600 }}>
+                  Date range
+                </span>
+                <DateRangeMenu
+                  rangePreset={rangePreset}
+                  customSince={customSince}
+                  customUntil={customUntil}
+                  maxRangeDays={MAX_RANGE_DAYS}
+                  compareToPrevious={false}
+                  compareCustomSince=""
+                  compareDisplay="change"
+                  compareDisabled
+                  compareDisabledReason="Not available here — Overview/My Partnership Ads/Creator Hub each show one window at a time, not a comparison view."
+                  onApply={(patch) => {
+                    setRangePreset(patch.rangePreset);
+                    setCustomSince(patch.customSince);
+                    setCustomUntil(patch.customUntil);
+                  }}
+                />
+                <span className={styles.muted} style={{ fontSize: 11 }}>
+                  Shared by Overview, My Partnership Ads &amp; Creator Hub
+                </span>
+              </div>
+            )}
+
+            {tab === "overview" && (
+              <OverviewTab accountId={selectedAccountId} ready={overviewReady} currency={selectedAccount?.currency} range={performanceRange} />
+            )}
             {tab === "explore" && (
               <ExploreTab
                 accountId={selectedAccountId}
@@ -172,10 +223,24 @@ export default function PartnershipAds() {
               />
             )}
             {tab === "mine" && (
-              <MyAdsTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
+              <MyAdsTab
+                accountId={selectedAccountId}
+                businessId={businessId}
+                igUserId={selectedIgAccountId}
+                ready={ready}
+                currency={selectedAccount?.currency}
+                range={performanceRange}
+              />
             )}
             {tab === "creators" && (
-              <CreatorHubTab accountId={selectedAccountId} businessId={businessId} igUserId={selectedIgAccountId} ready={ready} currency={selectedAccount?.currency} />
+              <CreatorHubTab
+                accountId={selectedAccountId}
+                businessId={businessId}
+                igUserId={selectedIgAccountId}
+                ready={ready}
+                currency={selectedAccount?.currency}
+                range={performanceRange}
+              />
             )}
             {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
             {tab === "code" && (
