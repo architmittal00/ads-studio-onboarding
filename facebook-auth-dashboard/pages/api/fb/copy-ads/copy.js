@@ -24,9 +24,17 @@ import { mapWithConcurrency } from "@/lib/metaInterestSearch";
 // (X-App-Usage/X-Business-Use-Case-Usage headers) on a route that already
 // issues several write calls per item; same reasoning and the same
 // mapWithConcurrency runner pages/api/fb/interest-recommendations.js already
-// uses for its own bulk Graph calls. Unverified against a real account at
-// larger batch sizes — see PROJECT_STATUS.md.
-const COPY_CONCURRENCY = 3;
+// uses for its own bulk Graph calls.
+//
+// Raised 3 -> 5 at the user's request for more speed on larger batches.
+// Meta's rate limiting is a rolling usage-score (cumulative call time in a
+// window), not a hard concurrent-connection cap, so the total number of
+// calls this route makes is unchanged either way — only how clustered in
+// time they are. If a real multi-ad batch ever surfaces a visible rate-limit
+// error (Meta's "(#4)"/"(#17)" family, or an explicit "rate limit" message),
+// that's the signal to dial this back down — not yet seen, unverified
+// against a real account at this value. See PROJECT_STATUS.md.
+const COPY_CONCURRENCY = 5;
 
 // Clones a batch of ads from one ad account's creative into an existing ad
 // set in a different ad account — the first place this app builds a
