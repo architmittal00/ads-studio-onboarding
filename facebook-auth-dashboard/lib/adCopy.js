@@ -26,15 +26,30 @@ export const DEFAULT_COPY_METRIC_KEYS = ["spend", "purchases", "revenue", "ctr",
 // ("Old Instagram ID", not "unsupported field") suggests at least some
 // ads' creative may still carry a never-migrated legacy-format id that
 // fails even under the new field name, not just the old one.
+//
+// `template_data` (sibling of `link_data`/`video_data` under
+// object_story_spec) is a Catalog/Dynamic Product ad's spec — Facebook fills
+// its macros ({{product.name}}, etc.) in per-product from the product set at
+// serve time. `effective_object_story_id`, `facebook_branded_content`,
+// `instagram_branded_content`, and `branded_content` are what an ad built
+// from an *already-existing* Page/Instagram post (Ads Manager's "Use
+// Existing Post," and how every Partnership/branded-content ad in this app
+// works) carries instead of an inline object_story_spec at all — same field
+// list lib/partnershipDetection.js already proves safe to fetch on an
+// arbitrary ad. See classifyAd below for how both get turned into something
+// copyable instead of "not supported yet."
 function copyAdFields(withInstagram) {
   return (
     "id,name,status,effective_status," +
     "adset{id,name},campaign{id,name}," +
-    "creative{id,object_type,product_set_id,thumbnail_url," +
+    "creative{id,object_type,product_set_id,thumbnail_url,effective_object_story_id," +
+    "facebook_branded_content,instagram_branded_content,branded_content," +
     `object_story_spec{page_id${withInstagram ? ",instagram_user_id" : ""},` +
     "link_data{link,message,name,description,call_to_action,image_hash," +
     "child_attachments{link,name,description,image_hash}}," +
-    "video_data{video_id,message,image_url,call_to_action}}," +
+    "video_data{video_id,message,image_url,call_to_action}," +
+    "template_data{link,message,name,description,call_to_action,image_hash," +
+    "child_attachments{link,name,description,image_hash}}}," +
     "asset_feed_spec{bodies{text},titles{text},descriptions{text}," +
     "link_urls{website_url,display_url,deeplink_url},call_to_action_types," +
     "images{hash},videos{video_id,thumbnail_url},ad_formats,optimization_type}}"
@@ -211,24 +226,55 @@ async function fetchAdsBatchForListing(token, ids) {
   }
 }
 
-// An ad is copyable by this feature only if it has a standard
-// object_story_spec-based creative. Catalog/Dynamic Product ads
-// (product_set_id) have no fixed creative to clone — Facebook generates
-// per-product creative at serve time, so there's nothing stable to copy.
-// Dynamic Creative ads (asset_feed_spec only, no object_story_spec) permute
-// many bodies/titles/images/videos at once; rebuilding that correctly is a
-// materially bigger surface than a single fixed creative and is explicitly
-// out of scope for this feature's first version — shown as unsupported
+// Three copyable shapes, by `kind`:
+//
+// - "standard": a normal object_story_spec-based creative (link/video/
+//   carousel, with or without Multiple Text Options' asset_feed_spec) —
+//   the original, unchanged path.
+// - "catalog": a Catalog/Dynamic Product ad (`product_set_id` + a
+//   `template_data` spec). There's no per-product creative to clone —
+//   Facebook fills the template's macros ({{product.name}}, etc.) in from
+//   the product set at serve time — but the product set itself is a
+//   Business-level asset, not an ad-account-scoped one. This feature's
+//   whole premise is "same Page, different ad account in the same agency
+//   setup," so as long as that Business has also shared the catalog with
+//   the destination account (the same condition that already has to hold
+//   for the Page/Pixel), the *same* product_set_id plus the same template
+//   can just be reused directly in the new creative — nothing to copy.
+// - "existing_post": no inline object_story_spec at all — an ad built from
+//   an *already-existing* Page/Instagram post (Ads Manager's "Use Existing
+//   Post," and how every Partnership/branded-content ad in this app works,
+//   see lib/partnershipDetection.js's identical field list). Since the post
+//   already belongs to the same shared Page, the new creative can just
+//   reference it directly via `object_story_id` instead of needing any
+//   spec or asset copy. `isBrandedContent` flags the Partnership-ad case
+//   specifically so the copy step can warn that the paid-partnership
+//   label/sponsor tag — which depends on separate creator permissions this
+//   feature isn't re-requesting — may not carry over to the new ad.
+//
+// Dynamic Creative ads (asset_feed_spec only, no object_story_spec and no
+// existing post to reference) permute many bodies/titles/images/videos at
+// once; rebuilding that correctly is a materially bigger surface than any
+// of the above and stays explicitly out of scope — shown as unsupported
 // rather than silently attempted and failed.
 export function classifyAd(ad) {
   const creative = ad.creative || {};
   if (!creative.id) return { copyable: false, reason: "No creative on this ad." };
-  if (creative.product_set_id) return { copyable: false, reason: "Catalog/Dynamic Product ad — not supported yet." };
-  if (!creative.object_story_spec) {
-    if (creative.asset_feed_spec) return { copyable: false, reason: "Dynamic Creative ad — not supported yet." };
-    return { copyable: false, reason: "Unrecognized creative type." };
+
+  if (creative.product_set_id) {
+    if (creative.object_story_spec?.template_data) return { copyable: true, reason: null, kind: "catalog" };
+    return { copyable: false, reason: "Catalog/Dynamic Product ad — missing its template, can't rebuild." };
   }
-  return { copyable: true, reason: null };
+
+  if (creative.object_story_spec) return { copyable: true, reason: null, kind: "standard" };
+
+  if (creative.effective_object_story_id) {
+    const isBrandedContent = !!(creative.facebook_branded_content || creative.instagram_branded_content || creative.branded_content);
+    return { copyable: true, reason: null, kind: "existing_post", isBrandedContent };
+  }
+
+  if (creative.asset_feed_spec) return { copyable: false, reason: "Dynamic Creative ad — not supported yet." };
+  return { copyable: false, reason: "Unrecognized creative type." };
 }
 
 // Every image_hash an ad's creative references — the top-level link_data
@@ -242,6 +288,14 @@ export function collectImageHashes(creative) {
   const spec = creative?.object_story_spec;
   if (spec?.link_data?.image_hash) hashes.add(spec.link_data.image_hash);
   for (const child of spec?.link_data?.child_attachments || []) {
+    if (child.image_hash) hashes.add(child.image_hash);
+  }
+  // A catalog ad's template_data is normally image-free (Meta fills images
+  // in per-product from the catalog itself at serve time), but a template
+  // can carry its own fallback image_hash/child_attachments — handled the
+  // same as link_data's in case one is ever set.
+  if (spec?.template_data?.image_hash) hashes.add(spec.template_data.image_hash);
+  for (const child of spec?.template_data?.child_attachments || []) {
     if (child.image_hash) hashes.add(child.image_hash);
   }
   for (const img of creative?.asset_feed_spec?.images || []) {
@@ -411,6 +465,12 @@ export function rebuildObjectStorySpec(spec, hashMap, videoIdMap) {
   if (rebuilt.video_data?.video_id) {
     rebuilt.video_data.video_id = videoIdMap.get(rebuilt.video_data.video_id) || rebuilt.video_data.video_id;
   }
+  if (rebuilt.template_data?.image_hash) {
+    rebuilt.template_data.image_hash = hashMap.get(rebuilt.template_data.image_hash) || rebuilt.template_data.image_hash;
+  }
+  for (const child of rebuilt.template_data?.child_attachments || []) {
+    if (child.image_hash) child.image_hash = hashMap.get(child.image_hash) || child.image_hash;
+  }
   return rebuilt;
 }
 
@@ -432,12 +492,19 @@ export function rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) {
 }
 
 // assetFeedSpec is optional — only sent when the source ad actually used
-// Multiple Text Options (see the bug note near COPY_AD_FIELDS above).
-// Meta's adcreatives endpoint accepts object_story_spec and asset_feed_spec
-// together; this is how Ads Manager itself builds such ads.
-export async function createCopiedCreative(token, destAccountId, { objectStorySpec, assetFeedSpec }) {
-  const payload = { object_story_spec: objectStorySpec };
+// Multiple Text Options (see the bug note near COPY_AD_FIELDS above). Meta's
+// adcreatives endpoint accepts object_story_spec and asset_feed_spec
+// together; this is how Ads Manager itself builds such ads. `objectStoryId`
+// is the "existing_post" classifyAd kind's own creative shape — Meta's
+// object_story_spec and object_story_id are mutually exclusive ways to say
+// what an ad's creative shows, so objectStoryId (when given) is sent alone,
+// no spec at all. `productSetId` is the "catalog" kind's own extra field,
+// sent alongside the (still object_story_spec-based, just template_data
+// instead of link_data) rebuilt spec.
+export async function createCopiedCreative(token, destAccountId, { objectStorySpec, objectStoryId, assetFeedSpec, productSetId } = {}) {
+  const payload = objectStoryId ? { object_story_id: objectStoryId } : { object_story_spec: objectStorySpec };
   if (assetFeedSpec) payload.asset_feed_spec = assetFeedSpec;
+  if (productSetId) payload.product_set_id = productSetId;
   const json = await graphPost(`/${destAccountId}/adcreatives`, token, payload);
   return json.id;
 }

@@ -412,6 +412,19 @@ export default function CopyAdsPage() {
                 {row.reason}
               </span>
             )}
+            {/* Copyable, but via a different mechanism than an ordinary ad
+                (same product set, or the exact same existing post) — flagged
+                up front rather than only discovered once copying starts. */}
+            {row.copyable && row.kind === "catalog" && (
+              <span className={styles.badgeInfo} style={{ width: "fit-content" }} title="Copies by reusing the same product set and template — the destination ad account's Business needs catalog access too.">
+                Catalog ad
+              </span>
+            )}
+            {row.copyable && row.kind === "existing_post" && (
+              <span className={styles.badgeInfo} style={{ width: "fit-content" }} title="Copies by referencing the exact same existing post, not a new creative.">
+                {row.isBrandedContent ? "Partnership ad — from existing post" : "From an existing post"}
+              </span>
+            )}
           </div>
         </div>
       ),
