@@ -125,7 +125,14 @@ export async function fetchAdForCopy(token, adId) {
 // insight row per ad id is returned alongside the ad list so the caller
 // (pages/api/fb/copy-ads/source-ads.js) can derive display values via
 // lib/insightsMetrics.js's deriveRowMetrics without re-fetching anything.
-export async function fetchCopyableAds(token, accountId, { since, until, metricKeys = DEFAULT_COPY_METRIC_KEYS }) {
+// `onBatch(batchAds, insightsByAdId)`, if given, fires as soon as each
+// 50-id batch below resolves (not only once every batch has) — lets a
+// streaming caller (pages/api/fb/copy-ads/source-ads.js) forward ads to the
+// client incrementally instead of buffering the whole account before
+// sending anything. The function's own return value is unchanged (still the
+// full `{ads, insightsByAdId}` once everything settles), so any future
+// non-streaming caller keeps working exactly as before.
+export async function fetchCopyableAds(token, accountId, { since, until, metricKeys = DEFAULT_COPY_METRIC_KEYS, onBatch }) {
   if (!since || !until) {
     throw new Error("A date range is required to list ads for this account.");
   }
@@ -143,7 +150,17 @@ export async function fetchCopyableAds(token, accountId, { since, until, metricK
   if (adIds.length === 0) return { ads: [], insightsByAdId };
 
   const batches = chunk(adIds, 50);
-  const results = await Promise.allSettled(batches.map((batch) => fetchAdsBatchForListing(token, batch)));
+  const results = await Promise.allSettled(
+    batches.map((batch) =>
+      fetchAdsBatchForListing(token, batch).then((result) => {
+        if (onBatch) {
+          const batchAds = Object.values(result || {}).filter((entry) => entry?.id);
+          if (batchAds.length > 0) onBatch(batchAds, insightsByAdId);
+        }
+        return result;
+      })
+    )
+  );
   // Defensive filter in case a batch call ever returns an error-shaped
   // entry instead of a real ad object for one id: anything without its own
   // `id` is dropped rather than rendered as a broken, nameless row in the
