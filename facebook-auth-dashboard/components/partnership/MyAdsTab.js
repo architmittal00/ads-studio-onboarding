@@ -34,7 +34,20 @@ function columns(currency, onPreview) {
     {
       key: "creatorUsername",
       label: "Creator",
-      render: (row) => (row.creatorUsername ? `@${row.creatorUsername}` : "—"),
+      render: (row) =>
+        row.creatorUsername ? (
+          `@${row.creatorUsername}`
+        ) : (
+          // Hover for *why* — previously a flat, unexplained "—" for every
+          // unresolved ad, reported as "most ads show an unknown creator"
+          // with no way to tell whether that's because the ad itself has no
+          // permalink, no Instagram Business Account was selected, the
+          // lookup call itself failed, or the lookup genuinely found no
+          // record. See pages/api/fb/partnership/mine.js's own comment.
+          <span title={row.creatorUnresolvedReason || undefined} style={{ cursor: row.creatorUnresolvedReason ? "help" : undefined }}>
+            —
+          </span>
+        ),
     },
     {
       key: "status",
@@ -64,8 +77,25 @@ function columns(currency, onPreview) {
 // its own. See pages/partnership-ads.js's own comment on `checkPerformance`
 // for why this (and Creator Hub) now share one fetch+cache with Overview
 // instead of each independently calling /api/fb/partnership/mine.
-export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoaded, range }) {
+// One-line, plain-English breakdown of `creatorResolutionSummary` (from
+// pages/api/fb/partnership/mine.js) — shown once, above the table, instead
+// of making every unresolved row's own hover tooltip the only way to find
+// out *why* most ads show no creator. Only the non-zero buckets are listed.
+function describeCreatorSummary(summary) {
+  if (!summary) return null;
+  const parts = [];
+  if (summary.noPermalink) parts.push(`${summary.noPermalink} with no Instagram permalink on the ad`);
+  if (summary.noAccountSelected) parts.push(`${summary.noAccountSelected} with no Instagram Business Account selected`);
+  if (summary.lookupFailed) parts.push(`${summary.lookupFailed} where the creator lookup itself failed`);
+  if (summary.noMatch) parts.push(`${summary.noMatch} with no match in the Partnership Ads content index`);
+  if (parts.length === 0) return null;
+  const unresolvedCount = summary.noPermalink + summary.noAccountSelected + summary.lookupFailed + summary.noMatch;
+  return `${unresolvedCount} of ${unresolvedCount + summary.resolved} ads have no resolved creator — ${parts.join(", ")}.`;
+}
+
+export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoaded, range, creatorSummary }) {
   const [lightboxItem, setLightboxItem] = useState(null);
+  const creatorSummaryText = describeCreatorSummary(creatorSummary);
 
   if (!ready) {
     return <p className={styles.sub}>Pick an ad account above to see this.</p>;
@@ -89,9 +119,14 @@ export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoad
       )}
       {ads && ads.length > 0 && (
         <>
-          <p className={styles.sub} style={{ marginTop: 0 }}>
+          <p className={styles.sub} style={{ marginTop: 0, marginBottom: creatorSummaryText ? 4 : undefined }}>
             {ads.length} partnership ad{ads.length === 1 ? "" : "s"} · {range.since} to {range.until}
           </p>
+          {creatorSummaryText && (
+            <p className={styles.muted} style={{ fontSize: 11, marginTop: 0, marginBottom: 10 }}>
+              {creatorSummaryText}
+            </p>
+          )}
           <SortableTable
             columns={columns(currency, setLightboxItem)}
             rows={ads}
