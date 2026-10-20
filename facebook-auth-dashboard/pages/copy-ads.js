@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
@@ -13,13 +13,14 @@ import SelectionBar from "@/components/copyads/SelectionBar";
 import CopyAdsModal from "@/components/copyads/CopyAdsModal";
 import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
-import { CloseIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
-import { computeRange } from "@/lib/dateRanges";
+import { RANGE_PRESETS, computeRange } from "@/lib/dateRanges";
 import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
 import { METRIC_CATALOG, formatMetricValue } from "@/lib/insightsMetrics";
 import { METRIC_FILTER_OPERATORS, applyResultFilters } from "@/lib/copyAdsFilters";
 import { fetchWithTimeout } from "@/lib/fetchJson";
+import { getCopyAdsQueryPanelCollapsed, setCopyAdsQueryPanelCollapsed } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 // Reads /api/fb/copy-ads/source-ads' newline-delimited JSON response (same
@@ -55,6 +56,16 @@ async function fetchSourceAdsStream(url, onBatch) {
   if (!doneEvent) throw new Error("Request ended unexpectedly");
   if (doneEvent.error) throw new Error(doneEvent.error);
   return doneEvent;
+}
+
+// One-line recap shown in place of the source/metrics form while the panel
+// is collapsed — same convention as Explore's own summarizeQuery(). The
+// date range itself isn't repeated here since the collapsed view has no
+// DateRangeMenu control of its own left visible to pair it with.
+function summarizeCopyAdsQuery(accountName, rangePreset, metricCount) {
+  const accountLabel = accountName || "No account selected";
+  const rangeLabel = RANGE_PRESETS.find((p) => p.key === rangePreset)?.label || "Custom range";
+  return `${accountLabel} · ${rangeLabel} · ${metricCount} metric${metricCount === 1 ? "" : "s"}`;
 }
 
 function newFilterId() {
@@ -110,6 +121,64 @@ export default function CopyAdsPage() {
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
   const range = computeRange(rangePreset, customSince, customUntil);
+
+  // Collapsed by default (per-device, like Explore's own query panel) so
+  // the result table — not the source/metrics form that produced it — is
+  // the first thing the user sees on return visits; expanding shows the
+  // form side-by-side with the result rather than covering it. See
+  // `queryPanelExpanded` below for the one exception (nothing loaded yet
+  // forces this open, same as Explore forcing it open with no result).
+  const queryPanelRef = useRef(null);
+  const [queryPanelCollapsed, setQueryPanelCollapsedState] = useState(true);
+  useEffect(() => {
+    const saved = getCopyAdsQueryPanelCollapsed();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a per-device localStorage preference on mount, not derivable from props/state
+    if (saved != null) setQueryPanelCollapsedState(saved);
+  }, []);
+  function toggleQueryPanel() {
+    setQueryPanelCollapsedState((prev) => {
+      const next = !prev;
+      setCopyAdsQueryPanelCollapsed(next);
+      return next;
+    });
+  }
+  const queryPanelExpanded = !hasLoaded || !queryPanelCollapsed;
+
+  // Same sticky-height recompute as Explore's own query panel — `.exploreQueryPanel`'s
+  // CSS caps it at `calc(100vh - 40px)` assuming its top edge sits at the
+  // `top: 20px` it's pinned to once sticky engages, which is only true after
+  // scrolling past the title above it. Recomputing from the panel's actual
+  // current top keeps its bottom edge pinned just above the viewport bottom
+  // at every scroll position instead.
+  const [queryPanelMaxHeight, setQueryPanelMaxHeight] = useState(null);
+  useLayoutEffect(() => {
+    if (!queryPanelExpanded) return;
+    const PANEL_BOTTOM_MARGIN = 20;
+    const PANEL_MIN_HEIGHT = 240;
+    let frame = null;
+    function recompute() {
+      frame = null;
+      const el = queryPanelRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setQueryPanelMaxHeight(Math.max(PANEL_MIN_HEIGHT, window.innerHeight - top - PANEL_BOTTOM_MARGIN));
+    }
+    function onScrollOrResize() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(recompute);
+    }
+    recompute();
+    // capture: true — this app's global CSS makes <body>, not the document,
+    // the actual scrolling element, and a native "scroll" event doesn't
+    // bubble, so a plain window listener would never fire.
+    window.addEventListener("scroll", onScrollOrResize, { passive: true, capture: true });
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, { capture: true });
+      window.removeEventListener("resize", onScrollOrResize);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [queryPanelExpanded]);
 
   // Which lib/insightsMetrics.js catalog columns show in the picker table —
   // session-only (no persistence), same as every other piece of state on
@@ -292,13 +361,103 @@ export default function CopyAdsPage() {
     },
   ];
 
+  // Everything downstream of "how to fetch" — shown in the content area on
+  // both sides of the collapsible panel below (side-by-side with it when
+  // expanded, full-width under the collapsed-panel summary row otherwise) —
+  // kept as one value, same convention as Explore's own resultArea, so
+  // there's exactly one copy of this block to keep in sync.
+  const resultArea = (
+    <>
+      {!selectedAccountId && <p className={styles.sub}>Pick a source ad account to see its ads.</p>}
+      {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates, then click Load Ads.</p>}
+      {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
+      {adsLoading && ads.length === 0 && <Loader label="Loading ads…" />}
+      {adsLoading && ads.length > 0 && <p className={styles.sub}>Loading more ads… ({ads.length} so far)</p>}
+      {adsError && (
+        <div className={styles.error}>
+          {adsError}
+          {adsError.toLowerCase().includes("reduce the amount of data") && " — try a narrower date range above, then Reload Ads."}
+        </div>
+      )}
+
+      {!adsError && (hasLoaded || ads.length > 0) && (
+        <>
+          <div className={styles.card} style={{ padding: 12, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span className={styles.muted} style={{ fontWeight: 600 }}>
+                Filter results
+              </span>
+              <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
+                + Metric filter
+              </button>
+              {(draftConditions.length > 0 || hasPendingFilterChanges) && (
+                <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
+                  Apply Filters
+                </button>
+              )}
+            </div>
+
+            {draftConditions.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                {draftConditions.map((c) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
+                      {metricKeys
+                        .filter((k) => PICKER_METRIC_CATALOG.find((m) => m.key === k)?.format !== "text")
+                        .map((k) => (
+                          <option key={k} value={k}>
+                            {PICKER_METRIC_CATALOG.find((m) => m.key === k)?.label || k}
+                          </option>
+                        ))}
+                    </select>
+                    <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
+                      {METRIC_FILTER_OPERATORS.map((op) => (
+                        <option key={op.value} value={op.value}>
+                          {op.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      className={styles.select}
+                      style={{ width: 110 }}
+                      value={c.value}
+                      onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                      onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
+                    />
+                    <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
+                      <CloseIcon size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <SortableTable
+            columns={columns}
+            rows={filteredAds}
+            defaultSortKey="name"
+            defaultSortDir="asc"
+            searchable
+            searchKeys={["name", "campaignName", "adsetName"]}
+            emptyMessage={appliedConditions.length > 0 ? "No ads match the current filters." : "No ads found in this account."}
+            fixedColumnWidths
+          />
+        </>
+      )}
+    </>
+  );
+
+  const sourceAccountName = adAccounts.find((a) => a.id === selectedAccountId)?.name;
+
   return (
     <Layout>
       <Head>
         <title>Copy Ads · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 1000, margin: "0 auto" }}>
+        <main className={styles.main} style={{ maxWidth: queryPanelExpanded ? 1400 : 1000, margin: "0 auto" }}>
           <h1 className={styles.h1}>Copy Ads Across Accounts</h1>
           <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
             Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad
@@ -307,129 +466,108 @@ export default function CopyAdsPage() {
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
-          <div className={styles.card} style={{ marginBottom: 20, display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 240px" }}>
-              <p className={styles.sub} style={{ marginBottom: 6 }}>
-                Source ad account
-              </p>
-              <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" />
-            </div>
-            <div style={{ flex: "1 1 240px" }}>
-              <p
-                className={styles.sub}
-                style={{ marginBottom: 6 }}
-                title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
+          {queryPanelExpanded ? (
+            <div className={styles.exploreLayout}>
+              <div className={styles.exploreContent}>{resultArea}</div>
+
+              <aside
+                ref={queryPanelRef}
+                className={styles.exploreQueryPanel}
+                style={queryPanelMaxHeight ? { maxHeight: queryPanelMaxHeight } : undefined}
               >
-                Only show ads with spend in
-              </p>
-              <DateRangeMenu
-                rangePreset={rangePreset}
-                customSince={customSince}
-                customUntil={customUntil}
-                maxRangeDays={MAX_RANGE_DAYS}
-                compareToPrevious={false}
-                compareCustomSince=""
-                compareDisplay="change"
-                compareDisabled
-                compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
-                onApply={(patch) => {
-                  setRangePreset(patch.rangePreset);
-                  setCustomSince(patch.customSince);
-                  setCustomUntil(patch.customUntil);
-                }}
-              />
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-end" }}>
-              <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading}>
-                {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.card} style={{ marginBottom: 20 }}>
-            <p className={styles.sub} style={{ marginBottom: 10 }}>
-              Metrics to show — changes take effect next time you Load Ads.
-            </p>
-            <MetricPicker catalog={PICKER_METRIC_CATALOG} selectedKeys={metricKeys} onToggle={toggleMetric} />
-          </div>
-
-          {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}
-          {selectedAccountId && !range && <p className={styles.sub}>Pick both custom dates above, then click Load Ads.</p>}
-          {selectedAccountId && range && !hasLoaded && !adsLoading && <p className={styles.sub}>Click Load Ads to fetch ads for this account.</p>}
-          {adsLoading && ads.length === 0 && <Loader label="Loading ads…" />}
-          {adsLoading && ads.length > 0 && <p className={styles.sub}>Loading more ads… ({ads.length} so far)</p>}
-          {adsError && (
-            <div className={styles.error}>
-              {adsError}
-              {adsError.toLowerCase().includes("reduce the amount of data") && " — try a narrower date range above, then Reload Ads."}
-            </div>
-          )}
-
-          {!adsError && (hasLoaded || ads.length > 0) && (
-            <>
-              <div className={styles.card} style={{ padding: 12, marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span className={styles.muted} style={{ fontWeight: 600 }}>
-                    Filter results
-                  </span>
-                  <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
-                    + Metric filter
-                  </button>
-                  {(draftConditions.length > 0 || hasPendingFilterChanges) && (
-                    <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
-                      Apply Filters
-                    </button>
-                  )}
-                </div>
-
-                {draftConditions.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                    {draftConditions.map((c) => (
-                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
-                          {metricKeys
-                            .filter((k) => PICKER_METRIC_CATALOG.find((m) => m.key === k)?.format !== "text")
-                            .map((k) => (
-                              <option key={k} value={k}>
-                                {PICKER_METRIC_CATALOG.find((m) => m.key === k)?.label || k}
-                              </option>
-                            ))}
-                        </select>
-                        <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
-                          {METRIC_FILTER_OPERATORS.map((op) => (
-                            <option key={op.value} value={op.value}>
-                              {op.label}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          className={styles.select}
-                          style={{ width: 110 }}
-                          value={c.value}
-                          onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
-                          onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
-                        />
-                        <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
-                          <CloseIcon size={12} />
-                        </button>
-                      </div>
-                    ))}
+                <div className={`${styles.card} ${styles.exploreQueryCard}`}>
+                  <div className={styles.exploreQueryHeader}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
+                      <SettingsIcon size={15} />
+                      Source &amp; Metrics
+                    </span>
+                    {/* No collapse control until something's loaded at least once —
+                        collapsing here would leave the page with nothing on it at all. */}
+                    {hasLoaded && (
+                      <button
+                        type="button"
+                        className={styles.appSidebarIconBtn}
+                        onClick={toggleQueryPanel}
+                        title="Collapse — focus on the result"
+                      >
+                        <ChevronIcon direction="right" size={15} />
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
 
-              <SortableTable
-                columns={columns}
-                rows={filteredAds}
-                defaultSortKey="name"
-                defaultSortDir="asc"
-                searchable
-                searchKeys={["name", "campaignName", "adsetName"]}
-                emptyMessage={appliedConditions.length > 0 ? "No ads match the current filters." : "No ads found in this account."}
-                fixedColumnWidths
-              />
-            </>
+                  <div className={styles.exploreQueryBody}>
+                    <div>
+                      <p className={styles.sub} style={{ marginBottom: 6 }}>
+                        Source ad account
+                      </p>
+                      <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" style={{ width: "100%" }} />
+                    </div>
+
+                    <div>
+                      <p
+                        className={styles.sub}
+                        style={{ marginBottom: 6 }}
+                        title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
+                      >
+                        Only show ads with spend in
+                      </p>
+                      <DateRangeMenu
+                        rangePreset={rangePreset}
+                        customSince={customSince}
+                        customUntil={customUntil}
+                        maxRangeDays={MAX_RANGE_DAYS}
+                        compareToPrevious={false}
+                        compareCustomSince=""
+                        compareDisplay="change"
+                        compareDisabled
+                        compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
+                        onApply={(patch) => {
+                          setRangePreset(patch.rangePreset);
+                          setCustomSince(patch.customSince);
+                          setCustomUntil(patch.customUntil);
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <p className={styles.sub} style={{ marginBottom: 10 }}>
+                        Metrics to show — changes take effect next time you Load Ads.
+                      </p>
+                      <MetricPicker catalog={PICKER_METRIC_CATALOG} selectedKeys={metricKeys} onToggle={toggleMetric} />
+                    </div>
+                  </div>
+
+                  <div className={styles.exploreQueryFooter}>
+                    <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading} style={{ width: "100%" }}>
+                      {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
+                    </button>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          ) : (
+            <div className={styles.exploreContent}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  marginBottom: 14,
+                }}
+              >
+                <p className={styles.sub} style={{ margin: 0 }}>
+                  {summarizeCopyAdsQuery(sourceAccountName, rangePreset, metricKeys.length)}
+                </p>
+                <button type="button" className={styles.btnSecondary} onClick={toggleQueryPanel} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <SettingsIcon size={13} />
+                  Edit Query
+                  <ChevronIcon direction="left" size={12} />
+                </button>
+              </div>
+              {resultArea}
+            </div>
           )}
         </main>
       </div>
