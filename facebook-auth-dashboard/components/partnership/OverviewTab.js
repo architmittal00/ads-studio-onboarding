@@ -121,7 +121,7 @@ export default function OverviewTab({ accountId, ready, currency }) {
   }
 
   if (!ready) {
-    return <p className={styles.sub}>Pick an ad account and Instagram Business Account above to see this.</p>;
+    return <p className={styles.sub}>Pick an ad account above to see this.</p>;
   }
 
   return (
