@@ -180,6 +180,39 @@ export default function CopyAdsPage() {
     };
   }, [queryPanelExpanded]);
 
+  // The picker table's own maxHeight defaulted to SortableTable's generic
+  // 360px constant, which left most of a tall viewport sitting empty below
+  // the table instead of being used to show more rows at once. Recomputes
+  // from the table's actual on-screen top the same way queryPanelMaxHeight
+  // does above, so it grows to fill whatever vertical room the viewport
+  // actually has.
+  const tableRef = useRef(null);
+  const [tableMaxHeight, setTableMaxHeight] = useState(480);
+  useLayoutEffect(() => {
+    const TABLE_BOTTOM_MARGIN = 24;
+    const TABLE_MIN_HEIGHT = 360;
+    let frame = null;
+    function recompute() {
+      frame = null;
+      const el = tableRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setTableMaxHeight(Math.max(TABLE_MIN_HEIGHT, window.innerHeight - top - TABLE_BOTTOM_MARGIN));
+    }
+    function onScrollOrResize() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(recompute);
+    }
+    recompute();
+    window.addEventListener("scroll", onScrollOrResize, { passive: true, capture: true });
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, { capture: true });
+      window.removeEventListener("resize", onScrollOrResize);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [hasLoaded, ads.length]);
+
   // Which lib/insightsMetrics.js catalog columns show in the picker table —
   // session-only (no persistence), same as every other piece of state on
   // this page. Changing this does NOT re-fetch on its own (same "explicit
@@ -387,6 +420,12 @@ export default function CopyAdsPage() {
               <span className={styles.muted} style={{ fontWeight: 600 }}>
                 Filter results
               </span>
+              <span className={styles.badgeInfo}>
+                {filteredAds.length === ads.length
+                  ? `${ads.length} ad${ads.length === 1 ? "" : "s"}`
+                  : `${filteredAds.length} of ${ads.length} ads`}
+                {adsLoading && " · loading…"}
+              </span>
               <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
                 + Metric filter
               </button>
@@ -434,16 +473,19 @@ export default function CopyAdsPage() {
             )}
           </div>
 
-          <SortableTable
-            columns={columns}
-            rows={filteredAds}
-            defaultSortKey="name"
-            defaultSortDir="asc"
-            searchable
-            searchKeys={["name", "campaignName", "adsetName"]}
-            emptyMessage={appliedConditions.length > 0 ? "No ads match the current filters." : "No ads found in this account."}
-            fixedColumnWidths
-          />
+          <div ref={tableRef}>
+            <SortableTable
+              columns={columns}
+              rows={filteredAds}
+              defaultSortKey="name"
+              defaultSortDir="asc"
+              searchable
+              searchKeys={["name", "campaignName", "adsetName"]}
+              emptyMessage={appliedConditions.length > 0 ? "No ads match the current filters." : "No ads found in this account."}
+              fixedColumnWidths
+              maxHeight={tableMaxHeight}
+            />
+          </div>
         </>
       )}
     </>
@@ -457,7 +499,7 @@ export default function CopyAdsPage() {
         <title>Copy Ads · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: queryPanelExpanded ? 1400 : 1000, margin: "0 auto" }}>
+        <main className={styles.main} style={{ maxWidth: queryPanelExpanded ? 1800 : 1600, margin: "0 auto" }}>
           <h1 className={styles.h1}>Copy Ads Across Accounts</h1>
           <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
             Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad
