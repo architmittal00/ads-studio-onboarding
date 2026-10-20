@@ -144,17 +144,67 @@ function StepRow({ step }) {
   const icon = step.warning ? "⚠" : step.success ? "✓" : step.skipped ? "⊘" : "✗";
   const color = step.warning ? "var(--amber)" : step.success ? "var(--green)" : step.skipped ? "var(--amber)" : "var(--red)";
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, padding: "4px 0" }}>
+    <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, padding: "2px 0" }}>
       <span style={{ color, fontWeight: 700, flexShrink: 0 }}>{icon}</span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        {step.label} — {step.name}
-        {step.error && <span style={{ color: "var(--t2)" }}> · {step.error}</span>}
-        {step.warning && <span style={{ color: "var(--t2)" }}> · {step.warning}</span>}
+      <span style={{ flex: 1, minWidth: 0, color: "var(--t2)" }}>
+        {step.label}
+        {step.error && <span> · {step.error}</span>}
+        {step.warning && <span> · {step.warning}</span>}
       </span>
       {/* Only the "Ad" step (not "Creative") carries the actually-useful id
           to copy — the new ad's own id, so the user can jump straight to it
           in Ads Manager. */}
       {step.type === "ad" && step.success && step.id && <CopyIdButton id={step.id} />}
+    </div>
+  );
+}
+
+// One ad's worth of result — the server returns a flat, interleaved
+// `steps` array ("Creative — X", "Ad — X", "Creative — Y", "Ad — Y", …) with
+// no visual grouping, which is exactly what made it unclear which lines
+// belonged to which source ad once more than one was copied (reported by
+// the user against the live deployed page). Every per-ad step carries the
+// same `adId` it was copied from, so steps are grouped by that here and
+// rendered as one card per source ad instead — thumbnail + "copied from"
+// name up top (the name the user actually recognizes), its own status
+// badge, and the Creative/Ad sub-steps nested underneath.
+function adGroupStatus(steps) {
+  if (steps.some((s) => !s.success && !s.skipped)) return "failed";
+  if (steps.some((s) => s.skipped)) return "skipped";
+  if (steps.some((s) => s.warning)) return "warning";
+  return "success";
+}
+const AD_GROUP_BADGE = {
+  success: { className: "badgeGood", label: "Copied" },
+  warning: { className: "badgeWarn", label: "Copied with a note" },
+  skipped: { className: "badgeWarn", label: "Skipped" },
+  failed: { className: "badgeDanger", label: "Failed" },
+};
+
+function CopiedAdGroup({ steps, sourceAd, newName, onPreview }) {
+  const status = adGroupStatus(steps);
+  const badge = AD_GROUP_BADGE[status];
+  return (
+    <div style={{ borderRadius: 10, background: "var(--bg)", padding: "8px 10px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Thumb src={sourceAd?.thumbnailUrl} isVideo={sourceAd?.isVideo} size={32} onClick={sourceAd ? onPreview : undefined} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {status === "failed" || status === "skipped" ? steps[0].name : newName || steps[0].name}
+          </p>
+          <p className={styles.muted} style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Copied from &quot;{steps[0].name}&quot;
+          </p>
+        </div>
+        <span className={styles[badge.className]} style={{ flexShrink: 0 }}>
+          {badge.label}
+        </span>
+      </div>
+      <div style={{ marginTop: 6, paddingLeft: 42, display: "flex", flexDirection: "column" }}>
+        {steps.map((s, i) => (
+          <StepRow key={i} step={s} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -487,25 +537,60 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
             </div>
           )}
   
-          {step === "done" && result && (
-            <div style={{ marginTop: 16 }}>
-              <p style={{ fontWeight: 600, marginBottom: 4 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
-              <p className={styles.sub} style={{ marginBottom: 10 }}>
-                {result.createdAdIds.length} of {ads.length} ad{ads.length === 1 ? "" : "s"} created paused in &quot;{destAdset.name}
-                &quot; — check Ads Manager before activating.
-              </p>
-              <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "6px 12px" }}>
-                {result.steps.map((s, i) => (
-                  <StepRow key={i} step={s} />
-                ))}
+          {step === "done" && result && (() => {
+            // Per-ad steps all carry the adId they came from; the batch-level
+            // activation step (if any) doesn't, and used to just get mixed
+            // into the same flat list at the end as a name-less "Activated —"
+            // row — confusing, since it isn't about any one ad. Split here so
+            // the per-ad list stays scannable and activation gets its own
+            // clearly-labeled line.
+            const adStepsById = new Map();
+            for (const s of result.steps) {
+              if (!s.adId) continue;
+              if (!adStepsById.has(s.adId)) adStepsById.set(s.adId, []);
+              adStepsById.get(s.adId).push(s);
+            }
+            const activationStep = result.steps.find((s) => s.type === "activation");
+            const isActive = status === "ACTIVE" && activationStep?.success;
+            return (
+              <div style={{ marginTop: 16 }}>
+                <div className={result.success ? styles.success : styles.error} style={{ marginBottom: 14 }}>
+                  <p style={{ marginBottom: 2 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
+                  <p style={{ fontWeight: 400, opacity: 0.85 }}>
+                    {result.createdAdIds.length} of {ads.length} ad{ads.length === 1 ? "" : "s"} created {isActive ? "and activated" : "paused"} in &quot;
+                    {destAdset.name}&quot; ({destAccountName}){!isActive && " — check Ads Manager before activating"}.
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[...adStepsById.entries()].map(([adId, steps]) => (
+                    <CopiedAdGroup
+                      key={adId}
+                      steps={steps}
+                      sourceAd={ads.find((a) => a.id === adId)}
+                      newName={names[adId]}
+                      onPreview={() => {
+                        const a = ads.find((x) => x.id === adId);
+                        if (a) setLightboxItem({ id: a.id, name: a.name, thumbnailUrl: a.thumbnailUrl, isVideo: a.isVideo });
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {activationStep && !activationStep.success && (
+                  <div className={styles.error} style={{ marginTop: 10 }}>
+                    {activationStep.label}: {activationStep.error}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                  <button type="button" className={styles.btnPrimary} onClick={onClose}>
+                    Done
+                  </button>
+                </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-                <button type="button" className={styles.btnPrimary} onClick={onClose}>
-                  Done
-                </button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
