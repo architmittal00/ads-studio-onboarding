@@ -11,6 +11,7 @@ import CreativeLightbox from "@/components/CreativeLightbox";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import SelectionBar from "@/components/copyads/SelectionBar";
 import CopyAdsModal from "@/components/copyads/CopyAdsModal";
+import MetricPicker from "@/components/MetricPicker";
 import { CloseIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { computeRange } from "@/lib/dateRanges";
@@ -40,7 +41,6 @@ const MAX_RANGE_DAYS = 90;
 // so it would always render "—" here. Left out of this page's metric picker
 // entirely rather than offered as a column that can never show a value.
 const PICKER_METRIC_CATALOG = METRIC_CATALOG.filter((m) => m.key !== "budget");
-const METRIC_GROUPS = [...new Set(PICKER_METRIC_CATALOG.map((m) => m.group))];
 const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 100, text: 150 };
 
 // Cross-account ad cloning: pick ads already running in one ad account and
@@ -294,36 +294,7 @@ export default function CopyAdsPage() {
             <p className={styles.sub} style={{ marginBottom: 10 }}>
               Metrics to show — changes take effect next time you Load Ads.
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {METRIC_GROUPS.map((group) => (
-                <div key={group}>
-                  <p className={styles.muted} style={{ marginBottom: 6 }}>
-                    {group}
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {PICKER_METRIC_CATALOG.filter((m) => m.group === group).map((m) => {
-                      const selected = metricKeys.includes(m.key);
-                      return (
-                        <button
-                          key={m.key}
-                          type="button"
-                          onClick={() => toggleMetric(m.key)}
-                          className={selected ? styles.badgeInfo : styles.pill}
-                          style={
-                            selected
-                              ? { cursor: "pointer" }
-                              : { cursor: "pointer", background: "transparent", border: "1px dashed var(--border)", color: "var(--t2)" }
-                          }
-                        >
-                          {selected ? "✓ " : "+ "}
-                          {m.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <MetricPicker catalog={PICKER_METRIC_CATALOG} selectedKeys={metricKeys} onToggle={toggleMetric} />
           </div>
 
           {!selectedAccountId && <p className={styles.sub}>Pick a source ad account above to see its ads.</p>}

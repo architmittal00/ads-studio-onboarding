@@ -13,6 +13,7 @@ import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import EntityDetailDrawer from "@/components/EntityDetailDrawer";
 import CopyIdButton from "@/components/CopyIdButton";
+import MetricPicker from "@/components/MetricPicker";
 import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
@@ -819,8 +820,6 @@ export default function Explore() {
     () => buildEffectiveCatalog(customMetrics, labeledCustomEvents),
     [customMetrics, labeledCustomEvents]
   );
-  const metricGroups = useMemo(() => [...new Set(effectiveCatalog.map((m) => m.group))], [effectiveCatalog]);
-
   // Custom-metric creation form fields — restricted to METRIC_CATALOG (the
   // built-in catalog only, never effectiveCatalog) so a custom metric can
   // never reference another custom metric. No principled resolution order
@@ -2355,62 +2354,31 @@ export default function Explore() {
                         Checking for custom conversions…
                       </p>
                     )}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {metricGroups.map((group) => (
-                        <div key={group}>
-                          <p className={styles.muted} style={{ marginBottom: 6 }}>
-                            {group}
-                          </p>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {effectiveCatalog.filter((m) => m.group === group).map((m) => {
-                              const selected = activeView.metricKeys.includes(m.key);
-                              // Budget only ever comes back populated at
-                              // Campaign/Ad Set level (see its own comment in
-                              // lib/insightsMetrics.js) — flagged the same
-                              // "still toggleable, visually dimmed" way as a
-                              // rollup-unavailable metric below, rather than
-                              // blocked outright, since switching Level with
-                              // it already selected shouldn't silently drop it.
-                              const budgetUnavailable = m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset";
-                              // Still toggleable (so an already-selected one can be
-                              // turned off), but visually flagged — it'll be
-                              // silently absent from the result anyway once a
-                              // filter forces a rollup, see the note below.
-                              const unavailable = (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable;
-                              return (
-                                <button
-                                  key={m.key}
-                                  type="button"
-                                  onClick={() => toggleMetric(m.key)}
-                                  title={
-                                    budgetUnavailable
-                                      ? "Only available at Campaign or Ad Set level"
-                                      : unavailable
-                                        ? "Not available while a name filter requires combining finer-grained data"
-                                        : undefined
-                                  }
-                                  className={selected ? styles.badgeInfo : styles.pill}
-                                  style={
-                                    selected
-                                      ? { cursor: "pointer", opacity: unavailable ? 0.5 : 1 }
-                                      : {
-                                          cursor: "pointer",
-                                          background: "transparent",
-                                          border: "1px dashed var(--border)",
-                                          color: "var(--t2)",
-                                          opacity: unavailable ? 0.5 : 1,
-                                        }
-                                  }
-                                >
-                                  {selected ? "✓ " : "+ "}
-                                  {m.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <MetricPicker
+                      catalog={effectiveCatalog}
+                      selectedKeys={activeView.metricKeys}
+                      onToggle={toggleMetric}
+                      isUnavailable={(m) => {
+                        // Budget only ever comes back populated at
+                        // Campaign/Ad Set level (see its own comment in
+                        // lib/insightsMetrics.js) — flagged the same "still
+                        // toggleable, visually dimmed" way as a
+                        // rollup-unavailable metric below, rather than
+                        // blocked outright, since switching Level with it
+                        // already selected shouldn't silently drop it.
+                        const budgetUnavailable = m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset";
+                        // Still toggleable (so an already-selected one can be
+                        // turned off), but visually flagged — it'll be
+                        // silently absent from the result anyway once a
+                        // filter forces a rollup.
+                        return (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable;
+                      }}
+                      unavailableTitle={(m) =>
+                        m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset"
+                          ? "Only available at Campaign or Ad Set level"
+                          : "Not available while a name filter requires combining finer-grained data"
+                      }
+                    />
                     <div style={{ marginTop: 14 }}>
                       <p
                         className={styles.muted}

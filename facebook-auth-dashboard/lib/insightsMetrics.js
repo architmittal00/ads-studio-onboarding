@@ -648,6 +648,13 @@ export function buildEffectiveCatalog(customMetrics, customEvents) {
   return [...METRIC_CATALOG, ...customEntries, ...eventEntries];
 }
 
+// The distinct `group` values present in a catalog, in first-seen order —
+// shared by every metric picker (Explore, Copy Ads) instead of each one
+// re-deriving `[...new Set(catalog.map(m => m.group))]` on its own.
+export function catalogGroups(catalog) {
+  return [...new Set(catalog.map((m) => m.group))];
+}
+
 // Shared number formatting for a metric's table cell/chart tooltip, driven
 // by its catalog `format` tag — one place so the Explore table and chart
 // always agree on how a given metric reads. `currency` is only used for
