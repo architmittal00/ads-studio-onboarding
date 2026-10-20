@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Loader from "../Loader";
 import { getPermissionRequestLog } from "@/lib/clientStorage";
+import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 // Status pill for one of Meta's own permission_status values. AUTHORIZED is
@@ -43,8 +44,8 @@ export default function RequestsTab({ igUserId, ready }) {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- kicks off an async fetch that itself sets loading/error/result state, not a derived-state anti-pattern
     setState({ loading: true, error: null, permissions: [] });
-    fetch(`/api/fb/partnership/permissions?igUserId=${encodeURIComponent(igUserId)}`)
-      .then((res) => res.json())
+    fetchWithTimeout(`/api/fb/partnership/permissions?igUserId=${encodeURIComponent(igUserId)}`)
+      .then(parseJsonResponse)
       .then((json) => {
         if (cancelled) return;
         if (json.error) setState({ loading: false, error: json.error, permissions: [] });

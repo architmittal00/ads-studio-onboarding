@@ -18,7 +18,7 @@ const FILTER_CHUNK_SIZE = 50;
 // chunks — summing re-introduces a small amount of cross-chunk reach overlap
 // for very large ad-id sets, an accepted approximation, not a claim of
 // perfect precision.
-async function rollupForAdIds(token, accountId, adIds, operator) {
+async function rollupForAdIds(token, accountId, adIds, operator, range) {
   const idChunks = adIds.length > 0 ? chunk(adIds, FILTER_CHUNK_SIZE) : [[]];
   const results = await Promise.allSettled(
     idChunks.map((ids) =>
@@ -26,7 +26,7 @@ async function rollupForAdIds(token, accountId, adIds, operator) {
         level: "account",
         fields: ROLLUP_FIELDS,
         ...(ids.length > 0 || operator === "NOT_IN" ? { filtering: [{ field: "ad.id", operator, value: ids }] } : {}),
-        time_range: lastNDaysRange(30, new Date()),
+        time_range: range,
       })
     )
   );
@@ -76,22 +76,27 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId } = req.query;
+  const { accountId, since, until } = req.query;
   if (!accountId) {
     return res.status(400).json({ error: "accountId is required" });
   }
 
   const token = session.accessToken;
+  // Optional — defaults to the last 30 days, same as before this became
+  // choosable at all (see OverviewTab.js's own date-range picker). Kept
+  // optional rather than required so nothing else changes for any other
+  // future caller that doesn't care to pick a window.
+  const range = since && until ? { since, until } : lastNDaysRange(30, new Date());
   try {
-    const partnershipAds = await fetchPartnershipAds(token, accountId);
+    const partnershipAds = await fetchPartnershipAds(token, accountId, range);
     const partnershipAdIds = partnershipAds.map((a) => a.adId);
     const activeCount = (statusList) => statusList.filter((s) => s === "ACTIVE").length;
 
     const [partnership, normal, totalActiveCount] = await Promise.all([
       partnershipAdIds.length > 0
-        ? rollupForAdIds(token, accountId, partnershipAdIds, "IN")
+        ? rollupForAdIds(token, accountId, partnershipAdIds, "IN", range)
         : Promise.resolve({ spend: 0, roas: 0, purchases: 0, purchaseValue: 0, reach: 0, frequency: 0, ctr: 0, cpa: null }),
-      rollupForAdIds(token, accountId, partnershipAdIds, "NOT_IN"),
+      rollupForAdIds(token, accountId, partnershipAdIds, "NOT_IN", range),
       // `summary=true` on a connection returns a count without paginating
       // every row — cheaper than listing every active ad just to count them.
       graphGet(`/${accountId}/ads`, token, {
