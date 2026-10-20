@@ -143,7 +143,7 @@ export default async function handler(req, res) {
       return [{ type: "ad", label: "Ad", name: customName || adId, adId, success: false, error }];
     }
 
-    const { copyable, reason, kind, isBrandedContent } = classifyAd(ad);
+    const { copyable, reason, kind } = classifyAd(ad);
     if (!copyable) {
       overallSuccess = false;
       adDone(adId, { success: false, skipped: true, error: reason });
@@ -196,19 +196,25 @@ export default async function handler(req, res) {
         creativeId,
       });
       createdAdIds.push(newAdId);
-      // Non-blocking warnings — the ad was still created successfully.
-      // instagramOmitted: no explicit Instagram actor, so it'll default to
-      // the destination Page's own connected Instagram account rather than
-      // necessarily matching whichever one the source ad used. Partnership
-      // ads reference the original post directly (see classifyAd) rather
-      // than re-declaring sponsor permissions this feature isn't
-      // re-requesting, so the paid-partnership label/sponsor tag may not
-      // carry over to the new ad the way it does on the original.
+      // Non-blocking — the ad was still created successfully, just without
+      // an explicit Instagram actor, so it'll default to the destination
+      // Page's own connected Instagram account for IG placements rather
+      // than necessarily matching whichever one the source ad used.
+      //
+      // CORRECTION: this used to also warn that a copied Partnership
+      // (branded content) ad's paid-partnership label/sponsor tag "may not
+      // carry over," on the untested assumption that the tag depended on
+      // re-declaring facebook_branded_content/instagram_branded_content on
+      // the new ad's own creative (the way lib/partnershipAds.js's
+      // createBrandedCreative has to, when building a brand-new branded ad
+      // from a creator's content). Confirmed wrong against a real copy: the
+      // tag is a property of the underlying *post* itself, already applied
+      // when that post was originally published — since this path points
+      // the new ad at that exact same object_story_id, the tag comes along
+      // automatically, nothing extra to re-declare.
       const warning = instagramOmitted
         ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default."
-        : kind === "existing_post" && isBrandedContent
-          ? "Copied by referencing the original post — this was a Partnership (branded content) ad, and its paid-partnership label/sponsor tag may not carry over to the new ad."
-          : null;
+        : null;
       adDone(adId, { success: true, newAdId, creativeId, warning });
       return [
         { type: "creative", label: "Creative", name: ad.name, adId, success: true, id: creativeId },
