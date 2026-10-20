@@ -238,8 +238,8 @@ export default function CopyAdsPage() {
         </div>
       ),
     },
-    { key: "campaignName", label: "Campaign", render: (row) => row.campaignName || "—" },
-    { key: "adsetName", label: "Ad set", render: (row) => row.adsetName || "—" },
+    { key: "campaignName", label: "Campaign", maxWidth: 160, render: (row) => row.campaignName || "—" },
+    { key: "adsetName", label: "Ad set", maxWidth: 140, render: (row) => row.adsetName || "—" },
     ...metricKeys
       .map((key) => PICKER_METRIC_CATALOG.find((m) => m.key === key))
       .filter(Boolean)
@@ -254,6 +254,7 @@ export default function CopyAdsPage() {
     {
       key: "status",
       label: "Status",
+      maxWidth: 90,
       render: (row) => <span className={row.effectiveStatus === "ACTIVE" ? styles.badgeGood : styles.badgeInfo}>{row.effectiveStatus || row.status}</span>,
     },
   ];
@@ -392,6 +393,7 @@ export default function CopyAdsPage() {
                 searchable
                 searchKeys={["name", "campaignName", "adsetName"]}
                 emptyMessage={appliedConditions.length > 0 ? "No ads match the current filters." : "No ads found in this account."}
+                fixedColumnWidths
               />
             </>
           )}

@@ -12,9 +12,9 @@ const HIGHLIGHT_BG = "color-mix(in srgb, var(--purple) 10%, var(--bg))";
 // Shared by every real row and the optional pinned row below — a standalone
 // function (not a method closing over component state) since the pinned row
 // needs to render identically, just from a different row array.
-function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth, highlighted }) {
+function renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted }) {
   const content = col.render ? col.render(row) : row[col.key];
-  const width = resizableColumns ? columnWidth(col) : col.maxWidth;
+  const width = useFixedWidths ? columnWidth(col) : col.maxWidth;
   const isFrozen = col.key === activeFrozenKey;
   const frozenStyle = isFrozen
     ? {
@@ -41,7 +41,7 @@ function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth, 
   }
   const title = col.title ? col.title(row) : typeof row[col.key] === "string" ? row[col.key] : undefined;
   return (
-    <td key={col.key} style={{ textAlign: col.align || "left", width: resizableColumns ? width : undefined, ...frozenStyle }}>
+    <td key={col.key} style={{ textAlign: col.align || "left", width: useFixedWidths ? width : undefined, ...frozenStyle }}>
       <div title={title} className={styles.clamp3} style={{ maxWidth: width }}>
         {content}
       </div>
@@ -63,6 +63,22 @@ function renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth, 
 // preference, like the sort/search/order/freeze state below — it doesn't
 // persist across a fresh result, since a new query can bring an entirely
 // different set of columns anyway).
+//
+// `fixedColumnWidths` (default off) gives every column a definite pixel
+// width (`col.maxWidth`, falling back to DEFAULT_COLUMN_WIDTH) and switches
+// the table to `table-layout: fixed` — the same mechanism `resizableColumns`
+// already needs for dragging to work, just without the drag handles. Without
+// either flag, a non-capped column free-sizes to its own content under
+// `table-layout: auto`, which silently breaks down once enough sibling
+// columns compete for space: Chrome computes a wrappable cell's *minimum*
+// content width as near-zero (since `.clamp3`'s word-break allows splitting
+// anywhere) and starves it down to a sliver — one letter per line — while
+// short, unwrappable numeric columns keep their full width. Giving every
+// column an explicit width sidesteps that entirely. Left off by default so
+// existing many-column, no-`maxWidth` tables (e.g. pages/report.js) render
+// exactly as before; a caller that's hit the starved-column symptom should
+// opt in (and give its own uncapped columns a sensible `maxWidth` while
+// it's at it, rather than leaning on the generic default).
 //
 // Column order is drag-and-drop editable (grip handle in each header, like
 // a spreadsheet) via `colOrder`/the reconciliation below, and whichever
@@ -123,6 +139,7 @@ export default function SortableTable({
   searchKeys = ["name"],
   searchPlaceholder = "Search…",
   resizableColumns = false,
+  fixedColumnWidths = false,
   renderRowExtra,
   onSortChange,
   onSearchChange,
@@ -213,6 +230,11 @@ export default function SortableTable({
   const activeFrozenKey = firstColFrozen
     ? (orderedColumns.find((c) => !c.freezeExempt) || orderedColumns[0])?.key ?? null
     : null;
+  // `resizableColumns` already needs every column to have a definite width
+  // for dragging to work at all, so it implies this too — `fixedColumnWidths`
+  // is the standalone opt-in for a caller that wants the same definite-width
+  // behavior without the drag handles (see the prop's own doc comment above).
+  const useFixedWidths = fixedColumnWidths || resizableColumns;
   useEffect(() => {
     onFreezeChange?.(activeFrozenKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -349,7 +371,7 @@ export default function SortableTable({
       ) : (
         <div className={styles.tableScroll} style={{ maxHeight }} onScroll={pinnedRow ? handleMainScroll : undefined}>
           <table
-            className={resizableColumns ? `${styles.table} ${styles.tableResizable}` : styles.table}
+            className={useFixedWidths ? `${styles.table} ${styles.tableResizable}` : styles.table}
             style={
               // table-layout: fixed only actually honors each column's own
               // width when the TABLE itself also has a definite width to
@@ -362,7 +384,7 @@ export default function SortableTable({
               // overflow: auto actually scroll instead of squeezing columns.
               // The pinned-row footer table below mirrors this exact style
               // so its columns land at the same pixel widths as this one.
-              resizableColumns ? tableWidthStyle : undefined
+              useFixedWidths ? tableWidthStyle : undefined
             }
           >
             <thead>
@@ -407,7 +429,7 @@ export default function SortableTable({
                         // resizableColumns) already establishes its own
                         // containing block, so the resize handle anchors to
                         // it correctly with no inline override needed here.
-                        width: resizableColumns ? columnWidth(col) : undefined,
+                        width: useFixedWidths ? columnWidth(col) : undefined,
                       }}
                     >
                       {/* A header cell that's BOTH the sticky-top header row
@@ -477,7 +499,7 @@ export default function SortableTable({
                       className={classes || undefined}
                       style={onRowClick ? { cursor: "pointer" } : undefined}
                     >
-                      {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, resizableColumns, columnWidth, highlighted }))}
+                      {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted }))}
                     </tr>
                     {renderRowExtra ? renderRowExtra(row) : null}
                   </Fragment>
@@ -490,10 +512,10 @@ export default function SortableTable({
 
       {pinnedRow && sorted.length > 0 && (
         <div className={styles.tableScrollFooter} ref={footerScrollRef}>
-          <table className={resizableColumns ? `${styles.table} ${styles.tableResizable}` : styles.table} style={resizableColumns ? tableWidthStyle : undefined}>
+          <table className={useFixedWidths ? `${styles.table} ${styles.tableResizable}` : styles.table} style={useFixedWidths ? tableWidthStyle : undefined}>
             <tbody>
               <tr className={styles.pinnedRow}>
-                {orderedColumns.map((col) => renderCell(col, pinnedRow, { activeFrozenKey, resizableColumns, columnWidth }))}
+                {orderedColumns.map((col) => renderCell(col, pinnedRow, { activeFrozenKey, useFixedWidths, columnWidth }))}
               </tr>
             </tbody>
           </table>
