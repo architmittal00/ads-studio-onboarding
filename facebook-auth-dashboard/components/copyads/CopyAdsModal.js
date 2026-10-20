@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
+import Thumb from "@/components/Thumb";
+import CreativeLightbox from "@/components/CreativeLightbox";
 import { CloseIcon, ChevronIcon } from "@/components/icons";
 import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
@@ -111,6 +113,7 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
   const [progressMessage, setProgressMessage] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [result, setResult] = useState(null);
+  const [lightboxItem, setLightboxItem] = useState(null);
 
   useEffect(() => {
     function handleKey(e) {
@@ -199,136 +202,145 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
   const destAccountName = destinationAccounts.find((a) => a.id === destAccountId)?.name || "";
 
   return (
-    <div
-      onClick={submitting ? undefined : onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}
-    >
+    <>
       <div
-        onClick={(e) => e.stopPropagation()}
-        className={styles.card}
-        style={{ background: "var(--bg)", width: "min(560px, 100%)", maxHeight: "85vh", overflowY: "auto", display: "flex", flexDirection: "column" }}
+        onClick={submitting ? undefined : onClose}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-          <div>
-            <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-              {step === "pick_destination" && "Choose a destination account"}
-              {step === "pick_adset" && "Choose a destination ad set"}
-              {step === "review" && "Review & copy"}
-              {step === "done" && "Copy complete"}
-            </h2>
-            <p className={styles.sub}>
-              {ads.length} ad{ads.length === 1 ? "" : "s"} selected
-            </p>
-          </div>
-          <button type="button" onClick={onClose} disabled={submitting} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
-            <CloseIcon size={14} />
-          </button>
-        </div>
-
-        {step === "pick_destination" && (
-          <div style={{ marginTop: 16 }}>
-            {destinationAccounts.length === 0 ? (
-              <p className={styles.sub}>No other ad accounts available to copy into.</p>
-            ) : (
-              <AccountSelect
-                accounts={destinationAccounts}
-                value={destAccountId}
-                onChange={pickDestAccount}
-                placeholder="Select an ad account…"
-              />
-            )}
-          </div>
-        )}
-
-        {step === "pick_adset" && (
-          <div style={{ marginTop: 16 }}>
-            <BackLink onClick={() => setStep("pick_destination")} />
-            <p className={styles.sub} style={{ marginBottom: 10 }}>
-              Into: {destAccountName}
-            </p>
-            {adsetsLoading && <Loader label="Loading ad sets…" />}
-            {adsetsError && <div className={styles.error}>{adsetsError}</div>}
-            {!adsetsLoading && !adsetsError && (
-              <AdsetPickerList adsets={adsets} query={adsetQuery} onQueryChange={setAdsetQuery} onPick={pickDestAdset} />
-            )}
-          </div>
-        )}
-
-        {step === "review" && (
-          <div style={{ marginTop: 16 }}>
-            <BackLink onClick={() => setStep("pick_adset")} />
-            <p className={styles.sub} style={{ marginBottom: 10 }}>
-              Into &quot;{destAdset.name}&quot; ({destAccountName})
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 220, overflowY: "auto" }}>
-              {ads.map((ad) => (
-                <div key={ad.id}>
-                  <label className={styles.sub} style={{ display: "block", marginBottom: 4 }}>
-                    {ad.name}
-                  </label>
-                  <input
-                    type="text"
-                    className={styles.select}
-                    style={{ width: "100%" }}
-                    value={names[ad.id] || ""}
-                    disabled={submitting}
-                    onChange={(e) => setNames((prev) => ({ ...prev, [ad.id]: e.target.value }))}
-                  />
-                </div>
-              ))}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={styles.card}
+          style={{ background: "var(--bg)", width: "min(560px, 100%)", maxHeight: "85vh", overflowY: "auto", display: "flex", flexDirection: "column" }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+            <div>
+              <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+                {step === "pick_destination" && "Choose a destination account"}
+                {step === "pick_adset" && "Choose a destination ad set"}
+                {step === "review" && "Review & copy"}
+                {step === "done" && "Copy complete"}
+              </h2>
+              <p className={styles.sub}>
+                {ads.length} ad{ads.length === 1 ? "" : "s"} selected
+              </p>
             </div>
-
-            <p className={styles.sub} style={{ marginBottom: 6 }}>
-              Status after copying
-            </p>
-            <div className={styles.tabGroup} style={{ marginBottom: 14 }}>
-              <button type="button" className={status === "PAUSED" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("PAUSED")} disabled={submitting}>
-                Paused — review before spending
-              </button>
-              <button type="button" className={status === "ACTIVE" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("ACTIVE")} disabled={submitting}>
-                Active immediately
-              </button>
+            <button type="button" onClick={onClose} disabled={submitting} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
+              <CloseIcon size={14} />
+            </button>
+          </div>
+  
+          {step === "pick_destination" && (
+            <div style={{ marginTop: 16 }}>
+              {destinationAccounts.length === 0 ? (
+                <p className={styles.sub}>No other ad accounts available to copy into.</p>
+              ) : (
+                <AccountSelect
+                  accounts={destinationAccounts}
+                  value={destAccountId}
+                  onChange={pickDestAccount}
+                  placeholder="Select an ad account…"
+                />
+              )}
             </div>
-
-            {submitting && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <Loader label={progressMessage || "Copying…"} />
+          )}
+  
+          {step === "pick_adset" && (
+            <div style={{ marginTop: 16 }}>
+              <BackLink onClick={() => setStep("pick_destination")} />
+              <p className={styles.sub} style={{ marginBottom: 10 }}>
+                Into: {destAccountName}
+              </p>
+              {adsetsLoading && <Loader label="Loading ad sets…" />}
+              {adsetsError && <div className={styles.error}>{adsetsError}</div>}
+              {!adsetsLoading && !adsetsError && (
+                <AdsetPickerList adsets={adsets} query={adsetQuery} onQueryChange={setAdsetQuery} onPick={pickDestAdset} />
+              )}
+            </div>
+          )}
+  
+          {step === "review" && (
+            <div style={{ marginTop: 16 }}>
+              <BackLink onClick={() => setStep("pick_adset")} />
+              <p className={styles.sub} style={{ marginBottom: 10 }}>
+                Into &quot;{destAdset.name}&quot; ({destAccountName})
+              </p>
+  
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 220, overflowY: "auto" }}>
+                {ads.map((ad) => (
+                  <div key={ad.id}>
+                    <label className={styles.sub} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <Thumb
+                        src={ad.thumbnailUrl}
+                        isVideo={ad.isVideo}
+                        size={20}
+                        onClick={() => setLightboxItem({ id: ad.id, name: ad.name, thumbnailUrl: ad.thumbnailUrl, isVideo: ad.isVideo })}
+                      />
+                      {ad.name}
+                    </label>
+                    <input
+                      type="text"
+                      className={styles.select}
+                      style={{ width: "100%" }}
+                      value={names[ad.id] || ""}
+                      disabled={submitting}
+                      onChange={(e) => setNames((prev) => ({ ...prev, [ad.id]: e.target.value }))}
+                    />
+                  </div>
+                ))}
               </div>
-            )}
-            {submitError && <div className={styles.error}>{submitError}</div>}
-
-            <div style={{ display: "flex", gap: 10, marginTop: 10, justifyContent: "flex-end" }}>
-              <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={submitting}>
-                Cancel
-              </button>
-              <button type="button" className={styles.btnPrimary} onClick={handleConfirm} disabled={submitting}>
-                {submitting ? "Copying…" : `Copy ${ads.length} ad${ads.length === 1 ? "" : "s"}`}
-              </button>
+  
+              <p className={styles.sub} style={{ marginBottom: 6 }}>
+                Status after copying
+              </p>
+              <div className={styles.tabGroup} style={{ marginBottom: 14 }}>
+                <button type="button" className={status === "PAUSED" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("PAUSED")} disabled={submitting}>
+                  Paused — review before spending
+                </button>
+                <button type="button" className={status === "ACTIVE" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("ACTIVE")} disabled={submitting}>
+                  Active immediately
+                </button>
+              </div>
+  
+              {submitting && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <Loader label={progressMessage || "Copying…"} />
+                </div>
+              )}
+              {submitError && <div className={styles.error}>{submitError}</div>}
+  
+              <div style={{ display: "flex", gap: 10, marginTop: 10, justifyContent: "flex-end" }}>
+                <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={submitting}>
+                  Cancel
+                </button>
+                <button type="button" className={styles.btnPrimary} onClick={handleConfirm} disabled={submitting}>
+                  {submitting ? "Copying…" : `Copy ${ads.length} ad${ads.length === 1 ? "" : "s"}`}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-
-        {step === "done" && result && (
-          <div style={{ marginTop: 16 }}>
-            <p style={{ fontWeight: 600, marginBottom: 4 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
-            <p className={styles.sub} style={{ marginBottom: 10 }}>
-              {result.createdAdIds.length} of {ads.length} ad{ads.length === 1 ? "" : "s"} created paused in &quot;{destAdset.name}
-              &quot; — check Ads Manager before activating.
-            </p>
-            <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "6px 12px" }}>
-              {result.steps.map((s, i) => (
-                <StepRow key={i} step={s} />
-              ))}
+          )}
+  
+          {step === "done" && result && (
+            <div style={{ marginTop: 16 }}>
+              <p style={{ fontWeight: 600, marginBottom: 4 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
+              <p className={styles.sub} style={{ marginBottom: 10 }}>
+                {result.createdAdIds.length} of {ads.length} ad{ads.length === 1 ? "" : "s"} created paused in &quot;{destAdset.name}
+                &quot; — check Ads Manager before activating.
+              </p>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "6px 12px" }}>
+                {result.steps.map((s, i) => (
+                  <StepRow key={i} step={s} />
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                <button type="button" className={styles.btnPrimary} onClick={onClose}>
+                  Done
+                </button>
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-              <button type="button" className={styles.btnPrimary} onClick={onClose}>
-                Done
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+      <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+    </>
   );
 }

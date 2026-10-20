@@ -7,6 +7,8 @@ import PinLock from "@/components/PinLock";
 import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import SortableTable from "@/components/SortableTable";
+import Thumb from "@/components/Thumb";
+import CreativeLightbox from "@/components/CreativeLightbox";
 import SelectionBar from "@/components/copyads/SelectionBar";
 import CopyAdsModal from "@/components/copyads/CopyAdsModal";
 import { useAccounts } from "@/components/AccountProvider";
@@ -32,6 +34,7 @@ export default function CopyAdsPage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
+  const [lightboxItem, setLightboxItem] = useState(null);
 
   // Defaults to a short, cheap window rather than "every ad ever" — an
   // unfiltered (or too-wide) account-wide pull with this picker's heavy
@@ -119,13 +122,21 @@ export default function CopyAdsPage() {
       label: "Ad",
       maxWidth: 260,
       render: (row) => (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }} title={row.copyable ? undefined : row.reason}>
-          <span style={{ fontWeight: 600, color: row.copyable ? undefined : "var(--t2)" }}>{row.name}</span>
-          {!row.copyable && (
-            <span className={styles.badgeWarn} style={{ width: "fit-content" }}>
-              {row.reason}
-            </span>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }} title={row.copyable ? undefined : row.reason}>
+          <Thumb
+            src={row.thumbnailUrl}
+            isVideo={row.isVideo}
+            size={28}
+            onClick={() => setLightboxItem({ id: row.id, name: row.name, thumbnailUrl: row.thumbnailUrl, isVideo: row.isVideo })}
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <span style={{ fontWeight: 600, color: row.copyable ? undefined : "var(--t2)" }}>{row.name}</span>
+            {!row.copyable && (
+              <span className={styles.badgeWarn} style={{ width: "fit-content" }}>
+                {row.reason}
+              </span>
+            )}
+          </div>
         </div>
       ),
     },
@@ -236,6 +247,8 @@ export default function CopyAdsPage() {
             }}
           />
         )}
+
+        <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       </PinLock>
     </Layout>
   );

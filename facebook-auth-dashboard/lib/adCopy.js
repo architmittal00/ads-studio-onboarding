@@ -226,15 +226,17 @@ async function copyImageByDownload(token, destAccountId, { sourceAccountId, hash
 
 // Copies one ad image's hash into the destination ad account via Meta's own
 // cross-account copy mechanism (POST /act_X/adimages, copy_from) — confirmed
-// against Meta's ad-image reference docs. `sourceAccountId` is passed
-// through exactly as this app already carries account ids everywhere (with
-// the "act_" prefix — see the PR #199 double-act_ bug fix in
-// lib/partnershipAds.js for why that convention matters); flagged as a
-// to-verify assumption since Meta's own example shows a bare numeric string.
+// against Meta's ad-image reference docs. RESOLVED (was flagged as a
+// to-verify assumption): unlike every other account id in this app (which
+// carries "act_" in URL paths — see the PR #199 double-act_ bug fix in
+// lib/partnershipAds.js), `copy_from.source_account_id` specifically wants
+// the bare numeric id — confirmed live via a real
+// "(#100) Param copy_from[source_account_id] must be a valid ID string"
+// error when the "act_"-prefixed form was sent.
 export async function copyImageAcrossAccounts(token, destAccountId, { sourceAccountId, hash }) {
   try {
     const json = await graphPost(`/${destAccountId}/adimages`, token, {
-      copy_from: { source_account_id: sourceAccountId, hash },
+      copy_from: { source_account_id: sourceAccountId.replace(/^act_/, ""), hash },
     });
     return extractNewHash(json, hash);
   } catch (err) {
