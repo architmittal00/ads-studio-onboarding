@@ -128,13 +128,11 @@ export default function PartnershipAds() {
 
     setPerf({ loading: true, error: null, overview: null, ads: null, creatorSummary: null, hasLoaded: false, rangeUsed: performanceRange });
     const overviewParams = new URLSearchParams({ accountId: selectedAccountId, since, until });
+    // mine.js's creator resolution reads each ad's own linked Instagram
+    // media id directly (lib/partnershipDetection.js) — no Business id or
+    // Instagram Business Account needed at all, so unlike the old
+    // Content-Discovery-based approach, no extra params to pass here.
     const mineParams = new URLSearchParams({ accountId: selectedAccountId, since, until });
-    // Optional on mine.js — only used there to resolve each ad's creator
-    // name; My Partnership Ads/Creator Hub both still work (just without
-    // creator names) if neither is set, since this round no longer requires
-    // picking an Instagram Business Account for these three tabs.
-    if (businessId) mineParams.set("businessId", businessId);
-    if (selectedIgAccountId) mineParams.set("igUserId", selectedIgAccountId);
 
     Promise.all([
       fetchWithTimeout(`/api/fb/partnership/overview?${overviewParams.toString()}`).then(parseJsonResponse),
