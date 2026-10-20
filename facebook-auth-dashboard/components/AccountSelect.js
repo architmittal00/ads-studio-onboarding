@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "@/styles/Home.module.css";
 
 // Search-as-you-type account picker — same combo-box pattern as
@@ -19,6 +20,21 @@ import styles from "@/styles/Home.module.css";
 // the dropdown entirely, and picking one leaves the dropdown open — a
 // multi-add flow, not pick-once-and-close, mirroring InterestPicker.js).
 // `maxSelected` (multi-select only) stops offering more once hit.
+//
+// `usePortal` (opt-in, default off) renders the dropdown into
+// document.body via createPortal with `position: fixed`, positioned off the
+// input's own measured bounding rect, instead of the normal in-flow
+// `position: absolute` dropdown. BUG FIXED BY THIS: a real clipping bug
+// found when this combobox is used inside CopyAdsModal.js's destination-
+// account picker — that modal's card has `overflowY: auto`, which per the
+// CSS spec forces `overflow-x` to compute as `auto` too, clipping the
+// absolutely-positioned dropdown on both axes down to one barely-visible
+// option with no way to see the rest. Portaling escapes that ancestor
+// entirely — the exact fix components/DateRangeMenu.js's own popover
+// already uses for an analogous stacking-context clip (PR #161), the only
+// other `createPortal` precedent in this app. Off by default so every
+// existing call site (none of which have this problem) renders identically
+// to before.
 export default function AccountSelect({
   accounts,
   value,
@@ -29,16 +45,31 @@ export default function AccountSelect({
   style,
   multiple = false,
   maxSelected,
+  usePortal = false,
+  // Only matters with usePortal — the modal this is used inside of (if any)
+  // may have its own stacking context (CopyAdsModal's overlay is 800), so
+  // the default here is deliberately low; callers inside a higher context
+  // must pass their own higher value.
+  zIndex = 60,
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const blurTimer = useRef(null);
+  const wrapperRef = useRef(null);
+  const [portalPos, setPortalPos] = useState(null);
 
   const allOptions = [...accounts, ...extraOptions];
+
+  function measurePortalPos() {
+    if (!wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    setPortalPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  }
 
   function handleFocus() {
     clearTimeout(blurTimer.current);
     setQuery("");
+    if (usePortal) measurePortalPos();
     setOpen(true);
   }
 
@@ -47,6 +78,37 @@ export default function AccountSelect({
   // InterestPicker.js.
   function handleBlur() {
     blurTimer.current = setTimeout(() => setOpen(false), 150);
+  }
+
+  // Keeps the portaled dropdown positioned correctly if the page/modal
+  // scrolls or the window resizes while it's open — it's out of normal flow
+  // once portaled, so nothing else would reposition it. Capture phase so a
+  // scroll inside a scrollable ancestor (e.g. the modal card itself) is
+  // seen too, same reasoning as DateRangeMenu's own listener.
+  useEffect(() => {
+    if (!usePortal || !open) return;
+    window.addEventListener("scroll", measurePortalPos, true);
+    window.addEventListener("resize", measurePortalPos);
+    return () => {
+      window.removeEventListener("scroll", measurePortalPos, true);
+      window.removeEventListener("resize", measurePortalPos);
+    };
+  }, [usePortal, open]);
+
+  function renderDropdown(children) {
+    if (!usePortal) {
+      return <div className={styles.comboDropdown}>{children}</div>;
+    }
+    if (!portalPos || typeof document === "undefined") return null;
+    return createPortal(
+      <div
+        className={styles.comboDropdown}
+        style={{ position: "fixed", top: portalPos.top, left: portalPos.left, width: portalPos.width, right: "auto", zIndex }}
+      >
+        {children}
+      </div>,
+      document.body
+    );
   }
 
   if (multiple) {
@@ -88,7 +150,7 @@ export default function AccountSelect({
             ))}
           </div>
         )}
-        <div className={styles.comboWrapper}>
+        <div ref={wrapperRef} className={styles.comboWrapper}>
           <input
             type="text"
             className={styles.select}
@@ -100,9 +162,10 @@ export default function AccountSelect({
             onFocus={handleFocus}
             onBlur={handleBlur}
           />
-          {open && !atCap && (
-            <div className={styles.comboDropdown}>
-              {filtered.length === 0 ? (
+          {open &&
+            !atCap &&
+            renderDropdown(
+              filtered.length === 0 ? (
                 <div className={styles.comboOption}>No matches.</div>
               ) : (
                 filtered.map((a) => (
@@ -110,9 +173,8 @@ export default function AccountSelect({
                     {a.name}
                   </div>
                 ))
-              )}
-            </div>
-          )}
+              )
+            )}
         </div>
       </div>
     );
@@ -136,7 +198,7 @@ export default function AccountSelect({
   }
 
   return (
-    <div className={styles.comboWrapper} style={style}>
+    <div ref={wrapperRef} className={styles.comboWrapper} style={style}>
       <input
         type="text"
         className={styles.select}
@@ -147,9 +209,9 @@ export default function AccountSelect({
         onFocus={handleFocus}
         onBlur={handleBlur}
       />
-      {open && (
-        <div className={styles.comboDropdown}>
-          {filtered.length === 0 ? (
+      {open &&
+        renderDropdown(
+          filtered.length === 0 ? (
             <div className={styles.comboOption}>No matches.</div>
           ) : (
             filtered.map((a) => (
@@ -162,9 +224,8 @@ export default function AccountSelect({
                 {a.name}
               </div>
             ))
-          )}
-        </div>
-      )}
+          )
+        )}
     </div>
   );
 }
