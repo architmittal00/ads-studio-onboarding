@@ -1,5 +1,11 @@
 import { graphGet, graphPost, graphGetInsights } from "./facebookGraph";
 import { chunk } from "./adCreativeDetails";
+import { resolveGraphFields } from "./insightsMetrics";
+
+// Default picker-table metrics, shared between the client (initial column
+// selection) and the server (fallback when the `metrics` query param is
+// omitted) so the two can't drift apart.
+export const DEFAULT_COPY_METRIC_KEYS = ["spend", "purchases", "revenue", "ctr", "roas", "cost_per_purchase"];
 
 // Fields needed to fully rebuild a standard ad's creative in a different ad
 // account — a new, purpose-built fields string, NOT lib/adCreativeDetails.js's
@@ -112,18 +118,29 @@ export async function fetchAdForCopy(token, adId) {
 // a genuinely server-side-bounded "ads active in X" on this API. For this
 // feature's purpose (pick a proven, already-running ad to replicate
 // elsewhere), that's an acceptable, arguably correct reading of "active."
-export async function fetchCopyableAds(token, accountId, { since, until }) {
+// `metricKeys` (picker-table columns, see lib/insightsMetrics.js's catalog)
+// widen this same /insights call's `fields` — `resolveGraphFields` at the
+// "ad" level already includes `ad_id`, so no extra Graph call is needed to
+// get both ad discovery and the metrics the picker table shows. The raw
+// insight row per ad id is returned alongside the ad list so the caller
+// (pages/api/fb/copy-ads/source-ads.js) can derive display values via
+// lib/insightsMetrics.js's deriveRowMetrics without re-fetching anything.
+export async function fetchCopyableAds(token, accountId, { since, until, metricKeys = DEFAULT_COPY_METRIC_KEYS }) {
   if (!since || !until) {
     throw new Error("A date range is required to list ads for this account.");
   }
   const insights = await graphGetInsights(`/${accountId}/insights`, token, {
     level: "ad",
-    fields: "ad_id",
+    fields: resolveGraphFields(metricKeys, [], "ad").join(","),
     time_range: { since, until },
     limit: 500,
   });
-  const adIds = [...new Set((insights.data || []).map((row) => row.ad_id).filter(Boolean))];
-  if (adIds.length === 0) return [];
+  const insightsByAdId = new Map();
+  for (const row of insights.data || []) {
+    if (row.ad_id) insightsByAdId.set(row.ad_id, row);
+  }
+  const adIds = [...insightsByAdId.keys()];
+  if (adIds.length === 0) return { ads: [], insightsByAdId };
 
   const batches = chunk(adIds, 50);
   const results = await Promise.allSettled(batches.map((batch) => fetchAdsBatchForListing(token, batch)));
@@ -160,7 +177,7 @@ export async function fetchCopyableAds(token, accountId, { since, until }) {
   if (ads.length === 0 && failedBatches > 0) {
     throw new Error(`Could not load this account's ads (${failedBatches} batch${failedBatches === 1 ? "" : "es"} failed) — see /logs for the underlying Graph error.`);
   }
-  return ads;
+  return { ads, insightsByAdId };
 }
 
 // Same old-Instagram-id fallback as fetchAdForCopy, applied per-batch here:

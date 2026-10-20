@@ -169,6 +169,14 @@ export default function DateRangeMenu({
   compareCustomSince,
   compareDisplay,
   compareDisabled,
+  // Explore (this component's original and still only other caller) only
+  // ever disables comparison for one reason (an active daily/weekly/monthly
+  // grouping), so that explanation was originally hardcoded below. Copy Ads
+  // reusing this component has no grouping concept at all — comparison just
+  // isn't a feature there — so this is now an overridable prop with
+  // Explore's original wording kept as the default (Explore's own call site
+  // doesn't pass it, so its behavior is unchanged).
+  compareDisabledReason = "Not available together with daily/weekly/monthly grouping.",
   onApply,
 }) {
   const [open, setOpen] = useState(false);
@@ -423,7 +431,7 @@ export default function DateRangeMenu({
               </div>
               {compareDisabled && (
                 <p className={styles.sub} style={{ marginTop: 4 }}>
-                  Not available together with daily/weekly/monthly grouping.
+                  {compareDisabledReason}
                 </p>
               )}
               {draft.compareToPrevious && !compareDisabled && (
