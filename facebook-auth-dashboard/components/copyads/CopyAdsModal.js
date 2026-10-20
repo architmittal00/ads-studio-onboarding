@@ -239,6 +239,8 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
                   value={destAccountId}
                   onChange={pickDestAccount}
                   placeholder="Select an ad account…"
+                  usePortal
+                  zIndex={900}
                 />
               )}
             </div>
