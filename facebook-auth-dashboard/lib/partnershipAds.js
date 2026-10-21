@@ -26,6 +26,51 @@ export const CONTENT_FIELDS =
   "partnership_info{ad_eligibility,tagged_partner{display_name,ig_user_id,fb_page_id},permission_status,permission_type,ad_code,content_types}," +
   "organic_insights{likes,comments,views,reach,shares,interaction,saves}";
 
+// Resolves an actual renderable preview for a piece of Content Discovery
+// content, which otherwise carries no media/image/video URL at all —
+// CONTENT_FIELDS above has no such field, and Meta's reference
+// implementation for this endpoint (the Python script this feature was
+// built from, Facebook Curls/partnership_ads_booster.py) never requests one
+// either. Reported by the user: Explore Ads and Partnership Code both show
+// no actual preview of the content, which was blocking real use of the
+// launch flow ("not able to see ad is impacting the ability to push the
+// creative").
+//
+// Two mechanisms, tried in order:
+// 1. Direct media-object lookup — same principle PR #256 already proved for
+//    an ad's own `effective_instagram_media_id` (a plain `GET /{id}?fields=...`
+//    needs no Business/Content-Discovery scoping at all once you have the
+//    right id). This app's own reference script hints a discovery item's own
+//    `id` (what this app calls `content_id`) is itself a usable Instagram
+//    media id, not just an opaque discovery-API identifier — see
+//    partnership_ads_booster.py's `fetch_media_insights`, which reads a
+//    discovery item's `id` straight into a `media_id` param for exactly this
+//    kind of plain object GET (there, for `like_count`/`comments_count`; here,
+//    for `media_url`/`thumbnail_url`). UNCONFIRMED against a real account —
+//    attempted first and simply falls through to oEmbed below on any
+//    failure, so a wrong guess here costs nothing.
+// 2. Instagram's public oEmbed endpoint (permalink-based, always available —
+//    every piece of content has one). Returns a static `thumbnail_url` and a
+//    native, embeddable `html` widget with its own real play controls, but
+//    never a raw video file — Instagram's own embed script owns playback
+//    entirely, there is no `muted`/`autoplay`/`loop` we could set ourselves
+//    on it the way a plain `<video>` tag allows.
+export async function fetchContentPreview(token, { contentId, permalink } = {}) {
+  if (contentId) {
+    try {
+      const media = await graphGet(`/${contentId}`, token, { fields: "media_url,thumbnail_url,media_type" });
+      if (media?.media_url) {
+        return { kind: "direct", mediaUrl: media.media_url, thumbnailUrl: media.thumbnail_url || null, mediaType: media.media_type || null };
+      }
+    } catch {
+      // Falls through to oEmbed — see this function's own header comment.
+    }
+  }
+  if (!permalink) return null;
+  const oembed = await graphGet("/instagram_oembed", token, { url: permalink, omitscript: true });
+  return { kind: "oembed", thumbnailUrl: oembed.thumbnail_url || null, html: oembed.html || null };
+}
+
 // GET /{ig_user_id}/branded_content_ad_permissions — account-level
 // permission per creator (not per post: once a creator grants this, every
 // future post of theirs becomes usable, see the "My Requests" API route's

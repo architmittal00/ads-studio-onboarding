@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronIcon } from "../icons";
+import ContentPreviewMedia from "./ContentPreviewMedia";
 import styles from "@/styles/Home.module.css";
 
 const CTA_OPTIONS = ["SHOP_NOW", "LEARN_MORE", "SIGN_UP", "GET_OFFER", "BOOK_NOW"];
@@ -17,15 +18,9 @@ function QueueRow({ item, checked, onToggleCheck, onChange, onRemove }) {
     <div className={styles.card} style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer" }} onClick={() => setExpanded((e) => !e)}>
         <input type="checkbox" checked={checked} onChange={(e) => { e.stopPropagation(); onToggleCheck(); }} onClick={(e) => e.stopPropagation()} />
-        <div
-          style={{
-            width: 48,
-            height: 36,
-            borderRadius: 6,
-            flexShrink: 0,
-            background: "linear-gradient(135deg, rgba(var(--purple-rgb),0.18), rgba(244,52,157,0.12))",
-          }}
-        />
+        <div style={{ width: 48, height: 36, borderRadius: 6, flexShrink: 0, position: "relative", overflow: "hidden" }}>
+          <ContentPreviewMedia contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} variant="card" />
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</p>
           <span className={missingRequired ? styles.badgeWarn : styles.badgeGood} style={{ marginTop: 4, display: "inline-block" }}>

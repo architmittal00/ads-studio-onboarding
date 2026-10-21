@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CloseIcon } from "../icons";
+import ContentPreviewMedia from "./ContentPreviewMedia";
 import { firstPartnershipInfo } from "@/lib/partnershipContent";
 import styles from "@/styles/Home.module.css";
 
@@ -34,7 +35,6 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
 
   if (!item) return null;
   const info = firstPartnershipInfo(item);
-  const isVideo = item.media_type === "VIDEO";
   const canAdd = redirectionLink.trim().length > 0 && primaryText.trim().length > 0;
 
   function handleAdd() {
@@ -62,18 +62,8 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}
     >
       <div onClick={(e) => e.stopPropagation()} className={styles.card} style={{ background: "var(--bg)", width: "min(640px, 100%)", display: "flex", gap: 0, overflow: "hidden", padding: 0 }}>
-        <div
-          style={{
-            flexShrink: 0,
-            width: 200,
-            position: "relative",
-            background: "linear-gradient(135deg, rgba(var(--purple-rgb),0.18), rgba(244,52,157,0.12))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <span style={{ fontSize: 32, opacity: 0.6 }}>{isVideo ? "▶" : "🖼"}</span>
+        <div style={{ flexShrink: 0, width: 240, position: "relative" }}>
+          <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="detail" />
         </div>
         <div style={{ flex: 1, minWidth: 0, padding: 20, maxHeight: "80vh", overflowY: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
