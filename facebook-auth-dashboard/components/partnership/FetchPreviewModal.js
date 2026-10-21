@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CloseIcon } from "../icons";
 import ContentPreviewMedia from "./ContentPreviewMedia";
 import { firstPartnershipInfo } from "@/lib/partnershipContent";
@@ -26,6 +26,7 @@ const CTA_OPTIONS = [
 // soon" affordance for the same reason — no real backing copy-generation
 // service exists anywhere in the reference material this was built from.
 export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
+  const [name, setName] = useState("");
   const [primaryText, setPrimaryText] = useState("");
   const [headline, setHeadline] = useState("");
   const [description, setDescription] = useState("");
@@ -33,9 +34,31 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
   const [redirectionLink, setRedirectionLink] = useState("");
   const [added, setAdded] = useState(false);
 
+  // This modal is reused across lookups (no `key` prop at its call site in
+  // PartnershipCodeTab.js) — without resetting on every new item, a second
+  // code's preview would silently inherit whatever the first one's fields
+  // were typed to. Primary Text now defaults to the post's own caption
+  // (reported by the user as the sensible starting point, still editable
+  // from there) instead of always starting blank; Ad Name defaults to the
+  // same auto-generated label previously only set at queue-time with no way
+  // to change it, now editable up front.
+  useEffect(() => {
+    if (!item) return;
+    const info = firstPartnershipInfo(item);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting this modal's own form fields for a newly-previewed item, not a derived-state anti-pattern
+    setName(`@${item.author?.display_name || "unknown"} — ${info.ad_code || item.content_id}`);
+    setPrimaryText(item.caption || "");
+    setHeadline("");
+    setDescription("");
+    setCta(CTA_OPTIONS[0].value);
+    setRedirectionLink("");
+    setAdded(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on content_id only, see comment above
+  }, [item?.content_id]);
+
   if (!item) return null;
   const info = firstPartnershipInfo(item);
-  const canAdd = redirectionLink.trim().length > 0 && primaryText.trim().length > 0;
+  const canAdd = name.trim().length > 0 && redirectionLink.trim().length > 0 && primaryText.trim().length > 0;
 
   function handleAdd() {
     if (!canAdd) return;
@@ -44,7 +67,7 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
       source: "code",
       contentId: item.content_id,
       adCode: info.ad_code,
-      name: `@${item.author?.display_name || "unknown"} — ${info.ad_code || item.content_id}`,
+      name: name.trim(),
       mediaType: item.media_type,
       permalink: item.permalink,
       primaryText: primaryText.trim(),
@@ -82,6 +105,12 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <label className={styles.muted} style={{ fontSize: 11 }}>
+                Ad Name <span style={{ color: "var(--red)" }}>*</span>
+              </label>
+              <input className={styles.select} style={{ width: "100%" }} value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
             <div>
               <label className={styles.muted} style={{ fontSize: 11 }}>
                 Primary Text

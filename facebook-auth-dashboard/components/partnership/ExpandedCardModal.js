@@ -64,7 +64,11 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
         name: `@${item.author?.display_name || "unknown"} — ${item.caption?.slice(0, 40) || item.content_id}`,
         mediaType: item.media_type,
         permalink: item.permalink,
-        primaryText: "",
+        // Defaults to the post's own caption (reported by the user as the
+        // sensible starting point) rather than always starting blank — still
+        // fully editable afterward from the queue's own per-item editor
+        // (components/partnership/QueueList.js).
+        primaryText: item.caption || "",
         headline: "",
         description: "",
         cta: "SHOP_NOW",

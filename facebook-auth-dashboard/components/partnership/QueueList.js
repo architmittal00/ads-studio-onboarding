@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronIcon } from "../icons";
-import ContentPreviewMedia from "./ContentPreviewMedia";
+import MediaThumbButton from "./MediaThumbButton";
 import styles from "@/styles/Home.module.css";
 
 const CTA_OPTIONS = ["SHOP_NOW", "LEARN_MORE", "SIGN_UP", "GET_OFFER", "BOOK_NOW"];
@@ -18,9 +18,7 @@ function QueueRow({ item, checked, onToggleCheck, onChange, onRemove }) {
     <div className={styles.card} style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer" }} onClick={() => setExpanded((e) => !e)}>
         <input type="checkbox" checked={checked} onChange={(e) => { e.stopPropagation(); onToggleCheck(); }} onClick={(e) => e.stopPropagation()} />
-        <div style={{ width: 48, height: 36, borderRadius: 6, flexShrink: 0, position: "relative", overflow: "hidden" }}>
-          <ContentPreviewMedia contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} variant="card" />
-        </div>
+        <MediaThumbButton contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} size={48} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</p>
           <span className={missingRequired ? styles.badgeWarn : styles.badgeGood} style={{ marginTop: 4, display: "inline-block" }}>
@@ -43,6 +41,12 @@ function QueueRow({ item, checked, onToggleCheck, onChange, onRemove }) {
 
       {expanded && (
         <div style={{ padding: "0 14px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label className={styles.muted} style={{ fontSize: 11 }}>
+              Ad Name
+            </label>
+            <input className={styles.select} style={{ width: "100%" }} value={item.name} onChange={(e) => onChange({ name: e.target.value })} />
+          </div>
           <div>
             <label className={styles.muted} style={{ fontSize: 11 }}>
               Primary Text <span style={{ color: "var(--red)" }}>*</span>

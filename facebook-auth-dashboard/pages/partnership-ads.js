@@ -203,21 +203,13 @@ export default function PartnershipAds() {
                   launch real ads from it.
                 </p>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
-                <Link href="/partnership-ads/queue" className={styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-                  Ready to Launch
-                  <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
-                </Link>
-
-                {/* Every tab's own Ad Account (+ Instagram Business Account,
-                    + Date Range, depending on what that tab actually needs)
-                    as one compact pill row in the header's top-right corner —
-                    previously only Overview/My Partnership Ads/Creator Hub
-                    got this treatment, while Explore Ads/My Requests/
-                    Partnership Code kept an older side-panel layout with
-                    Explore's own date picker split off into its own content
-                    area on top of that. One consistent place for these
-                    controls across all six tabs now. */}
+              {/* Ready to Launch + every tab's own Ad Account (+ Instagram
+                  Business Account, + Date Range, depending on what that tab
+                  actually needs) all share one row now — reported as too
+                  cluttered when the pill row sat stacked on its own line
+                  below the button, two separate rows before any real tab
+                  content even started. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 <div className={styles.headerPillRow}>
                   <AccountSelect
                     accounts={adAccounts}
@@ -281,6 +273,10 @@ export default function PartnershipAds() {
                     </button>
                   )}
                 </div>
+                <Link href="/partnership-ads/queue" className={styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                  Ready to Launch
+                  <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
+                </Link>
               </div>
             </div>
 
