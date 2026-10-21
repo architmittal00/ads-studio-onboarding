@@ -7,7 +7,16 @@ import { getPixelMapping, setPixelMapping, getPartnershipSettings, setPartnershi
 import styles from "@/styles/Home.module.css";
 
 function StepRow({ step }) {
-  const label = step.type === "item" ? step.name : step.type === "creative" ? `Creative — ${step.name}` : step.type === "ad" ? `Ad — ${step.name}` : "Activation";
+  const label =
+    step.type === "item"
+      ? step.name
+      : step.type === "video"
+        ? `Video registration — ${step.name}`
+        : step.type === "creative"
+          ? `Creative — ${step.name}`
+          : step.type === "ad"
+            ? `Ad — ${step.name}`
+            : "Activation";
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
       <span style={{ fontSize: 12.5 }} title={step.error}>

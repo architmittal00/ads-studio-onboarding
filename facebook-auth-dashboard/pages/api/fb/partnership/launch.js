@@ -46,6 +46,15 @@ import { firstPartnershipInfo } from "@/lib/partnershipContent";
 // access token") not being the stable, indefinitely-reusable value it looks
 // like; using the freshest one available avoids launching against one
 // that's gone stale since it was first captured into the queue.
+//
+// The video-registration step's own `item.mediaType === "VIDEO"` check was
+// an exact, case-sensitive match against an uppercase literal — a real
+// queued item's `mediaType` was observed as lowercase, so this step was
+// silently skipped for real video content with no ad_code (nothing else
+// resolves `source_instagram_media_id` into something Graph will accept at
+// creative-creation time), surfacing only as a generic "Invalid parameter"
+// much later. Now compared case-insensitively, and its own outcome is
+// recorded as a step either way instead of being silently discarded.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -128,14 +137,29 @@ export default async function handler(req, res) {
     // same ad_code when present).
     const adCode = firstPartnershipInfo(verified).ad_code || item.adCode;
 
-    if (item.mediaType === "VIDEO" && sourceInstagramMediaId) {
+    // Case-insensitive: a real queued item's `mediaType` has been observed
+    // as lowercase ("video") rather than the uppercase "VIDEO" this exact-
+    // match check assumed — meaning this step was silently never running for
+    // at least some real video content, no error, no sign anything was
+    // skipped. Without it, `createBrandedCreative`'s `source_instagram_
+    // media_id` points at an Instagram video that was never registered as a
+    // usable source for this ad account, which Graph then rejects at
+    // creative-creation time with nothing more specific than "Invalid
+    // parameter" — exactly the error reported for two real video items that
+    // both lacked an ad_code (so had no fallback but this path).
+    const isVideo = String(item.mediaType || "").toUpperCase() === "VIDEO";
+
+    if (isVideo && sourceInstagramMediaId) {
       try {
         await registerVideoSource(token, accountId, { sourceInstagramMediaId, adCode });
-      } catch {
-        // Best-effort — see this file's own header comment on why this step's
-        // necessity on the ad_code path isn't fully confirmed; a real failure
-        // here surfaces soon enough anyway, via the creative-creation call
-        // right below, if it turns out to actually be required.
+        steps.push({ type: "video", itemId: item.id, name: item.name, success: true });
+      } catch (err) {
+        // Still best-effort — see this file's own header comment on why this
+        // step's necessity on the ad_code path isn't fully confirmed — but
+        // now recorded as a (non-fatal) step instead of silently discarded,
+        // so a real failure here is visible instead of only ever showing up
+        // as a confusing downstream "Invalid parameter" on the creative call.
+        steps.push({ type: "video", itemId: item.id, name: item.name, success: false, error: err.message });
       }
     }
 
