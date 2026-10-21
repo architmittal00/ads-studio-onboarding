@@ -161,6 +161,18 @@ export default async function handler(req, res) {
     // same ad_code when present).
     const adCode = firstPartnershipInfo(verified).ad_code || item.adCode;
 
+    // The tagged partner (the creator) — see lib/partnershipAds.js's own
+    // header comment on createBrandedCreative for the full story. This was
+    // fetched by CONTENT_FIELDS from the very first version of this feature
+    // but never actually used anywhere: `createBrandedCreative` used to be
+    // called with this ad account's OWN identity for the branded_content
+    // sponsor fields instead, which Graph correctly rejected as "you can't
+    // be your own tagged partner" — the same error code/subcode as PR #280's
+    // (genuinely ineligible) own-post case, but firing here for a completely
+    // different, fixable reason: the real partner's identity was simply
+    // never read out of a field this app had been fetching the whole time.
+    const taggedPartner = firstPartnershipInfo(verified).tagged_partner || {};
+
     // Case-insensitive: a real queued item's `mediaType` has been observed
     // as lowercase ("video") rather than the uppercase "VIDEO" this exact-
     // match check assumed — meaning this step was silently never running for
@@ -192,8 +204,8 @@ export default async function handler(req, res) {
     try {
       const creative = await createBrandedCreative(token, accountId, {
         objectId: facebookPageId,
-        facebookPageId,
-        igUserId,
+        sponsorFacebookPageId: taggedPartner.fb_page_id,
+        sponsorIgUserId: taggedPartner.ig_user_id,
         callToActionType: item.cta,
         link: item.redirectionLink,
         adCode,
