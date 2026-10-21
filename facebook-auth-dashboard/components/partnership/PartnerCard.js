@@ -1,4 +1,5 @@
 import { permissionState, formatCompactNumber } from "@/lib/partnershipContent";
+import ContentPreviewMedia from "./ContentPreviewMedia";
 import styles from "@/styles/Home.module.css";
 
 // Deterministic (not random) avatar color from a creator handle, same
@@ -9,33 +10,6 @@ function colorFor(seed) {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % AVATAR_COLORS.length;
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-// The Content Discovery API returns rich metadata about each piece of
-// content (caption, engagement, permission status, …) but no direct media
-// URL at all — only `permalink`, the public Instagram post link (confirmed:
-// Meta's own reference implementation for this endpoint never requests or
-// has a media-url field to request). So the card's own media area is a
-// placeholder, not a broken/fake thumbnail — with a link straight to the
-// real post for anyone who wants to actually see the content.
-function MediaPlaceholder({ isVideo, aspectRatio }) {
-  return (
-    <div className={styles.partnerCardMedia} style={{ aspectRatio }}>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "linear-gradient(135deg, rgba(var(--purple-rgb),0.18), rgba(244,52,157,0.12))",
-        }}
-      >
-        <span style={{ fontSize: 26, opacity: 0.6 }}>{isVideo ? "▶" : "🖼"}</span>
-      </div>
-      <div className={styles.partnerCardGrad} />
-    </div>
-  );
 }
 
 export default function PartnerCard({ item, selected, onToggleSelect, onExpand }) {
@@ -65,7 +39,10 @@ export default function PartnerCard({ item, selected, onToggleSelect, onExpand }
       style={selected ? { borderColor: "var(--purple)", boxShadow: "0 0 0 2px rgba(var(--purple-rgb), 0.3)" } : undefined}
     >
       <div style={{ position: "relative" }}>
-        <MediaPlaceholder isVideo={isVideo} aspectRatio={isVideo ? "9 / 16" : "4 / 5"} />
+        <div className={styles.partnerCardMedia} style={{ aspectRatio: isVideo ? "9 / 16" : "4 / 5" }}>
+          <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="card" />
+          <div className={styles.partnerCardGrad} />
+        </div>
         {item.is_recommended && <span className={`${styles.partnerCardBadge} ${styles.partnerCardStar}`}>★</span>}
         {permState !== "ready" && (
           <span

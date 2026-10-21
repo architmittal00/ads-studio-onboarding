@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { CloseIcon } from "../icons";
+import ContentPreviewMedia from "./ContentPreviewMedia";
 import { firstPartnershipInfo, permissionState, formatCompactNumber } from "@/lib/partnershipContent";
 import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
@@ -123,18 +124,8 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
         className={styles.card}
         style={{ background: "var(--bg)", width: "min(720px, 100%)", display: "flex", gap: 0, overflow: "hidden", padding: 0 }}
       >
-        <div
-          style={{
-            flexShrink: 0,
-            width: 240,
-            position: "relative",
-            background: "linear-gradient(135deg, rgba(var(--purple-rgb),0.18), rgba(244,52,157,0.12))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <span style={{ fontSize: 36, opacity: 0.6 }}>{isVideo ? "▶" : "🖼"}</span>
+        <div style={{ flexShrink: 0, width: 240, position: "relative" }}>
+          <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="detail" />
         </div>
         <div style={{ flex: 1, minWidth: 0, padding: 22, maxHeight: "80vh", overflowY: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

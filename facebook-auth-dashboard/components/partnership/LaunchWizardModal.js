@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CloseIcon, ChevronIcon } from "../icons";
 import AdSetMultiSelect from "./AdSetMultiSelect";
+import ContentPreviewMedia from "./ContentPreviewMedia";
 import { getPixelMapping, setPixelMapping, getPartnershipSettings, setPartnershipSettings } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -167,6 +168,24 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
 
           {step === 3 && !result && (
             <div>
+              {/* What's actually about to be launched — reported by the
+                  user as the missing piece blocking real use of this flow:
+                  no way to see the creative itself before committing to
+                  "Confirm & Launch". Same ContentPreviewMedia every other
+                  Partnership Ads surface uses, so a video here already
+                  autoplays muted when a direct media URL resolves. */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {items.map((item) => (
+                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 6, flexShrink: 0, position: "relative", overflow: "hidden" }}>
+                      <ContentPreviewMedia contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} variant="card" />
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
               <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                 <button
                   type="button"
