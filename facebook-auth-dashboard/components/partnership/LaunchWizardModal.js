@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { CloseIcon, ChevronIcon } from "../icons";
 import AdSetMultiSelect from "./AdSetMultiSelect";
-import ContentPreviewMedia from "./ContentPreviewMedia";
+import PixelSelect from "./PixelSelect";
+import MediaThumbButton from "./MediaThumbButton";
 import { getPixelMapping, setPixelMapping, getPartnershipSettings, setPartnershipSettings } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -124,9 +125,9 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
                 <label className={styles.muted} style={{ fontSize: 11 }}>
-                  Facebook Pixel ID <span style={{ color: "var(--red)" }}>*</span>
+                  Facebook Pixel <span style={{ color: "var(--red)" }}>*</span>
                 </label>
-                <input className={styles.select} style={{ width: "100%" }} value={pixelId} onChange={(e) => setPixelIdState(e.target.value)} />
+                <PixelSelect accountId={accountId} value={pixelId} onChange={setPixelIdState} />
               </div>
               <div>
                 <label className={styles.muted} style={{ fontSize: 11 }}>
@@ -171,15 +172,14 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
               {/* What's actually about to be launched — reported by the
                   user as the missing piece blocking real use of this flow:
                   no way to see the creative itself before committing to
-                  "Confirm & Launch". Same ContentPreviewMedia every other
-                  Partnership Ads surface uses, so a video here already
-                  autoplays muted when a direct media URL resolves. */}
+                  "Confirm & Launch". A static thumbnail (click to view full
+                  screen) rather than autoplaying video — reported as
+                  unwanted here specifically, a review step is for a quick
+                  glance, not inline playback. */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                 {items.map((item) => (
                   <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 6, flexShrink: 0, position: "relative", overflow: "hidden" }}>
-                      <ContentPreviewMedia contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} variant="card" />
-                    </div>
+                    <MediaThumbButton contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} size={40} />
                     <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.name}
                     </p>

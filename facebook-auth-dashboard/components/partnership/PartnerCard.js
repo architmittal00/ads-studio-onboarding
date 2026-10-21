@@ -42,6 +42,11 @@ export default function PartnerCard({ item, selected, onToggleSelect, onExpand }
         <div className={styles.partnerCardMedia} style={{ aspectRatio: isVideo ? "9 / 16" : "4 / 5" }}>
           <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="card" />
           <div className={styles.partnerCardGrad} />
+          {!selected && (
+            <div className={styles.partnerCardSelectCta}>
+              <span className={styles.partnerCardSelectCtaPill}>✓ Select</span>
+            </div>
+          )}
         </div>
         {item.is_recommended && <span className={`${styles.partnerCardBadge} ${styles.partnerCardStar}`}>★</span>}
         {permState !== "ready" && (

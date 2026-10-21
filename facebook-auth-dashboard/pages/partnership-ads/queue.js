@@ -16,10 +16,22 @@ import styles from "@/styles/Home.module.css";
 // selection via AccountProvider (shared across the app), so navigating here
 // from /partnership-ads doesn't lose context.
 export default function PartnershipAdsQueue() {
-  const { adAccounts, pages, selectedAccountId } = useAccounts();
+  // `selectedIgAccountId` — NOT independently recomputed from `pages` — is
+  // the actual bug fix here. This page previously derived its own `igUserId`
+  // via `pages.find((p) => p.instagram_business_account)?...` — the first
+  // Page with any linked IG account, full stop — completely ignoring
+  // whichever Instagram account the user actually had selected (and which
+  // was therefore used for every Content Discovery call) back on
+  // /partnership-ads when the item was queued. `lookupContent`'s
+  // re-verification call in launch.js always scopes by `ig_user_id`, even in
+  // ad-code lookup mode — a mismatched id there means Meta finds zero
+  // results for an ad code/permalink that's perfectly real, surfacing as
+  // "Content is no longer available or eligible" for every single queued
+  // item regardless of how it was added. Reading the same shared selection
+  // every other Partnership Ads page already uses fixes this at the source.
+  const { adAccounts, pages, selectedAccountId, selectedIgAccountId } = useAccounts();
   const selectedAccount = useMemo(() => adAccounts.find((a) => a.id === selectedAccountId), [adAccounts, selectedAccountId]);
   const businessId = selectedAccount?.business?.id || null;
-  const igUserId = useMemo(() => pages.find((p) => p.instagram_business_account)?.instagram_business_account?.id || null, [pages]);
 
   const [items, setItems] = useState([]);
   const [checkedIds, setCheckedIds] = useState(new Set());
@@ -132,7 +144,7 @@ export default function PartnershipAdsQueue() {
         <LaunchWizardModal
           accountId={selectedAccountId}
           businessId={businessId}
-          igUserId={igUserId}
+          igUserId={selectedIgAccountId}
           pages={pages}
           items={checkedItems}
           onClose={() => setWizardOpen(false)}
