@@ -22,6 +22,8 @@ export default function Dashboard({ user }) {
     adAccounts,
     accountsLoading,
     accountsError: error,
+    pagesError,
+    adAccountsError,
     accountsFetchedAt,
     refreshAccounts,
     selectedAccountId,
@@ -172,7 +174,17 @@ export default function Dashboard({ user }) {
               <div className={styles.card}>
                 <h2 className={styles.h2}>Pages ({data.pages.length})</h2>
                 {data.pages.length === 0 ? (
-                  <p className={styles.sub}>No Pages found, or permission not granted.</p>
+                  pagesError ? (
+                    // Distinct from the empty-but-no-error case below — this
+                    // means Meta's own Graph API rejected the call (most
+                    // often `pages_show_list` needing App Review/Advanced
+                    // Access, or this user not being an Admin/Developer/
+                    // Tester on this Meta App — see README.md), not that the
+                    // user genuinely has zero Pages.
+                    <div className={styles.error}>Couldn&apos;t load Pages: {pagesError}</div>
+                  ) : (
+                    <p className={styles.sub}>No Pages found, or permission not granted.</p>
+                  )
                 ) : (
                   <ul className={styles.list}>
                     {data.pages.map((page) => (
@@ -188,7 +200,11 @@ export default function Dashboard({ user }) {
               <div className={styles.card}>
                 <h2 className={styles.h2}>Ad Accounts ({data.adAccounts.length})</h2>
                 {data.adAccounts.length === 0 ? (
-                  <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
+                  adAccountsError ? (
+                    <div className={styles.error}>Couldn&apos;t load Ad Accounts: {adAccountsError}</div>
+                  ) : (
+                    <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
+                  )
                 ) : (
                   <ul className={styles.list}>
                     {data.adAccounts.map((acc) => (
