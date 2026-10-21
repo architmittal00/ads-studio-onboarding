@@ -27,6 +27,7 @@ const ELIGIBILITY_OPTIONS = [
   { value: "ready", label: "Ready to Launch" },
   { value: "need", label: "Permission Required" },
   { value: "requested", label: "Permission Requested" },
+  { value: "own", label: "Not a Partner Post" },
 ];
 const SORT_OPTIONS = [
   { value: "recent", label: "Recently Added" },
@@ -188,15 +189,15 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
   const visibleItems = useMemo(() => {
     let list = items;
     if (media !== "all") list = list.filter((i) => i.media_type === media);
-    if (eligibility !== "all") list = list.filter((i) => permissionState(i) === eligibility);
+    if (eligibility !== "all") list = list.filter((i) => permissionState(i, igUserId) === eligibility);
     const sorted = [...list];
     if (sort === "engagement") sorted.sort((a, b) => engagementScore(b) - engagementScore(a));
     return sorted;
-  }, [items, media, eligibility, sort]);
+  }, [items, media, eligibility, sort, igUserId]);
 
   const selectedItems = useMemo(() => items.filter((i) => selectedIds.has(i.content_id)), [items, selectedIds]);
-  const needPermissionItems = useMemo(() => selectedItems.filter((i) => permissionState(i) === "need"), [selectedItems]);
-  const readyItems = useMemo(() => selectedItems.filter((i) => permissionState(i) === "ready"), [selectedItems]);
+  const needPermissionItems = useMemo(() => selectedItems.filter((i) => permissionState(i, igUserId) === "need"), [selectedItems, igUserId]);
+  const readyItems = useMemo(() => selectedItems.filter((i) => permissionState(i, igUserId) === "ready"), [selectedItems, igUserId]);
 
   function queueItemLabel(item) {
     return `@${item.author?.display_name || "unknown"} — ${item.caption?.slice(0, 40) || item.content_id}`;
@@ -354,6 +355,7 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
               <PartnerCard
                 key={item.content_id}
                 item={item}
+                igUserId={igUserId}
                 selected={selectedIds.has(item.content_id)}
                 onToggleSelect={toggleSelect}
                 onExpand={setExpandedItem}

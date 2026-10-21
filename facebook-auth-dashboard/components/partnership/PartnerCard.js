@@ -12,8 +12,9 @@ function colorFor(seed) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-export default function PartnerCard({ item, selected, onToggleSelect, onExpand }) {
-  const permState = permissionState(item);
+export default function PartnerCard({ item, igUserId, selected, onToggleSelect, onExpand }) {
+  const permState = permissionState(item, igUserId);
+  const isOwnPost = permState === "own";
   const isVideo = item.media_type === "VIDEO";
   const handle = item.author?.display_name || "unknown";
   const views = item.organic_insights?.views ?? item.organic_insights?.reach;
@@ -42,20 +43,31 @@ export default function PartnerCard({ item, selected, onToggleSelect, onExpand }
         <div className={styles.partnerCardMedia} style={{ aspectRatio: isVideo ? "9 / 16" : "4 / 5" }}>
           <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="card" />
           <div className={styles.partnerCardGrad} />
-          {!selected && (
+          {!selected && !isOwnPost && (
             <div className={styles.partnerCardSelectCta}>
               <span className={styles.partnerCardSelectCtaPill}>✓ Select</span>
             </div>
           )}
         </div>
         {item.is_recommended && <span className={`${styles.partnerCardBadge} ${styles.partnerCardStar}`}>★</span>}
-        {permState !== "ready" && (
-          <span
-            className={`${styles.partnerCardBadge} ${permState === "requested" ? styles.partnerCardPermRequested : styles.partnerCardPermNeed}`}
-            title={permState === "requested" ? "Permission requested" : "Permission needed"}
-          >
-            {permState === "requested" ? "⏳" : "🔒"}
+        {isOwnPost ? (
+          // Your own account's post — Meta rejects this at launch regardless
+          // of permission_status ("@handle isn't a partner of @handle"),
+          // since a Partnership Ad requires being tagged as a partner on
+          // someone ELSE's content. Distinct from "need permission" — there
+          // is no permission to request here, it's categorically ineligible.
+          <span className={`${styles.partnerCardBadge} ${styles.partnerCardPermNeed}`} title="Your own post — can't become a Partnership Ad">
+            🚫
           </span>
+        ) : (
+          permState !== "ready" && (
+            <span
+              className={`${styles.partnerCardBadge} ${permState === "requested" ? styles.partnerCardPermRequested : styles.partnerCardPermNeed}`}
+              title={permState === "requested" ? "Permission requested" : "Permission needed"}
+            >
+              {permState === "requested" ? "⏳" : "🔒"}
+            </span>
+          )
         )}
         {selected && permState === "ready" && (
           <span className={`${styles.partnerCardBadge} ${styles.partnerCardPermReady}`} title="Selected — ready to launch">

@@ -11,7 +11,25 @@ export function firstPartnershipInfo(item) {
   return item?.partnership_info?.[0] || {};
 }
 
-export function permissionState(item) {
+// A piece of content authored by the Business's own Instagram account can
+// never become a Partnership Ad, regardless of its own permission_status —
+// confirmed against a real launch attempt's own Graph error: "@sheshaayurveda
+// isn't a partner of @sheshaayurveda. You can select a post, where
+// @sheshaayurveda is a partner to turn into a partnership ad." (code 100,
+// subcode 3867018). Branded-content creatives require the advertiser to be a
+// tagged PARTNER on someone ELSE's post — structurally impossible for a post
+// you authored yourself. Content Discovery still often reports
+// permission_status: AUTHORIZED for the account's own posts (that's a
+// separate, unrelated "can this be boosted as an ad at all" signal, not
+// "can this specifically become a Partnership/branded-content ad"), so this
+// needs its own explicit, author-based check rather than folding into
+// permission_status.
+export function isOwnPost(item, igUserId) {
+  return !!igUserId && !!item?.author?.ig_user_id && item.author.ig_user_id === igUserId;
+}
+
+export function permissionState(item, igUserId) {
+  if (isOwnPost(item, igUserId)) return "own";
   const info = firstPartnershipInfo(item);
   const status = (info.permission_status || "").toUpperCase();
   if (status === "AUTHORIZED") return "ready";
