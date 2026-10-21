@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { CloseIcon } from "../icons";
 import ContentPreviewMedia from "./ContentPreviewMedia";
+import RedirectionLinkModal from "./RedirectionLinkModal";
 import { firstPartnershipInfo, permissionState, formatCompactNumber } from "@/lib/partnershipContent";
 import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
@@ -21,10 +23,12 @@ function EngCell({ label, value }) {
 // confirm modal stacked on top — this view already shows everything a
 // confirm step would), and queuing it for launch once ready.
 export default function ExpandedCardModal({ item, accountId, igUserId, onClose, onPermissionRequested, onQueued }) {
+  const router = useRouter();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [queued, setQueued] = useState(false);
   const [error, setError] = useState(null);
+  const [showLinkModal, setShowLinkModal] = useState(false);
 
   useEffect(() => {
     function handleKey(e) {
@@ -43,6 +47,7 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
     setSent(false);
     setQueued(false);
     setError(null);
+    setShowLinkModal(false);
   }, [item?.content_id]);
 
   if (!item) return null;
@@ -53,8 +58,14 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
   const creatorIgId = item.author?.ig_user_id;
   const creatorUsername = item.author?.display_name;
 
+  // Opens RedirectionLinkModal to collect the landing-page link before
+  // actually queuing — see that component's own header comment for why.
   function handleAddToQueue() {
     if (queued) return;
+    setShowLinkModal(true);
+  }
+
+  function commitAddToQueue(redirectionLink) {
     addToPartnershipQueue(accountId, [
       {
         id: `explore_${item.content_id}`,
@@ -72,11 +83,13 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
         headline: "",
         description: "",
         cta: "SHOP_NOW",
-        redirectionLink: "",
+        redirectionLink,
       },
     ]);
     setQueued(true);
+    setShowLinkModal(false);
     onQueued?.();
+    router.push("/partnership-ads/queue");
   }
 
   async function handleRequestPermission() {
@@ -196,6 +209,14 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
           )}
         </div>
       </div>
+
+      {showLinkModal && (
+        <RedirectionLinkModal
+          items={[{ id: `explore_${item.content_id}`, name: `@${item.author?.display_name || "unknown"}` }]}
+          onSkip={() => commitAddToQueue("")}
+          onSave={(linksById) => commitAddToQueue((linksById[`explore_${item.content_id}`] || "").trim())}
+        />
+      )}
     </div>
   );
 }

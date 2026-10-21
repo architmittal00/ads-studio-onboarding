@@ -82,7 +82,14 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
         }
       }
       setResult(finalResult);
-      if (finalResult?.success) onLaunched?.(finalResult);
+      // Called even on a partial failure (not gated on `finalResult.success`)
+      // — reported by the user: a batch where one item failed left even the
+      // items that genuinely created a live ad still sitting in the queue,
+      // since this used to only fire when the whole batch succeeded. The
+      // caller (pages/partnership-ads/queue.js) only removes the ids the
+      // launch endpoint actually reports as succeeded, so a real failure
+      // correctly stays in the queue for retry.
+      if (finalResult) onLaunched?.(finalResult);
     } catch (err) {
       setError(err.message);
     } finally {

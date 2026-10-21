@@ -79,16 +79,29 @@ export default function PartnershipAdsQueue() {
   const checkedReady = checkedItems.filter((i) => i.primaryText?.trim() && i.redirectionLink?.trim());
   const canLaunch = checkedReady.length > 0 && checkedReady.length === checkedItems.length;
 
-  // Only removes the now-launched items from the queue and clears their
-  // checkboxes — does NOT close the wizard. LaunchWizardModal stays open on
-  // its own result screen (step-by-step success/failure breakdown) until the
-  // user clicks its own "Done" button; closing it here instead would yank
-  // that screen away the instant the launch finishes, before anyone can
-  // actually read it.
-  function handleLaunched() {
-    const launchedIds = new Set(checkedItems.map((i) => i.id));
-    persist(items.filter((i) => !launchedIds.has(i.id)));
-    setCheckedIds(new Set());
+  // Only removes the items the launch endpoint actually reports as
+  // succeeded (`result.succeededItemIds`, see pages/api/fb/partnership/launch.js)
+  // and clears their checkboxes — does NOT close the wizard. LaunchWizardModal
+  // stays open on its own result screen (step-by-step success/failure
+  // breakdown) until the user clicks its own "Done" button; closing it here
+  // instead would yank that screen away the instant the launch finishes,
+  // before anyone can actually read it.
+  //
+  // Previously this removed every *checked* item regardless of outcome, but
+  // was only ever called when the whole batch succeeded — so a batch with
+  // even one failing item left every item, including the ones that
+  // genuinely created a live ad, stuck in the queue. Now it's called on
+  // every launch attempt and only clears the ones that actually succeeded,
+  // leaving real failures in place for the user to fix and retry.
+  function handleLaunched(result) {
+    const succeededIds = new Set(result?.succeededItemIds || []);
+    if (succeededIds.size === 0) return;
+    persist(items.filter((i) => !succeededIds.has(i.id)));
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of succeededIds) next.delete(id);
+      return next;
+    });
   }
 
   return (

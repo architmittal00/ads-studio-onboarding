@@ -1,5 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { getServerSession } from "next-auth/next";
 import { useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
@@ -73,8 +74,31 @@ export default function PartnershipAds() {
     selectedIgAccountId,
     setSelectedIgAccountId,
   } = useAccounts();
-  const [tab, setTab] = useState("overview");
+  const router = useRouter();
+  const [tab, setTabState] = useState("overview");
   const isPerformanceTab = PERFORMANCE_TABS.includes(tab);
+
+  // Reported by the user: reloading while on, say, Explore Ads always landed
+  // back on Overview — `tab` was plain component state with no relationship
+  // to the URL at all. Reading it from `?tab=` on load (and writing it back,
+  // shallowly, on every switch) means the active tab survives a reload or a
+  // bookmark, the same way a page's own route would.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const queryTab = typeof router.query.tab === "string" ? router.query.tab : null;
+    if (queryTab && TABS.some((t) => t.key === queryTab) && queryTab !== tab) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from the URL on first load / back-forward navigation, not a derived-state anti-pattern
+      setTabState(queryTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-sync when the URL's own tab param changes, not on every local setTab call
+  }, [router.isReady, router.query.tab]);
+
+  function setTab(next) {
+    setTabState(next);
+    if (router.isReady) {
+      router.replace({ pathname: router.pathname, query: { ...router.query, tab: next } }, undefined, { shallow: true });
+    }
+  }
 
   const selectedAccount = useMemo(() => adAccounts.find((a) => a.id === selectedAccountId), [adAccounts, selectedAccountId]);
   const businessId = selectedAccount?.business?.id || null;
