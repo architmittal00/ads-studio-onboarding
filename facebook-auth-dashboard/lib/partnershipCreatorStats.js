@@ -19,6 +19,8 @@ export function groupByCreator(ads) {
       byCreator.set(key, {
         key,
         creatorUsername: ad.creatorUsername || null,
+        creatorProfilePictureUrl: ad.creatorProfilePictureUrl || null,
+        creatorFollowersCount: ad.creatorFollowersCount ?? null,
         ads: [],
         spend: 0,
         purchases: 0,
@@ -26,6 +28,11 @@ export function groupByCreator(ads) {
       });
     }
     const bucket = byCreator.get(key);
+    // Every ad from the same resolved creator carries the same avatar/follower
+    // data (it's a per-username lookup, not per-ad) — fill in from whichever
+    // ad happens to have it first, same reasoning either way.
+    if (!bucket.creatorProfilePictureUrl && ad.creatorProfilePictureUrl) bucket.creatorProfilePictureUrl = ad.creatorProfilePictureUrl;
+    if (bucket.creatorFollowersCount == null && ad.creatorFollowersCount != null) bucket.creatorFollowersCount = ad.creatorFollowersCount;
     bucket.ads.push(ad);
     bucket.spend += ad.spend || 0;
     bucket.purchases += ad.purchases || 0;

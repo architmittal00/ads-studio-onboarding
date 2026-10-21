@@ -1,4 +1,5 @@
 import { CloseIcon } from "../icons";
+import CreatorAvatar from "./CreatorAvatar";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
@@ -16,11 +17,21 @@ export default function CreatorAdsDrawer({ creator, currency, onClose }) {
     <div className={styles.drawerOverlay} onClick={onClose}>
       <div className={styles.drawerPanel} onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100vw)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <p className={styles.muted} style={{ marginBottom: 2 }}>
-              Creator
-            </p>
-            <h2 className={styles.h2}>@{creator.creatorUsername || creator.key}</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <CreatorAvatar src={creator.creatorProfilePictureUrl} username={creator.creatorUsername || creator.key} size={36} />
+            <div>
+              <p className={styles.muted} style={{ marginBottom: 2 }}>
+                Creator
+              </p>
+              <h2 className={styles.h2} style={{ margin: 0 }}>
+                @{creator.creatorUsername || creator.key}
+              </h2>
+              {creator.creatorFollowersCount != null && (
+                <p className={styles.muted} style={{ margin: "2px 0 0", fontSize: 11 }}>
+                  {formatMetricValue(creator.creatorFollowersCount, "number")} followers
+                </p>
+              )}
+            </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
             <CloseIcon size={14} />

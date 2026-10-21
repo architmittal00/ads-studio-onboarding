@@ -59,6 +59,13 @@ export default function AccountSelect({
   // the default here is deliberately low; callers inside a higher context
   // must pass their own higher value.
   zIndex = 60,
+  // Opt-in restyling of the actual <input> itself (e.g. Partnership Ads'
+  // header pill cluster) — `style` above only reaches the outer wrapper div,
+  // which isn't enough to change the input's own padding/border-radius/font.
+  // Every existing caller omits these and the input keeps its normal
+  // `.select` look.
+  inputClassName,
+  inputStyle,
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -161,8 +168,8 @@ export default function AccountSelect({
         <div ref={wrapperRef} className={styles.comboWrapper}>
           <input
             type="text"
-            className={styles.select}
-            style={{ width: "100%" }}
+            className={inputClassName ? `${styles.select} ${inputClassName}` : styles.select}
+            style={{ width: "100%", ...inputStyle }}
             placeholder={loading ? "Loading accounts…" : atCap ? `Maximum ${maxSelected} accounts` : placeholder}
             value={query}
             disabled={atCap || loading}
@@ -210,8 +217,8 @@ export default function AccountSelect({
     <div ref={wrapperRef} className={styles.comboWrapper} style={style}>
       <input
         type="text"
-        className={styles.select}
-        style={{ width: "100%" }}
+        className={inputClassName ? `${styles.select} ${inputClassName}` : styles.select}
+        style={{ width: "100%", ...inputStyle }}
         placeholder={loading ? "Loading accounts…" : placeholder}
         value={displayValue}
         disabled={loading}

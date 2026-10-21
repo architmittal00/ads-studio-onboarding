@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import Loader from "../Loader";
 import SortableTable from "../SortableTable";
 import CreatorAdsDrawer from "./CreatorAdsDrawer";
+import PartnershipEmptyState from "./PartnershipEmptyState";
+import CreatorAvatar from "./CreatorAvatar";
+import { TargetIcon } from "@/components/icons";
 import { groupByCreator } from "@/lib/partnershipCreatorStats";
 import { formatMetricValue } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
@@ -50,13 +53,29 @@ function downloadCsv(csv, filename) {
 // pages/partnership-ads.js's own comment on `checkPerformance` for why this
 // (and My Partnership Ads) now share one fetch+cache with Overview instead
 // of each independently calling /api/fb/partnership/mine.
-export default function CreatorHubTab({ ready, currency, ads, loading, error, hasLoaded, range }) {
+export default function CreatorHubTab({ ready, currency, ads, loading, error, hasLoaded, range, onCheck, canCheck }) {
   const [openCreator, setOpenCreator] = useState(null);
 
   const creators = useMemo(() => groupByCreator(ads || []), [ads]);
 
   const columns = [
-    { key: "creatorUsername", label: "Creator", render: (row) => `@${row.creatorUsername || row.key}` },
+    {
+      key: "creatorUsername",
+      label: "Creator",
+      render: (row) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <CreatorAvatar src={row.creatorProfilePictureUrl} username={row.creatorUsername || row.key} size={24} />
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontWeight: 700 }}>@{row.creatorUsername || row.key}</p>
+            {row.creatorFollowersCount != null && (
+              <p className={styles.muted} style={{ margin: 0, fontSize: 10.5 }}>
+                {formatMetricValue(row.creatorFollowersCount, "number")} followers
+              </p>
+            )}
+          </div>
+        </div>
+      ),
+    },
     { key: "adCount", label: "Ads", align: "right" },
     { key: "spend", label: "Spend", align: "right", render: (row) => formatMetricValue(row.spend, "currency", currency) },
     { key: "purchases", label: "Purchases", align: "right", render: (row) => formatMetricValue(row.purchases, "number") },
@@ -65,24 +84,33 @@ export default function CreatorHubTab({ ready, currency, ads, loading, error, ha
   ];
 
   if (!ready) {
-    return <p className={styles.sub}>Pick an ad account above to see this.</p>;
+    return (
+      <PartnershipEmptyState
+        icon={TargetIcon}
+        title="Pick an ad account"
+        description="Select an ad account in the header above to see performance by creator."
+      />
+    );
   }
 
   return (
     <div>
       {!hasLoaded && !loading && (
-        <p className={styles.sub} style={{ margin: 0 }}>
-          Pick a date range on the right and click Check Performance to see every creator&apos;s performance, summed
-          across their own partnership ads, over that window.
-        </p>
+        <PartnershipEmptyState
+          icon={TargetIcon}
+          title="See performance by creator"
+          description="Every creator's performance, summed across their own partnership ads, over a chosen window."
+          steps={["Pick an ad account", "Choose a date range", 'Click "Check Performance"']}
+          ctaLabel="Check Performance"
+          onRun={onCheck}
+          canRun={canCheck}
+          loading={loading}
+        />
       )}
       {loading && <Loader label="Looking for partnership ads…" />}
       {error && <div className={styles.error}>{error}</div>}
       {hasLoaded && !error && creators.length === 0 && (
-        <section className={styles.card} style={{ textAlign: "center", padding: "48px 24px" }}>
-          <p style={{ fontWeight: 700, marginBottom: 6 }}>No creators yet</p>
-          <p className={styles.sub}>Once you have partnership ads running, their creators show up here.</p>
-        </section>
+        <PartnershipEmptyState icon={TargetIcon} title="No creators yet" description="Once you have partnership ads running, their creators show up here." />
       )}
       {creators.length > 0 && (
         <>

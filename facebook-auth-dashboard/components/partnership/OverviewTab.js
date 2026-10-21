@@ -1,4 +1,6 @@
 import Loader from "../Loader";
+import PartnershipEmptyState from "./PartnershipEmptyState";
+import { ChartIcon } from "@/components/icons";
 import { formatMetricValue } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
@@ -100,18 +102,30 @@ function DeltaCard({ label, partnership, normal, format, currency, lowerIsBetter
 // see the already-fetched result immediately, not trigger another "Load"
 // (and another round of Graph calls) per tab. See pages/partnership-ads.js's
 // own comment on `checkPerformance` for the full reasoning.
-export default function OverviewTab({ ready, currency, range, loading, error, data }) {
+export default function OverviewTab({ ready, currency, range, loading, error, data, onCheck, canCheck }) {
   if (!ready) {
-    return <p className={styles.sub}>Pick an ad account above to see this.</p>;
+    return (
+      <PartnershipEmptyState
+        icon={ChartIcon}
+        title="Pick an ad account"
+        description="Select an ad account in the header above to compare Partnership Ads against your other ads."
+      />
+    );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {!data && !loading && !error && (
-        <p className={styles.sub} style={{ margin: 0 }}>
-          Pick a date range on the right and click Check Performance to compare Partnership Ads against your other
-          ads over that window.
-        </p>
+        <PartnershipEmptyState
+          icon={ChartIcon}
+          title="Ready to compare performance"
+          description="See how your creator-collaborated ads stack up against your other campaigns over a chosen window."
+          steps={["Pick an ad account", "Choose a date range", 'Click "Check Performance"']}
+          ctaLabel="Check Performance"
+          onRun={onCheck}
+          canRun={canCheck}
+          loading={loading}
+        />
       )}
       {loading && <Loader label="Comparing Partnership vs. Normal Ads…" />}
       {error && <div className={styles.error}>{error}</div>}

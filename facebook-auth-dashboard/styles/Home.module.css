@@ -996,6 +996,62 @@ button.stat:hover {
   }
 }
 
+/* ── Partnership Ads: compact header pill cluster (Overview/My Partnership
+   Ads/Creator Hub's Ad Account + Date Range, moved out of a side panel into
+   the page header's own top-right corner, pill-styled) ── */
+.headerPillRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.headerPillSelect {
+  width: 170px;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.headerPillBtn {
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+}
+.headerPillIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(var(--surface-tint-rgb), 0.06);
+  border: 1px solid rgba(var(--surface-tint-rgb), 0.14);
+  color: var(--t2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.headerPillIconBtn:hover:not(:disabled) {
+  background: var(--card2);
+  color: var(--t1);
+}
+.headerPillIconBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.headerPillIconBtn.spinning svg {
+  animation: headerPillSpin 0.8s linear infinite;
+}
+@keyframes headerPillSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ── Explore: "?" hover hint, replacing an always-visible explanatory
    paragraph under a section heading (saves vertical space in the narrow
    query panel while keeping the full explanation one hover away) ── */
