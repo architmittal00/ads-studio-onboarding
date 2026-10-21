@@ -4,6 +4,8 @@ import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/lib/clientStorage";
+import { clearCachedEntry } from "@/lib/clientCache";
+import { ACCOUNT_DATA_CACHE_KEY } from "./AccountProvider";
 import {
   FileTextIcon,
   TargetIcon,
@@ -150,7 +152,18 @@ export default function Sidebar() {
         <button
           type="button"
           className={styles.appSidebarIconBtn}
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => {
+            // Reported by the user: a newly-connected Meta ad account didn't
+            // show up even after signing out and back in — AccountProvider's
+            // 30-minute account-data cache (lib/clientCache.js) isn't keyed
+            // to the session at all, so signing out alone never invalidated
+            // it; the next sign-in just kept reading the same stale entry.
+            // Clearing it here means a sign-out/sign-in cycle is guaranteed
+            // to reflect whatever changed on Meta's side, same as the user
+            // would expect.
+            clearCachedEntry(ACCOUNT_DATA_CACHE_KEY);
+            signOut({ callbackUrl: "/" });
+          }}
           title="Sign out"
         >
           <LogoutIcon size={16} />

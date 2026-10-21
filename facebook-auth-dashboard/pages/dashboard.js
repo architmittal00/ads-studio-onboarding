@@ -1,10 +1,12 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
 import CacheStatus from "@/components/CacheStatus";
 import AccountSelect from "@/components/AccountSelect";
+import { CopyIcon, CheckIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
@@ -20,10 +22,30 @@ export default function Dashboard({ user }) {
     adAccounts,
     accountsLoading,
     accountsError: error,
+    accountsFetchedAt,
+    refreshAccounts,
     selectedAccountId,
     setSelectedAccountId,
   } = useAccounts();
   const data = profile ? { profile, pages, adAccounts } : null;
+
+  // Client-visible copy of the token every API route is using server-side
+  // for Graph calls (pages/api/auth/[...nextauth].js's own `session`
+  // callback already puts it here) — surfaced so a user whose account/Page
+  // list looks wrong can paste it straight into Meta's own Graph API
+  // Explorer and check what Meta itself returns for this exact token,
+  // without this app's own account-data cache (see the Hard Refresh button
+  // below) in the way.
+  const { data: session } = useSession();
+  const accessToken = session?.accessToken || "";
+  const [tokenVisible, setTokenVisible] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
+
+  function copyToken() {
+    navigator.clipboard?.writeText(accessToken).catch(() => {});
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 1500);
+  }
 
   const [insights, setInsights] = useState(null);
   const [insightsError, setInsightsError] = useState(null);
@@ -72,11 +94,59 @@ export default function Dashboard({ user }) {
         <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
           <h1 className={styles.h1}>Raw Data</h1>
 
+          {/* Reported by the user: a newly-connected Meta ad account didn't
+              show up in the Ad Accounts list below even after several
+              sign-out/sign-in cycles, because AccountProvider's own
+              30-minute cache (lib/clientCache.js) isn't tied to the session
+              at all — signing out never cleared it (now fixed separately in
+              components/Sidebar.js), but this button covers the more common
+              case of the account list changing on Meta's side mid-session,
+              with no need to sign out at all. */}
+          {(accountsFetchedAt || accountsLoading) && (
+            <div style={{ marginTop: -8, marginBottom: 16 }}>
+              <CacheStatus label="Account data" fetchedAt={accountsFetchedAt} loading={accountsLoading} onRefresh={refreshAccounts} />
+            </div>
+          )}
+
           {error && <div className={styles.error}>Error: {error}</div>}
           {!data && !error && <p className={styles.sub}>Loading your Facebook data…</p>}
 
           {data && (
             <section style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {accessToken && (
+                <div className={styles.card}>
+                  <h2 className={styles.h2}>Access Token</h2>
+                  <p className={styles.sub} style={{ marginTop: -4, marginBottom: 10 }}>
+                    The exact token every call above is using. If an account or Page you expect isn&apos;t showing up here, paste
+                    this into Meta&apos;s own{" "}
+                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer">
+                      Graph API Explorer
+                    </a>{" "}
+                    and query it directly — that tells you whether Meta itself isn&apos;t returning it for this token, or
+                    whether it&apos;s this app not picking it up.
+                  </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type={tokenVisible ? "text" : "password"}
+                      readOnly
+                      value={accessToken}
+                      className={styles.select}
+                      style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <button type="button" className={styles.btnSecondary} onClick={() => setTokenVisible((v) => !v)}>
+                      {tokenVisible ? "Hide" : "Show"}
+                    </button>
+                    <button type="button" className={styles.btnSecondary} onClick={copyToken}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        {tokenCopied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+                        {tokenCopied ? "Copied" : "Copy"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className={styles.card}>
                 <h2 className={styles.h2}>Profile</h2>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
