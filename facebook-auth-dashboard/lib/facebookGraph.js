@@ -13,6 +13,24 @@ function redactToken(url) {
   return url.replace(/access_token=[^&]+/, "access_token=[REDACTED]");
 }
 
+// Graph's own `error.message` is often a generic one-liner ("Invalid
+// parameter") that gives no indication of *which* parameter or why —
+// reported by the user as a dead end while debugging a real launch failure.
+// `error_user_msg`/`error_user_title` (Graph's own "show this to the end
+// user" text) and the numeric code/subcode are usually far more specific,
+// when present, so fold them in instead of discarding them.
+function extractErrorMessage(error) {
+  if (!error) return null;
+  const parts = [error.message];
+  if (error.error_user_title) parts.push(error.error_user_title);
+  if (error.error_user_msg) parts.push(error.error_user_msg);
+  const codeParts = [];
+  if (error.code != null) codeParts.push(`code ${error.code}`);
+  if (error.error_subcode != null) codeParts.push(`subcode ${error.error_subcode}`);
+  if (codeParts.length > 0) parts.push(`(${codeParts.join(", ")})`);
+  return parts.filter(Boolean).join(" — ");
+}
+
 export async function graphGet(path, accessToken, params = {}) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -35,7 +53,7 @@ export async function graphGet(path, accessToken, params = {}) {
     status = res.status;
     json = await res.json();
     if (json?.error) {
-      errorMessage = json.error.message;
+      errorMessage = extractErrorMessage(json.error);
     }
   } catch (err) {
     errorMessage = err.message;
@@ -90,7 +108,7 @@ export async function graphPost(path, accessToken, params = {}) {
     status = res.status;
     json = await res.json();
     if (json?.error) {
-      errorMessage = json.error.message;
+      errorMessage = extractErrorMessage(json.error);
     }
   } catch (err) {
     errorMessage = err.message;
@@ -133,7 +151,7 @@ async function fetchPageByUrl(nextUrl, path) {
     status = res.status;
     json = await res.json();
     if (json?.error) {
-      errorMessage = json.error.message;
+      errorMessage = extractErrorMessage(json.error);
     }
   } catch (err) {
     errorMessage = err.message;
