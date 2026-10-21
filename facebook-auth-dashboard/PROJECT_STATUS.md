@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-21**, by Claude, right after merging PR #286 (fix Explore Ads wrongly blocking Collab posts that have a real tagged partner).
+> Last updated: **2026-10-21**, by Claude, right after merging PR #288 (Partnership Code tab: add permalink as an alternative to ad_code).
 
 ---
 
@@ -82,6 +82,16 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-21)
+
+### Partnership Code tab: add permalink as an alternative to ad_code (PR #288)
+
+A feature request, not a bug fix: the user asked for the ability to resolve content by Instagram permalink, not just by Partnership Code (ad_code), since Meta supports both. Investigation found the backend already supported this — `lib/partnershipAds.js`'s `lookupContent` and `pages/api/fb/partnership/content-lookup.js` have both accepted a `permalink` param since the pre-launch re-verification step was added — it had simply never been exposed anywhere in the UI. `CodeEntryCard` now has an Ad Code / Permalink toggle (reusing the existing `.tabGroup`/`.tab` pattern) instead of a single ad_code-only input; everything downstream (the preview modal, queueing) needed no changes since it was already written generically.
+
+While wiring this up, found and fixed a related latent bug: Graph's `permalinks` lookup param needs a bare Instagram shortcode ("Cw7zyQ5BdEE"), never a full URL — confirmed against the reference implementation (`Facebook Curls/partnership_ads_booster.py`'s own `extract_instagram_shortcode`). This app had no such extraction anywhere. Added `extractInstagramShortcode()` and applied it once, inside `lookupContent` itself, so every caller benefits automatically — including the **existing** pre-launch re-verification call in `launch.js`, which has been passing a raw, unextracted `item.permalink` for every ad_code-less queued item since that step was first added, and which (per this file's own §7) has never actually been exercised by a real launch yet. This closes a bug that would very likely have surfaced on the very first real UI-driven launch of permalink/Explore-sourced, ad_code-less content, before it ever got the chance to.
+
+Also fixed in passing: `FetchPreviewModal`'s "Code: {ad_code}" label now falls back to "Resolved via permalink" when there's no ad_code — permalink-resolved content often won't have one, and this modal previously only ever saw ad_code-sourced items so the gap was invisible until now.
+
+Verified: a standalone script covering `extractInstagramShortcode` against every real URL shape (`/p/`, `/reel/`, `/reels/`, `/tv/`, with/without `www`/query strings/trailing slashes), an already-bare shortcode passed through unchanged, and a Stories URL correctly rejected with a clear, specific error. A mocked browser preview of the real `PartnershipCodeTab` confirmed the toggle switches the placeholder and the query param sent, a permalink lookup resolves and queues correctly end to end (including the new "Resolved via permalink" label), and the existing Ad Code path is completely unaffected (identical request shape and label as before). `npm run lint && npm run build` clean.
 
 ### Explore Ads: fix Collab posts wrongly blocked as "Your own post" (PR #286)
 
