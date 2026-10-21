@@ -16,7 +16,18 @@ import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 const INSIGHTS_FIELDS = "ad_id,spend,actions,action_values,purchase_roas,ctr,cpm";
 const INSIGHTS_CHUNK_SIZE = 50;
 const IG_MEDIA_CHUNK_SIZE = 50;
-const IG_MEDIA_FIELDS = "id,username,permalink,media_type";
+// caption/timestamp/like_count/comments_count/media_url are standard,
+// documented fields on the IG Media node (unlike profile_picture_url, which
+// only exists on an IG User node — see resolveCreatorAvatars below) — added
+// so Creator Hub/My Partnership Ads can show the actual post behind each ad,
+// not just its resolved username.
+const IG_MEDIA_FIELDS = "id,username,permalink,media_type,media_url,caption,timestamp,like_count,comments_count";
+// business_discovery can only look up one username per call (it's a nested
+// field on the IG User node, not a batchable id), so this is a cap on how
+// many distinct creators get an avatar lookup per request, not a chunk size
+// — a generous ceiling for how many unique creators one account's branded
+// content realistically has in a single window, not a hard product limit.
+const MAX_AVATAR_LOOKUPS = 30;
 
 // CORRECTION, second one (the first — permalink string normalization —
 // didn't fix it either, confirmed live): the whole Content Discovery
@@ -63,6 +74,48 @@ async function resolveCreatorsByMediaId(token, ads) {
   return { byMediaId, lookupError: byMediaId.size === 0 ? lookupError : null };
 }
 
+// Best-effort creator avatars via Instagram's Business Discovery field
+// (`GET /{ig-user-id}?fields=business_discovery.username(...){...}`) — the
+// ONLY way to get a creator's profile picture at all, since (confirmed
+// against Meta's Graph API reference) `profile_picture_url` is a field of
+// the IG User node, not the IG Media node resolveCreatorsByMediaId already
+// reads; a media object genuinely cannot carry it.
+//
+// This needs *some* Instagram Business Account id to query through (any one
+// this access token manages — it doesn't have to relate to the ads/creators
+// being looked up at all, Business Discovery is a public-data lookup by
+// username), which is exactly the dependency Overview/My Partnership
+// Ads/Creator Hub deliberately dropped as a *requirement* in favor of the
+// media-id mechanism above (see this file's git history). So `igUserId` here
+// stays fully optional, read-only, and silent-on-failure: callers without a
+// connected Instagram Business Account, or where this lookup fails entirely,
+// get every row back with no avatar/follower data and no error surfaced —
+// never a blocker on seeing ads or creator names, which resolveCreatorsByMediaId
+// already handles on its own.
+async function resolveCreatorAvatars(token, igUserId, usernames) {
+  const byUsername = new Map();
+  if (!igUserId || usernames.length === 0) return byUsername;
+
+  const capped = usernames.slice(0, MAX_AVATAR_LOOKUPS);
+  const results = await Promise.allSettled(
+    capped.map((username) =>
+      graphGet(`/${igUserId}`, token, {
+        fields: `business_discovery.username(${username}){profile_picture_url,followers_count,name}`,
+      }).then((json) => ({ username, discovery: json.business_discovery }))
+    )
+  );
+  for (const result of results) {
+    if (result.status !== "fulfilled" || !result.value.discovery) continue;
+    const { username, discovery } = result.value;
+    byUsername.set(username, {
+      profilePictureUrl: discovery.profile_picture_url || null,
+      followersCount: discovery.followers_count ?? null,
+      displayName: discovery.name || null,
+    });
+  }
+  return byUsername;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -73,7 +126,9 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, since, until } = req.query;
+  // igUserId is optional and purely cosmetic — see resolveCreatorAvatars'
+  // own comment for why this is never required for the rest of this route.
+  const { accountId, since, until, igUserId } = req.query;
   if (!accountId) {
     return res.status(400).json({ error: "accountId is required" });
   }
@@ -108,6 +163,13 @@ export default async function handler(req, res) {
       resolveCreatorsByMediaId(token, ads).catch((err) => ({ byMediaId: new Map(), lookupError: err.message })),
     ]);
     const { byMediaId, lookupError } = creatorResolution;
+
+    // Avatar lookup runs after creator resolution — it needs the resolved
+    // usernames, not the media ids. Failures here never touch
+    // creatorUnresolvedReason/summary above; this is additive enrichment
+    // only (see resolveCreatorAvatars' own comment).
+    const resolvedUsernames = [...new Set([...byMediaId.values()].map((m) => m.username).filter(Boolean))];
+    const avatarsByUsername = await resolveCreatorAvatars(token, igUserId, resolvedUsernames).catch(() => new Map());
 
     const metricsByAdId = new Map();
     for (const result of insightsResults) {
@@ -151,11 +213,18 @@ export default async function handler(req, res) {
         creatorUnresolvedReason = "Could not read this Instagram media's username (deleted post, or access no longer granted).";
         summary.noMatch += 1;
       }
+      const avatar = media?.username ? avatarsByUsername.get(media.username) : null;
       return {
         ...ad,
         ...(metricsByAdId.get(ad.adId) || {}),
         creatorUsername: media?.username || null,
         creatorUnresolvedReason,
+        creatorProfilePictureUrl: avatar?.profilePictureUrl || null,
+        creatorFollowersCount: avatar?.followersCount ?? null,
+        postCaption: media?.caption || null,
+        postTimestamp: media?.timestamp || null,
+        postLikeCount: media?.like_count ?? null,
+        postCommentsCount: media?.comments_count ?? null,
       };
     });
     res.status(200).json({ ads: enriched, creatorResolutionSummary: summary });

@@ -178,6 +178,11 @@ export default function DateRangeMenu({
   // doesn't pass it, so its behavior is unchanged).
   compareDisabledReason = "Not available together with daily/weekly/monthly grouping.",
   onApply,
+  // Opt-in trigger restyling (e.g. Partnership Ads' header pill cluster) —
+  // every existing caller omits these and gets the original .btnSecondary
+  // look unchanged.
+  triggerClassName,
+  triggerStyle,
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(null);
@@ -263,8 +268,8 @@ export default function DateRangeMenu({
       <button
         type="button"
         ref={triggerRef}
-        className={styles.btnSecondary}
-        style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+        className={triggerClassName || styles.btnSecondary}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, ...triggerStyle }}
         onClick={openMenu}
       >
         <CalendarIcon size={13} />
@@ -316,8 +321,8 @@ export default function DateRangeMenu({
       <button
         type="button"
         ref={triggerRef}
-        className={styles.btnSecondary}
-        style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+        className={triggerClassName || styles.btnSecondary}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, ...triggerStyle }}
         onClick={close}
       >
         <CalendarIcon size={13} />

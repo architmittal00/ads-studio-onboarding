@@ -3,6 +3,9 @@ import Loader from "../Loader";
 import SortableTable from "../SortableTable";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
+import PartnershipEmptyState from "./PartnershipEmptyState";
+import CreatorAvatar from "./CreatorAvatar";
+import { HandshakeIcon } from "@/components/icons";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
@@ -36,7 +39,10 @@ function columns(currency, onPreview) {
       label: "Creator",
       render: (row) =>
         row.creatorUsername ? (
-          `@${row.creatorUsername}`
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <CreatorAvatar src={row.creatorProfilePictureUrl} username={row.creatorUsername} size={22} />
+            <span>@{row.creatorUsername}</span>
+          </div>
         ) : (
           // Hover for *why* — previously a flat, unexplained "—" for every
           // unresolved ad, reported as "most ads show an unknown creator"
@@ -92,29 +98,42 @@ function describeCreatorSummary(summary) {
   return `${unresolvedCount} of ${unresolvedCount + summary.resolved} ads have no resolved creator — ${parts.join(", ")}.`;
 }
 
-export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoaded, range, creatorSummary }) {
+export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoaded, range, creatorSummary, onCheck, canCheck }) {
   const [lightboxItem, setLightboxItem] = useState(null);
   const creatorSummaryText = describeCreatorSummary(creatorSummary);
 
   if (!ready) {
-    return <p className={styles.sub}>Pick an ad account above to see this.</p>;
+    return (
+      <PartnershipEmptyState
+        icon={HandshakeIcon}
+        title="Pick an ad account"
+        description="Select an ad account in the header above to see your branded-content ads."
+      />
+    );
   }
 
   return (
     <div>
       {!hasLoaded && !loading && (
-        <p className={styles.sub} style={{ margin: 0 }}>
-          Pick a date range on the right and click Check Performance to see every branded-content ad with delivery in
-          that window.
-        </p>
+        <PartnershipEmptyState
+          icon={HandshakeIcon}
+          title="See your partnership ads"
+          description="Every ad with a branded-content creative, with its own performance over a chosen window."
+          steps={["Pick an ad account", "Choose a date range", 'Click "Check Performance"']}
+          ctaLabel="Check Performance"
+          onRun={onCheck}
+          canRun={canCheck}
+          loading={loading}
+        />
       )}
       {loading && <Loader label="Looking for partnership ads…" />}
       {error && <div className={styles.error}>{error}</div>}
       {hasLoaded && !error && (!ads || ads.length === 0) && (
-        <section className={styles.card} style={{ textAlign: "center", padding: "48px 24px" }}>
-          <p style={{ fontWeight: 700, marginBottom: 6 }}>No partnership ads found</p>
-          <p className={styles.sub}>Ads with a branded-content creative (launched here or in Ads Manager) will show up here.</p>
-        </section>
+        <PartnershipEmptyState
+          icon={HandshakeIcon}
+          title="No partnership ads found"
+          description="Ads with a branded-content creative (launched here or in Ads Manager) will show up here."
+        />
       )}
       {ads && ads.length > 0 && (
         <>
