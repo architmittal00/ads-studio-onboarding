@@ -1006,15 +1006,19 @@ button.stat:hover {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+/* 9px — same radius .select/.btnSecondary already use everywhere else in
+   this app, not a full pill (999px, this block's original value) — a
+   fully-rounded shape here was the one place in the whole app that didn't
+   match its own input/button convention. */
 .headerPillSelect {
   width: 170px;
-  border-radius: 999px;
+  border-radius: 9px;
   padding: 7px 14px;
   font-size: 12px;
   font-weight: 600;
 }
 .headerPillBtn {
-  border-radius: 999px;
+  border-radius: 9px;
   padding: 7px 14px;
   font-size: 12px;
 }
@@ -1024,7 +1028,7 @@ button.stat:hover {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 999px;
+  border-radius: 9px;
   background: rgba(var(--surface-tint-rgb), 0.06);
   border: 1px solid rgba(var(--surface-tint-rgb), 0.14);
   color: var(--t2);

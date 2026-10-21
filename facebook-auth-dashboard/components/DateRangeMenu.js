@@ -180,7 +180,14 @@ export default function DateRangeMenu({
   onApply,
   // Opt-in trigger restyling (e.g. Partnership Ads' header pill cluster) —
   // every existing caller omits these and gets the original .btnSecondary
-  // look unchanged.
+  // look unchanged. `triggerClassName` is ADDED alongside .btnSecondary, not
+  // swapped in for it — it only overrides shape (radius/padding/font-size),
+  // relying on .btnSecondary's own background/border/color still applying.
+  // A plain `||` swap here previously dropped .btnSecondary's color/
+  // background entirely whenever a triggerClassName was passed, leaving the
+  // trigger with no themed styling at all (the browser's native button
+  // chrome) — exactly the "date range pill looks different" bug reported
+  // against the header pill cluster.
   triggerClassName,
   triggerStyle,
 }) {
@@ -268,7 +275,7 @@ export default function DateRangeMenu({
       <button
         type="button"
         ref={triggerRef}
-        className={triggerClassName || styles.btnSecondary}
+        className={triggerClassName ? `${styles.btnSecondary} ${triggerClassName}` : styles.btnSecondary}
         style={{ display: "inline-flex", alignItems: "center", gap: 8, ...triggerStyle }}
         onClick={openMenu}
       >
@@ -321,7 +328,7 @@ export default function DateRangeMenu({
       <button
         type="button"
         ref={triggerRef}
-        className={triggerClassName || styles.btnSecondary}
+        className={triggerClassName ? `${styles.btnSecondary} ${triggerClassName}` : styles.btnSecondary}
         style={{ display: "inline-flex", alignItems: "center", gap: 8, ...triggerStyle }}
         onClick={close}
       >
