@@ -126,15 +126,45 @@ export async function discoverContent(
   return { items: json.data || [], nextCursor: json.paging?.cursors?.after || null };
 }
 
+// Graph's own `permalinks` lookup param wants a bare Instagram shortcode
+// ("Cw7zyQ5BdEE"), never a full URL — confirmed against the reference
+// implementation (Facebook Curls/partnership_ads_booster.py's own
+// `extract_instagram_shortcode`, which every permalink-based lookup in that
+// script runs through first; Meta's own Content Discovery docs give the
+// param's example values as bare shortcodes too). Accepts either a full
+// permalink (`/p/`, `/reel/`, `/reels/`, or `/tv/`) or an already-bare
+// shortcode, so callers can pass through whatever a user pastes or whatever
+// Content Discovery's own `permalink` field returned, unexamined. Instagram
+// Stories have no shortcode of this kind and aren't supported by Partnership
+// Ads at all (same limitation the reference script documents) — raising a
+// clear error here rather than sending Graph something it will reject for a
+// reason the resulting error wouldn't actually explain.
+export function extractInstagramShortcode(permalink) {
+  if (!permalink) return permalink;
+  const trimmed = permalink.trim();
+  if (/\/stories\//i.test(trimmed)) {
+    throw new Error("Instagram Stories can't be used for Partnership Ads — use a post, reel, or video permalink instead.");
+  }
+  const match = trimmed.match(/instagram\.com\/(?:p|reels?|tv)\/([A-Za-z0-9_-]+)/i);
+  if (match) return match[1];
+  return trimmed.replace(/^\/+|\/+$/g, "");
+}
+
 // Same endpoint, direct-lookup mode: resolves specific content by code,
 // permalink, or id instead of paginating through everything — used by the
-// Partnership Code tab and by a pre-launch re-verification step (content can
-// go stale between being queued and actually launched). Exactly one of the
-// three lookup arrays should be given; the API caps each at 50 entries.
+// Partnership Code tab (by ad_code or, now, by permalink) and by a
+// pre-launch re-verification step (content can go stale between being
+// queued and actually launched, and an ad_code-less queued item is always
+// re-verified by its permalink — see pages/api/fb/partnership/launch.js).
+// Exactly one of the three lookup arrays should be given; the API caps each
+// at 50 entries. `permalinks` is run through `extractInstagramShortcode`
+// here, once, so every caller — this function's two above — automatically
+// gets a working lookup regardless of whether it was handed a full URL or
+// an already-bare shortcode.
 export async function lookupContent(token, businessId, { igUserId, adCodes, permalinks, contentIds } = {}) {
   const params = { ig_user_id: igUserId, fields: CONTENT_FIELDS };
   if (adCodes?.length) params.ad_codes = adCodes;
-  else if (permalinks?.length) params.permalinks = permalinks;
+  else if (permalinks?.length) params.permalinks = permalinks.map(extractInstagramShortcode);
   else if (contentIds?.length) params.content_ids = contentIds;
   else throw new Error("lookupContent needs adCodes, permalinks, or contentIds");
 

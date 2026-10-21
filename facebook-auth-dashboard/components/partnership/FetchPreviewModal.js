@@ -97,7 +97,10 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
               <h2 className={styles.h2} style={{ marginTop: 2 }}>
                 @{item.author?.display_name || "unknown"}
               </h2>
-              <p className={styles.muted} style={{ margin: 0 }}>Code: {info.ad_code}</p>
+              {/* Permalink-resolved content (now possible via CodeEntryCard's
+                  Permalink mode) often has no ad_code at all — fall back to
+                  saying so instead of rendering a blank/"undefined" code. */}
+              <p className={styles.muted} style={{ margin: 0 }}>{info.ad_code ? `Code: ${info.ad_code}` : "Resolved via permalink"}</p>
             </div>
             <button type="button" onClick={onClose} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
               <CloseIcon size={14} />
