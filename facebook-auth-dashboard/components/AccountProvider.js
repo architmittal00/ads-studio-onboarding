@@ -37,6 +37,15 @@ export function AccountProvider({ children }) {
   // loading window, not just when the account genuinely has none.
   const [accountsLoading, setAccountsLoading] = useState(true);
   const [accountsError, setAccountsError] = useState(null);
+  // Per-resource errors from /api/fb/data — distinct from `accountsError`
+  // (that one's for the whole call failing, e.g. a dead token). These are
+  // set when the Pages/Ad Accounts edges specifically returned a Graph
+  // error (most often a permission/scope error — see pages/api/fb/data.js's
+  // own comment) instead of real data, so the dashboard can show the actual
+  // reason instead of a generic "none found" that's indistinguishable from
+  // a user who genuinely has zero of either.
+  const [pagesError, setPagesError] = useState(null);
+  const [adAccountsError, setAdAccountsError] = useState(null);
   const [accountsFetchedAt, setAccountsFetchedAt] = useState(null);
   const [selectedAccountId, setSelectedAccountIdState] = useState("");
   const [selectedIgAccountId, setSelectedIgAccountIdState] = useState("");
@@ -48,6 +57,8 @@ export function AccountProvider({ children }) {
         setProfile(cached.data.profile);
         setPages(cached.data.pages || []);
         setAdAccounts(cached.data.adAccounts || []);
+        setPagesError(cached.data.pagesError || null);
+        setAdAccountsError(cached.data.adAccountsError || null);
         setAccountsFetchedAt(cached.fetchedAt);
         setAccountsError(null);
         setAccountsLoading(false);
@@ -67,6 +78,8 @@ export function AccountProvider({ children }) {
         setProfile(json.profile || null);
         setPages(json.pages || []);
         setAdAccounts(json.adAccounts || []);
+        setPagesError(json.pagesError || null);
+        setAdAccountsError(json.adAccountsError || null);
         setAccountsFetchedAt(Date.now());
         setCachedEntry(ACCOUNT_DATA_CACHE_KEY, json);
       })
@@ -155,6 +168,8 @@ export function AccountProvider({ children }) {
     adAccounts,
     accountsLoading,
     accountsError,
+    pagesError,
+    adAccountsError,
     accountsFetchedAt,
     selectedAccountId,
     setSelectedAccountId,
