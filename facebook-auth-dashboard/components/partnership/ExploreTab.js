@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Loader from "../Loader";
-import DateRangeMenu from "../DateRangeMenu";
 import PartnerCard from "./PartnerCard";
 import ExpandedCardModal from "./ExpandedCardModal";
 import SelectionBar from "./SelectionBar";
 import BulkPermissionModal from "./BulkPermissionModal";
 import { permissionState, firstPartnershipInfo } from "@/lib/partnershipContent";
-import { computeRange } from "@/lib/dateRanges";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
 import { SearchIcon } from "../icons";
@@ -42,13 +40,22 @@ function engagementScore(item) {
 // Meta's Content Discovery API. Selection, permission requests (single from
 // the expanded card, bulk from the floating selection bar), and queuing
 // launch-ready content are all wired up.
-export default function ExploreTab({ accountId, businessId, igUserId, ready, onQueueChanged }) {
+//
+// `dateRange` ({since, until} or null) is owned by pages/partnership-ads.js
+// now, not this component — its own header pill row shows Ad Account +
+// Instagram Business Account + Date Range for every tab (previously Explore
+// kept its own separate DateRangeMenu inside its filter row while the other
+// controls lived in a side panel, an inconsistent layout the user flagged).
+// Still a genuinely separate piece of state from the performance tabs'
+// shared range (filtering *content posted* in a window is an unrelated
+// concept from ad *performance*), just lifted to the same parent instead of
+// living locally here.
+export default function ExploreTab({ accountId, businessId, igUserId, ready, dateRange, onQueueChanged }) {
   const [media, setMedia] = useState("all");
   const [usage, setUsage] = useState("all");
   const [eligibility, setEligibility] = useState("all");
   const [sort, setSort] = useState("recent");
   const [search, setSearch] = useState("");
-  const [range, setRange] = useState({ rangePreset: "last_30d", customSince: null, customUntil: null });
 
   const [items, setItems] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -87,15 +94,21 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, onQ
     });
   }
 
-  const dateRange = useMemo(() => computeRange(range.rangePreset, range.customSince, range.customUntil), [range]);
-
   function buildQuery(after) {
     // media (video/photo) and eligibility (need/requested/ready) are
     // filtered client-side below, in visibleItems — the API's own filters
     // don't map 1:1 onto either: post_types means feed/stories/reels, not
     // media type, and ad_eligibilities is coarser than the mockup's 3-way
     // permission split (see lib/partnershipContent.js's permissionState).
-    const params = new URLSearchParams({ businessId, igUserId });
+    // `limit: 50` — the real cap lib/partnershipAds.js's discoverContent
+    // already enforces (Math.min(limit, 50)); this request previously never
+    // set one at all and silently got the server's own default of 25,
+    // reported by the user as "why is this paginated" — doubling the actual
+    // batch size per "Load more" click, not changing the underlying
+    // cursor-paginated nature of the Content Discovery API itself (walking
+    // every page in one request isn't bounded the way this one query is,
+    // the same reasoning Overview's own ad-history walk was fixed for).
+    const params = new URLSearchParams({ businessId, igUserId, limit: "50" });
     if (after) params.set("after", after);
     if (usage !== "all") params.set("adUsages", usage);
     if (eligibility !== "all") {
@@ -294,25 +307,9 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, onQ
             style={{ width: "100%", paddingLeft: 30 }}
           />
         </div>
-        <span className={styles.muted} style={{ fontSize: 12 }}>
+        <span className={styles.muted} style={{ fontSize: 12, marginLeft: "auto" }}>
           {visibleItems.length} ad{visibleItems.length === 1 ? "" : "s"}
         </span>
-        <div style={{ marginLeft: "auto" }}>
-          <DateRangeMenu
-            rangePreset={range.rangePreset}
-            customSince={range.customSince}
-            customUntil={range.customUntil}
-            maxRangeDays={365}
-            compareDisabled
-            onApply={(patch) =>
-              setRange((prev) => ({
-                rangePreset: patch.rangePreset ?? prev.rangePreset,
-                customSince: patch.customSince ?? prev.customSince,
-                customUntil: patch.customUntil ?? prev.customUntil,
-              }))
-            }
-          />
-        </div>
       </div>
 
       {loading && <Loader label="Loading eligible content…" />}

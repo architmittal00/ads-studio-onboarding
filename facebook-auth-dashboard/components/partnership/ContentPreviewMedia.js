@@ -26,18 +26,19 @@ function Placeholder({ isVideo, loading, size }) {
 // lib/partnershipAds.js's fetchContentPreview for what `data.kind` means and
 // why neither resolution mechanism is guaranteed to succeed.
 //
-// `variant` only changes the oEmbed-fallback-video case:
+// `variant`:
 // - "card" (many items on screen at once — Explore's grid, the queue list,
-//   the launch wizard's review list): a static thumbnail + a play badge,
-//   never a live Instagram embed — loading dozens of Instagram's own embed
-//   widgets simultaneously isn't something this app forces.
+//   the launch wizard's review list): a direct video autoplays muted with no
+//   control bar (a full control bar on every tile would be visual noise),
+//   the oEmbed fallback shows a static thumbnail + a play badge rather than
+//   a live Instagram embed — loading dozens of Instagram's own embed widgets
+//   simultaneously isn't something this app forces.
 // - "detail" (one item at a time — Explore's Details modal, Partnership
-//   Code's preview modal): the real native Instagram embed (its own play
-//   controls), since there's only ever one of these on screen.
-// A resolved `media_url` (the "direct" mechanism) always renders as a real
-// `<video muted autoPlay loop playsInline>` or `<img>` regardless of
-// variant — that's the one case where this app actually controls playback
-// itself.
+//   Code's preview modal): a direct video gets native `controls` (play/pause,
+//   mute/unmute — reported missing once a video is open full-size), the
+//   oEmbed fallback renders the real native Instagram embed (its own play
+//   controls) instead of a thumbnail, since there's only ever one of these on
+//   screen.
 export default function ContentPreviewMedia({ contentId, permalink, mediaType, variant = "card" }) {
   const { data, loading } = useContentPreview(contentId, permalink);
   const isVideo = mediaType === "VIDEO";
@@ -48,7 +49,23 @@ export default function ContentPreviewMedia({ contentId, permalink, mediaType, v
   if (data.kind === "direct" && data.mediaUrl) {
     const resolvedIsVideo = (data.mediaType || mediaType) === "VIDEO";
     if (resolvedIsVideo) {
-      return <video style={FILL_STYLE} src={data.mediaUrl} poster={data.thumbnailUrl || undefined} muted autoPlay loop playsInline />;
+      // Native controls only in "detail" (one at a time, e.g. Explore's own
+      // Details view) — reported by the user: once a video is open full-size
+      // there was no way to pause or unmute it. Omitted in "card" (many
+      // playing at once in a grid) where a full control bar on every tile
+      // would be visual noise, not a real affordance anyone reaches for.
+      return (
+        <video
+          style={FILL_STYLE}
+          src={data.mediaUrl}
+          poster={data.thumbnailUrl || undefined}
+          muted
+          autoPlay
+          loop
+          playsInline
+          controls={variant === "detail"}
+        />
+      );
     }
     // eslint-disable-next-line @next/next/no-img-element -- a real Meta-hosted media_url, not something next/image's remote-domain config covers
     return <img style={FILL_STYLE} src={data.mediaUrl} alt="" />;
