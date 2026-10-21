@@ -28,7 +28,19 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
   const existingSettings = getPartnershipSettings(accountId) || {};
   const [pixelId, setPixelIdState] = useState(existingSettings.pixelId || getPixelMapping(accountId) || "");
   const [utmParam, setUtmParam] = useState(existingSettings.utmParam || "");
-  const [facebookPageId, setFacebookPageId] = useState(existingSettings.facebookPageId || pages?.[0]?.id || "");
+  // Settings (including this Page choice) are remembered per ad account —
+  // so the first time this wizard opens for a *different* ad account tied to
+  // the same Instagram account, there's no saved value yet and this used to
+  // fall back to `pages?.[0]?.id`, an arbitrary first entry in the full list
+  // of every Page the token can see. Reported by the user: the same content
+  // launched fine from one ad account but failed from a second — a wrong
+  // default Page here makes `facebook_branded_content.sponsor_page_id`
+  // invalid for that launch regardless of the content itself being fine.
+  // Defaulting to the Page actually linked to the selected Instagram account
+  // (found by matching its `instagram_business_account.id`) is correct
+  // regardless of which ad account is in use; still fully overridable below.
+  const linkedPageId = pages?.find((p) => p.instagram_business_account?.id === igUserId)?.id;
+  const [facebookPageId, setFacebookPageId] = useState(existingSettings.facebookPageId || linkedPageId || pages?.[0]?.id || "");
   const [adsets, setAdsets] = useState([]);
   const [status, setStatus] = useState("PAUSED");
   const [launching, setLaunching] = useState(false);

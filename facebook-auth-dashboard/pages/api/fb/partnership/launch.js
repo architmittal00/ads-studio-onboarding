@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
 import { lookupContent, registerVideoSource, createBrandedCreative, createAd } from "@/lib/partnershipAds";
+import { firstPartnershipInfo } from "@/lib/partnershipContent";
 
 // Creates real Ads from the launch queue — the first endpoint in this app
 // that creates an Ad/AdCreative (every prior launch flow here stops at the
@@ -36,6 +37,15 @@ import { lookupContent, registerVideoSource, createBrandedCreative, createAd } f
 // (like a brand's own post) with neither id available at creative-creation
 // time, surfacing as "createBrandedCreative needs adCode or
 // sourceInstagramMediaId" on a real launch attempt.
+//
+// `ad_code` itself is re-read from the re-verification lookup each time
+// (see the `firstPartnershipInfo(verified).ad_code` line below), not frozen
+// at whatever moment the content was originally queued — reported by the
+// user: the identical queued content launched fine under one ad account but
+// failed under a second one, which pointed at the `ad_code` ("boost post
+// access token") not being the stable, indefinitely-reusable value it looks
+// like; using the freshest one available avoids launching against one
+// that's gone stale since it was first captured into the queue.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -103,9 +113,24 @@ export default async function handler(req, res) {
     // calls need as a fallback when the item has no ad_code.
     const sourceInstagramMediaId = verified.content_id;
 
+    // Re-verification already re-fetches this content's own partnership_info
+    // fresh from Graph (same CONTENT_FIELDS, includes ad_code) — use THAT
+    // ad_code here, not `item.adCode` frozen into the queue at whatever
+    // moment this content was originally discovered/queued (hours or days
+    // earlier, from a different ad account's own session). Reported by the
+    // user: the exact same queued content launched successfully under one
+    // ad account but failed under a second one — Meta's branded-content
+    // `ad_code` ("boost post access token") isn't a stable, infinitely
+    // reusable identifier, so launching against a stale one can fail even
+    // though the content itself is still perfectly eligible. Still falls
+    // back to `item.adCode` if the fresh lookup somehow didn't return one
+    // (shouldn't normally happen, since the lookup above was keyed by that
+    // same ad_code when present).
+    const adCode = firstPartnershipInfo(verified).ad_code || item.adCode;
+
     if (item.mediaType === "VIDEO" && sourceInstagramMediaId) {
       try {
-        await registerVideoSource(token, accountId, { sourceInstagramMediaId, adCode: item.adCode });
+        await registerVideoSource(token, accountId, { sourceInstagramMediaId, adCode });
       } catch {
         // Best-effort — see this file's own header comment on why this step's
         // necessity on the ad_code path isn't fully confirmed; a real failure
@@ -123,7 +148,7 @@ export default async function handler(req, res) {
         igUserId,
         callToActionType: item.cta,
         link: item.redirectionLink,
-        adCode: item.adCode,
+        adCode,
         sourceInstagramMediaId,
         testimonial: item.primaryText || undefined,
       });
