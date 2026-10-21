@@ -160,13 +160,51 @@ const AD_FORMAT_CODES = { BOTH: 1, FIRST: 2, DYNAMIC: 3 };
 // Sourcing is mutually exclusive: EITHER `adCode` (sets
 // branded_content.instagram_boost_post_access_token) OR
 // `sourceInstagramMediaId` (sent as its own top-level param) — never both.
+//
+// `object_id` is the PRIMARY identity — this app always runs the ad as the
+// advertiser/brand (the connected Page), never flips to "creator as primary"
+// (Meta supports both, see the identity note below) — so `object_id` is
+// always the brand's own Facebook Page id.
+//
+// `facebook_branded_content.sponsor_page_id` / `instagram_branded_content.
+// sponsor_id` are the SECONDARY identity — and, confirmed the hard way, that
+// is the tagged PARTNER's (the creator's) Facebook Page / Instagram id, NOT
+// the advertiser's own. This function used to receive the advertiser's own
+// `facebookPageId`/`igUserId` for these two fields (the same values already
+// used for `object_id` elsewhere), which made every real launch attempt read
+// to Graph as "the brand is claiming to be its own tagged partner" — exactly
+// the "@sheshaayurveda isn't a partner of @sheshaayurveda" (code 100,
+// subcode 3867018) error chased across several prior rounds. PR #280 had
+// already explained *half* of that error (a brand's own authored post is
+// structurally never eligible, no fix possible) — but that same error was
+// ALSO firing for genuinely eligible, creator-authored collab content, for
+// this completely different and actually-fixable reason: this function was
+// never told who the real tagged partner was.
+//
+// Confirmed two ways: (1) the user's own live retry — swapping these two
+// fields from the brand's own ids to the actual creator's (from Content
+// Discovery's own `partnership_info.tagged_partner`) is what made a real
+// collab reel launch successfully; (2) Meta's own docs, "Instagram
+// Partnership Ads with a New Ad Creative" — the "yourself as primary
+// identity" example sets `sponsor_page_id`/`sponsor_id` to literal
+// Creator-Page-ID/Creator-IG-ID values, with `object_story_spec.page_id` (the
+// equivalent of this function's `objectId` for the other creative-
+// construction method) set to the Advertiser's own Page ID. (Meta's sibling
+// "Boost Existing Instagram Media" doc page uses placeholder names that read
+// the opposite way with no actual example values behind them — inconsistent
+// with the annotated, real-ID example on the other page, and directly
+// contradicted by this app's own real Graph error; treated as a docs
+// inconsistency, not followed.)
 export async function createBrandedCreative(
   token,
   adAccountId,
-  { objectId, facebookPageId, igUserId, callToActionType, link, adCode, sourceInstagramMediaId, adFormat, testimonial } = {}
+  { objectId, sponsorFacebookPageId, sponsorIgUserId, callToActionType, link, adCode, sourceInstagramMediaId, adFormat, testimonial } = {}
 ) {
   if (!adCode && !sourceInstagramMediaId) {
     throw new Error("createBrandedCreative needs adCode or sourceInstagramMediaId");
+  }
+  if (!sponsorFacebookPageId && !sponsorIgUserId) {
+    throw new Error("createBrandedCreative needs the tagged partner's sponsorFacebookPageId and/or sponsorIgUserId");
   }
   const brandedContent = {};
   if (adCode) brandedContent.instagram_boost_post_access_token = adCode;
@@ -175,10 +213,13 @@ export async function createBrandedCreative(
 
   const params = {
     object_id: objectId,
-    facebook_branded_content: { sponsor_page_id: facebookPageId },
-    instagram_branded_content: { sponsor_id: igUserId },
     call_to_action: { type: callToActionType, value: { link } },
   };
+  // Meta auto-links the counterpart identity when only one of the two is
+  // given (its own docs' note), so either alone is enough — only send what
+  // Content Discovery actually gave us for this partner.
+  if (sponsorFacebookPageId) params.facebook_branded_content = { sponsor_page_id: sponsorFacebookPageId };
+  if (sponsorIgUserId) params.instagram_branded_content = { sponsor_id: sponsorIgUserId };
   if (Object.keys(brandedContent).length > 0) params.branded_content = brandedContent;
   if (!adCode && sourceInstagramMediaId) params.source_instagram_media_id = sourceInstagramMediaId;
 
