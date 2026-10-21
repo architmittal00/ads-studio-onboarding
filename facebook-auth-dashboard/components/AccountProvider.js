@@ -3,7 +3,9 @@ import { useSession } from "next-auth/react";
 import { getLastAccountId, setLastAccountId, getLastIgAccountId, setLastIgAccountId } from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 
-const ACCOUNT_DATA_CACHE_KEY = "account-data";
+// Exported so components/Sidebar.js can clear it on sign-out — see that
+// file's own comment for why signing out needs to do that.
+export const ACCOUNT_DATA_CACHE_KEY = "account-data";
 
 const AccountContext = createContext(null);
 
