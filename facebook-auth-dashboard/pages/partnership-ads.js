@@ -95,6 +95,17 @@ export default function PartnershipAds() {
   const [customUntil, setCustomUntil] = useState("");
   const performanceRange = computeRange(rangePreset, customSince, customUntil);
 
+  // Explore Ads' own, separate date range — filtering *content posted* in a
+  // window, not ad performance (see the comment above). Previously lived
+  // inside ExploreTab.js itself with its own DateRangeMenu rendered in the
+  // main content area; lifted up here so its control can join the same
+  // header pill row every other tab already uses, instead of Explore being
+  // the one tab with controls split across two different places on the page.
+  const [exploreRangePreset, setExploreRangePreset] = useState("last_30d");
+  const [exploreCustomSince, setExploreCustomSince] = useState("");
+  const [exploreCustomUntil, setExploreCustomUntil] = useState("");
+  const exploreRange = computeRange(exploreRangePreset, exploreCustomSince, exploreCustomUntil);
+
   // One fetch (+ 5-minute cache) backs all three performance tabs instead of
   // each independently calling its own endpoint on its own "Load" click.
   // Reported by the user: Overview's rollup and My Partnership Ads' per-ad
@@ -198,39 +209,66 @@ export default function PartnershipAds() {
                   <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
                 </Link>
 
-                {/* Overview/My Partnership Ads/Creator Hub's own Ad Account +
-                    Date Range, as a compact pill row in the header's top
-                    right corner instead of a side panel — mirrors how other
-                    Studio pages place their account/date controls right next
-                    to the page title. */}
-                {isPerformanceTab && (
-                  <div className={styles.headerPillRow}>
+                {/* Every tab's own Ad Account (+ Instagram Business Account,
+                    + Date Range, depending on what that tab actually needs)
+                    as one compact pill row in the header's top-right corner —
+                    previously only Overview/My Partnership Ads/Creator Hub
+                    got this treatment, while Explore Ads/My Requests/
+                    Partnership Code kept an older side-panel layout with
+                    Explore's own date picker split off into its own content
+                    area on top of that. One consistent place for these
+                    controls across all six tabs now. */}
+                <div className={styles.headerPillRow}>
+                  <AccountSelect
+                    accounts={adAccounts}
+                    value={selectedAccountId}
+                    onChange={setSelectedAccountId}
+                    placeholder="Select an ad account…"
+                    inputClassName={styles.headerPillSelect}
+                    inputStyle={{ width: 190 }}
+                    loading={accountsLoading}
+                  />
+                  {!isPerformanceTab && (
                     <AccountSelect
-                      accounts={adAccounts}
-                      value={selectedAccountId}
-                      onChange={setSelectedAccountId}
-                      placeholder="Select an ad account…"
+                      accounts={igOptions}
+                      value={selectedIgAccountId}
+                      onChange={setSelectedIgAccountId}
+                      placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"}
                       inputClassName={styles.headerPillSelect}
                       inputStyle={{ width: 190 }}
                       loading={accountsLoading}
                     />
+                  )}
+                  {(isPerformanceTab || tab === "explore") && (
                     <DateRangeMenu
-                      rangePreset={rangePreset}
-                      customSince={customSince}
-                      customUntil={customUntil}
-                      maxRangeDays={MAX_RANGE_DAYS}
+                      rangePreset={isPerformanceTab ? rangePreset : exploreRangePreset}
+                      customSince={isPerformanceTab ? customSince : exploreCustomSince}
+                      customUntil={isPerformanceTab ? customUntil : exploreCustomUntil}
+                      maxRangeDays={isPerformanceTab ? MAX_RANGE_DAYS : 365}
                       compareToPrevious={false}
                       compareCustomSince=""
                       compareDisplay="change"
                       compareDisabled
-                      compareDisabledReason="Not available here — each of these tabs shows one window at a time, not a comparison view."
+                      compareDisabledReason={
+                        isPerformanceTab
+                          ? "Not available here — each of these tabs shows one window at a time, not a comparison view."
+                          : "Not available here — this filters which content shows up, not a performance comparison."
+                      }
                       triggerClassName={styles.headerPillBtn}
                       onApply={(patch) => {
-                        setRangePreset(patch.rangePreset);
-                        setCustomSince(patch.customSince);
-                        setCustomUntil(patch.customUntil);
+                        if (isPerformanceTab) {
+                          setRangePreset(patch.rangePreset);
+                          setCustomSince(patch.customSince);
+                          setCustomUntil(patch.customUntil);
+                        } else {
+                          setExploreRangePreset(patch.rangePreset);
+                          setExploreCustomSince(patch.customSince);
+                          setExploreCustomUntil(patch.customUntil);
+                        }
                       }}
                     />
+                  )}
+                  {isPerformanceTab && (
                     <button
                       type="button"
                       className={perf.loading ? `${styles.headerPillIconBtn} spinning` : styles.headerPillIconBtn}
@@ -241,8 +279,8 @@ export default function PartnershipAds() {
                     >
                       <RefreshIcon size={14} />
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
@@ -265,138 +303,83 @@ export default function PartnershipAds() {
               </div>
             )}
 
-            {(() => {
-              const tabContent = (
-                <>
-                  <div className={styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
-                    {TABS.map((t) => (
-                      <button
-                        key={t.key}
-                        type="button"
-                        className={tab === t.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                        onClick={() => setTab(t.key)}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
+            {/* Every tab's Ad Account/Instagram Account/Date Range now live in
+                the header's pill row above — no tab needs its own side panel
+                anymore, so every tab gets this same full-width content area. */}
+            <div className={styles.exploreContent}>
+              <div className={styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
+                {TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className={tab === t.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                    onClick={() => setTab(t.key)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
 
-                  {tab === "overview" && (
-                    <OverviewTab
-                      ready={performanceReady}
-                      currency={selectedAccount?.currency}
-                      range={perf.rangeUsed}
-                      loading={perf.loading}
-                      error={perf.error}
-                      data={perf.overview}
-                      onCheck={checkPerformance}
-                      canCheck={!!performanceReady && !!performanceRange}
-                    />
-                  )}
-                  {tab === "mine" && (
-                    <MyAdsTab
-                      ready={performanceReady}
-                      currency={selectedAccount?.currency}
-                      range={perf.rangeUsed}
-                      loading={perf.loading}
-                      error={perf.error}
-                      hasLoaded={perf.hasLoaded}
-                      ads={perf.ads}
-                      creatorSummary={perf.creatorSummary}
-                      onCheck={checkPerformance}
-                      canCheck={!!performanceReady && !!performanceRange}
-                    />
-                  )}
-                  {tab === "creators" && (
-                    <CreatorHubTab
-                      ready={performanceReady}
-                      currency={selectedAccount?.currency}
-                      range={perf.rangeUsed}
-                      loading={perf.loading}
-                      error={perf.error}
-                      hasLoaded={perf.hasLoaded}
-                      ads={perf.ads}
-                      onCheck={checkPerformance}
-                      canCheck={!!performanceReady && !!performanceRange}
-                    />
-                  )}
-                  {tab === "explore" && (
-                    <ExploreTab
-                      accountId={selectedAccountId}
-                      businessId={businessId}
-                      igUserId={selectedIgAccountId}
-                      ready={ready}
-                      onQueueChanged={refreshQueueCount}
-                    />
-                  )}
-                  {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
-                  {tab === "code" && (
-                    <PartnershipCodeTab
-                      accountId={selectedAccountId}
-                      businessId={businessId}
-                      igUserId={selectedIgAccountId}
-                      ready={ready}
-                      onQueueChanged={refreshQueueCount}
-                    />
-                  )}
-                </>
-              );
-
-              // Overview/My Partnership Ads/Creator Hub no longer need the
-              // side panel at all — their Ad Account + Date Range now live in
-              // the header's pill row above — so they get the full-width
-              // content area. Explore Ads/My Requests/Partnership Code still
-              // need their own Ad Account + Instagram Business Account
-              // picker, so they keep the side-panel layout.
-              if (isPerformanceTab) {
-                return <div className={styles.exploreContent}>{tabContent}</div>;
-              }
-
-              return (
-                <div className={styles.exploreLayout}>
-                  <div className={styles.exploreContent}>{tabContent}</div>
-
-                  <aside className={styles.exploreQueryPanel}>
-                    <div className={`${styles.card} ${styles.exploreQueryCard}`}>
-                      <div className={styles.exploreQueryHeader}>
-                        <span style={{ fontWeight: 700, fontSize: 13 }}>Account &amp; Filters</span>
-                      </div>
-                      <div className={styles.exploreQueryBody}>
-                        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                          <div style={{ flex: "1 1 160px", minWidth: 160 }}>
-                            <p className={styles.sub} style={{ marginBottom: 6 }}>
-                              Ad Account
-                            </p>
-                            <AccountSelect
-                              accounts={adAccounts}
-                              value={selectedAccountId}
-                              onChange={setSelectedAccountId}
-                              placeholder="Select an ad account…"
-                              style={{ width: "100%" }}
-                              loading={accountsLoading}
-                            />
-                          </div>
-
-                          <div style={{ flex: "1 1 160px", minWidth: 160 }}>
-                            <p className={styles.sub} style={{ marginBottom: 6 }}>
-                              Instagram Business Account
-                            </p>
-                            <AccountSelect
-                              accounts={igOptions}
-                              value={selectedIgAccountId}
-                              onChange={setSelectedIgAccountId}
-                              placeholder={igOptions.length === 0 ? "No Instagram Business Account found" : "Select an Instagram account…"}
-                              style={{ width: "100%" }}
-                              loading={accountsLoading}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </aside>
-                </div>
-              );
-            })()}
+              {tab === "overview" && (
+                <OverviewTab
+                  ready={performanceReady}
+                  currency={selectedAccount?.currency}
+                  range={perf.rangeUsed}
+                  loading={perf.loading}
+                  error={perf.error}
+                  data={perf.overview}
+                  onCheck={checkPerformance}
+                  canCheck={!!performanceReady && !!performanceRange}
+                />
+              )}
+              {tab === "mine" && (
+                <MyAdsTab
+                  ready={performanceReady}
+                  currency={selectedAccount?.currency}
+                  range={perf.rangeUsed}
+                  loading={perf.loading}
+                  error={perf.error}
+                  hasLoaded={perf.hasLoaded}
+                  ads={perf.ads}
+                  creatorSummary={perf.creatorSummary}
+                  onCheck={checkPerformance}
+                  canCheck={!!performanceReady && !!performanceRange}
+                />
+              )}
+              {tab === "creators" && (
+                <CreatorHubTab
+                  ready={performanceReady}
+                  currency={selectedAccount?.currency}
+                  range={perf.rangeUsed}
+                  loading={perf.loading}
+                  error={perf.error}
+                  hasLoaded={perf.hasLoaded}
+                  ads={perf.ads}
+                  onCheck={checkPerformance}
+                  canCheck={!!performanceReady && !!performanceRange}
+                />
+              )}
+              {tab === "explore" && (
+                <ExploreTab
+                  accountId={selectedAccountId}
+                  businessId={businessId}
+                  igUserId={selectedIgAccountId}
+                  ready={ready}
+                  dateRange={exploreRange}
+                  onQueueChanged={refreshQueueCount}
+                />
+              )}
+              {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
+              {tab === "code" && (
+                <PartnershipCodeTab
+                  accountId={selectedAccountId}
+                  businessId={businessId}
+                  igUserId={selectedIgAccountId}
+                  ready={ready}
+                  onQueueChanged={refreshQueueCount}
+                />
+              )}
+            </div>
           </main>
         </div>
       </PinLock>
