@@ -19,19 +19,23 @@ import { lookupContent, registerVideoSource, createBrandedCreative, createAd } f
 // "duplicate an ad set's ads" path reuses an existing creative by id rather
 // than recreating it per ad), referenced by every ad built from that item.
 //
-// Sourcing: every creative is built via the ad_code path
-// (branded_content.instagram_boost_post_access_token) rather than
-// source_instagram_media_id — ad_code is present on every item this app's
-// own Content Discovery calls already request (see lib/partnershipAds.js's
-// CONTENT_FIELDS), so it's always available and is the path the reference
-// implementation treats as preferred when present. The video-registration
-// step (registerVideoSource) still runs first for video content when a
-// resolvable media id is available from the re-verification lookup below —
-// **this one specific step (whether it's actually required on the ad_code
-// path, vs. only ever needed for the alternate source_instagram_media_id
-// path) is not clearly established by the reference material and needs
-// live verification**; it's attempted best-effort and never blocks the
-// creative/ad creation that follows even if it's skipped or fails.
+// Sourcing: `ad_code` is preferred when the queued item has one (true
+// branded-content partnership posts always do), but it's genuinely optional
+// — a brand's own post surfaced by Content Discovery carries partnership_info
+// with no ad_code at all, and createBrandedCreative only throws if BOTH
+// adCode and sourceInstagramMediaId are missing. The fallback id is the
+// re-verification lookup's own `content_id` field — confirmed against the
+// reference implementation (Facebook Curls/partnership_ads_booster.py's
+// `fetch_branded_content_advertisable_medias` maps its Content Discovery
+// response's `content_id` straight into what it calls `source_instagram_
+// media_id` everywhere downstream; Graph's Content Discovery API has no field
+// literally named that). Previously this file read a nonexistent
+// `verified.source_instagram_media_id` for both the video-registration step
+// and the creative call, which was always undefined — silently skipping
+// video registration for every single video and leaving ad_code-less items
+// (like a brand's own post) with neither id available at creative-creation
+// time, surfacing as "createBrandedCreative needs adCode or
+// sourceInstagramMediaId" on a real launch attempt.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -67,9 +71,16 @@ export default async function handler(req, res) {
   const steps = [];
   let overallSuccess = true;
   const allCreatedAdIds = [];
+  // Which queue items actually produced at least one live ad — used by the
+  // client (pages/partnership-ads/queue.js) to remove only the items that
+  // truly launched when a batch finishes with some failures, instead of the
+  // previous all-or-nothing gate that left even a fully-succeeded item sitting
+  // in the queue just because a different item in the same batch failed.
+  const succeededItemIds = [];
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
+    let itemSucceeded = true;
     progress(`Verifying "${item.name}" (${i + 1} of ${items.length})…`);
 
     let verified;
@@ -83,13 +94,18 @@ export default async function handler(req, res) {
       if (!verified) throw new Error("Content is no longer available or eligible — it may have been removed or had its permission revoked.");
     } catch (err) {
       overallSuccess = false;
-      steps.push({ type: "item", name: item.name, success: false, error: err.message });
+      steps.push({ type: "item", itemId: item.id, name: item.name, success: false, error: err.message });
       continue;
     }
 
-    if (item.mediaType === "VIDEO" && verified.source_instagram_media_id) {
+    // See this file's header comment — `content_id` doubles as the
+    // Instagram media id both the video-registration and creative-creation
+    // calls need as a fallback when the item has no ad_code.
+    const sourceInstagramMediaId = verified.content_id;
+
+    if (item.mediaType === "VIDEO" && sourceInstagramMediaId) {
       try {
-        await registerVideoSource(token, accountId, { sourceInstagramMediaId: verified.source_instagram_media_id, adCode: item.adCode });
+        await registerVideoSource(token, accountId, { sourceInstagramMediaId, adCode: item.adCode });
       } catch {
         // Best-effort — see this file's own header comment on why this step's
         // necessity on the ad_code path isn't fully confirmed; a real failure
@@ -108,13 +124,14 @@ export default async function handler(req, res) {
         callToActionType: item.cta,
         link: item.redirectionLink,
         adCode: item.adCode,
+        sourceInstagramMediaId,
         testimonial: item.primaryText || undefined,
       });
       creativeId = creative.id;
-      steps.push({ type: "creative", name: item.name, success: true, id: creativeId });
+      steps.push({ type: "creative", itemId: item.id, name: item.name, success: true, id: creativeId });
     } catch (err) {
       overallSuccess = false;
-      steps.push({ type: "creative", name: item.name, success: false, error: err.message });
+      steps.push({ type: "creative", itemId: item.id, name: item.name, success: false, error: err.message });
       continue;
     }
 
@@ -124,12 +141,15 @@ export default async function handler(req, res) {
       try {
         const ad = await createAd(token, accountId, { name: item.name, adsetId, creativeId });
         allCreatedAdIds.push(ad.id);
-        steps.push({ type: "ad", name: item.name, adsetId, success: true, id: ad.id });
+        steps.push({ type: "ad", itemId: item.id, name: item.name, adsetId, success: true, id: ad.id });
       } catch (err) {
         overallSuccess = false;
-        steps.push({ type: "ad", name: item.name, adsetId, success: false, error: err.message });
+        itemSucceeded = false;
+        steps.push({ type: "ad", itemId: item.id, name: item.name, adsetId, success: false, error: err.message });
       }
     }
+
+    if (itemSucceeded) succeededItemIds.push(item.id);
   }
 
   if (finalStatus === "ACTIVE" && overallSuccess && allCreatedAdIds.length > 0) {
@@ -147,5 +167,5 @@ export default async function handler(req, res) {
     }
   }
 
-  finish({ success: overallSuccess, createdAdIds: allCreatedAdIds, steps });
+  finish({ success: overallSuccess, createdAdIds: allCreatedAdIds, succeededItemIds, steps });
 }

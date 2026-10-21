@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import Loader from "../Loader";
 import PartnerCard from "./PartnerCard";
 import ExpandedCardModal from "./ExpandedCardModal";
 import SelectionBar from "./SelectionBar";
 import BulkPermissionModal from "./BulkPermissionModal";
+import RedirectionLinkModal from "./RedirectionLinkModal";
 import { permissionState, firstPartnershipInfo } from "@/lib/partnershipContent";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
@@ -51,6 +53,7 @@ function engagementScore(item) {
 // concept from ad *performance*), just lifted to the same parent instead of
 // living locally here.
 export default function ExploreTab({ accountId, businessId, igUserId, ready, dateRange, onQueueChanged }) {
+  const router = useRouter();
   const [media, setMedia] = useState("all");
   const [usage, setUsage] = useState("all");
   const [eligibility, setEligibility] = useState("all");
@@ -65,6 +68,13 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
   const [expandedItem, setExpandedItem] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  // Snapshot of the ready-to-queue content items taken at the moment "Add to
+  // Queue" is clicked, held while RedirectionLinkModal is open collecting
+  // each one's landing-page link — kept separate from `readyItems` itself so
+  // the modal's list can't shift under the user if selection changes behind
+  // it (it can't, since the bar is hidden once the modal is open, but this
+  // also survives the selectedIds clear that happens on commit).
+  const [pendingQueueSource, setPendingQueueSource] = useState(null);
 
   function toggleSelect(contentId) {
     setSelectedIds((prev) => {
@@ -188,31 +198,50 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
   const needPermissionItems = useMemo(() => selectedItems.filter((i) => permissionState(i) === "need"), [selectedItems]);
   const readyItems = useMemo(() => selectedItems.filter((i) => permissionState(i) === "ready"), [selectedItems]);
 
+  function queueItemLabel(item) {
+    return `@${item.author?.display_name || "unknown"} — ${item.caption?.slice(0, 40) || item.content_id}`;
+  }
+
+  // Opens RedirectionLinkModal instead of queuing immediately — see its own
+  // header comment for why.
   function handleAddSelectedToQueue() {
-    const toQueue = readyItems.map((item) => {
+    if (readyItems.length === 0) return;
+    setPendingQueueSource(readyItems);
+  }
+
+  // `linksById` maps `explore_<content_id>` -> a redirection link (possibly
+  // "" for everything, when the user clicked Skip). Commits the queue add
+  // and jumps straight to Ready to Launch, same reasoning as the modal's own
+  // "post adding the link" flow the user asked for.
+  function commitQueueAdd(linksById) {
+    const source = pendingQueueSource || [];
+    const toQueue = source.map((item) => {
       const info = firstPartnershipInfo(item);
+      const id = `explore_${item.content_id}`;
       return {
-        id: `explore_${item.content_id}`,
+        id,
         source: "explore",
         contentId: item.content_id,
         adCode: info.ad_code,
-        name: `@${item.author?.display_name || "unknown"} — ${item.caption?.slice(0, 40) || item.content_id}`,
+        name: queueItemLabel(item),
         mediaType: item.media_type,
         permalink: item.permalink,
-        primaryText: "",
+        primaryText: item.caption || "",
         headline: "",
         description: "",
         cta: "SHOP_NOW",
-        redirectionLink: "",
+        redirectionLink: (linksById?.[id] || "").trim(),
       };
     });
     addToPartnershipQueue(accountId, toQueue);
     onQueueChanged?.();
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      for (const item of readyItems) next.delete(item.content_id);
+      for (const item of source) next.delete(item.content_id);
       return next;
     });
+    setPendingQueueSource(null);
+    router.push("/partnership-ads/queue");
   }
 
   // One entry per unique creator among the selected items that still need
@@ -365,6 +394,14 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
           creators={creatorsNeedingPermission}
           onClose={() => setBulkModalOpen(false)}
           onDone={handleBulkDone}
+        />
+      )}
+
+      {pendingQueueSource && (
+        <RedirectionLinkModal
+          items={pendingQueueSource.map((item) => ({ id: `explore_${item.content_id}`, name: queueItemLabel(item) }))}
+          onSkip={() => commitQueueAdd({})}
+          onSave={(linksById) => commitQueueAdd(linksById)}
         />
       )}
     </div>
