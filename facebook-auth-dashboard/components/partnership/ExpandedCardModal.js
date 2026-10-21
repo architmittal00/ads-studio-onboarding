@@ -52,7 +52,7 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
 
   if (!item) return null;
   const info = firstPartnershipInfo(item);
-  const permState = permissionState(item);
+  const permState = permissionState(item, igUserId);
   const eng = item.organic_insights || {};
   const isVideo = item.media_type === "VIDEO";
   const creatorIgId = item.author?.ig_user_id;
@@ -164,6 +164,7 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
             {(sent || permState === "ready") && <span className={styles.badgeGood}>✓ Launch Ready</span>}
             {!sent && permState === "requested" && <span className={styles.badgeWarn}>⏳ Permission Requested</span>}
             {!sent && permState === "need" && <span className={styles.badgeWarn}>⚠ Need Permission</span>}
+            {permState === "own" && <span className={styles.badgeWarn}>🚫 Not a Partner Post</span>}
           </div>
 
           <p className={styles.muted} style={{ marginBottom: 6, fontSize: 11, textTransform: "uppercase" }}>
@@ -194,7 +195,16 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
             </div>
           )}
 
-          {permState === "ready" ? (
+          {permState === "own" ? (
+            // No permission to request and nothing to queue — Meta rejects
+            // a Partnership Ad built from your own account's own post
+            // outright ("@handle isn't a partner of @handle"), regardless of
+            // this item's own permission_status.
+            <p className={styles.sub} style={{ textAlign: "center", margin: 0 }}>
+              This is @{item.author?.display_name || "your account"}&apos;s own post — Partnership Ads require being
+              tagged as a partner on someone else&apos;s content, so this one can&apos;t be used here.
+            </p>
+          ) : permState === "ready" ? (
             <button type="button" className={styles.btnPrimary} style={{ width: "100%" }} onClick={handleAddToQueue} disabled={queued}>
               {queued ? "Added to Queue ✓" : "Add to Queue"}
             </button>
