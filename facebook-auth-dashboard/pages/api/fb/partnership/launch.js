@@ -55,6 +55,31 @@ import { firstPartnershipInfo } from "@/lib/partnershipContent";
 // creative-creation time), surfacing only as a generic "Invalid parameter"
 // much later. Now compared case-insensitively, and its own outcome is
 // recorded as a step either way instead of being silently discarded.
+//
+// Items (and, within an item, every ad set it's launched into) now run
+// CONCURRENTLY instead of one Graph call at a time — reported by the user as
+// launches going completely silent partway through, with no error or result
+// ever reaching the UI. Root cause: this route runs with `maxDuration: 60`
+// (vercel.json) and used to process every item fully sequentially — verify,
+// optionally register a video, create a creative, then create one ad per ad
+// set, one item after another. A queue of more than a couple of items (or
+// one item launched into several ad sets) could take longer than 60s in
+// total even though each individual Graph call is fast, and once Vercel
+// kills the function mid-stream the connection just closes with no final
+// `{type:"done"}` ever written — see components/partnership/LaunchWizardModal.js's
+// own comment on what that silent closure used to do to the UI. Running
+// items in parallel (and each item's own ad-set creates in parallel) doesn't
+// remove the 60s ceiling, but it turns "sum of every Graph call" into
+// "slowest single item," which is the actual fix for real-world queue sizes.
+// No concurrency cap is applied — this is a user-driven manual launch queue
+// (a handful of items at a time, not a bulk import), the same assumption
+// pages/api/fb/copy-ads/source-ads.js already makes for its own concurrent
+// per-ad fetches.
+//
+// Progress messages are best-effort and can now interleave across items
+// (two items verifying "at once" may both post a progress line close
+// together) — acceptable for a single status line that's always just
+// showing the most recent update, not a structured per-item progress list.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -87,20 +112,20 @@ export default async function handler(req, res) {
   }
 
   const token = session.accessToken;
-  const steps = [];
-  let overallSuccess = true;
-  const allCreatedAdIds = [];
   // Which queue items actually produced at least one live ad — used by the
   // client (pages/partnership-ads/queue.js) to remove only the items that
   // truly launched when a batch finishes with some failures, instead of the
   // previous all-or-nothing gate that left even a fully-succeeded item sitting
   // in the queue just because a different item in the same batch failed.
-  const succeededItemIds = [];
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    let itemSucceeded = true;
-    progress(`Verifying "${item.name}" (${i + 1} of ${items.length})…`);
+  // One item's full pipeline — verify, optionally register a video, create a
+  // creative, then create one ad per ad set (that last step itself fanned
+  // out in parallel, see this file's header comment). Returns rather than
+  // mutates shared state so every item can run concurrently via
+  // `Promise.all` below with no risk of interleaving writes.
+  async function runItem(item) {
+    const itemSteps = [];
+    progress(`Verifying "${item.name}"…`);
 
     let verified;
     try {
@@ -112,9 +137,8 @@ export default async function handler(req, res) {
       verified = lookups[0];
       if (!verified) throw new Error("Content is no longer available or eligible — it may have been removed or had its permission revoked.");
     } catch (err) {
-      overallSuccess = false;
-      steps.push({ type: "item", itemId: item.id, name: item.name, success: false, error: err.message });
-      continue;
+      itemSteps.push({ type: "item", itemId: item.id, name: item.name, success: false, error: err.message });
+      return { itemId: item.id, steps: itemSteps, succeeded: false, createdAdIds: [] };
     }
 
     // See this file's header comment — `content_id` doubles as the
@@ -152,14 +176,14 @@ export default async function handler(req, res) {
     if (isVideo && sourceInstagramMediaId) {
       try {
         await registerVideoSource(token, accountId, { sourceInstagramMediaId, adCode });
-        steps.push({ type: "video", itemId: item.id, name: item.name, success: true });
+        itemSteps.push({ type: "video", itemId: item.id, name: item.name, success: true });
       } catch (err) {
         // Still best-effort — see this file's own header comment on why this
         // step's necessity on the ad_code path isn't fully confirmed — but
         // now recorded as a (non-fatal) step instead of silently discarded,
         // so a real failure here is visible instead of only ever showing up
         // as a confusing downstream "Invalid parameter" on the creative call.
-        steps.push({ type: "video", itemId: item.id, name: item.name, success: false, error: err.message });
+        itemSteps.push({ type: "video", itemId: item.id, name: item.name, success: false, error: err.message });
       }
     }
 
@@ -177,28 +201,43 @@ export default async function handler(req, res) {
         testimonial: item.primaryText || undefined,
       });
       creativeId = creative.id;
-      steps.push({ type: "creative", itemId: item.id, name: item.name, success: true, id: creativeId });
+      itemSteps.push({ type: "creative", itemId: item.id, name: item.name, success: true, id: creativeId });
     } catch (err) {
-      overallSuccess = false;
-      steps.push({ type: "creative", itemId: item.id, name: item.name, success: false, error: err.message });
-      continue;
+      itemSteps.push({ type: "creative", itemId: item.id, name: item.name, success: false, error: err.message });
+      return { itemId: item.id, steps: itemSteps, succeeded: false, createdAdIds: [] };
     }
 
-    for (let j = 0; j < adsetIds.length; j++) {
+    progress(`Creating ${adsetIds.length} ad${adsetIds.length === 1 ? "" : "s"} for "${item.name}"…`);
+    const adResults = await Promise.allSettled(
+      adsetIds.map((adsetId) => createAd(token, accountId, { name: item.name, adsetId, creativeId }))
+    );
+    let itemSucceeded = true;
+    const createdAdIds = [];
+    adResults.forEach((result, j) => {
       const adsetId = adsetIds[j];
-      progress(`Creating ad ${j + 1} of ${adsetIds.length} for "${item.name}"…`);
-      try {
-        const ad = await createAd(token, accountId, { name: item.name, adsetId, creativeId });
-        allCreatedAdIds.push(ad.id);
-        steps.push({ type: "ad", itemId: item.id, name: item.name, adsetId, success: true, id: ad.id });
-      } catch (err) {
-        overallSuccess = false;
+      if (result.status === "fulfilled") {
+        createdAdIds.push(result.value.id);
+        itemSteps.push({ type: "ad", itemId: item.id, name: item.name, adsetId, success: true, id: result.value.id });
+      } else {
         itemSucceeded = false;
-        steps.push({ type: "ad", itemId: item.id, name: item.name, adsetId, success: false, error: err.message });
+        itemSteps.push({ type: "ad", itemId: item.id, name: item.name, adsetId, success: false, error: result.reason.message });
       }
-    }
+    });
 
-    if (itemSucceeded) succeededItemIds.push(item.id);
+    return { itemId: item.id, steps: itemSteps, succeeded: itemSucceeded, createdAdIds };
+  }
+
+  const itemResults = await Promise.all(items.map(runItem));
+
+  const steps = [];
+  let overallSuccess = true;
+  const allCreatedAdIds = [];
+  const succeededItemIds = [];
+  for (const result of itemResults) {
+    steps.push(...result.steps);
+    allCreatedAdIds.push(...result.createdAdIds);
+    if (result.succeeded) succeededItemIds.push(result.itemId);
+    else overallSuccess = false;
   }
 
   if (finalStatus === "ACTIVE" && overallSuccess && allCreatedAdIds.length > 0) {

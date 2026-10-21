@@ -102,15 +102,35 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
           else if (event.type === "done") finalResult = event;
         }
       }
-      setResult(finalResult);
-      // Called even on a partial failure (not gated on `finalResult.success`)
-      // — reported by the user: a batch where one item failed left even the
-      // items that genuinely created a live ad still sitting in the queue,
-      // since this used to only fire when the whole batch succeeded. The
-      // caller (pages/partnership-ads/queue.js) only removes the ids the
-      // launch endpoint actually reports as succeeded, so a real failure
-      // correctly stays in the queue for retry.
-      if (finalResult) onLaunched?.(finalResult);
+      if (finalResult) {
+        setResult(finalResult);
+        // Called even on a partial failure (not gated on `finalResult.success`)
+        // — reported by the user: a batch where one item failed left even the
+        // items that genuinely created a live ad still sitting in the queue,
+        // since this used to only fire when the whole batch succeeded. The
+        // caller (pages/partnership-ads/queue.js) only removes the ids the
+        // launch endpoint actually reports as succeeded, so a real failure
+        // correctly stays in the queue for retry.
+        onLaunched?.(finalResult);
+      } else {
+        // The stream closed (`reader.read()` resolved `done`) without ever
+        // sending a `{type:"done"}` line — most likely the launch route's
+        // own `maxDuration` (60s, vercel.json) killing the function mid-
+        // flight on a slow/large batch. Reported by the user: launches going
+        // completely stuck with no result and no error, because this used to
+        // just fall through with `finalResult` still null — `result` stayed
+        // null, `error` stayed null, `launching` went back to false, and
+        // "Confirm & Launch" silently re-enabled as if nothing had happened,
+        // inviting a retry that could duplicate whatever had already been
+        // created. Surfacing it as an explicit error (and not auto-clearing
+        // the queue, since we don't actually know what succeeded) is the fix
+        // — see pages/api/fb/partnership/launch.js's own comment for the
+        // matching server-side fix (items/ad-sets now run in parallel,
+        // making this far less likely to happen at all).
+        setError(
+          "Lost connection before the launch finished — this can happen if it took too long. Some ads may already have been created, so check Ads Manager before retrying to avoid duplicates."
+        );
+      }
     } catch (err) {
       setError(err.message);
     } finally {
