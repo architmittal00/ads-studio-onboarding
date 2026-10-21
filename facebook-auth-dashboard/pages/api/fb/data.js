@@ -2,6 +2,47 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages } from "@/lib/facebookGraph";
 
+// `business{id,name}` on an ad account requires the `business_management`
+// permission to read — a scope this app has never requested in its OAuth
+// `scope` string (see pages/api/auth/[...nextauth].js), so no token this app
+// issues can ever carry it. Reported by a real user: `/me/adaccounts` came
+// back entirely empty with "(#100) Requires business_management permission
+// to access the field" — Graph fails the WHOLE list, not just that one
+// field, the moment any ad account in it belongs to a Business Manager.
+// This is why it can look like it "works for other users" purely by
+// coincidence: a personal (non-Business-Manager) ad account has nothing to
+// check that permission against, so the same request with the same token
+// succeeds — nothing to do with which device or session is used.
+//
+// Rather than adding `business_management` to the OAuth scope (its own
+// Advanced-Access gate, same as pages_show_list/ads_read, plus it would
+// force every existing user to re-consent on their next login), this
+// degrades gracefully instead: retry without `business{id,name}` so the
+// user still sees their real ad accounts. Partnership Ads already treats a
+// missing Business id as a normal, handled state (its own "not associated
+// with a Business Manager" message) — same fallback, just reached via a
+// permission gap instead of a genuinely BM-less account.
+async function fetchAdAccounts(token) {
+  try {
+    const result = await graphGetAllPages("/me/adaccounts", token, {
+      fields: "id,name,account_status,currency,business{id,name}",
+    });
+    return { data: result.data || [], error: null };
+  } catch (err) {
+    if (!/business_management/i.test(err.message || "")) {
+      return { data: [], error: err.message };
+    }
+    try {
+      const result = await graphGetAllPages("/me/adaccounts", token, {
+        fields: "id,name,account_status,currency",
+      });
+      return { data: result.data || [], error: null };
+    } catch (fallbackErr) {
+      return { data: [], error: fallbackErr.message };
+    }
+  }
+}
+
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
@@ -40,12 +81,11 @@ export default async function handler(req, res) {
       // id rather than ad account id — fetched here anyway, alongside
       // everything else this call already gets, rather than a separate round
       // trip. Absent for a personal (non-Business-Manager) ad account, same
-      // "normal, handled state" treatment as instagram_business_account above.
-      graphGetAllPages("/me/adaccounts", session.accessToken, {
-        fields: "id,name,account_status,currency,business{id,name}",
-      })
-        .then((r) => ({ data: r.data || [], error: null }))
-        .catch((err) => ({ data: [], error: err.message })),
+      // "normal, handled state" treatment as instagram_business_account above
+      // — see fetchAdAccounts' own comment for the other way this ends up
+      // absent (a business_management permission gap, not a genuinely
+      // BM-less account).
+      fetchAdAccounts(session.accessToken),
     ]);
 
     res.status(200).json({
