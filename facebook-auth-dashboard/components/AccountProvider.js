@@ -1,6 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { getLastAccountId, setLastAccountId, getLastIgAccountId, setLastIgAccountId } from "@/lib/clientStorage";
+import {
+  getLastAccountId,
+  setLastAccountId,
+  getLastIgAccountId,
+  setLastIgAccountId,
+  getLastBusinessId,
+  setLastBusinessId,
+} from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 
 // Exported so components/Sidebar.js can clear it on sign-out — see that
@@ -162,6 +169,52 @@ export function AccountProvider({ children }) {
     if (id) setLastIgAccountId(id);
   }
 
+  // Every Business the user has visibility into, as surfaced by whichever ad
+  // accounts expose a `business{id,name}` sub-field (see pages/api/fb/data.js
+  // — this is already fetched for every ad account, no extra Graph call or
+  // OAuth scope needed). Deliberately NOT tied to `selectedAccountId`: Content
+  // Discovery/branded-content checks are authorized per-Business, and an ad
+  // account can be shared with someone without that Business itself granting
+  // them access — while a different Business the user *does* have full access
+  // to can often query the exact same Instagram account's content correctly.
+  // Powers Partnership Ads' own Business picker, independent of which ad
+  // account is selected; every other page in this app ignores it entirely.
+  const businessOptions = useMemo(() => {
+    const seen = new Map();
+    for (const a of adAccounts) {
+      if (a.business && !seen.has(a.business.id)) seen.set(a.business.id, { id: a.business.id, name: a.business.name });
+    }
+    return [...seen.values()];
+  }, [adAccounts]);
+  const [selectedBusinessId, setSelectedBusinessIdState] = useState("");
+
+  // Seeds from the last Business used on this device, same convention as
+  // selectedAccountId/selectedIgAccountId above. Falls back to whichever
+  // Business the currently-selected ad account belongs to (today's old,
+  // implicit behavior) only if that Business is actually in the list —
+  // otherwise just the first available Business — so someone who's never
+  // touched this gets the same default they'd have gotten before this
+  // existed, without silently resyncing to the ad account's Business on every
+  // later ad-account change (the whole point is no longer coupling the two).
+  useEffect(() => {
+    if (businessOptions.length === 0 || selectedBusinessId) return;
+    const lastId = getLastBusinessId();
+    if (businessOptions.some((b) => b.id === lastId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time seed from fetched data + a localStorage read, not a derived-state anti-pattern
+      setSelectedBusinessIdState(lastId);
+      return;
+    }
+    const accountDerivedId = adAccounts.find((a) => a.id === selectedAccountId)?.business?.id;
+    const fallbackId = businessOptions.some((b) => b.id === accountDerivedId) ? accountDerivedId : businessOptions[0].id;
+    setSelectedBusinessIdState(fallbackId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedBusinessId intentionally excluded, see guard above; re-runs once selectedAccountId is itself seeded
+  }, [businessOptions, adAccounts, selectedAccountId]);
+
+  function setSelectedBusinessId(id) {
+    setSelectedBusinessIdState(id);
+    if (id) setLastBusinessId(id);
+  }
+
   const value = {
     profile,
     pages,
@@ -176,6 +229,9 @@ export function AccountProvider({ children }) {
     igAccounts,
     selectedIgAccountId,
     setSelectedIgAccountId,
+    businessOptions,
+    selectedBusinessId,
+    setSelectedBusinessId,
     refreshAccounts: () => load(true),
   };
 

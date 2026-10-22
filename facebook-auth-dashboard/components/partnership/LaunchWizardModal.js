@@ -4,6 +4,7 @@ import AdSetMultiSelect from "./AdSetMultiSelect";
 import PixelSelect from "./PixelSelect";
 import MediaThumbButton from "./MediaThumbButton";
 import Loader from "../Loader";
+import { useAccounts } from "../AccountProvider";
 import { getPixelMapping, setPixelMapping, getPartnershipSettings, setPartnershipSettings } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -86,6 +87,13 @@ function ResultRow({ entry }) {
 // NDJSON stream the same way components/LaunchPanel.js already reads
 // pages/api/fb/launch-campaign.js's — same reading/progress pattern, reused.
 export default function LaunchWizardModal({ accountId, businessId, igUserId, pages, items, onClose, onLaunched }) {
+  // Just for display (see the "Launching into" line below) — the launch
+  // itself only ever uses `accountId` directly. Reported by the user:
+  // nothing in this wizard ever showed which ad account an ad was actually
+  // about to be created in, easy to get wrong once Business selection (see
+  // AccountProvider.js) is independent of it.
+  const { adAccounts } = useAccounts();
+  const accountName = adAccounts.find((a) => a.id === accountId)?.name || accountId;
   const [step, setStep] = useState(1);
   const existingSettings = getPartnershipSettings(accountId) || {};
   const [pixelId, setPixelIdState] = useState(existingSettings.pixelId || getPixelMapping(accountId) || "");
@@ -208,6 +216,9 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
             </h2>
             <p className={styles.sub}>
               {step === 1 ? "Confirm pixel, UTM, and Page settings" : step === 2 ? "Choose target ad set(s)" : "Set launch status"}
+            </p>
+            <p className={styles.sub} style={{ fontWeight: 600, color: "var(--t1)", marginTop: 2 }}>
+              Launching into: {accountName}
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={launching} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>

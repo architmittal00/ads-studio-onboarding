@@ -29,9 +29,14 @@ export default function PartnershipAdsQueue() {
   // "Content is no longer available or eligible" for every single queued
   // item regardless of how it was added. Reading the same shared selection
   // every other Partnership Ads page already uses fixes this at the source.
-  const { adAccounts, pages, selectedAccountId, selectedIgAccountId } = useAccounts();
+  const { adAccounts, pages, selectedAccountId, selectedIgAccountId, selectedBusinessId } = useAccounts();
   const selectedAccount = useMemo(() => adAccounts.find((a) => a.id === selectedAccountId), [adAccounts, selectedAccountId]);
-  const businessId = selectedAccount?.business?.id || null;
+  // NOT selectedAccount?.business?.id — same bug/fix as pages/partnership-ads.js's
+  // own businessId: Content Discovery's re-verification call in launch.js
+  // (lookupContent) is authorized per-Business, independent of which ad
+  // account is selected. See AccountProvider.js's businessOptions/
+  // selectedBusinessId comment for the full reasoning.
+  const businessId = selectedBusinessId || null;
 
   const [items, setItems] = useState([]);
   const [checkedIds, setCheckedIds] = useState(new Set());
@@ -116,6 +121,7 @@ export default function PartnershipAdsQueue() {
               <h1 className={styles.h1}>Ready to Launch</h1>
               <p className={styles.sub} style={{ marginTop: -4 }}>
                 {items.length} ad{items.length === 1 ? "" : "s"} in queue
+                {selectedAccount && <> · Launching into <strong>{selectedAccount.name}</strong></>}
               </p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>

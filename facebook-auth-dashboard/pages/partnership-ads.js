@@ -63,6 +63,19 @@ const TABS = [
 // Instagram Business Account for content discovery, creator resolution, or
 // permissions, so the selector (and its two warning banners) only shows for
 // those.
+//
+// Those same tabs also get a separate Business selector, alongside the
+// Instagram Account one — reported and diagnosed by the user themselves:
+// Content Discovery and branded-content permission checks are authorized at
+// the Business level, and this used to be silently derived from whichever ad
+// account was selected (`selectedAccount?.business?.id`). An ad account being
+// shared with someone doesn't mean that Business itself has granted them
+// access — while a *different* Business they do have full access to can often
+// query the exact same Instagram account's content just fine, since the IG
+// account is a shared asset, not exclusively owned by one Business. The user
+// confirmed this by manually switching to an unrelated ad account just to get
+// a working Business id. `businessOptions`/`selectedBusinessId` (see
+// AccountProvider.js) make that choice explicit and independent instead.
 export default function PartnershipAds() {
   const {
     adAccounts,
@@ -74,6 +87,9 @@ export default function PartnershipAds() {
     setSelectedAccountId,
     selectedIgAccountId,
     setSelectedIgAccountId,
+    businessOptions,
+    selectedBusinessId,
+    setSelectedBusinessId,
   } = useAccounts();
   const router = useRouter();
   const [tab, setTabState] = useState("overview");
@@ -102,7 +118,10 @@ export default function PartnershipAds() {
   }
 
   const selectedAccount = useMemo(() => adAccounts.find((a) => a.id === selectedAccountId), [adAccounts, selectedAccountId]);
-  const businessId = selectedAccount?.business?.id || null;
+  // Deliberately NOT derived from `selectedAccount` — see AccountProvider.js's
+  // own comment on `businessOptions`/`selectedBusinessId` for why Business
+  // selection has to be independent of which ad account is picked.
+  const businessId = selectedBusinessId || null;
   const igOptions = useMemo(() => igAccounts.map((a) => ({ id: a.igUserId, name: `@${a.username}` })), [igAccounts]);
 
   const ready = !!selectedAccountId && !!selectedIgAccountId && !!businessId;
@@ -247,6 +266,17 @@ export default function PartnershipAds() {
                   />
                   {!isPerformanceTab && (
                     <AccountSelect
+                      accounts={businessOptions}
+                      value={selectedBusinessId}
+                      onChange={setSelectedBusinessId}
+                      placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"}
+                      inputClassName={styles.headerPillSelect}
+                      inputStyle={{ width: 190 }}
+                      loading={accountsLoading}
+                    />
+                  )}
+                  {!isPerformanceTab && (
+                    <AccountSelect
                       accounts={igOptions}
                       value={selectedIgAccountId}
                       onChange={setSelectedIgAccountId}
@@ -317,10 +347,11 @@ export default function PartnershipAds() {
                 Suite first — Partnership Ads needs it to browse eligible content and request creator permissions.
               </div>
             )}
-            {!isPerformanceTab && selectedAccountId && igAccounts.length > 0 && !businessId && (
+            {!isPerformanceTab && selectedAccountId && igAccounts.length > 0 && businessOptions.length === 0 && (
               <div className={styles.error} style={{ marginBottom: 16 }}>
-                This ad account isn&apos;t associated with a Business Manager — Partnership Ads&apos; content discovery
-                needs one.
+                None of your ad accounts are associated with a Business Manager — Partnership Ads&apos; content
+                discovery needs one. If a Business you have access to works for this Instagram account, ask to be
+                added to an ad account under it so it shows up here.
               </div>
             )}
 
