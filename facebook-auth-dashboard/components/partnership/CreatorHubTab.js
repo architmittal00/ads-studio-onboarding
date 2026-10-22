@@ -10,13 +10,14 @@ import { formatMetricValue } from "@/lib/insightsMetrics";
 import styles from "@/styles/Home.module.css";
 
 function buildCsv(rows, currency) {
-  const header = ["Creator", "Ads", "Spend", "Purchases", "Purchase Value", "ROAS", "CPR"];
+  const header = ["Creator", "Ads", "Creatives", "Spend", "Purchases", "Purchase Value", "ROAS", "CPR"];
   const lines = [header.join(",")];
   for (const r of rows) {
     lines.push(
       [
         `"@${(r.creatorUsername || r.key).replace(/"/g, '""')}"`,
         r.adCount,
+        r.creativeCount,
         r.spend.toFixed(2),
         r.purchases,
         r.purchaseValue.toFixed(2),
@@ -77,6 +78,16 @@ export default function CreatorHubTab({ ready, currency, ads, loading, error, ha
       ),
     },
     { key: "adCount", label: "Ads", align: "right" },
+    {
+      key: "creativeCount",
+      label: "Creatives",
+      align: "right",
+      render: (row) => (
+        <span title="Distinct pieces of content, deduped by the underlying Instagram post — several ads can share one creative.">
+          {row.creativeCount}
+        </span>
+      ),
+    },
     { key: "spend", label: "Spend", align: "right", render: (row) => formatMetricValue(row.spend, "currency", currency) },
     { key: "purchases", label: "Purchases", align: "right", render: (row) => formatMetricValue(row.purchases, "number") },
     { key: "roas", label: "Avg ROAS", align: "right", render: (row) => formatMetricValue(row.roas, "decimal") },
