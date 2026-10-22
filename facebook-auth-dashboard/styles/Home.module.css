@@ -121,6 +121,32 @@
   border-color: rgba(var(--purple-rgb), 0.4);
   background: rgba(var(--purple-rgb), 0.05);
 }
+/* An inline-editable label that looks like plain text until you actually
+   mean to edit it — e.g. the Ready to Launch queue's ad name, shown right
+   next to its thumbnail instead of duplicated in a separate labeled field
+   further down. No border/background at rest; a dashed underline on
+   hover/focus is the only hint it's editable. */
+.inlineNameInput {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0 0 2px;
+  margin: 0;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--t1);
+  border-bottom: 1px dashed transparent;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inlineNameInput:hover,
+.inlineNameInput:focus {
+  border-bottom-color: var(--border2);
+  white-space: normal;
+}
 /* The closed <select> box sits over this app's dark page background, so its
    own near-transparent `background` above looks fine — but the native
    dropdown *popup* a browser renders for <option>s is a separate overlay
@@ -1176,7 +1202,7 @@ button.stat:hover {
    border/gradient tokens as everything else here rather than a bespoke
    palette. */
 .partnerGrid {
-  columns: 4 220px;
+  columns: 5 220px;
   column-gap: 14px;
 }
 .partnerCard {

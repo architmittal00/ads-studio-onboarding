@@ -20,7 +20,20 @@ function QueueRow({ item, checked, onToggleCheck, onChange, onRemove }) {
         <input type="checkbox" checked={checked} onChange={(e) => { e.stopPropagation(); onToggleCheck(); }} onClick={(e) => e.stopPropagation()} />
         <MediaThumbButton contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} size={48} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</p>
+          {/* Editable in place instead of a separate "Ad Name" field further
+              down in the expanded form — reported by the user as pointless
+              duplication, since the name is already shown right here next to
+              the thumbnail. A plain borderless input looks like static text
+              until hovered/focused (dashed underline), so it doesn't read as
+              "yet another form field" unless you actually mean to edit it. */}
+          <input
+            type="text"
+            value={item.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+            onClick={(e) => e.stopPropagation()}
+            className={styles.inlineNameInput}
+            aria-label="Ad name"
+          />
           <span className={missingRequired ? styles.badgeWarn : styles.badgeGood} style={{ marginTop: 4, display: "inline-block" }}>
             {missingRequired ? "Needs copy" : "Ready for Review"}
           </span>
@@ -41,12 +54,6 @@ function QueueRow({ item, checked, onToggleCheck, onChange, onRemove }) {
 
       {expanded && (
         <div style={{ padding: "0 14px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label className={styles.muted} style={{ fontSize: 11 }}>
-              Ad Name
-            </label>
-            <input className={styles.select} style={{ width: "100%" }} value={item.name} onChange={(e) => onChange({ name: e.target.value })} />
-          </div>
           <div>
             <label className={styles.muted} style={{ fontSize: 11 }}>
               Primary Text <span style={{ color: "var(--red)" }}>*</span>

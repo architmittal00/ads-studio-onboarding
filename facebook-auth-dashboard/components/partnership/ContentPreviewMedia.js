@@ -20,7 +20,13 @@ function Placeholder({ isVideo, loading, size }) {
   );
 }
 
-function ThumbnailWithPlayBadge({ src, size }) {
+// `subtle` — used for the "thumb" variant (the launch queue list, the
+// launch wizard's review step) — renders a smaller, lower-opacity badge.
+// Reported by the user as looking "very bad" at the small (40-48px) sizes
+// those two surfaces actually use it at: the same full-size, fully-opaque
+// badge built for "card" (Explore's much larger grid tiles) just overwhelms
+// a thumbnail that small.
+function ThumbnailWithPlayBadge({ src, size, subtle = false }) {
   return (
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -32,10 +38,10 @@ function ThumbnailWithPlayBadge({ src, size }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "rgba(0,0,0,.25)",
+          background: subtle ? "rgba(0,0,0,.15)" : "rgba(0,0,0,.25)",
         }}
       >
-        <span style={{ fontSize: size, color: "#fff" }}>▶</span>
+        <span style={{ fontSize: subtle ? size * 0.6 : size, color: "#fff", opacity: subtle ? 0.7 : 1 }}>▶</span>
       </div>
     </>
   );
@@ -78,7 +84,7 @@ export default function ContentPreviewMedia({ contentId, permalink, mediaType, v
     if (resolvedIsVideo) {
       if (variant === "thumb") {
         return data.thumbnailUrl ? (
-          <ThumbnailWithPlayBadge src={data.thumbnailUrl} size={placeholderSize} />
+          <ThumbnailWithPlayBadge src={data.thumbnailUrl} size={placeholderSize} subtle />
         ) : (
           <Placeholder isVideo loading={false} size={placeholderSize} />
         );
@@ -115,7 +121,7 @@ export default function ContentPreviewMedia({ contentId, permalink, mediaType, v
     );
   }
   if (data.thumbnailUrl) {
-    return <ThumbnailWithPlayBadge src={data.thumbnailUrl} size={placeholderSize} />;
+    return <ThumbnailWithPlayBadge src={data.thumbnailUrl} size={placeholderSize} subtle={variant === "thumb"} />;
   }
   return <Placeholder isVideo loading={false} size={placeholderSize} />;
 }

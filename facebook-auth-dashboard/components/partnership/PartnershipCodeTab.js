@@ -2,15 +2,21 @@ import { useState } from "react";
 import CodeEntryCard from "./CodeEntryCard";
 import CsvUploadCard from "./CsvUploadCard";
 import FetchPreviewModal from "./FetchPreviewModal";
+import LaunchWizardModal from "./LaunchWizardModal";
 import { addToPartnershipQueue } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
 // Partnership Code: resolve a specific piece of content by its ad_code
 // (Meta's own "boost post access token" for branded content, per the
-// reference implementation) rather than browsing for it — single lookup or
-// bulk CSV. Both end in the same place, the launch queue.
-export default function PartnershipCodeTab({ accountId, businessId, igUserId, ready, onQueueChanged }) {
+// reference implementation) or permalink rather than browsing for it —
+// single lookup or bulk CSV. A single lookup can either be queued (same
+// launch queue Explore Ads feeds) or launched immediately via the same
+// 3-step LaunchWizardModal the queue's own "Launch Selected Ads" uses,
+// passed just this one item — no need to round-trip through the queue
+// first if the user already knows exactly what they want to launch.
+export default function PartnershipCodeTab({ accountId, businessId, igUserId, pages, ready, onQueueChanged }) {
   const [previewItem, setPreviewItem] = useState(null);
+  const [launchItem, setLaunchItem] = useState(null);
   const [toast, setToast] = useState(null);
 
   function handleQueuedOne(item) {
@@ -44,7 +50,22 @@ export default function PartnershipCodeTab({ accountId, businessId, igUserId, re
         onAddToQueue={(item) => {
           handleQueuedOne(item);
         }}
+        onLaunchNow={(item) => {
+          setPreviewItem(null);
+          setLaunchItem(item);
+        }}
       />
+
+      {launchItem && (
+        <LaunchWizardModal
+          accountId={accountId}
+          businessId={businessId}
+          igUserId={igUserId}
+          pages={pages}
+          items={[launchItem]}
+          onClose={() => setLaunchItem(null)}
+        />
+      )}
 
       {toast && (
         <div

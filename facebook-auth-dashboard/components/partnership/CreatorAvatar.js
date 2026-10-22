@@ -4,11 +4,11 @@
 // lookup, or the lookup itself failed — see
 // pages/api/fb/partnership/mine.js's resolveCreatorAvatars for both cases,
 // neither of which block seeing the creator's username at all).
-export default function CreatorAvatar({ src, username, size = 24 }) {
+export default function CreatorAvatar({ src, username, size = 24, style }) {
   if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt="" width={size} height={size} style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+      <img src={src} alt="" width={size} height={size} style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0, ...style }} />
     );
   }
   const initial = username ? username[0].toUpperCase() : "?";
@@ -26,6 +26,7 @@ export default function CreatorAvatar({ src, username, size = 24 }) {
         fontSize: size * 0.45,
         fontWeight: 700,
         flexShrink: 0,
+        ...style,
       }}
     >
       {initial}

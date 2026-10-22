@@ -25,7 +25,7 @@ const CTA_OPTIONS = [
 // AI-copy fields. "AI-Powered Ad Copies" is a visible, disabled "Coming
 // soon" affordance for the same reason — no real backing copy-generation
 // service exists anywhere in the reference material this was built from.
-export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
+export default function FetchPreviewModal({ item, onClose, onAddToQueue, onLaunchNow }) {
   const [name, setName] = useState("");
   const [primaryText, setPrimaryText] = useState("");
   const [headline, setHeadline] = useState("");
@@ -58,11 +58,17 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
 
   if (!item) return null;
   const info = firstPartnershipInfo(item);
+  // Headline/Description are intentionally NOT required here (or anywhere
+  // else this same item shape is built — see ExploreTab.js's
+  // commitQueueAdd, which has never required them either): launch.js never
+  // actually sends either field to Graph at all — only primaryText (as
+  // branded_content.testimonial) and redirectionLink (as the CTA's link) are
+  // used — so requiring them up front would block a real launch on fields
+  // the launch itself doesn't need.
   const canAdd = name.trim().length > 0 && redirectionLink.trim().length > 0 && primaryText.trim().length > 0;
 
-  function handleAdd() {
-    if (!canAdd) return;
-    onAddToQueue({
+  function buildItem() {
+    return {
       id: `code_${item.content_id}`,
       source: "code",
       contentId: item.content_id,
@@ -75,8 +81,18 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
       description: description.trim(),
       cta,
       redirectionLink: redirectionLink.trim(),
-    });
+    };
+  }
+
+  function handleAdd() {
+    if (!canAdd) return;
+    onAddToQueue(buildItem());
     setAdded(true);
+  }
+
+  function handleLaunchNow() {
+    if (!canAdd) return;
+    onLaunchNow(buildItem());
   }
 
   return (
@@ -163,15 +179,25 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue }) {
             </button>
           </div>
 
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            style={{ width: "100%", marginTop: 16 }}
-            onClick={handleAdd}
-            disabled={!canAdd || added}
-          >
-            {added ? "Added to Queue ✓" : "Add to Queue"}
-          </button>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              style={{ flex: 1 }}
+              onClick={handleAdd}
+              disabled={!canAdd || added}
+            >
+              {added ? "Added to Queue ✓" : "Add to Queue"}
+            </button>
+            {/* Launches this one item straight away, same 3-step wizard the
+                queue's own "Launch Selected Ads" uses — reported by the user
+                as a missing option here: adding to the queue first was the
+                only path to actually launching anything, even for someone
+                who already knows exactly what they want to launch right now. */}
+            <button type="button" className={styles.btnPrimary} style={{ flex: 1 }} onClick={handleLaunchNow} disabled={!canAdd}>
+              Launch Now
+            </button>
+          </div>
         </div>
       </div>
     </div>
