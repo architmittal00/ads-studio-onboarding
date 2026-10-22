@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #302 (Partnership Code: Bulk Upload now accepts Instagram permalinks, not just ad codes).
+> Last updated: **2026-10-22**, by Claude, right after merging PR #304 (Bulk Upload: surface real ad-code lookup errors, fix a multi-partner matching gap).
 
 ---
 
@@ -82,6 +82,17 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-22)
+
+### Partnership Code Bulk Upload: surface real ad-code errors, fix multi-partner matching gap (PR #304)
+
+Reported by the user right after PR #302 shipped: ad codes were failing in Bulk Upload while permalinks succeeded in the same batch, with nothing to go on. Two real, independent bugs found in `pages/api/fb/partnership/content-lookup-bulk.js`:
+
+1. A failed ad-code (or permalink) lookup call was silently caught and swallowed — every row in that batch just showed "Invalid," indistinguishable from a genuine not-found, with zero diagnostic info. Unlike every other Graph call in this app (which surfaces `error_user_msg`/code/subcode — see PR #278's app-wide push for this), bulk lookup failures gave no actual reason. Now captured and shown inline per row in `CsvUploadCard.js`, same treatment applied to permalink failures and the Stories-link rejection case.
+2. Matching a resolved item back to its row only checked the *first* `partnership_info` entry's `ad_code` — content tagged with more than one partner could come back correctly from Graph but silently fail to match if the searched code belonged to a second (or later) entry. Now checks every entry.
+
+Neither is confirmed as *the* specific cause of this exact report without seeing the real failing Graph response, but both are genuine, independent bugs — and #1 was actively preventing anyone (including this session) from seeing what the real cause even was. The user was pointed at `/logs` (API Logs) to read the actual Graph error for their specific failed attempt in the meantime, since `graphGet` already logs every call's real error regardless of this fix.
+
+Verified against the real `CsvUploadCard` component via a disposable mocked preview: a simulated thrown Graph error now renders inline instead of a bare "Invalid"; a row whose matching ad_code sits in the second `partnership_info` entry now resolves and queues correctly; a Stories-link permalink still shows its specific rejection reason distinctly from a generic failure.
 
 ### Partnership Code: Bulk Upload now accepts Instagram permalinks (PR #302)
 
@@ -550,7 +561,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Partnership Code, new (PR #302)**: on the real account, upload a CSV mixing real ad codes and real Instagram permalinks on the Bulk Upload card and confirm both kinds resolve correctly and queue with the right fields — only verified via mocked preview so far (the actual Graph behavior of `lookupContent`'s `permalinks` param at bulk scale, beyond the single-entry flow it was built for, is unconfirmed).
+**Partnership Code, new and highest priority (PR #302, #304)**: the user's first real attempt at bulk ad codes failed with no visible reason (PR #302's own bug, now fixed by #304's error-surfacing). Retry that same real CSV on Bulk Upload and read whatever real error now shows inline on the failing rows (or check `/logs` for the exact Graph response) — that will say definitively whether it was the silent-swallow bug, the multi-partner matching gap, or something else entirely (e.g. stale/wrong ad codes). Still needed either way: confirm real permalinks resolve correctly in bulk too (unconfirmed beyond mocked preview), and confirm ad codes now resolve once the actual cause is addressed.
 
 **Copy Ads, new (PR #296)**: open `/copy-ads`, load ads, and confirm the select-all checkbox is now visible in the table header and actually selects/deselects every currently-filtered copyable ad — confirmed via a mocked preview reproducing the exact column shape, not yet seen on the real deployed page. Worth also glancing at Explore's own select-all header at the same time, since it shares the same fix.
 
