@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #300 (fix the Business picker showing BMs the user has no access to; label the header pills).
+> Last updated: **2026-10-22**, by Claude, right after merging PR #302 (Partnership Code: Bulk Upload now accepts Instagram permalinks, not just ad codes).
 
 ---
 
@@ -82,6 +82,14 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-22)
+
+### Partnership Code: Bulk Upload now accepts Instagram permalinks (PR #302)
+
+Reported by the user: Bulk Upload (`components/partnership/CsvUploadCard.js`) only ever resolved an uploaded line as an ad code, even though the single-item "Fetch by Code or Permalink" flow (`CodeEntryCard.js`) has supported permalinks since PR #288.
+
+Each CSV line now auto-detects as an ad code or an Instagram permalink (a permalink always contains a URL/`instagram.com`) rather than forcing the whole file into one mode — a real list can plausibly mix both, so there's no mode toggle for the whole batch the way `CodeEntryCard.js` has for a single lookup. `pages/api/fb/partnership/content-lookup-bulk.js` splits each 50-row chunk by detected type and resolves ad-code/permalink rows with separate `lookupContent` calls (it only accepts one of `adCodes`/`permalinks` per call, never mixed), matching results back by `ad_code` or by extracted Instagram shortcode. A permalink `extractInstagramShortcode` rejects (e.g. an Instagram Stories link, unsupported) now fails just that one row instead of throwing and losing the whole chunk's results — a real robustness gap in the old all-ad-codes design that happened to never surface since every row was always the same type. Each row is now tagged "Code"/"Link" in the UI, and the re-downloadable "failed rows" CSV dropped its ad-code-only header.
+
+Verified against the real `CsvUploadCard` component via a disposable mocked preview: uploaded a batch mixing a valid ad code, an invalid ad code, a valid permalink, an invalid permalink, and an Instagram Stories link — confirmed each row resolves/fails independently (the Stories link doesn't take down the rest), and "Add N to Queue" assembles correct items for both an ad-code-sourced and a permalink-sourced result.
 
 ### Partnership Ads: fix the Business picker showing BMs the user has no access to (PR #300)
 
@@ -541,6 +549,8 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 ---
 
 ## 7. What's next
+
+**Partnership Code, new (PR #302)**: on the real account, upload a CSV mixing real ad codes and real Instagram permalinks on the Bulk Upload card and confirm both kinds resolve correctly and queue with the right fields — only verified via mocked preview so far (the actual Graph behavior of `lookupContent`'s `permalinks` param at bulk scale, beyond the single-entry flow it was built for, is unconfirmed).
 
 **Copy Ads, new (PR #296)**: open `/copy-ads`, load ads, and confirm the select-all checkbox is now visible in the table header and actually selects/deselects every currently-filtered copyable ad — confirmed via a mocked preview reproducing the exact column shape, not yet seen on the real deployed page. Worth also glancing at Explore's own select-all header at the same time, since it shares the same fix.
 
