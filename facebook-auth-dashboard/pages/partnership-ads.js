@@ -5,7 +5,6 @@ import { getServerSession } from "next-auth/next";
 import { useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import Layout from "@/components/Layout";
-import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import { useAccounts } from "@/components/AccountProvider";
@@ -245,221 +244,219 @@ export default function PartnershipAds() {
       <Head>
         <title>Partnership Ads · Facebook Auth Dashboard</title>
       </Head>
-      <PinLock>
-        <div className={styles.page}>
-          <main className={styles.main} style={{ maxWidth: 1500, margin: "0 auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-              <div>
-                {/* h1/.sub both carry zero margin of their own (see
-                    styles/Home.module.css) — the title's visible bottom
-                    space was previously coming from the <h1>'s UA-stylesheet
-                    default margin minus a `marginTop: -8` on the subtitle, a
-                    sitewide copy-pasted pattern that nets a cramped ~3px gap
-                    here. Set explicitly instead of relying on that
-                    cancellation; scoped to this page only. */}
-                <h1 className={styles.h1} style={{ margin: 0 }}>
-                  Partnership Ads
-                </h1>
-                <p className={styles.sub} style={{ marginTop: 6, marginBottom: 16 }}>
-                  Browse content your creator partners have authorized for ads, request branded-content permission, and
-                  launch real ads from it.
-                </p>
-              </div>
-              {/* Ready to Launch + every tab's own Ad Account (+ Instagram
-                  Business Account, + Date Range, depending on what that tab
-                  actually needs) all share one row now — reported as too
-                  cluttered when the pill row sat stacked on its own line
-                  below the button, two separate rows before any real tab
-                  content even started. */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <div className={styles.headerPillRow} style={{ alignItems: "flex-end" }}>
-                  <LabeledPill label="Ad Account">
+      <div className={styles.page}>
+        <main className={styles.main} style={{ maxWidth: 1500, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              {/* h1/.sub both carry zero margin of their own (see
+                  styles/Home.module.css) — the title's visible bottom
+                  space was previously coming from the <h1>'s UA-stylesheet
+                  default margin minus a `marginTop: -8` on the subtitle, a
+                  sitewide copy-pasted pattern that nets a cramped ~3px gap
+                  here. Set explicitly instead of relying on that
+                  cancellation; scoped to this page only. */}
+              <h1 className={styles.h1} style={{ margin: 0 }}>
+                Partnership Ads
+              </h1>
+              <p className={styles.sub} style={{ marginTop: 6, marginBottom: 16 }}>
+                Browse content your creator partners have authorized for ads, request branded-content permission, and
+                launch real ads from it.
+              </p>
+            </div>
+            {/* Ready to Launch + every tab's own Ad Account (+ Instagram
+                Business Account, + Date Range, depending on what that tab
+                actually needs) all share one row now — reported as too
+                cluttered when the pill row sat stacked on its own line
+                below the button, two separate rows before any real tab
+                content even started. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div className={styles.headerPillRow} style={{ alignItems: "flex-end" }}>
+                <LabeledPill label="Ad Account">
+                  <AccountSelect
+                    accounts={adAccounts}
+                    value={selectedAccountId}
+                    onChange={setSelectedAccountId}
+                    placeholder="Select an ad account…"
+                    inputClassName={styles.headerPillSelect}
+                    inputStyle={{ width: 190 }}
+                    loading={accountsLoading}
+                  />
+                </LabeledPill>
+                {!isPerformanceTab && (
+                  <LabeledPill label="Business Manager">
                     <AccountSelect
-                      accounts={adAccounts}
-                      value={selectedAccountId}
-                      onChange={setSelectedAccountId}
-                      placeholder="Select an ad account…"
+                      accounts={businessOptions}
+                      value={selectedBusinessId}
+                      onChange={setSelectedBusinessId}
+                      placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"}
                       inputClassName={styles.headerPillSelect}
                       inputStyle={{ width: 190 }}
                       loading={accountsLoading}
                     />
                   </LabeledPill>
-                  {!isPerformanceTab && (
-                    <LabeledPill label="Business Manager">
-                      <AccountSelect
-                        accounts={businessOptions}
-                        value={selectedBusinessId}
-                        onChange={setSelectedBusinessId}
-                        placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"}
-                        inputClassName={styles.headerPillSelect}
-                        inputStyle={{ width: 190 }}
-                        loading={accountsLoading}
-                      />
-                    </LabeledPill>
-                  )}
-                  {!isPerformanceTab && (
-                    <LabeledPill label="Instagram Account">
-                      <AccountSelect
-                        accounts={igOptions}
-                        value={selectedIgAccountId}
-                        onChange={setSelectedIgAccountId}
-                        placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"}
-                        inputClassName={styles.headerPillSelect}
-                        inputStyle={{ width: 190 }}
-                        loading={accountsLoading}
-                      />
-                    </LabeledPill>
-                  )}
-                  {(isPerformanceTab || tab === "explore") && (
-                    <DateRangeMenu
-                      rangePreset={isPerformanceTab ? rangePreset : exploreRangePreset}
-                      customSince={isPerformanceTab ? customSince : exploreCustomSince}
-                      customUntil={isPerformanceTab ? customUntil : exploreCustomUntil}
-                      maxRangeDays={isPerformanceTab ? MAX_RANGE_DAYS : 365}
-                      compareToPrevious={false}
-                      compareCustomSince=""
-                      compareDisplay="change"
-                      compareDisabled
-                      compareDisabledReason={
-                        isPerformanceTab
-                          ? "Not available here — each of these tabs shows one window at a time, not a comparison view."
-                          : "Not available here — this filters which content shows up, not a performance comparison."
-                      }
-                      triggerClassName={styles.headerPillBtn}
-                      onApply={(patch) => {
-                        if (isPerformanceTab) {
-                          setRangePreset(patch.rangePreset);
-                          setCustomSince(patch.customSince);
-                          setCustomUntil(patch.customUntil);
-                        } else {
-                          setExploreRangePreset(patch.rangePreset);
-                          setExploreCustomSince(patch.customSince);
-                          setExploreCustomUntil(patch.customUntil);
-                        }
-                      }}
+                )}
+                {!isPerformanceTab && (
+                  <LabeledPill label="Instagram Account">
+                    <AccountSelect
+                      accounts={igOptions}
+                      value={selectedIgAccountId}
+                      onChange={setSelectedIgAccountId}
+                      placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"}
+                      inputClassName={styles.headerPillSelect}
+                      inputStyle={{ width: 190 }}
+                      loading={accountsLoading}
                     />
-                  )}
-                  {isPerformanceTab && (
-                    <button
-                      type="button"
-                      className={perf.loading ? `${styles.headerPillIconBtn} spinning` : styles.headerPillIconBtn}
-                      onClick={checkPerformance}
-                      disabled={!performanceReady || !performanceRange || perf.loading}
-                      title={perf.hasLoaded ? "Reload" : "Check performance"}
-                      aria-label={perf.hasLoaded ? "Reload" : "Check performance"}
-                    >
-                      <RefreshIcon size={14} />
-                    </button>
-                  )}
-                </div>
-                <Link href="/partnership-ads/queue" className={styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-                  Ready to Launch
-                  <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
-                </Link>
-              </div>
-            </div>
-
-            {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
-
-            {/* Overview/My Partnership Ads/Creator Hub don't need an Instagram
-                Business Account (see performanceReady's own comment above) —
-                these two warnings would otherwise block them on a requirement
-                they don't actually have. */}
-            {!isPerformanceTab && selectedAccountId && igAccounts.length === 0 && (
-              <div className={styles.error} style={{ marginBottom: 16 }}>
-                None of your connected Pages have a linked Instagram Business Account. Connect one in Meta Business
-                Suite first — Partnership Ads needs it to browse eligible content and request creator permissions.
-              </div>
-            )}
-            {!isPerformanceTab && selectedAccountId && igAccounts.length > 0 && businessOptions.length === 0 && (
-              <div className={styles.error} style={{ marginBottom: 16 }}>
-                {businessesError
-                  ? `Couldn't load your Business Managers: ${businessesError}`
-                  : "You're not a member of any Business Manager — Partnership Ads' content discovery needs you to be added to at least one, with any role. Ask to be added in Meta Business Settings."}
-              </div>
-            )}
-
-            {/* Every tab's Ad Account/Instagram Account/Date Range now live in
-                the header's pill row above — no tab needs its own side panel
-                anymore, so every tab gets this same full-width content area. */}
-            <div className={styles.exploreContent}>
-              <div className={styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
-                {TABS.map((t) => (
+                  </LabeledPill>
+                )}
+                {(isPerformanceTab || tab === "explore") && (
+                  <DateRangeMenu
+                    rangePreset={isPerformanceTab ? rangePreset : exploreRangePreset}
+                    customSince={isPerformanceTab ? customSince : exploreCustomSince}
+                    customUntil={isPerformanceTab ? customUntil : exploreCustomUntil}
+                    maxRangeDays={isPerformanceTab ? MAX_RANGE_DAYS : 365}
+                    compareToPrevious={false}
+                    compareCustomSince=""
+                    compareDisplay="change"
+                    compareDisabled
+                    compareDisabledReason={
+                      isPerformanceTab
+                        ? "Not available here — each of these tabs shows one window at a time, not a comparison view."
+                        : "Not available here — this filters which content shows up, not a performance comparison."
+                    }
+                    triggerClassName={styles.headerPillBtn}
+                    onApply={(patch) => {
+                      if (isPerformanceTab) {
+                        setRangePreset(patch.rangePreset);
+                        setCustomSince(patch.customSince);
+                        setCustomUntil(patch.customUntil);
+                      } else {
+                        setExploreRangePreset(patch.rangePreset);
+                        setExploreCustomSince(patch.customSince);
+                        setExploreCustomUntil(patch.customUntil);
+                      }
+                    }}
+                  />
+                )}
+                {isPerformanceTab && (
                   <button
-                    key={t.key}
                     type="button"
-                    className={tab === t.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                    onClick={() => setTab(t.key)}
+                    className={perf.loading ? `${styles.headerPillIconBtn} spinning` : styles.headerPillIconBtn}
+                    onClick={checkPerformance}
+                    disabled={!performanceReady || !performanceRange || perf.loading}
+                    title={perf.hasLoaded ? "Reload" : "Check performance"}
+                    aria-label={perf.hasLoaded ? "Reload" : "Check performance"}
                   >
-                    {t.label}
+                    <RefreshIcon size={14} />
                   </button>
-                ))}
+                )}
               </div>
-
-              {tab === "overview" && (
-                <OverviewTab
-                  ready={performanceReady}
-                  currency={selectedAccount?.currency}
-                  range={perf.rangeUsed}
-                  loading={perf.loading}
-                  error={perf.error}
-                  data={perf.overview}
-                  onCheck={checkPerformance}
-                  canCheck={!!performanceReady && !!performanceRange}
-                />
-              )}
-              {tab === "mine" && (
-                <MyAdsTab
-                  ready={performanceReady}
-                  currency={selectedAccount?.currency}
-                  range={perf.rangeUsed}
-                  loading={perf.loading}
-                  error={perf.error}
-                  hasLoaded={perf.hasLoaded}
-                  ads={perf.ads}
-                  creatorSummary={perf.creatorSummary}
-                  onCheck={checkPerformance}
-                  canCheck={!!performanceReady && !!performanceRange}
-                />
-              )}
-              {tab === "creators" && (
-                <CreatorHubTab
-                  ready={performanceReady}
-                  currency={selectedAccount?.currency}
-                  range={perf.rangeUsed}
-                  loading={perf.loading}
-                  error={perf.error}
-                  hasLoaded={perf.hasLoaded}
-                  ads={perf.ads}
-                  onCheck={checkPerformance}
-                  canCheck={!!performanceReady && !!performanceRange}
-                />
-              )}
-              {tab === "explore" && (
-                <ExploreTab
-                  accountId={selectedAccountId}
-                  businessId={businessId}
-                  igUserId={selectedIgAccountId}
-                  ready={ready}
-                  dateRange={exploreRange}
-                  onQueueChanged={refreshQueueCount}
-                />
-              )}
-              {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
-              {tab === "code" && (
-                <PartnershipCodeTab
-                  accountId={selectedAccountId}
-                  businessId={businessId}
-                  igUserId={selectedIgAccountId}
-                  pages={pages}
-                  ready={ready}
-                  onQueueChanged={refreshQueueCount}
-                />
-              )}
+              <Link href="/partnership-ads/queue" className={styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                Ready to Launch
+                <span className={styles.badgeInfo} style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{queueCount}</span>
+              </Link>
             </div>
-          </main>
-        </div>
-      </PinLock>
+          </div>
+
+          {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
+
+          {/* Overview/My Partnership Ads/Creator Hub don't need an Instagram
+              Business Account (see performanceReady's own comment above) —
+              these two warnings would otherwise block them on a requirement
+              they don't actually have. */}
+          {!isPerformanceTab && selectedAccountId && igAccounts.length === 0 && (
+            <div className={styles.error} style={{ marginBottom: 16 }}>
+              None of your connected Pages have a linked Instagram Business Account. Connect one in Meta Business
+              Suite first — Partnership Ads needs it to browse eligible content and request creator permissions.
+            </div>
+          )}
+          {!isPerformanceTab && selectedAccountId && igAccounts.length > 0 && businessOptions.length === 0 && (
+            <div className={styles.error} style={{ marginBottom: 16 }}>
+              {businessesError
+                ? `Couldn't load your Business Managers: ${businessesError}`
+                : "You're not a member of any Business Manager — Partnership Ads' content discovery needs you to be added to at least one, with any role. Ask to be added in Meta Business Settings."}
+            </div>
+          )}
+
+          {/* Every tab's Ad Account/Instagram Account/Date Range now live in
+              the header's pill row above — no tab needs its own side panel
+              anymore, so every tab gets this same full-width content area. */}
+          <div className={styles.exploreContent}>
+            <div className={styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={tab === t.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => setTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {tab === "overview" && (
+              <OverviewTab
+                ready={performanceReady}
+                currency={selectedAccount?.currency}
+                range={perf.rangeUsed}
+                loading={perf.loading}
+                error={perf.error}
+                data={perf.overview}
+                onCheck={checkPerformance}
+                canCheck={!!performanceReady && !!performanceRange}
+              />
+            )}
+            {tab === "mine" && (
+              <MyAdsTab
+                ready={performanceReady}
+                currency={selectedAccount?.currency}
+                range={perf.rangeUsed}
+                loading={perf.loading}
+                error={perf.error}
+                hasLoaded={perf.hasLoaded}
+                ads={perf.ads}
+                creatorSummary={perf.creatorSummary}
+                onCheck={checkPerformance}
+                canCheck={!!performanceReady && !!performanceRange}
+              />
+            )}
+            {tab === "creators" && (
+              <CreatorHubTab
+                ready={performanceReady}
+                currency={selectedAccount?.currency}
+                range={perf.rangeUsed}
+                loading={perf.loading}
+                error={perf.error}
+                hasLoaded={perf.hasLoaded}
+                ads={perf.ads}
+                onCheck={checkPerformance}
+                canCheck={!!performanceReady && !!performanceRange}
+              />
+            )}
+            {tab === "explore" && (
+              <ExploreTab
+                accountId={selectedAccountId}
+                businessId={businessId}
+                igUserId={selectedIgAccountId}
+                ready={ready}
+                dateRange={exploreRange}
+                onQueueChanged={refreshQueueCount}
+              />
+            )}
+            {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
+            {tab === "code" && (
+              <PartnershipCodeTab
+                accountId={selectedAccountId}
+                businessId={businessId}
+                igUserId={selectedIgAccountId}
+                pages={pages}
+                ready={ready}
+                onQueueChanged={refreshQueueCount}
+              />
+            )}
+          </div>
+        </main>
+      </div>
     </Layout>
   );
 }

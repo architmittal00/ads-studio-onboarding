@@ -112,7 +112,7 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
         name: `@${r.item.author?.display_name || "unknown"} — ${info.ad_code || r.item.content_id}`,
         mediaType: r.item.media_type,
         permalink: r.item.permalink,
-        primaryText: "",
+        primaryText: r.item.caption || "",
         headline: "",
         description: "",
         cta: "SHOP_NOW",
