@@ -45,6 +45,37 @@ export function setLastIgAccountId(id) {
   }
 }
 
+const LAST_BUSINESS_KEY = "fb-dashboard:last-business-id";
+
+// Which Business Manager (Partnership Ads) was last selected on this device —
+// same "last used, not load-bearing" convenience-default status as
+// getLastIgAccountId above. Deliberately independent of which ad account is
+// selected: Content Discovery/branded-content permission checks are
+// authorized at the Business level, and an ad account being shared with
+// someone doesn't imply they also have access on that account's own Business
+// — while a *different* Business they do have full access to can often query
+// the exact same Instagram account's content just fine (the IG account is a
+// shared asset, not exclusively owned by one Business). Reported by the user
+// after diagnosing this themselves: deriving businessId from whichever ad
+// account happened to be selected meant Explore Ads/launching worked or
+// failed depending on an unrelated choice, with no way to pick the Business
+// that actually works directly.
+export function getLastBusinessId() {
+  try {
+    return localStorage.getItem(LAST_BUSINESS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setLastBusinessId(id) {
+  try {
+    localStorage.setItem(LAST_BUSINESS_KEY, id);
+  } catch {
+    // Private browsing / blocked storage — silently ignore, nothing to persist to.
+  }
+}
+
 // The date range the report opens to by default on this device — a user
 // preference, not tied to whatever range they happened to leave it on last
 // (that's a different thing: the report always lands here first, every
