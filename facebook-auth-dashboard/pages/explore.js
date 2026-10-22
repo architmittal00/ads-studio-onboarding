@@ -2663,6 +2663,23 @@ function ExploreResultsTable({
   // `rows` cached so re-expanding is instant.
   const drillDownEnabled = !!CHILD_LEVEL[meta.level] && meta.breakdownGroup === "none" && !meta.timeIncrement;
   const [expansions, setExpansions] = useState({});
+  // Every cached entry above was fetched for a specific since/until (and
+  // compare window) — the same ones startFetch read off `meta` at the time.
+  // The table re-renders with a fresh `meta` on every re-run of this same
+  // view (ExploreResultsTable itself doesn't remount — see the `key` comment
+  // where it's rendered), so without this, an already-expanded ad set/ad row
+  // kept showing numbers fetched for whatever range was active when it was
+  // first expanded, while the top-level row right above it updated normally.
+  // Compared by value, not by `meta`'s identity (a fresh object arrives on
+  // every fetch even for a same-range Hard Refresh), so collapsing only
+  // happens when the range actually changed.
+  const rangeKey = [meta.since, meta.until, meta.compareToPrevious, meta.previousSince, meta.previousUntil].join("|");
+  const lastRangeKeyRef = useRef(rangeKey);
+  useEffect(() => {
+    if (lastRangeKeyRef.current === rangeKey) return;
+    lastRangeKeyRef.current = rangeKey;
+    setExpansions({});
+  }, [rangeKey]);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [detailEntity, setDetailEntity] = useState(null);
 
