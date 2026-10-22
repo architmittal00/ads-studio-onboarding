@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #304 (Bulk Upload: surface real ad-code lookup errors, fix a multi-partner matching gap).
+> Last updated: **2026-10-22**, by Claude, right after merging PR #306 (fix Bulk Upload ad-code matching — Graph's returned ad_code is adcode-prefixed, root cause confirmed against a real failing request).
 
 ---
 
@@ -82,6 +82,14 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-22)
+
+### Partnership Code Bulk Upload: fix the real ad-code matching bug, found via a live production request (PR #306)
+
+PR #304's error-surfacing fix immediately paid off: the user retried and reported `error: null` on every ad-code row — ruling out a thrown Graph error, leaving a genuine, silent mismatch. Root cause found directly, not by further guessing: took the user's own curl (their real session, `businessId`, `igUserId`, and one real ad code) and ran it through both `content-lookup-bulk.js` (failed) and the single-item `content-lookup.js` endpoint for the exact same code (succeeded, returned the real content). Comparing the two real responses showed the actual mechanism: Graph's `ad_codes` filter matches the bare code a creator shares, but the `ad_code` field it returns on the matched item's `partnership_info` comes back prefixed — `"adcode-Q9jTBB…"` for an input of `"Q9jTBB…"` — something undocumented anywhere this app's reference material covers.
+
+`content-lookup-bulk.js` has always matched the response's `ad_code` directly against each row's own unprefixed value to build its result map, so the map key and the lookup key never equaled each other — every real ad-code row came back "not found" even though Graph found and returned the correct item every single time. This predates PR #302/#304 entirely; it was simply never exercised against a real ad code in bulk until now. Fixed by normalizing both sides (stripping a leading `adcode-` when present) before comparing. Permalink matching was never affected — it keys off the extracted Instagram shortcode, not `ad_code`.
+
+Verified the fix directly against the real data captured from the user's own curl and the single-item lookup's real response for that code — confirmed the normalized match now succeeds. Confirmed a bare (non-prefixed) `ad_code`, if Graph ever returns one, still matches with no regression.
 
 ### Partnership Code Bulk Upload: surface real ad-code errors, fix multi-partner matching gap (PR #304)
 
@@ -561,7 +569,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Partnership Code, new and highest priority (PR #302, #304)**: the user's first real attempt at bulk ad codes failed with no visible reason (PR #302's own bug, now fixed by #304's error-surfacing). Retry that same real CSV on Bulk Upload and read whatever real error now shows inline on the failing rows (or check `/logs` for the exact Graph response) — that will say definitively whether it was the silent-swallow bug, the multi-partner matching gap, or something else entirely (e.g. stale/wrong ad codes). Still needed either way: confirm real permalinks resolve correctly in bulk too (unconfirmed beyond mocked preview), and confirm ad codes now resolve once the actual cause is addressed.
+**Partnership Code, new and highest priority (PR #302, #304, #306)**: the root cause of real ad codes failing in Bulk Upload is now found and fixed (PR #306 — Graph's returned `ad_code` carries an undocumented `adcode-` prefix this endpoint never stripped before matching). Re-run the exact same real CSV that was failing before and confirm every ad-code row now resolves and queues correctly. Also still needed: confirm real permalinks resolve correctly in bulk (unconfirmed beyond mocked preview — the one real test so far only exercised ad codes).
 
 **Copy Ads, new (PR #296)**: open `/copy-ads`, load ads, and confirm the select-all checkbox is now visible in the table header and actually selects/deselects every currently-filtered copyable ad — confirmed via a mocked preview reproducing the exact column shape, not yet seen on the real deployed page. Worth also glancing at Explore's own select-all header at the same time, since it shares the same fix.
 
