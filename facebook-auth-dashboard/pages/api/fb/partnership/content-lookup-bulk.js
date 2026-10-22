@@ -32,6 +32,21 @@ function tryExtractShortcode(permalink) {
   }
 }
 
+// Confirmed against a real failing lookup: Graph's own `ad_codes` filter
+// param matches on the bare code a creator actually shares (what a user
+// pastes into this upload), but the `ad_code` field it returns on a matched
+// item's `partnership_info` entry comes back with an `adcode-` prefix
+// ("adcode-Q9jTBB…" for an input of "Q9jTBB…") — undocumented anywhere this
+// app's reference material covers. Matching the response's `ad_code`
+// directly against the row's own (unprefixed) value, as this endpoint always
+// has, means the map key and the lookup key never equal each other, so every
+// real ad-code row came back "not found" even though Graph found and
+// returned the right item. Normalizing both sides makes the match work
+// whichever form either one happens to be in.
+function normalizeAdCode(code) {
+  return code ? code.replace(/^adcode-/i, "") : code;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -75,7 +90,7 @@ export default async function handler(req, res) {
         // matching many candidate items back to many codes at once.
         for (const item of results) {
           for (const info of item.partnership_info || []) {
-            if (info.ad_code) byAdCode.set(info.ad_code, item);
+            if (info.ad_code) byAdCode.set(normalizeAdCode(info.ad_code), item);
           }
         }
       } catch (err) {
@@ -106,7 +121,7 @@ export default async function handler(req, res) {
     }
 
     for (const row of adCodeRows) {
-      const item = byAdCode.get(row.value);
+      const item = byAdCode.get(normalizeAdCode(row.value));
       res.write(`${JSON.stringify({ type: "row", value: row.value, found: !!item, item: item || null, error: item ? null : adCodeError })}\n`);
     }
     for (const row of permalinkRows) {
