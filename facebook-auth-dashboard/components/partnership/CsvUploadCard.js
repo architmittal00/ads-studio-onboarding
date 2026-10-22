@@ -12,42 +12,61 @@ function downloadText(text, filename, mime = "text/csv;charset=utf-8;") {
   URL.revokeObjectURL(url);
 }
 
-function parseCodesFromCsv(text) {
+function parseLinesFromCsv(text) {
   return text
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line && !/^(partnership_code|code)$/i.test(line));
+    .filter((line) => line && !/^(partnership_code|code|permalink)$/i.test(line));
 }
 
-// Bulk CSV upload — codes resolve via one streamed request
+// Same detection CodeEntryCard.js's two Ad Code/Permalink tabs let the user
+// pick explicitly for a single lookup — a bulk CSV can freely mix both kinds
+// of line (a creator might send an ad_code for one post and a link for
+// another), and the two are trivially distinguishable, so there's no need to
+// make someone split their list into two separate uploads or pick one mode
+// for the whole batch.
+function detectInputType(line) {
+  return /^https?:\/\//i.test(line) || /instagram\.com/i.test(line) ? "permalink" : "adCode";
+}
+
+// Bulk CSV upload — codes/permalinks resolve via one streamed request
 // (content-lookup-bulk.js, chunked server-side), rendered here as a live
 // per-row status list matching the mockup's own validating→valid/invalid
 // animation, just driven by real NDJSON progress instead of staggered
 // setTimeouts. Every valid row queues directly (minimal default copy
 // fields — edited later from the queue page itself) rather than opening one
 // FetchPreviewModal per row, which wouldn't scale to a CSV of any real size.
+//
+// Each line's type (Ad Code vs Permalink) is auto-detected, not a mode the
+// user picks for the whole file (see detectInputType above) — CodeEntryCard's
+// single-lookup flow already supports both, and a CSV mixing them is a
+// perfectly normal thing to end up with (codes from one creator, links
+// pasted from another), so forcing an upload to be one type only would just
+// mean splitting one list into two uploads for no real benefit.
 export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
-  const [rows, setRows] = useState(null); // [{code, status: "pending"|"valid"|"invalid", item}]
+  const [rows, setRows] = useState(null); // [{value, type: "adCode"|"permalink", status: "pending"|"valid"|"invalid", item}]
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
   function handleFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
-      const codes = parseCodesFromCsv(String(reader.result));
-      if (codes.length === 0) return;
-      setRows(codes.map((code) => ({ code, status: "pending", item: null })));
-      runLookup(codes);
+      const lines = parseLinesFromCsv(String(reader.result));
+      if (lines.length === 0) return;
+      const parsedRows = lines.map((value) => ({ value, type: detectInputType(value), status: "pending", item: null }));
+      setRows(parsedRows);
+      runLookup(parsedRows);
     };
     reader.readAsText(file);
   }
 
-  async function runLookup(codes) {
+  async function runLookup(parsedRows) {
     try {
+      const items = parsedRows.map((r) => ({ value: r.value, type: r.type }));
       const res = await fetch("/api/fb/partnership/content-lookup-bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, igUserId, codes }),
+        body: JSON.stringify({ businessId, igUserId, items }),
       });
       if (!res.ok || !res.body) {
         const json = await res.json().catch(() => ({}));
@@ -57,16 +76,16 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
       const decoder = new TextDecoder();
       let buffer = "";
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value: chunkValue } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(chunkValue, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop();
         for (const line of lines) {
           if (!line.trim()) continue;
           const event = JSON.parse(line);
           if (event.type === "row") {
-            setRows((prev) => prev.map((r) => (r.code === event.code ? { ...r, status: event.found ? "valid" : "invalid", item: event.item } : r)));
+            setRows((prev) => prev.map((r) => (r.value === event.value ? { ...r, status: event.found ? "valid" : "invalid", item: event.item } : r)));
           }
         }
       }
@@ -108,7 +127,10 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
           <h2 className={styles.h2} style={{ marginBottom: 4 }}>
             Bulk Upload
           </h2>
-          <p className={styles.sub}>Upload a CSV of Partnership Codes to validate and queue them all at once.</p>
+          <p className={styles.sub}>
+            Upload a CSV of Partnership Codes and/or Instagram permalinks (one per line, either kind, mixed is fine)
+            to validate and queue them all at once.
+          </p>
         </div>
         <button
           type="button"
@@ -159,11 +181,16 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
             {rows.map((r) => (
-              <div key={r.code} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 8, background: "var(--card2)" }}>
-                <span style={{ fontSize: 12.5, fontFamily: "monospace" }}>{r.code}</span>
-                {r.status === "pending" && <span className={styles.muted}>Validating…</span>}
-                {r.status === "valid" && <span className={styles.badgeGood}>✓ Valid</span>}
-                {r.status === "invalid" && <span className={styles.badgeDanger}>✕ Invalid</span>}
+              <div key={r.value} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 8, background: "var(--card2)" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <span className={styles.muted} style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, flexShrink: 0 }}>
+                    {r.type === "permalink" ? "Link" : "Code"}
+                  </span>
+                  <span style={{ fontSize: 12.5, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.value}</span>
+                </span>
+                {r.status === "pending" && <span className={styles.muted} style={{ flexShrink: 0 }}>Validating…</span>}
+                {r.status === "valid" && <span className={styles.badgeGood} style={{ flexShrink: 0 }}>✓ Valid</span>}
+                {r.status === "invalid" && <span className={styles.badgeDanger} style={{ flexShrink: 0 }}>✕ Invalid</span>}
               </div>
             ))}
           </div>
@@ -178,7 +205,7 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
                   <button
                     type="button"
                     className={styles.btnSecondary}
-                    onClick={() => downloadText(`partnership_code\n${invalidRows.map((r) => r.code).join("\n")}\n`, "failed-codes.csv")}
+                    onClick={() => downloadText(`${invalidRows.map((r) => r.value).join("\n")}\n`, "failed-codes.csv")}
                   >
                     Download Failed
                   </button>
