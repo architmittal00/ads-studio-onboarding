@@ -43,6 +43,30 @@ async function fetchAdAccounts(token) {
   }
 }
 
+// The Businesses (Business Manager accounts) the user is actually a member
+// of — confirmed via a real user's own curl against `/me/businesses` that
+// this needs no permission beyond what this app already requests (no
+// `business_management`, no re-login). This is deliberately the source of
+// truth for Partnership Ads' Business picker instead of the `business{id,
+// name}` sub-field on `/me/adaccounts` above: that field just reports which
+// Business *owns* a given ad account, which can be a Business the user has
+// no real access to at all (an ad account can be shared with someone
+// directly without the ad account's own Business granting them anything) —
+// reported by the user, who found the picker offering a Business they
+// couldn't actually use, alongside the one they could. `/me/businesses`
+// reports actual membership, so it can't include one the user has no access
+// to, and — being a separate, unrelated endpoint — isn't affected by the
+// `business_management` permission gap `fetchAdAccounts` above has to work
+// around either.
+async function fetchBusinesses(token) {
+  try {
+    const result = await graphGetAllPages("/me/businesses", token, { fields: "id,name" });
+    return { data: result.data || [], error: null };
+  } catch (err) {
+    return { data: [], error: err.message };
+  }
+}
+
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
@@ -65,7 +89,7 @@ export default async function handler(req, res) {
     // Paginated to completion — an agency token managing more Pages/ad
     // accounts than fit on one page would otherwise silently lose the rest
     // from every picker in the app.
-    const [profile, pages, adAccounts] = await Promise.all([
+    const [profile, pages, adAccounts, businesses] = await Promise.all([
       graphGet("/me", session.accessToken, { fields: "id,name,email,picture" }),
       // instagram_business_account is only present on a Page that actually
       // has one linked — most won't, and that's a normal state (see
@@ -76,9 +100,9 @@ export default async function handler(req, res) {
       })
         .then((r) => ({ data: r.data || [], error: null }))
         .catch((err) => ({ data: [], error: err.message })),
-      // `business` (the owning Business Manager) is only needed for
-      // Partnership Ads' Content Discovery API, which is keyed by business
-      // id rather than ad account id — fetched here anyway, alongside
+      // `business` (the owning Business Manager) is only needed as a sane
+      // first-time default for Partnership Ads' Business picker below (see
+      // components/AccountProvider.js) — fetched here anyway, alongside
       // everything else this call already gets, rather than a separate round
       // trip. Absent for a personal (non-Business-Manager) ad account, same
       // "normal, handled state" treatment as instagram_business_account above
@@ -86,6 +110,10 @@ export default async function handler(req, res) {
       // absent (a business_management permission gap, not a genuinely
       // BM-less account).
       fetchAdAccounts(session.accessToken),
+      // The actual source of truth for which Businesses the user can pick —
+      // see fetchBusinesses' own comment for why this isn't instead derived
+      // from adAccounts' own `business` field above.
+      fetchBusinesses(session.accessToken),
     ]);
 
     res.status(200).json({
@@ -94,6 +122,8 @@ export default async function handler(req, res) {
       pagesError: pages.error,
       adAccounts: adAccounts.data,
       adAccountsError: adAccounts.error,
+      businesses: businesses.data,
+      businessesError: businesses.error,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -53,6 +53,8 @@ export function AccountProvider({ children }) {
   // a user who genuinely has zero of either.
   const [pagesError, setPagesError] = useState(null);
   const [adAccountsError, setAdAccountsError] = useState(null);
+  const [businesses, setBusinesses] = useState([]);
+  const [businessesError, setBusinessesError] = useState(null);
   const [accountsFetchedAt, setAccountsFetchedAt] = useState(null);
   const [selectedAccountId, setSelectedAccountIdState] = useState("");
   const [selectedIgAccountId, setSelectedIgAccountIdState] = useState("");
@@ -66,6 +68,8 @@ export function AccountProvider({ children }) {
         setAdAccounts(cached.data.adAccounts || []);
         setPagesError(cached.data.pagesError || null);
         setAdAccountsError(cached.data.adAccountsError || null);
+        setBusinesses(cached.data.businesses || []);
+        setBusinessesError(cached.data.businessesError || null);
         setAccountsFetchedAt(cached.fetchedAt);
         setAccountsError(null);
         setAccountsLoading(false);
@@ -87,6 +91,8 @@ export function AccountProvider({ children }) {
         setAdAccounts(json.adAccounts || []);
         setPagesError(json.pagesError || null);
         setAdAccountsError(json.adAccountsError || null);
+        setBusinesses(json.businesses || []);
+        setBusinessesError(json.businessesError || null);
         setAccountsFetchedAt(Date.now());
         setCachedEntry(ACCOUNT_DATA_CACHE_KEY, json);
       })
@@ -169,23 +175,22 @@ export function AccountProvider({ children }) {
     if (id) setLastIgAccountId(id);
   }
 
-  // Every Business the user has visibility into, as surfaced by whichever ad
-  // accounts expose a `business{id,name}` sub-field (see pages/api/fb/data.js
-  // — this is already fetched for every ad account, no extra Graph call or
-  // OAuth scope needed). Deliberately NOT tied to `selectedAccountId`: Content
-  // Discovery/branded-content checks are authorized per-Business, and an ad
-  // account can be shared with someone without that Business itself granting
-  // them access — while a different Business the user *does* have full access
-  // to can often query the exact same Instagram account's content correctly.
-  // Powers Partnership Ads' own Business picker, independent of which ad
-  // account is selected; every other page in this app ignores it entirely.
-  const businessOptions = useMemo(() => {
-    const seen = new Map();
-    for (const a of adAccounts) {
-      if (a.business && !seen.has(a.business.id)) seen.set(a.business.id, { id: a.business.id, name: a.business.name });
-    }
-    return [...seen.values()];
-  }, [adAccounts]);
+  // Every Business the user is actually a member of, per `/me/businesses`
+  // (see pages/api/fb/data.js's fetchBusinesses — needs no extra Graph call
+  // beyond what this provider already makes, and no new OAuth scope).
+  // Deliberately NOT derived from adAccounts' own `business{id,name}`
+  // sub-field, and NOT tied to `selectedAccountId`: Content Discovery/
+  // branded-content checks are authorized per-Business, an ad account can be
+  // shared with someone without that Business itself granting them access,
+  // and — found by the user after the first version of this picker shipped
+  // — an ad account's own `business` field reports whichever Business *owns*
+  // it, which can be a Business the user has no real membership in at all,
+  // so building the list from ad accounts could (and did) offer a Business
+  // the user couldn't actually use. `/me/businesses` reports real membership
+  // directly. Powers Partnership Ads' own Business picker, independent of
+  // which ad account is selected; every other page in this app ignores it
+  // entirely.
+  const businessOptions = useMemo(() => businesses.map((b) => ({ id: b.id, name: b.name })), [businesses]);
   const [selectedBusinessId, setSelectedBusinessIdState] = useState("");
 
   // Seeds from the last Business used on this device, same convention as
@@ -223,6 +228,7 @@ export function AccountProvider({ children }) {
     accountsError,
     pagesError,
     adAccountsError,
+    businessesError,
     accountsFetchedAt,
     selectedAccountId,
     setSelectedAccountId,
