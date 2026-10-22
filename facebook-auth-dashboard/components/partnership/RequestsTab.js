@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Loader from "../Loader";
+import CreatorAdsDrawer from "./CreatorAdsDrawer";
 import { getPermissionRequestLog } from "@/lib/clientStorage";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
+import { groupByCreator } from "@/lib/partnershipCreatorStats";
 import styles from "@/styles/Home.module.css";
 
 // Status pill for one of Meta's own permission_status values. AUTHORIZED is
@@ -36,8 +38,31 @@ function formatDate(iso) {
 // request sent seconds ago may not show up here yet (Graph's own
 // eventual-consistency, not a bug in this page) — refresh if a just-sent
 // request doesn't appear right away.
-export default function RequestsTab({ igUserId, ready }) {
+export default function RequestsTab({ igUserId, ready, ads, currency, perfLoading, perfHasLoaded, onCheckPerformance, canCheckPerformance }) {
   const [state, setState] = useState({ loading: false, error: null, permissions: [] });
+  const [openCreator, setOpenCreator] = useState(null);
+
+  // Lets a row open the same per-creator ads drawer Creator Hub uses —
+  // reusing its exact grouping (lib/partnershipCreatorStats.js) rather than a
+  // separate fetch. The two datasets don't share a join key in practice:
+  // Graph's permission records key creators by `creator_ig_id`, but ads from
+  // /api/fb/partnership/mine (My Partnership Ads/Creator Hub's shared fetch)
+  // never actually get a resolved creatorIgId (only a username, from an IG
+  // Media lookup — see pages/api/fb/partnership/mine.js) — groupByCreator's
+  // own `ad.creatorIgId ||` fallback already accounts for this and buckets by
+  // username in practice. So matching here is deliberately by username, not
+  // id, with the same caveats a different Instagram handle would bring. The
+  // ads themselves are also whatever window Overview/My Partnership
+  // Ads/Creator Hub last checked (not the creator's full history, and not
+  // this tab's own range), since that's the one ad-performance fetch this
+  // page already makes.
+  const creatorsByUsername = useMemo(() => {
+    const map = new Map();
+    for (const c of groupByCreator(ads || [])) {
+      if (c.creatorUsername) map.set(c.creatorUsername.toLowerCase(), c);
+    }
+    return map;
+  }, [ads]);
 
   useEffect(() => {
     if (!ready || !igUserId) return;
@@ -91,27 +116,50 @@ export default function RequestsTab({ igUserId, ready }) {
   }
 
   return (
-    <div className={styles.tableScroll}>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Creator</th>
-            <th>Requested On</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.key}>
-              <td style={{ fontWeight: 600 }}>@{r.creatorUsername || r.key}</td>
-              <td>{formatDate(r.requestedAt)}</td>
-              <td>
-                <StatusPill status={r.status} />
-              </td>
+    <div>
+      {!perfHasLoaded && (
+        <div className={styles.card} style={{ padding: 12, marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span className={styles.sub} style={{ margin: 0 }}>
+            Check ad performance to see a creator&apos;s own ads from here.
+          </span>
+          <button type="button" className={styles.btnSecondary} disabled={!canCheckPerformance || perfLoading} onClick={onCheckPerformance}>
+            {perfLoading ? "Checking…" : "Check Performance"}
+          </button>
+        </div>
+      )}
+      <div className={styles.tableScroll}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Creator</th>
+              <th>Requested On</th>
+              <th>Status</th>
+              <th>Ads</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const matched = r.creatorUsername ? creatorsByUsername.get(r.creatorUsername.toLowerCase()) : null;
+              return (
+                <tr
+                  key={r.key}
+                  onClick={() => matched && setOpenCreator(matched)}
+                  style={matched ? { cursor: "pointer" } : undefined}
+                  title={matched ? "View this creator's ads" : perfHasLoaded ? "No ads found for this creator in the current window" : undefined}
+                >
+                  <td style={{ fontWeight: 600 }}>@{r.creatorUsername || r.key}</td>
+                  <td>{formatDate(r.requestedAt)}</td>
+                  <td>
+                    <StatusPill status={r.status} />
+                  </td>
+                  <td className={styles.muted}>{matched ? `${matched.adCount} ad${matched.adCount === 1 ? "" : "s"}` : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <CreatorAdsDrawer creator={openCreator} currency={currency} onClose={() => setOpenCreator(null)} />
     </div>
   );
 }

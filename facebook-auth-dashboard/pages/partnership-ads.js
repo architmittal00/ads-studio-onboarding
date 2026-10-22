@@ -246,7 +246,7 @@ export default function PartnershipAds() {
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1500, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
             <div>
               {/* h1/.sub both carry zero margin of their own (see
                   styles/Home.module.css) — the title's visible bottom
@@ -258,7 +258,13 @@ export default function PartnershipAds() {
               <h1 className={styles.h1} style={{ margin: 0 }}>
                 Partnership Ads
               </h1>
-              <p className={styles.sub} style={{ marginTop: 6, marginBottom: 16 }}>
+              {/* marginBottom trimmed from 16 to 6 — on a narrower viewport
+                  (or Explore Ads' extra Business Manager/Instagram Account
+                  pills) the account/date/Ready-to-Launch row below wraps
+                  onto its own line under this flex container, and this
+                  margin was the main thing pushing that wrapped row further
+                  down than it needed to be below the title. */}
+              <p className={styles.sub} style={{ marginTop: 6, marginBottom: 6 }}>
                 Browse content your creator partners have authorized for ads, request branded-content permission, and
                 launch real ads from it.
               </p>
@@ -443,7 +449,18 @@ export default function PartnershipAds() {
                 onQueueChanged={refreshQueueCount}
               />
             )}
-            {tab === "requests" && <RequestsTab igUserId={selectedIgAccountId} ready={ready} />}
+            {tab === "requests" && (
+              <RequestsTab
+                igUserId={selectedIgAccountId}
+                ready={ready}
+                ads={perf.ads}
+                currency={selectedAccount?.currency}
+                perfLoading={perf.loading}
+                perfHasLoaded={perf.hasLoaded}
+                onCheckPerformance={checkPerformance}
+                canCheckPerformance={!!performanceReady && !!performanceRange}
+              />
+            )}
             {tab === "code" && (
               <PartnershipCodeTab
                 accountId={selectedAccountId}

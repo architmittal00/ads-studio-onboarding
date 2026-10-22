@@ -1,13 +1,34 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Loader from "../Loader";
 import SortableTable from "../SortableTable";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import PartnershipEmptyState from "./PartnershipEmptyState";
 import CreatorAvatar from "./CreatorAvatar";
-import { HandshakeIcon } from "@/components/icons";
+import { HandshakeIcon, CloseIcon } from "@/components/icons";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
+import { METRIC_FILTER_OPERATORS, applyResultFilters } from "@/lib/copyAdsFilters";
 import styles from "@/styles/Home.module.css";
+
+// The numeric columns a "Filter results" condition can threshold on — same
+// metric set the table itself renders (see columns() below), ported from
+// Copy Ads' identical "Filter results" feature (lib/copyAdsFilters.js's own
+// header comment traces this back to pages/explore.js's original version).
+const FILTER_METRICS = [
+  { key: "spend", label: "Spend" },
+  { key: "roas", label: "ROAS" },
+  { key: "cpr", label: "CPR" },
+  { key: "cpm", label: "CPM" },
+  { key: "ctr", label: "CTR" },
+  { key: "purchases", label: "Purchases" },
+  { key: "purchaseValue", label: "Purchase Value" },
+];
+const FILTER_METRIC_KEYS = FILTER_METRICS.map((m) => m.key);
+
+function newFilterId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `f${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
 
 function columns(currency, onPreview) {
   return [
@@ -102,6 +123,47 @@ export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoad
   const [lightboxItem, setLightboxItem] = useState(null);
   const creatorSummaryText = describeCreatorSummary(creatorSummary);
 
+  // "Filter results" — same post-query, client-side pivot pattern as Copy
+  // Ads and Explore (see lib/copyAdsFilters.js's header comment): metric
+  // conditions are a local draft until "Apply Filters," since typing a
+  // threshold shouldn't re-filter the table on every keystroke; Status
+  // checkboxes apply instantly since there's no typing-jank to smooth over.
+  const [draftConditions, setDraftConditions] = useState([]);
+  const [appliedConditions, setAppliedConditions] = useState([]);
+  const hasPendingFilterChanges = JSON.stringify(draftConditions) !== JSON.stringify(appliedConditions);
+  // `null` means "no filter" (every status counts); an array means "only
+  // these" — including an empty array, which means every box was explicitly
+  // unchecked and nothing should match.
+  const [statusValues, setStatusValues] = useState(null);
+  const availableStatuses = useMemo(() => [...new Set((ads || []).map((a) => a.status).filter(Boolean))].sort(), [ads]);
+
+  function addDraftCondition() {
+    setDraftConditions((prev) => [...prev, { id: newFilterId(), metricKey: FILTER_METRIC_KEYS[0], operator: "gte", value: 0 }]);
+  }
+  function updateDraftCondition(id, patch) {
+    setDraftConditions((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+  function removeDraftCondition(id) {
+    const next = draftConditions.filter((c) => c.id !== id);
+    setDraftConditions(next);
+    setAppliedConditions(next);
+  }
+  function applyMetricFilters() {
+    setAppliedConditions(draftConditions);
+  }
+  function toggleStatus(status) {
+    const current = statusValues ?? availableStatuses;
+    const next = current.includes(status) ? current.filter((s) => s !== status) : [...current, status];
+    const allChecked = availableStatuses.length > 0 && availableStatuses.every((s) => next.includes(s));
+    setStatusValues(allChecked ? null : next);
+  }
+
+  const metricFiltered = useMemo(() => applyResultFilters(ads, appliedConditions, FILTER_METRIC_KEYS), [ads, appliedConditions]);
+  const filteredAds = useMemo(
+    () => (statusValues ? metricFiltered.filter((row) => statusValues.includes(row.status)) : metricFiltered),
+    [metricFiltered, statusValues]
+  );
+
   if (!ready) {
     return (
       <PartnershipEmptyState
@@ -138,20 +200,85 @@ export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoad
       {ads && ads.length > 0 && (
         <>
           <p className={styles.sub} style={{ marginTop: 0, marginBottom: creatorSummaryText ? 4 : undefined }}>
-            {ads.length} partnership ad{ads.length === 1 ? "" : "s"} · {range.since} to {range.until}
+            {filteredAds.length === ads.length
+              ? `${ads.length} partnership ad${ads.length === 1 ? "" : "s"}`
+              : `${filteredAds.length} of ${ads.length} partnership ads`}{" "}
+            · {range.since} to {range.until}
           </p>
           {creatorSummaryText && (
             <p className={styles.muted} style={{ fontSize: 11, marginTop: 0, marginBottom: 10 }}>
               {creatorSummaryText}
             </p>
           )}
+          <div className={styles.card} style={{ padding: 12, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span className={styles.muted} style={{ fontWeight: 600 }}>
+                Filter results
+              </span>
+              <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
+                + Metric filter
+              </button>
+              {(draftConditions.length > 0 || hasPendingFilterChanges) && (
+                <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
+                  Apply Filters
+                </button>
+              )}
+            </div>
+
+            {draftConditions.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                {draftConditions.map((c) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
+                      {FILTER_METRICS.map((m) => (
+                        <option key={m.key} value={m.key}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
+                      {METRIC_FILTER_OPERATORS.map((op) => (
+                        <option key={op.value} value={op.value}>
+                          {op.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      className={styles.select}
+                      style={{ width: 110 }}
+                      value={c.value}
+                      onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                      onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
+                    />
+                    <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
+                      <CloseIcon size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {availableStatuses.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
+                <span className={styles.muted}>Status</span>
+                {availableStatuses.map((s) => (
+                  <label key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+                    <input type="checkbox" checked={!statusValues || statusValues.includes(s)} onChange={() => toggleStatus(s)} />
+                    {humanizeStatus(s)}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <SortableTable
             columns={columns(currency, setLightboxItem)}
-            rows={ads}
+            rows={filteredAds}
             defaultSortKey="spend"
             defaultSortDir="desc"
             searchable
             searchKeys={["name", "campaignName", "adsetName"]}
+            emptyMessage={appliedConditions.length > 0 || statusValues ? "No ads match the current filters." : "No ads found."}
             maxHeight={520}
           />
         </>

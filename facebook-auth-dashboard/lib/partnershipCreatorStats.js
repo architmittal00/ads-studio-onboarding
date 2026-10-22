@@ -38,10 +38,26 @@ export function groupByCreator(ads) {
     bucket.purchases += ad.purchases || 0;
     bucket.purchaseValue += ad.purchaseValue || 0;
   }
-  return [...byCreator.values()].map((c) => ({
-    ...c,
-    adCount: c.ads.length,
-    roas: c.spend > 0 ? c.purchaseValue / c.spend : 0,
-    cpr: c.purchases > 0 ? c.spend / c.purchases : null,
-  }));
+  return [...byCreator.values()].map((c) => {
+    // Distinct underlying creative count — a creator's ad count can overstate
+    // how many actual pieces of content they're in, since Ads Manager often
+    // spins up several ads (different ad sets/campaigns, A/B variants) off
+    // the exact same branded Instagram post. `instagramMediaId`
+    // (lib/partnershipDetection.js) identifies that underlying post, so it's
+    // a better "how many creatives" signal than ad/creative-object count. An
+    // ad with no resolved media id (creatorUnresolvedReason's "no media id"
+    // bucket, see pages/api/fb/partnership/mine.js) can't be deduped against
+    // anything else, so each one still counts as its own distinct creative
+    // rather than collapsing every unresolved ad into one shared "unknown"
+    // bucket, which would undercount.
+    const mediaIds = c.ads.map((ad) => ad.instagramMediaId).filter(Boolean);
+    const unresolvedCount = c.ads.length - mediaIds.length;
+    return {
+      ...c,
+      adCount: c.ads.length,
+      creativeCount: new Set(mediaIds).size + unresolvedCount,
+      roas: c.spend > 0 ? c.purchaseValue / c.spend : 0,
+      cpr: c.purchases > 0 ? c.spend / c.purchases : null,
+    };
+  });
 }

@@ -77,6 +77,7 @@ export default function CreatorAdsDrawer({ creator, currency, onClose }) {
 
           <p className={styles.sub} style={{ margin: "16px 0 0" }}>
             {creator.adCount} ad{creator.adCount === 1 ? "" : "s"}
+            {creator.creativeCount != null && ` · ${creator.creativeCount} creative${creator.creativeCount === 1 ? "" : "s"}`}
           </p>
 
           <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
