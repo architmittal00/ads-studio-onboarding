@@ -85,7 +85,9 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
           if (!line.trim()) continue;
           const event = JSON.parse(line);
           if (event.type === "row") {
-            setRows((prev) => prev.map((r) => (r.value === event.value ? { ...r, status: event.found ? "valid" : "invalid", item: event.item } : r)));
+            setRows((prev) =>
+              prev.map((r) => (r.value === event.value ? { ...r, status: event.found ? "valid" : "invalid", item: event.item, error: event.error || null } : r))
+            );
           }
         }
       }
@@ -181,16 +183,29 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
             {rows.map((r) => (
-              <div key={r.value} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 8, background: "var(--card2)" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  <span className={styles.muted} style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, flexShrink: 0 }}>
-                    {r.type === "permalink" ? "Link" : "Code"}
+              <div key={r.value} style={{ padding: "6px 10px", borderRadius: 8, background: "var(--card2)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span className={styles.muted} style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, flexShrink: 0 }}>
+                      {r.type === "permalink" ? "Link" : "Code"}
+                    </span>
+                    <span style={{ fontSize: 12.5, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.value}</span>
                   </span>
-                  <span style={{ fontSize: 12.5, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.value}</span>
-                </span>
-                {r.status === "pending" && <span className={styles.muted} style={{ flexShrink: 0 }}>Validating…</span>}
-                {r.status === "valid" && <span className={styles.badgeGood} style={{ flexShrink: 0 }}>✓ Valid</span>}
-                {r.status === "invalid" && <span className={styles.badgeDanger} style={{ flexShrink: 0 }}>✕ Invalid</span>}
+                  {r.status === "pending" && <span className={styles.muted} style={{ flexShrink: 0 }}>Validating…</span>}
+                  {r.status === "valid" && <span className={styles.badgeGood} style={{ flexShrink: 0 }}>✓ Valid</span>}
+                  {r.status === "invalid" && <span className={styles.badgeDanger} style={{ flexShrink: 0 }}>✕ Invalid</span>}
+                </div>
+                {/* The real reason a row failed — a Graph error_user_msg/
+                    code/subcode when the lookup call itself errored, or why
+                    a permalink couldn't even be attempted — rather than
+                    leaving every invalid row looking identically
+                    unexplained. Reported by the user: ad-code rows were
+                    failing with nothing to go on. */}
+                {r.status === "invalid" && r.error && (
+                  <p className={styles.error} style={{ margin: "4px 0 0", fontSize: 11 }}>
+                    {r.error}
+                  </p>
+                )}
               </div>
             ))}
           </div>
