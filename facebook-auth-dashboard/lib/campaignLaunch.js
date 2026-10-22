@@ -82,7 +82,16 @@ export function buildCampaignPayload({ funnel, strategyId, dailyBudgetMinorUnits
     special_ad_categories: [],
     bid_strategy: BID_STRATEGY,
   };
-  if (!isAbo) payload.daily_budget = dailyBudgetMinorUnits;
+  if (isAbo) {
+    // Meta now rejects a no-campaign-budget campaign unless this is set
+    // explicitly (code 100, subcode 4834011) — `false` keeps today's actual
+    // behavior (each ad set spends only its own budget) rather than opting
+    // into Meta's 20%-cross-ad-set-sharing feature, which nothing here asks
+    // for or accounts for.
+    payload.is_adset_budget_sharing_enabled = false;
+  } else {
+    payload.daily_budget = dailyBudgetMinorUnits;
+  }
   return payload;
 }
 
@@ -188,6 +197,13 @@ export function buildGenericCampaignPayload(fields) {
   if (fields.budgetStrategy === "CBO" && fields.budgetAmountMinorUnits) {
     if (fields.budgetType === "LIFETIME") payload.lifetime_budget = fields.budgetAmountMinorUnits;
     else payload.daily_budget = fields.budgetAmountMinorUnits;
+  } else {
+    // Same Meta requirement as buildCampaignPayload above (code 100, subcode
+    // 4834011): a campaign with no campaign-level budget must explicitly say
+    // whether its ad sets share one shared budget pool. `false` preserves
+    // this form's existing ABO behavior — each ad set spends only its own
+    // budget, set separately in buildGenericAdsetPayload below.
+    payload.is_adset_budget_sharing_enabled = false;
   }
   return payload;
 }
