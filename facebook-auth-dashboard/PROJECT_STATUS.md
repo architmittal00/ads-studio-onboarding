@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #292 (Custom Views: fix stale drill-down rows on date-range change).
+> Last updated: **2026-10-22**, by Claude, right after merging PR #294 (Figure Out Strategy: fix Strategy 7 campaign launch failing with a Meta is_adset_budget_sharing_enabled error).
 
 ---
 
@@ -82,6 +82,16 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-22)
+
+### Figure Out Strategy: fix Strategy 7 campaign launch failing at Meta (PR #294)
+
+Reported by the user: launching Strategy 7 failed at campaign creation with a real Meta Graph error: `Invalid parameter — Must specify True or False in is_adset_budget_sharing_enabled field` (code 100, subcode 4834011).
+
+Root cause: Meta now requires any campaign created **without** a campaign-level budget (ABO — the budget instead lives on its ad sets) to explicitly pass `is_adset_budget_sharing_enabled: true|false` at creation time. Strategy 7 is this app's only ABO strategy (`lib/strategyEngine.js`'s `STRATEGIES` array — every other strategy is CBO); its campaign payload, built by `buildCampaignPayload` in `lib/campaignLaunch.js` and posted from `pages/api/fb/launch-strategy.js`, never set this field. The same gap existed, unreported, in the generic `/launch` tab's own campaign builder (`buildGenericCampaignPayload`) whenever a user picks ABO there — same root cause, same fix, fixed preemptively since it's otherwise a dormant copy of the identical bug.
+
+Fix: both builders now set `is_adset_budget_sharing_enabled: false` whenever no campaign-level budget is set, preserving the existing, intended behavior (each ad set spends only its own budget) rather than opting into Meta's new 20%-cross-ad-set budget-sharing feature, which this app doesn't otherwise support or account for.
+
+Verified via a standalone script calling the real, unmodified `buildCampaignPayload`/`buildGenericCampaignPayload` directly: confirmed Strategy 7's ABO payload now carries the field and still omits `daily_budget`; confirmed every CBO payload (strategies 1-6, 8, and the Launch tab's CBO path) is byte-for-byte unchanged otherwise. Not yet re-run against a real account — see §7.
 
 ### Custom Views: fix stale ad set/ad rows after changing the date range (PR #292)
 
@@ -501,6 +511,8 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 ---
 
 ## 7. What's next
+
+**Figure Out Strategy, new (PR #294)**: re-run Strategy 7's launch on a real account and confirm the campaign now creates successfully (no more `is_adset_budget_sharing_enabled` error) and that both of its Advantage+ ad sets (Hero Products / Grooming Products) still get created with their own ad-set-level budgets as before — this fix changes only the campaign-creation payload, verified so far by direct inspection of the built payload, not a real Graph API call.
 
 **Custom Views, new (PR #292)**: on the real account, expand a Campaign row to Ad Sets on `/explore`, change the date range, and confirm the Ad Set row now updates (or collapses and re-expands cleanly) instead of showing the old range's numbers — only verified via mocked preview so far. Also worth a quick real-account look: expand two levels deep (Campaign → Ad Set → Ad) before changing the range, to confirm both levels collapse correctly.
 
