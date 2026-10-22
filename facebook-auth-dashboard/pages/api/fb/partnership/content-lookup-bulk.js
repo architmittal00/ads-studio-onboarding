@@ -62,18 +62,35 @@ export default async function handler(req, res) {
       .map((row) => ({ ...row, shortcode: tryExtractShortcode(row.value) }));
 
     const byAdCode = new Map();
+    let adCodeError = null;
     if (adCodeRows.length > 0) {
       try {
         const results = await lookupContent(token, businessId, { igUserId, adCodes: adCodeRows.map((row) => row.value) });
-        for (const item of results) byAdCode.set(firstPartnershipInfo(item).ad_code, item);
-      } catch {
-        // A whole-call failure means every ad-code row in it comes back "not
-        // found" below — still a real, actionable result for the user
-        // (retry), not a request that silently drops those rows.
+        // A real piece of content can carry more than one tagged partner —
+        // keying only by the FIRST partnership_info entry's ad_code would
+        // silently miss a match whenever the row's ad_code belongs to a
+        // later entry. Checking every entry is what the single-item lookup
+        // effectively gets "for free" (there's only ever one candidate item
+        // to inspect there); bulk needs to do it explicitly since it's
+        // matching many candidate items back to many codes at once.
+        for (const item of results) {
+          for (const info of item.partnership_info || []) {
+            if (info.ad_code) byAdCode.set(info.ad_code, item);
+          }
+        }
+      } catch (err) {
+        // Captured and surfaced per-row below instead of swallowed —
+        // reported by the user as ad-code rows failing with no indication
+        // why, unlike every other Graph call in this app (which shows the
+        // real error_user_msg/code/subcode). A whole-call failure still
+        // means every ad-code row in it comes back "not found," but now with
+        // the actual reason attached.
+        adCodeError = err.message;
       }
     }
 
     const byShortcode = new Map();
+    let permalinkError = null;
     const resolvablePermalinks = permalinkRows.filter((row) => row.shortcode);
     if (resolvablePermalinks.length > 0) {
       try {
@@ -82,18 +99,24 @@ export default async function handler(req, res) {
           const resultShortcode = tryExtractShortcode(item.permalink);
           if (resultShortcode) byShortcode.set(resultShortcode, item);
         }
-      } catch {
+      } catch (err) {
         // Same reasoning as the ad-code batch above.
+        permalinkError = err.message;
       }
     }
 
     for (const row of adCodeRows) {
       const item = byAdCode.get(row.value);
-      res.write(`${JSON.stringify({ type: "row", value: row.value, found: !!item, item: item || null })}\n`);
+      res.write(`${JSON.stringify({ type: "row", value: row.value, found: !!item, item: item || null, error: item ? null : adCodeError })}\n`);
     }
     for (const row of permalinkRows) {
       const item = row.shortcode ? byShortcode.get(row.shortcode) : null;
-      res.write(`${JSON.stringify({ type: "row", value: row.value, found: !!item, item: item || null })}\n`);
+      const error = item
+        ? null
+        : !row.shortcode
+          ? "Not a usable Instagram permalink (Stories links aren't supported for Partnership Ads)."
+          : permalinkError;
+      res.write(`${JSON.stringify({ type: "row", value: row.value, found: !!item, item: item || null, error })}\n`);
     }
   }
 
