@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #298 (Partnership Ads: independent Business picker + launch-destination confirmation).
+> Last updated: **2026-10-22**, by Claude, right after merging PR #300 (fix the Business picker showing BMs the user has no access to; label the header pills).
 
 ---
 
@@ -82,6 +82,16 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-22)
+
+### Partnership Ads: fix the Business picker showing BMs the user has no access to (PR #300)
+
+PR #298's new Business picker (below) had its own bug, caught by the user with their own `curl` against `GET /me/businesses?fields=id,name` comparing the real count against what the app showed. Root cause: `businessOptions` was derived from ad accounts' own `business{id,name}` sub-field — which reports whichever Business *owns* an ad account, not whether the current user is actually a member of it. An ad account shared directly with someone doesn't mean its Business granted them anything, so the picker could (and did) list a Business the user has no real access to, while potentially missing one they genuinely belong to but have no visible ad account under.
+
+Fix: `pages/api/fb/data.js` now fetches `/me/businesses` directly, confirmed by the user's own curl to need no extra permission or re-login beyond this app's existing OAuth scope — this is a separate, unrelated endpoint from the `business_management`-gated ad-account sub-field `fetchAdAccounts` already has to work around. `AccountProvider.js`'s `businessOptions` is now built from that real-membership list instead, exposed alongside a new `businessesError` for when the call itself fails. The "no Business" banner wording changed to reflect actual membership status rather than blaming the currently-selected ad account.
+
+Separately, per the same report: the header's three account pickers (Ad Account/Business Manager/Instagram Account) were plain, unlabeled text inputs — once something's selected there was nothing distinguishing what each pill actually represented. Added a small caption label above each.
+
+Verified against the real components via a disposable mocked preview: two ad accounts both owned by a Business the mock user is explicitly *not* a member of, alongside a separate Business they are a member of with no visible ad account at all — confirmed the picker now lists only the real membership.
 
 ### Partnership Ads: independent Business picker + launch-destination confirmation (PR #298)
 
@@ -559,7 +569,7 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ~~**Awaiting a user decision (validated in PR #282)**: Explore Ads' header "Ad Account" selector doesn't actually scope Explore's own API call...~~ **Resolved by PR #298** — the user chose option (b): `businessId` is now its own independent, directly-picked selection (see §5), confirm/decide the destination ad account only matters at actual launch time (now shown explicitly in the wizard). See the new item below for the real-account check this still needs.
 
-**Partnership Ads, new (PR #298)**: on the real account — specifically the one the user originally reported (shared by someone else, full ad-account permission but no access on that account's own Business) — pick the Business that actually works (the one the user has full access to) in the new header selector, and confirm Explore Ads now loads real content for it. Then queue an item from that same flow and run a real launch, confirming it succeeds now that `queue.js`'s own `businessId` (used by `launch.js`'s Content Discovery re-verification call) is no longer silently tied to the wrong Business either.
+**Partnership Ads, new (PR #298, picker itself fixed by #300)**: on the real account — specifically the one the user originally reported (shared by someone else, full ad-account permission but no access on that account's own Business) — open the Business selector and confirm it now shows only Businesses the user is actually a member of (per `/me/businesses`), pick the one that works, and confirm Explore Ads now loads real content for it. Then queue an item from that same flow and run a real launch, confirming it succeeds now that `queue.js`'s own `businessId` (used by `launch.js`'s Content Discovery re-verification call) is no longer silently tied to the wrong Business either.
 
 **Partnership Ads (all 6 tabs, PR #197–#202) is now being exercised against a real account for the first time, tab by tab, at the user's own request ("the entire tool isn't working, let's fix everything 1 by 1")** — Overview's real bug (an unbounded ad-history walk causing real timeouts) is fixed, see PR #246 above. Items below are updated accordingly; items 1 and 3 are now confirmed, the rest remain open and should be expected to surface more real bugs the same way Overview did, not assumed fine just because they built cleanly against mocked data:
 1. ~~Sign out/in to pick up the new `instagram_basic` scope, confirm the Instagram Business Account picker finds a linked account.~~ **Confirmed** — the user's real account (`Shesha 1`) shows a linked Instagram Business Account (`@sheshaayurveda`) in the picker.
