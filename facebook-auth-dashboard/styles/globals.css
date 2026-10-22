@@ -4,6 +4,19 @@
   box-sizing: border-box;
 }
 
+/* --font-studio is applied to <body> imperatively by pages/_app.js's
+   useBodyFontClass (next/font's variable className, added via a one-time
+   effect since next/font can't run in pages/_document.js and <main>'s own
+   declarative className doesn't reach <body>) — declaring the actual
+   font-family here on body itself is what makes anything React portals
+   straight into document.body (several dropdowns in this app bypass the
+   normal component tree that way) actually pick up the app's real font
+   instead of silently falling back to the browser's bare default. See
+   _app.js's own comment for the full story. */
+body {
+  font-family: var(--font-studio), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
 /* Light is the default rendering — pages/_document.js's inline script is
    what flips `data-theme` to "dark" (see [data-theme="dark"] below), and it
    runs before first paint so there's no flash. If that script hasn't run yet

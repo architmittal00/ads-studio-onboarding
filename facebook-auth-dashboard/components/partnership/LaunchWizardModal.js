@@ -3,26 +3,79 @@ import { CloseIcon, ChevronIcon } from "../icons";
 import AdSetMultiSelect from "./AdSetMultiSelect";
 import PixelSelect from "./PixelSelect";
 import MediaThumbButton from "./MediaThumbButton";
+import Loader from "../Loader";
 import { getPixelMapping, setPixelMapping, getPartnershipSettings, setPartnershipSettings } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
-function StepRow({ step }) {
-  const label =
-    step.type === "item"
-      ? step.name
-      : step.type === "video"
-        ? `Video registration — ${step.name}`
-        : step.type === "creative"
-          ? `Creative — ${step.name}`
-          : step.type === "ad"
-            ? `Ad — ${step.name}`
-            : "Activation";
+// Groups the launch result's flat step log (one row per item/video/creative/
+// ad — meaningful to whoever's debugging launch.js, not to someone who just
+// wants to know "did my ad go out") into one entry per queued item, each
+// carrying the actual ad(s) it produced. Reported by the user: the old flat
+// list ("Video registration — X", "Creative — X", "Ad — X" repeated per
+// item) was cluttered and told them nothing they could act on — what they
+// actually need is "this ad: launched / failed, and why."
+function buildResultEntries(result, items, adsetNameById) {
+  return items.map((item) => {
+    const itemSteps = result.steps.filter((s) => s.itemId === item.id);
+    const failedEarly = itemSteps.find((s) => (s.type === "item" || s.type === "creative") && !s.success);
+    const videoStep = itemSteps.find((s) => s.type === "video");
+    const videoWarning = videoStep && !videoStep.success ? videoStep.error : null;
+
+    if (failedEarly) {
+      return { itemId: item.id, item, status: "failed", error: failedEarly.error, ads: [], videoWarning };
+    }
+    const ads = itemSteps
+      .filter((s) => s.type === "ad")
+      .map((s) => ({ adsetId: s.adsetId, adsetName: adsetNameById.get(s.adsetId) || "ad set", success: s.success, error: s.error }));
+    const succeeded = ads.filter((a) => a.success).length;
+    const status = ads.length === 0 || succeeded === 0 ? "failed" : succeeded === ads.length ? "launched" : "partial";
+    return { itemId: item.id, item, status, ads, videoWarning };
+  });
+}
+
+const STATUS_BADGE = {
+  launched: { className: styles.badgeGood, text: "✓ Launched" },
+  partial: { className: styles.badgeWarn, text: "⚠ Partial" },
+  failed: { className: styles.badgeDanger, text: "✗ Failed" },
+};
+
+function ResultRow({ entry }) {
+  const { item } = entry;
+  const badge = STATUS_BADGE[entry.status];
+  const failedAds = entry.ads.filter((a) => !a.success);
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
-      <span style={{ fontSize: 12.5 }} title={step.error}>
-        {label}
-      </span>
-      <span className={step.success ? styles.badgeGood : styles.badgeDanger}>{step.success ? "✓" : "✕"}</span>
+    <div style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <MediaThumbButton contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} size={32} />
+        <p
+          style={{ margin: 0, fontSize: 12.5, fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          title={item.name}
+        >
+          {item.name}
+        </p>
+        <span className={badge.className} style={{ flexShrink: 0 }}>
+          {badge.text}
+        </span>
+      </div>
+      {entry.status === "launched" && entry.ads.length > 1 && (
+        <p className={styles.muted} style={{ margin: "4px 0 0 42px", fontSize: 11 }}>
+          {entry.ads.length} ads created
+        </p>
+      )}
+      {entry.status === "failed" && entry.error && (
+        <p style={{ margin: "4px 0 0 42px", fontSize: 11.5, color: "var(--red)" }}>{entry.error}</p>
+      )}
+      {entry.status === "partial" &&
+        failedAds.map((a, i) => (
+          <p key={i} style={{ margin: "4px 0 0 42px", fontSize: 11.5, color: "var(--red)" }}>
+            {a.adsetName}: {a.error}
+          </p>
+        ))}
+      {entry.videoWarning && (
+        <p className={styles.muted} style={{ margin: "4px 0 0 42px", fontSize: 11 }}>
+          Note: video registration had an issue ({entry.videoWarning}), but the ad still went out.
+        </p>
+      )}
     </div>
   );
 }
@@ -215,7 +268,18 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
             </div>
           )}
 
-          {step === 3 && !result && (
+          {step === 3 && !result && launching && (
+            // A dedicated loading view instead of a plain progress line
+            // tacked onto the bottom of the still-interactive-looking
+            // configuration screen — reported by the user as looking "off,"
+            // since the Active/Paused choice and summary card below it are
+            // frozen and irrelevant once a launch is actually in flight.
+            <div style={{ padding: "48px 0" }}>
+              <Loader label={progressMsg || "Launching…"} />
+            </div>
+          )}
+
+          {step === 3 && !result && !launching && (
             <div>
               {/* What's actually about to be launched — reported by the
                   user as the missing piece blocking real use of this flow:
@@ -228,7 +292,7 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
                 {items.map((item) => (
                   <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <MediaThumbButton contentId={item.contentId} permalink={item.permalink} mediaType={item.mediaType} size={40} />
-                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.name}
                     </p>
                   </div>
@@ -241,7 +305,7 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
                   className={styles.card}
                   style={{ flex: 1, padding: 14, cursor: "pointer", border: status === "ACTIVE" ? "2px solid var(--purple)" : "2px solid var(--border)" }}
                 >
-                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>Active</p>
+                  <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>Active</p>
                   <p className={styles.muted} style={{ margin: 0, fontSize: 11 }}>Start running immediately</p>
                 </button>
                 <button
@@ -250,29 +314,29 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
                   className={styles.card}
                   style={{ flex: 1, padding: 14, cursor: "pointer", border: status === "PAUSED" ? "2px solid var(--purple)" : "2px solid var(--border)" }}
                 >
-                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>Paused</p>
+                  <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>Paused</p>
                   <p className={styles.muted} style={{ margin: 0, fontSize: 11 }}>Review before activating</p>
                 </button>
               </div>
+              {/* Values here are a normal weight, not <strong> — reported by
+                  the user as everything on this step reading as bold with no
+                  real hierarchy. Active/Paused above is the one place that
+                  still carries weight, since it's the actual choice being
+                  made here. */}
               <div className={styles.card} style={{ padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                   <span className={styles.muted}>Number of ads</span>
-                  <strong>{items.length * adsets.length}</strong>
+                  <span>{items.length * adsets.length}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                   <span className={styles.muted}>Target ad set(s)</span>
-                  <strong>{adsets.map((a) => a.name).join(", ")}</strong>
+                  <span>{adsets.map((a) => a.name).join(", ")}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                   <span className={styles.muted}>Launch status</span>
-                  <strong>{status === "ACTIVE" ? "Active" : "Paused"}</strong>
+                  <span>{status === "ACTIVE" ? "Active" : "Paused"}</span>
                 </div>
               </div>
-              {launching && progressMsg && (
-                <p className={styles.sub} style={{ marginTop: 10 }}>
-                  {progressMsg}
-                </p>
-              )}
               {error && (
                 <div className={styles.error} style={{ marginTop: 10 }}>
                   {error}
@@ -283,12 +347,12 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
 
           {result && (
             <div>
-              <p style={{ fontWeight: 700, marginBottom: 8 }}>
+              <p style={{ fontWeight: 600, marginBottom: 10, fontSize: 14 }}>
                 {result.success ? "✓ Launched successfully" : "⚠ Finished with errors"}
               </p>
-              <div style={{ maxHeight: 260, overflowY: "auto" }}>
-                {result.steps.map((s, i) => (
-                  <StepRow key={i} step={s} />
+              <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                {buildResultEntries(result, items, new Map(adsets.map((a) => [a.id, a.name]))).map((entry) => (
+                  <ResultRow key={entry.itemId} entry={entry} />
                 ))}
               </div>
             </div>

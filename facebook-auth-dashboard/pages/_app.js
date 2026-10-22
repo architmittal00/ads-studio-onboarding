@@ -39,6 +39,28 @@ function useSyncThemeWithOs() {
   }, []);
 }
 
+// Several dropdowns in this app (AdSetMultiSelect, PixelSelect, AccountSelect's
+// portal mode) render via React's createPortal(..., document.body) to escape
+// a scroll-clipping ancestor — they land as DOM SIBLINGS of this file's own
+// <main className={plusJakartaSans.variable}> below, not descendants of it,
+// so they never inherited --font-studio and fell back to the browser's bare
+// default font (visibly serif) instead of this app's real one. Reported by
+// the user as the ad-set picker's typography looking "very different."
+// `next/font` can't be used in pages/_document.js (Next refuses it outright),
+// so <body> itself — an ancestor of every portaled node, since portals still
+// land inside <body> in the real DOM regardless of React tree position —
+// can't get the font's generated className the normal declarative way either.
+// This adds the same class imperatively instead, once, before any portal a
+// user interaction could possibly open gets the chance to render; paired
+// with the plain `font-family: var(--font-studio), ...` fallback declared on
+// `body` in globals.css, this fixes every current and future document.body
+// portal at once instead of patching each one's own dropdown individually.
+function useBodyFontClass() {
+  useEffect(() => {
+    document.body.classList.add(plusJakartaSans.variable);
+  }, []);
+}
+
 // Runs once per app load (this component doesn't remount between
 // client-side route changes, only on a hard reload or first visit) — every
 // visitor self-heals their own accumulated localStorage bloat the moment
@@ -60,6 +82,7 @@ export default function App({
 }) {
   useSyncThemeWithOs();
   useSweepStaleCaches();
+  useBodyFontClass();
   return (
     <SessionProvider session={session}>
       <AccountProvider>

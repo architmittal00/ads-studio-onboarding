@@ -67,6 +67,7 @@ export default function PartnershipAds() {
   const {
     adAccounts,
     igAccounts,
+    pages,
     accountsLoading,
     accountsError,
     selectedAccountId,
@@ -395,6 +396,7 @@ export default function PartnershipAds() {
                   accountId={selectedAccountId}
                   businessId={businessId}
                   igUserId={selectedIgAccountId}
+                  pages={pages}
                   ready={ready}
                   onQueueChanged={refreshQueueCount}
                 />

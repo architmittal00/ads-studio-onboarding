@@ -1,16 +1,7 @@
 import { permissionState, formatCompactNumber } from "@/lib/partnershipContent";
 import ContentPreviewMedia from "./ContentPreviewMedia";
+import CreatorAvatar from "./CreatorAvatar";
 import styles from "@/styles/Home.module.css";
-
-// Deterministic (not random) avatar color from a creator handle, same
-// "small fixed palette hashed off a string" idea used for a few other
-// generated-avatar spots in this app (e.g. Sidebar's own initials circle).
-const AVATAR_COLORS = ["#AF46FD", "#F4349D", "#F97316", "#22C55E", "#3B82F6", "#EAB308"];
-function colorFor(seed) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 export default function PartnerCard({ item, igUserId, selected, onToggleSelect, onExpand }) {
   const permState = permissionState(item, igUserId);
@@ -76,15 +67,19 @@ export default function PartnerCard({ item, igUserId, selected, onToggleSelect, 
         )}
         <div className={styles.partnerCardCreator}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-            <span
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                flexShrink: 0,
-                background: colorFor(handle),
-                border: "1.5px solid rgba(255,255,255,.32)",
-              }}
+            {/* CONTENT_FIELDS (lib/partnershipAds.js) already fetches
+                `author.profile_picture_url` — this card was the only
+                Partnership Ads surface still rendering a generated color-dot
+                instead of it (every other tab — My Ads, Creator Hub, the
+                Creator Ads drawer — already uses CreatorAvatar). Reported by
+                the user as "unable to load profile images," which wasn't a
+                network/permission failure, just this card never asking for
+                the real image in the first place. */}
+            <CreatorAvatar
+              src={item.author?.profile_picture_url}
+              username={handle}
+              size={20}
+              style={{ border: "1.5px solid rgba(255,255,255,.32)" }}
             />
             <span className={styles.partnerCardHandle}>@{handle}</span>
           </div>

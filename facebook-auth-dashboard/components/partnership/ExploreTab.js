@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Loader from "../Loader";
 import PartnerCard from "./PartnerCard";
@@ -76,6 +76,7 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
   // it (it can't, since the bar is hidden once the modal is open, but this
   // also survives the selectedIds clear that happens on commit).
   const [pendingQueueSource, setPendingQueueSource] = useState(null);
+  const sentinelRef = useRef(null);
 
   function toggleSelect(contentId) {
     setSelectedIds((prev) => {
@@ -180,6 +181,32 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
       .catch((err) => setError(err.message))
       .finally(() => setLoadingMore(false));
   }
+
+  // Auto-loads the next page as the user scrolls near the bottom, instead of
+  // requiring a "Load more" click — reported by the user as an unnecessary
+  // extra step. The sentinel div below the grid is only rendered while
+  // `nextCursor` exists, and this effect only (re-)subscribes an observer
+  // while there's a cursor to fetch AND no fetch already in flight — the
+  // `loadingMore` dependency means the observer is torn down the instant a
+  // fetch starts and only resubscribed once it finishes, so a second
+  // intersection event while already loading can't ever fire a duplicate
+  // request (a plain `if (loadingMore) return` guard inside a long-lived
+  // observer callback would still race, since that callback's own closure
+  // would keep seeing whatever `loadingMore` was at observer-creation time).
+  useEffect(() => {
+    if (!nextCursor || loadingMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "600px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMore is recreated every render but reads nextCursor/loadingMore fresh each call; re-subscribing whenever either of those actually changes is what matters, not loadMore's own identity
+  }, [nextCursor, loadingMore]);
 
   // Media type and best-match "which permission bucket is this really in"
   // (the API's ad_eligibilities filter is coarser than the mockup's own
@@ -363,10 +390,8 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
             ))}
           </div>
           {nextCursor && (
-            <div style={{ textAlign: "center", marginTop: 8 }}>
-              <button type="button" className={styles.btnSecondary} onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
+            <div ref={sentinelRef} style={{ textAlign: "center", marginTop: 8, padding: 8, minHeight: 1 }}>
+              {loadingMore && <span className={styles.muted} style={{ fontSize: 12 }}>Loading more…</span>}
             </div>
           )}
         </>
