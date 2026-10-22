@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #296 (fix the invisible select-all checkbox header on Copy Ads, a shared SortableTable bug).
+> Last updated: **2026-10-22**, by Claude, right after merging PR #298 (Partnership Ads: independent Business picker + launch-destination confirmation).
 
 ---
 
@@ -82,6 +82,16 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-22)
+
+### Partnership Ads: independent Business picker + launch-destination confirmation (PR #298)
+
+The user diagnosed this one themselves, in detail, before reporting it: Explore Ads (and actually launching a partnership ad) failed on an ad account the owner had shared with them with full permission — because the owner hadn't separately granted them access on *that ad account's own Business Manager*. A different Business the user does have full access to can often query the exact same Instagram account's content just fine, since the IG account is a shared asset, not exclusively owned by one Business. Root cause: `businessId` was silently derived from `selectedAccount?.business?.id` — whichever ad account happened to be selected — in both `pages/partnership-ads.js` and `pages/partnership-ads/queue.js`, with no way to pick a Business directly. This answers the "awaiting a user decision" item that had sat open in this file since PR #282 (option (b): decouple `businessId` from the ad account selector, confirm the ad account only at launch time).
+
+Fix: `components/AccountProvider.js` now derives `businessOptions` (deduplicated `{id, name}` pairs) from the `business{id,name}` field already fetched for every ad account — no new Graph call or OAuth scope needed — and owns an independent, persisted `selectedBusinessId`, seeded once (last-used, falling back to the current ad account's Business only as a first-time default) and never resynced afterward when the ad account changes. A new Business selector sits in the header next to Ad Account/Instagram Account, shown on Explore Ads and Partnership Code. `queue.js` had the identical bug for the real launch's own Content Discovery re-verification call (`lookupContent` in `launch.js`) — fixed the same way, since this would have broken real launches for this exact account, not just browsing.
+
+Separately, per the user's own follow-up ask ("while launching ads we just need to confirm the account"): added a "Launching into: `<Account Name>`" line to both `LaunchWizardModal`'s header and `queue.js`'s own page header — the destination ad account (unrelated to the new Business picker; launches still go to whatever's selected in the normal Ad Account dropdown) was never shown anywhere in the launch flow before.
+
+Verified against the real components via a disposable mocked-preview harness (two ad accounts under two different Businesses): confirmed switching the Ad Account leaves the selected Business untouched, confirmed the Business selector itself works and persists across reload, confirmed the "no Business Manager" banner now reflects "none of your ad accounts have one" rather than blaming the currently-selected account, and confirmed both "Launching into" lines render correctly.
 
 ### Shared SortableTable: fix the select-all checkbox header rendering blank on Copy Ads (PR #296)
 
@@ -547,7 +557,9 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 **Separately, not a real-account item**: decide whether `/partnership-ads/queue` should get the same PIN lock as PR #215 added to `/partnership-ads` and `/copy-ads` — right now it's reachable directly by URL, bypassing the lock on the main Partnership Ads page it's normally linked from.
 
-**Separately, awaiting a user decision (validated in PR #282, no code change yet)**: Explore Ads' header "Ad Account" selector doesn't actually scope Explore's own API call (confirmed — `discoverContent` only takes `businessId`/`igUserId`, never `accountId`); it only matters because `businessId` is currently derived from whichever ad account is selected, and there's no other UI for picking a Business directly. For a user whose ad accounts all share one Business (the current real-account case), switching the Ad Account selector is a correct no-op for Explore. Options if this should change: (a) leave it as-is since it's still needed to launch (the wizard needs a real `accountId`), just possibly reword/clarify what it does on this specific tab; (b) derive `businessId` some other way on Explore and only ask for an ad account at actual launch time. Not acted on without the user's steer on which they'd prefer.
+~~**Awaiting a user decision (validated in PR #282)**: Explore Ads' header "Ad Account" selector doesn't actually scope Explore's own API call...~~ **Resolved by PR #298** — the user chose option (b): `businessId` is now its own independent, directly-picked selection (see §5), confirm/decide the destination ad account only matters at actual launch time (now shown explicitly in the wizard). See the new item below for the real-account check this still needs.
+
+**Partnership Ads, new (PR #298)**: on the real account — specifically the one the user originally reported (shared by someone else, full ad-account permission but no access on that account's own Business) — pick the Business that actually works (the one the user has full access to) in the new header selector, and confirm Explore Ads now loads real content for it. Then queue an item from that same flow and run a real launch, confirming it succeeds now that `queue.js`'s own `businessId` (used by `launch.js`'s Content Discovery re-verification call) is no longer silently tied to the wrong Business either.
 
 **Partnership Ads (all 6 tabs, PR #197–#202) is now being exercised against a real account for the first time, tab by tab, at the user's own request ("the entire tool isn't working, let's fix everything 1 by 1")** — Overview's real bug (an unbounded ad-history walk causing real timeouts) is fixed, see PR #246 above. Items below are updated accordingly; items 1 and 3 are now confirmed, the rest remain open and should be expected to surface more real bugs the same way Overview did, not assumed fine just because they built cleanly against mocked data:
 1. ~~Sign out/in to pick up the new `instagram_basic` scope, confirm the Instagram Business Account picker finds a linked account.~~ **Confirmed** — the user's real account (`Shesha 1`) shows a linked Instagram Business Account (`@sheshaayurveda`) in the picker.
