@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #290 (Partnership Ads UX round: Explore grid, direct launch, launch wizard redesign).
+> Last updated: **2026-10-22**, by Claude, right after merging PR #292 (Custom Views: fix stale drill-down rows on date-range change).
 
 ---
 
@@ -82,6 +82,16 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work (2026-10-22)
+
+### Custom Views: fix stale ad set/ad rows after changing the date range (PR #292)
+
+Reported by the user with a screenshot: on `/explore`, expand a Campaign-level row to show its Ad Sets, then change the date range — the top-level Campaign row's numbers update, but the already-expanded Ad Set row(s) keep showing the old range's numbers.
+
+Root cause: `ExploreResultsTable`'s Campaign→Ad Set→Ad drill-down (`pages/explore.js`) fetches a row's children on demand, the first time it's expanded, and caches them in a flat `expansions` map keyed only by entity id — never refetched on subsequent toggles, by design (so re-expanding a collapsed row is instant). Re-running the same view with a new date range re-renders the table with fresh top-level `rows`/`meta`, but the table component itself doesn't remount (it only remounts on tab switch), so `expansions` survived untouched across the re-run, and an expanded child kept whatever `since`/`until` was active the moment it was first expanded.
+
+Fix: reset `expansions` whenever `since`/`until`/compare-window values actually change (compared by value, not by `meta`'s object identity, so a same-range Hard Refresh doesn't needlessly collapse already-expanded rows). Recurses correctly for Ad Set → Ad drill-down too, since both levels share the same flat map. Confirmed `pages/report.js`'s own expand/collapse state isn't affected by this bug — it fetches its whole campaign/ad-set/ad structure up front per date range, with no per-row on-demand cache.
+
+Verified against the real `ExploreResultsTable` component via a disposable mocked-preview harness: expanded a row on one date range, confirmed its child showed that range's numbers; switched date range, confirmed the expansion collapsed and re-expanding pulled fresh numbers for the new range; re-selected the same range a second time and confirmed the already-expanded row stayed open with no flicker.
 
 ### Partnership Ads UX round: Explore grid, direct launch, launch wizard redesign (PR #290)
 
@@ -491,6 +501,8 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 ---
 
 ## 7. What's next
+
+**Custom Views, new (PR #292)**: on the real account, expand a Campaign row to Ad Sets on `/explore`, change the date range, and confirm the Ad Set row now updates (or collapses and re-expands cleanly) instead of showing the old range's numbers — only verified via mocked preview so far. Also worth a quick real-account look: expand two levels deep (Campaign → Ad Set → Ad) before changing the range, to confirm both levels collapse correctly.
 
 **App-wide, highest priority (PR #272, #274)**: the account owner's own stated problem — "a lot of users are unable to see their account" — turned out to be (at least) two distinct, now-fixed-or-diagnosed causes, not one. For the specific user already reported (Yashika Arora): her Ad Accounts error (`(#100) Requires business_management permission...`) is fixed by PR #274's fallback — **needs a real re-check**: have her reload Raw Data (or Hard Refresh) and confirm her ad accounts now actually show up. Separately, if her Pages list is *still* showing "Couldn't load Pages" with a `pages_show_list`/Advanced-Access-flavored error after that, that's the still-unresolved gap PR #272 originally flagged: per `README.md`'s own existing note, `pages_show_list`/`ads_read` need either App Review/Advanced Access or Tester/Developer/Admin status on this Meta App for a non-owner user — the fix for *that* is on Meta's Developer Dashboard, not in this codebase (add her as a Tester/Developer/Admin for a fast per-user fix, or submit the app for App Review to get Advanced Access, which is the actual long-term answer to "a lot of users"). Read whatever error actually shows rather than assuming which of the two this is before acting. Separately, not yet built: a `/me/businesses` → business-owned/client-accounts fallback for a user whose *access itself* (not just the `business` field read) is Business-Manager-mediated rather than a direct personal role — would need its own `business_management` OAuth scope (forcing every user to re-login/re-consent) on top of the same Advanced Access approval, so only worth building if the Tester/App-Review fix for Pages doesn't fully resolve this for every affected user.
 
