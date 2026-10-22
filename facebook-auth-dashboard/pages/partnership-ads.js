@@ -38,6 +38,23 @@ const MAX_RANGE_DAYS = 90;
 // ad performance during an active campaign can, so this stays much shorter).
 const PERFORMANCE_CACHE_TTL_MS = 5 * 60 * 1000;
 
+// Reported by the user: the header pill row's three account pickers (Ad
+// Account, Business, Instagram Account) are plain, unlabeled text inputs —
+// once something's selected, there's nothing distinguishing "Shesha
+// Ayurveda Main" (an ad account) from "Shiprocket" (a Business) from
+// "@sheshaayurveda" (an Instagram account) beyond already knowing what each
+// one is. A small caption above each pill makes that explicit.
+function LabeledPill({ label, children }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <span className={styles.muted} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}>
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "mine", label: "My Partnership Ads" },
@@ -88,6 +105,7 @@ export default function PartnershipAds() {
     selectedIgAccountId,
     setSelectedIgAccountId,
     businessOptions,
+    businessesError,
     selectedBusinessId,
     setSelectedBusinessId,
   } = useAccounts();
@@ -254,37 +272,43 @@ export default function PartnershipAds() {
                   below the button, two separate rows before any real tab
                   content even started. */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <div className={styles.headerPillRow}>
-                  <AccountSelect
-                    accounts={adAccounts}
-                    value={selectedAccountId}
-                    onChange={setSelectedAccountId}
-                    placeholder="Select an ad account…"
-                    inputClassName={styles.headerPillSelect}
-                    inputStyle={{ width: 190 }}
-                    loading={accountsLoading}
-                  />
-                  {!isPerformanceTab && (
+                <div className={styles.headerPillRow} style={{ alignItems: "flex-end" }}>
+                  <LabeledPill label="Ad Account">
                     <AccountSelect
-                      accounts={businessOptions}
-                      value={selectedBusinessId}
-                      onChange={setSelectedBusinessId}
-                      placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"}
+                      accounts={adAccounts}
+                      value={selectedAccountId}
+                      onChange={setSelectedAccountId}
+                      placeholder="Select an ad account…"
                       inputClassName={styles.headerPillSelect}
                       inputStyle={{ width: 190 }}
                       loading={accountsLoading}
                     />
+                  </LabeledPill>
+                  {!isPerformanceTab && (
+                    <LabeledPill label="Business Manager">
+                      <AccountSelect
+                        accounts={businessOptions}
+                        value={selectedBusinessId}
+                        onChange={setSelectedBusinessId}
+                        placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"}
+                        inputClassName={styles.headerPillSelect}
+                        inputStyle={{ width: 190 }}
+                        loading={accountsLoading}
+                      />
+                    </LabeledPill>
                   )}
                   {!isPerformanceTab && (
-                    <AccountSelect
-                      accounts={igOptions}
-                      value={selectedIgAccountId}
-                      onChange={setSelectedIgAccountId}
-                      placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"}
-                      inputClassName={styles.headerPillSelect}
-                      inputStyle={{ width: 190 }}
-                      loading={accountsLoading}
-                    />
+                    <LabeledPill label="Instagram Account">
+                      <AccountSelect
+                        accounts={igOptions}
+                        value={selectedIgAccountId}
+                        onChange={setSelectedIgAccountId}
+                        placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"}
+                        inputClassName={styles.headerPillSelect}
+                        inputStyle={{ width: 190 }}
+                        loading={accountsLoading}
+                      />
+                    </LabeledPill>
                   )}
                   {(isPerformanceTab || tab === "explore") && (
                     <DateRangeMenu
@@ -349,9 +373,9 @@ export default function PartnershipAds() {
             )}
             {!isPerformanceTab && selectedAccountId && igAccounts.length > 0 && businessOptions.length === 0 && (
               <div className={styles.error} style={{ marginBottom: 16 }}>
-                None of your ad accounts are associated with a Business Manager — Partnership Ads&apos; content
-                discovery needs one. If a Business you have access to works for this Instagram account, ask to be
-                added to an ad account under it so it shows up here.
+                {businessesError
+                  ? `Couldn't load your Business Managers: ${businessesError}`
+                  : "You're not a member of any Business Manager — Partnership Ads' content discovery needs you to be added to at least one, with any role. Ask to be added in Meta Business Settings."}
               </div>
             )}
 
