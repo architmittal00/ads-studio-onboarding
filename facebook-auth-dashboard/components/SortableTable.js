@@ -443,6 +443,21 @@ export default function SortableTable({
                           inner wrapper does the sticky-left) sidesteps that
                           dual-axis bug entirely; a plain, non-frozen header
                           never needs the wrapper. */}
+                      {/* The grip icon is skipped for a non-string `label`
+                          (a custom header control, e.g. explore.js/copy-ads.js's
+                          select-all checkbox column) — `.table th`'s
+                          `white-space: nowrap; overflow: hidden` clips
+                          anything past a narrow fixed-width column's content
+                          box, and the icon (plus its margin) alone was enough
+                          to push a checkbox entirely out of that box,
+                          rendering the header as blank even though the
+                          identical checkbox in every data row — no icon
+                          competing for space, and `<td>` has no such
+                          clipping rule — rendered fine. The whole `<th>` stays
+                          draggable regardless (see `draggable` above); this
+                          only removes the icon as a visual affordance, which
+                          a narrow custom-control column has no room for
+                          anyway. */}
                       {isFrozen ? (
                         <div
                           style={{
@@ -454,7 +469,7 @@ export default function SortableTable({
                             boxShadow: "1px 0 0 var(--border2)",
                           }}
                         >
-                          {orderedColumns.length > 1 && (
+                          {orderedColumns.length > 1 && typeof col.label === "string" && (
                             <span className={styles.colDragHandle} aria-hidden="true">
                               <GripIcon size={10} />
                             </span>
@@ -464,7 +479,7 @@ export default function SortableTable({
                         </div>
                       ) : (
                         <>
-                          {orderedColumns.length > 1 && (
+                          {orderedColumns.length > 1 && typeof col.label === "string" && (
                             <span className={styles.colDragHandle} aria-hidden="true">
                               <GripIcon size={10} />
                             </span>
