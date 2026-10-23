@@ -208,6 +208,48 @@ export function buildGenericCampaignPayload(fields) {
   return payload;
 }
 
+// Converts a live Graph campaign object into this same flat form-fields
+// shape, for Copy Ads' ad-set/campaign-level cross-account copy — sibling to
+// pages/api/fb/adsets-list.js's own toFormFields(adset), same reasoning:
+// pre-fill a real source object's settings into the form a brand-new object
+// uses, rather than hardcoded defaults. Nothing in this app clones an actual
+// source CAMPAIGN's own settings today — /launch's own "new campaign" path
+// always starts from defaults the user fills in by hand.
+//
+// `budgetAmount` is a major-unit string (e.g. "500" for ₹500), same
+// convention toFormFields already uses for an ad set's own budget — callers
+// convert to minor units via toMinorUnits() right before actually building a
+// payload, same as pages/api/fb/launch-campaign.js already does from its own
+// form state. `budgetStrategy` is derived from whether the campaign itself
+// carries a budget (CBO) or not (ABO) — this must travel with the campaign,
+// not be re-guessed per ad set: every ad set created under one copied
+// campaign has to share the same strategy, driven by the campaign's own
+// shape, not each ad set's own independent budget fields.
+export function campaignFormFieldsFromSource(campaign) {
+  const hasOwnBudget = !!(campaign.daily_budget || campaign.lifetime_budget);
+  return {
+    fields: {
+      name: `${campaign.name} - Copy`,
+      objective: campaign.objective,
+      bidStrategy: campaign.bid_strategy,
+      advantagePlus: campaign.smart_promotion_type === "AUTOMATED_SHOPPING_ADS",
+    },
+    budgetStrategy: hasOwnBudget ? "CBO" : "ABO",
+    budgetType: campaign.lifetime_budget ? "LIFETIME" : "DAILY",
+    budgetAmount: campaign.daily_budget
+      ? String(campaign.daily_budget / 100)
+      : campaign.lifetime_budget
+      ? String(campaign.lifetime_budget / 100)
+      : "",
+    // Not yet applied anywhere — buildGenericCampaignPayload always hardcodes
+    // special_ad_categories to []. Exposed here so a caller can at least
+    // detect a flagged source campaign (Housing/Employment/Credit/Social
+    // Issues) and warn before cloning it as an unrestricted campaign, rather
+    // than this being silently invisible.
+    specialAdCategories: campaign.special_ad_categories || [],
+  };
+}
+
 const GENDER_MAP = { all: [], male: [1], female: [2] };
 
 // Assembles the `targeting` object from the Launch form's flat field set.

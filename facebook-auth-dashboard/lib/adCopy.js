@@ -1,6 +1,31 @@
-import { graphGet, graphPost, graphGetInsights } from "./facebookGraph";
+import { graphGet, graphPost, graphGetAllPages, graphGetInsights } from "./facebookGraph";
 import { chunk } from "./adCreativeDetails";
 import { resolveGraphFields } from "./insightsMetrics";
+import { mapWithConcurrency } from "./metaInterestSearch";
+
+// How many ads one copyAdsIntoAdset call copies at once. Each ad is itself
+// several sequential Graph calls (re-fetch, asset copy/video poll, creative
+// create, ad create) — ads used to be copied fully one at a time, so an N-ad
+// batch took roughly N times one ad's own (already multi-call) latency. A
+// modest concurrency cap — rather than firing every ad at once — trades some
+// of that latency back without flooding Meta's per-app/per-user rate
+// limiting (X-App-Usage/X-Business-Use-Case-Usage headers) on a route that
+// already issues several write calls per item; same reasoning and the same
+// mapWithConcurrency runner pages/api/fb/interest-recommendations.js already
+// uses for its own bulk Graph calls.
+//
+// Raised 3 -> 5 at the user's request for more speed on larger batches.
+// Meta's rate limiting is a rolling usage-score (cumulative call time in a
+// window), not a hard concurrent-connection cap, so the total number of
+// calls this route makes is unchanged either way — only how clustered in
+// time they are. If a real multi-ad batch ever surfaces a visible rate-limit
+// error (Meta's "(#4)"/"(#17)" family, or an explicit "rate limit" message),
+// that's the signal to dial this back down — not yet seen, unverified
+// against a real account at this value. See PROJECT_STATUS.md.
+//
+// Moved here (from pages/api/fb/copy-ads/copy.js) alongside copyAdsIntoAdset
+// itself — the ad-set/campaign-level copy routes need the same default.
+export const COPY_CONCURRENCY = 5;
 
 // Default picker-table metrics, shared between the client (initial column
 // selection) and the server (fallback when the `metrics` query param is
@@ -164,13 +189,31 @@ export async function fetchCopyableAds(token, accountId, { since, until, metricK
   const adIds = [...insightsByAdId.keys()];
   if (adIds.length === 0) return { ads: [], insightsByAdId };
 
+  const { ads } = await fetchAdsForCopyByIds(token, adIds, {
+    errorContext: "this account's ads",
+    onBatch: onBatch ? (batchAds) => onBatch(batchAds, insightsByAdId) : undefined,
+  });
+  return { ads, insightsByAdId };
+}
+
+// Extracted from fetchCopyableAds's own batch-fetch internals (same chunked
+// `?ids=` batching, `onBatch` streaming, and "don't silently swallow every
+// failed batch" error handling — see fetchCopyableAds's own history/comment
+// for why that last part matters) so it can be called directly with an
+// arbitrary id list, not only ids resolved via /insights. Used by
+// fetchAdsInAdsetForCopy below for Copy Ads' ad-set/campaign-level copy,
+// where "which ads to copy" is "every ad currently in this ad set," not
+// "ads with recent delivery in a date range" — there's no /insights call to
+// derive the id list from at all in that case.
+export async function fetchAdsForCopyByIds(token, adIds, { onBatch, errorContext = "these ads" } = {}) {
+  if (adIds.length === 0) return { ads: [] };
   const batches = chunk(adIds, 50);
   const results = await Promise.allSettled(
     batches.map((batch) =>
       fetchAdsBatchForListing(token, batch).then((result) => {
         if (onBatch) {
           const batchAds = Object.values(result || {}).filter((entry) => entry?.id);
-          if (batchAds.length > 0) onBatch(batchAds, insightsByAdId);
+          if (batchAds.length > 0) onBatch(batchAds);
         }
         return result;
       })
@@ -191,25 +234,37 @@ export async function fetchCopyableAds(token, accountId, { since, until, metricK
       if (entry?.id) ads.push(entry);
     }
   }
-  // CORRECTION: an earlier version of this loop used plain
-  // `Promise.allSettled` + silently `continue`d past every rejected batch
-  // with no trace at all — which turned "every batch failed" into an
-  // indistinguishable, misleading "No ads found" empty state instead of a
-  // real, visible error. That's exactly what happened for real: PR #212's
-  // instagram_user_id rename (correct per Meta's own reference — the old
-  // field's own deprecation error literally instructs using this one) still
-  // broke every batch here, for reasons this couldn't be diagnosed from
-  // without seeing the real Graph error text, because it was being thrown
-  // away. fetchAdsBatchForListing now retries once without the Instagram
-  // field on that same error (mirroring fetchAdForCopy's already-proven
-  // fallback), and if every batch still fails even after that, this throws
-  // a real error instead of returning an empty array — so the next time
-  // something here breaks, it's visible instead of indistinguishable from
-  // "this account genuinely has no recent ads."
+  // CORRECTION (from this function's original, fetchCopyableAds-inlined
+  // form): an earlier version of this loop used plain `Promise.allSettled` +
+  // silently `continue`d past every rejected batch with no trace at all —
+  // which turned "every batch failed" into an indistinguishable, misleading
+  // "No ads found" empty state instead of a real, visible error. That's
+  // exactly what happened for real: PR #212's instagram_user_id rename
+  // (correct per Meta's own reference — the old field's own deprecation
+  // error literally instructs using this one) still broke every batch here,
+  // for reasons this couldn't be diagnosed from without seeing the real
+  // Graph error text, because it was being thrown away.
+  // fetchAdsBatchForListing now retries once without the Instagram field on
+  // that same error (mirroring fetchAdForCopy's already-proven fallback),
+  // and if every batch still fails even after that, this throws a real error
+  // instead of returning an empty array — so the next time something here
+  // breaks, it's visible instead of indistinguishable from "there's genuinely
+  // nothing here."
   if (ads.length === 0 && failedBatches > 0) {
-    throw new Error(`Could not load this account's ads (${failedBatches} batch${failedBatches === 1 ? "" : "es"} failed) — see /logs for the underlying Graph error.`);
+    throw new Error(`Could not load ${errorContext} (${failedBatches} batch${failedBatches === 1 ? "" : "es"} failed) — see /logs for the underlying Graph error.`);
   }
-  return { ads, insightsByAdId };
+  return { ads };
+}
+
+// Every ad currently in one ad set — the source list for Copy Ads'
+// ad-set-level (and, per ad set, campaign-level) cross-account copy.
+// Deliberately no date/insights filtering at all, unlike fetchCopyableAds:
+// "copy this ad set" means every ad actually in it right now, not just ones
+// with recent delivery.
+export async function fetchAdsInAdsetForCopy(token, adsetId, { onBatch } = {}) {
+  const result = await graphGetAllPages(`/${adsetId}/ads`, token, { fields: "id", limit: 200 });
+  const adIds = (result.data || []).map((a) => a.id).filter(Boolean);
+  return fetchAdsForCopyByIds(token, adIds, { onBatch, errorContext: "this ad set's ads" });
 }
 
 // Same old-Instagram-id fallback as fetchAdForCopy, applied per-batch here:
@@ -522,4 +577,96 @@ export async function createCopiedAd(token, destAccountId, { name, adsetId, crea
     status: "PAUSED",
   });
   return json.id;
+}
+
+// Copies a batch of ads' creative into one destination ad set — extracted
+// verbatim from pages/api/fb/copy-ads/copy.js (a pure extraction, no
+// behavior change for that route's own ad-level path) so
+// pages/api/fb/copy-ads/copy-adset.js and copy-campaign.js can run the exact
+// same per-ad copy loop against an ad set they just created, not only one
+// that already existed. See copy.js's own top-of-file comment for the full
+// design reasoning this loop embodies (concurrency, PAUSED-first safety,
+// per-kind classify branching).
+//
+// `assets` is an already-constructed createAssetCopyCoordinator, shared by
+// the CALLER across as much of its own request as should dedupe copies —
+// within one ad set's own items for copy.js/copy-adset.js, or across every
+// ad set under one copied campaign for copy-campaign.js, so an asset reused
+// across two ad sets is still only ever copied once. `onProgress`/`onAdStart`/
+// `onAdDone` are the caller's own NDJSON-writing callbacks (all optional, so
+// this can be called without a live response stream, e.g. from a test).
+export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, items, assets, concurrency = COPY_CONCURRENCY, onProgress, onAdStart, onAdDone }) {
+  const createdAdIds = [];
+  let overallSuccess = true;
+
+  const stepsByItem = await mapWithConcurrency(items, concurrency, async (item, i) => {
+    const { adId, name: customName } = item;
+    onProgress?.(`Copying ad ${i + 1} of ${items.length}…`);
+    onAdStart?.(adId);
+
+    // Re-fetched fresh rather than trusted from the client's earlier picker
+    // load — the creative can change between browsing and confirming, same
+    // reasoning as partnership/launch.js's own re-verification step.
+    let ad;
+    let instagramOmitted = false;
+    try {
+      ({ ad, instagramOmitted } = await fetchAdForCopy(token, adId));
+    } catch (err) {
+      overallSuccess = false;
+      const error = `Could not re-fetch ad: ${err.message}`;
+      onAdDone?.(adId, { success: false, error });
+      return [{ type: "ad", label: "Ad", name: customName || adId, adId, success: false, error }];
+    }
+
+    const { copyable, reason, kind } = classifyAd(ad);
+    if (!copyable) {
+      overallSuccess = false;
+      onAdDone?.(adId, { success: false, skipped: true, error: reason });
+      return [{ type: "ad", label: "Ad", name: ad.name || adId, adId, success: false, skipped: true, error: reason }];
+    }
+
+    const spec = ad.creative.object_story_spec;
+    const assetFeedSpec = ad.creative.asset_feed_spec;
+    const hasAssetFeed = hasAssetFeedContent(assetFeedSpec);
+    try {
+      const hashEntries = await Promise.all(
+        collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])
+      );
+      const videoEntries = await Promise.all(
+        collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name)])
+      );
+      const hashMap = new Map(hashEntries);
+      const videoIdMap = new Map(videoEntries);
+
+      const creativeId =
+        kind === "existing_post"
+          ? await createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id })
+          : await createCopiedCreative(token, destAccountId, {
+              objectStorySpec: rebuildObjectStorySpec(spec, hashMap, videoIdMap),
+              assetFeedSpec: hasAssetFeed ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null,
+              productSetId: kind === "catalog" ? ad.creative.product_set_id : null,
+            });
+
+      const newAdId = await createCopiedAd(token, destAccountId, {
+        name: (customName && customName.trim()) || `${ad.name} - Copy`,
+        adsetId: destAdsetId,
+        creativeId,
+      });
+      createdAdIds.push(newAdId);
+      const warning = instagramOmitted
+        ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default."
+        : null;
+      onAdDone?.(adId, { success: true, newAdId, creativeId, warning });
+      return [
+        { type: "creative", label: "Creative", name: ad.name, adId, success: true, id: creativeId },
+        { type: "ad", label: "Ad", name: ad.name, adId, success: true, id: newAdId, warning },
+      ];
+    } catch (err) {
+      overallSuccess = false;
+      onAdDone?.(adId, { success: false, error: err.message });
+      return [{ type: "ad", label: "Ad", name: ad.name || adId, adId, success: false, error: err.message }];
+    }
+  });
+
+  return { createdAdIds, steps: stepsByItem.flat(), overallSuccess };
 }

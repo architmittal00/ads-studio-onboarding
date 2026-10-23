@@ -1,8 +1,14 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
+import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { lastNDaysRange } from "@/lib/adCreativeDetails";
 import { roasFromRow, pickPurchaseCount } from "@/lib/metrics";
+import { campaignFormFieldsFromSource } from "@/lib/campaignLaunch";
+
+// Full Graph fields needed to clone a source campaign's own settings — see
+// lib/campaignLaunch.js's campaignFormFieldsFromSource, the `?campaignId=`
+// mode's own converter below.
+const CAMPAIGN_DETAIL_FIELDS = "name,objective,bid_strategy,daily_budget,lifetime_budget,special_ad_categories,smart_promotion_type,status";
 
 // Lists an ad account's campaigns for the Launch tab's "existing campaign"
 // picker (searched client-side — Meta exposes no live "search my campaigns"
@@ -14,19 +20,29 @@ import { roasFromRow, pickPurchaseCount } from "@/lib/metrics";
 // same reasoning as pages/api/fb/adsets-list.js's own addition below. A
 // failed insights call degrades to showing the list without performance
 // data rather than failing the whole request (Promise.allSettled).
+//
+// Two modes, mirroring pages/api/fb/adsets-list.js exactly: `?accountId=`
+// (above) lists an account's campaigns; `?campaignId=` (new, for Copy Ads'
+// campaign-level cross-account copy) fetches one campaign's own full detail,
+// pre-converted to the Launch form's field shape via campaignFormFieldsFromSource.
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session?.accessToken) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId } = req.query;
-  if (!accountId) {
-    return res.status(400).json({ error: "accountId is required" });
+  const { accountId, campaignId } = req.query;
+  if (!accountId && !campaignId) {
+    return res.status(400).json({ error: "accountId or campaignId is required" });
   }
 
   const token = session.accessToken;
   try {
+    if (campaignId) {
+      const campaign = await graphGet(`/${campaignId}`, token, { fields: CAMPAIGN_DETAIL_FIELDS });
+      res.status(200).json({ name: campaign.name, fields: campaignFormFieldsFromSource(campaign) });
+      return;
+    }
     const [listResult, insightsResult] = await Promise.allSettled([
       graphGetAllPages(`/${accountId}/campaigns`, token, {
         fields: "id,name,effective_status,objective,daily_budget,lifetime_budget",
