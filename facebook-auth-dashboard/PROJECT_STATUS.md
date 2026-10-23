@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-22**, by Claude, right after merging PR #310 (My Partnership Ads result filters, My Requests → per-creator ads drill-down, Creator Hub distinct-creative count, header spacing tweak).
+> Last updated: **2026-10-23**, by Claude, right after merging PR #312 (optional Microsoft Clarity integration — session recordings/heatmaps, identified by the logged-in user's email).
 
 ---
 
@@ -81,9 +81,19 @@ No open PRs. Everything described below is merged and live.
 
 ---
 
-## 5. Most recent work (2026-10-22)
+## 5. Most recent work
 
-### Partnership Ads: My Partnership Ads filters, My Requests drill-down, Creator Hub creative count, header spacing (PR #310)
+### App-wide: optional Microsoft Clarity integration (PR #312, 2026-10-23)
+
+A new, user-initiated request, not a bug fix: the user wants to track "who does what" across the app — which teammate did what, where — and asked about integrating Microsoft Clarity (a free third-party tool for session recordings + heatmaps) without knowing what it was or how it'd fit in.
+
+New `lib/clarity.js` + a few lines in `pages/_app.js` (the one place every route already shares one `SessionProvider`): Clarity's loader script is injected via `next/script` (`strategy="afterInteractive"`) only when `NEXT_PUBLIC_CLARITY_PROJECT_ID` is set — unset by default, so local dev and any preview/deploy without it configured loads nothing extra, no new dependency either (it's just Clarity's own inline snippet). Clarity's sessions are anonymous by default; a small `ClarityIdentify` component (rendered inside `SessionProvider`, since it needs `useSession()`) calls `clarity.identify(email)` once a NextAuth session exists, tagging every recording with the real logged-in user instead of an anonymous visitor id — this is specifically what answers "who did what," since Clarity's own dashboard can then be searched/filtered by person.
+
+Verified in a real **production** build (`next build && next start` — not `next dev`, see below) both ways: with the env var set, the script tag renders, `window.clarity` becomes a real function that queues calls and attempts to load `https://www.clarity.ms/tag/<id>`, and a manual `clarity.identify(email)` call correctly queues; with no env var set, nothing loads at all (`window.clarity` stays `undefined`). One real gotcha hit and worked around during verification: testing this same build in `next dev` (this app's `next.config.mjs` has `reactStrictMode: true`) made the script appear to silently fail to load — confirmed via chunk inspection that `NEXT_PUBLIC_CLARITY_PROJECT_ID` *was* correctly inlined at build time, so the gap was narrowed down to Strict Mode's dev-only double-invoke of effects interacting with `next/script`'s inline-script loading tracker, not a real bug — re-verified clean against an actual production build, which is what Vercel serves and does not double-invoke effects.
+
+**Not yet done, needs the user**: this account be set up externally (sign up free at clarity.microsoft.com, create a project, copy the Project ID — not something that can be done from here, it's a third-party account) and `NEXT_PUBLIC_CLARITY_PROJECT_ID` set in Vercel's Production/Preview/Development env vars. Until that happens this is fully inert code — no behavior change for anyone, by design.
+
+### Partnership Ads: My Partnership Ads filters, My Requests drill-down, Creator Hub creative count, header spacing (PR #310, 2026-10-22)
 
 Four related requests from one round of feedback:
 
@@ -587,6 +597,8 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 ---
 
 ## 7. What's next
+
+**App-wide, new and not a code task (PR #312)**: Microsoft Clarity is wired in but fully inert until the user (1) creates a free project at clarity.microsoft.com and (2) sets `NEXT_PUBLIC_CLARITY_PROJECT_ID` in Vercel. Once that's done, confirm on the real deployed site: a real session shows up in Clarity's dashboard, and it's correctly tagged with the logged-in user's actual email (not "anonymous") — open the app, click around, then check Clarity a few minutes later (session processing isn't instant).
 
 **Partnership Ads, new (PR #310)**: on the real account, confirm all four pieces of this round. (1) My Partnership Ads: add a Spend (or any metric) filter condition and confirm it narrows the table correctly, then toggle a Status checkbox off and confirm it updates instantly. (2) My Requests: confirm a creator who has ads in the currently-checked performance window is clickable and opens their real ads in the drawer — and that a creator with no ads in that window (or before "Check Performance" has ever been run) correctly shows "—" instead. (3) Creator Hub: confirm the new "Creatives" column shows a sensible number — lower than "Ads" for any creator known to have the same post reused across several ads, equal to "Ads" otherwise. (4) Confirm the tightened header spacing actually looks better in practice, especially on Explore Ads where the pill row wraps onto its own line — only checked via a mocked preview at one specific narrow width so far, not on a real device/window size.
 
