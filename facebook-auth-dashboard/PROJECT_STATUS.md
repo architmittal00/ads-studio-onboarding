@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-23**, by Claude, right after merging PR #314 (Duplicate-ad popup: pick a destination ad set directly without a campaign first; ad name editable but collapsed behind "Edit").
+> Last updated: **2026-10-23**, by Claude, right after merging PR #316 (Copy Ads ad-set/campaign-level extension, Phase 1 of 4 — plumbing only, no UI change yet). **A full implementation plan for this multi-phase feature is saved at `/Users/architmittal/.claude/plans/optimized-pondering-avalanche.md`** — read it before continuing this work in a new session; it has the full design, phasing, and flagged risks that don't all fit in this file.
 
 ---
 
@@ -82,6 +82,20 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work
+
+### Copy Ads: extending to Ad Set and Campaign level — Phase 1 of 4 (PR #316, 2026-10-23)
+
+A new, large, user-requested feature, not a bug fix: the user wants Copy Ads (today: pick N ads, copy their creative into an ad set that already exists in a different account) extended with two more levels — copy a whole **Ad Set** (create a new ad set in the destination account with matching targeting/budget/pixel settings, then copy every ad in it) and a whole **Campaign** (create a new campaign, recreate every ad set under it, copy every ad into each). User-confirmed decisions baked into the design: Ad Set-level copy lets the user choose "new campaign" or "an existing campaign in the destination" as the destination; Campaign-level always creates a new campaign; the user's own ad accounts already share pixels/custom audiences via one Business Manager, so copying those ids verbatim should generally work (still with per-object error surfacing if Meta ever rejects one).
+
+Investigated thoroughly before any code: today's ad-level copy mechanics never touch `/campaigns`/`/adsets` (every created object is an Ad/AdCreative against an already-existing ad set id); separately, `lib/campaignLaunch.js`'s `buildGenericCampaignPayload`/`buildGenericAdsetPayload`/`buildTargeting` and `pages/api/fb/adsets-list.js`'s `toFormFields` already handle everything needed to build a *new* campaign/ad set from a flat fields object, confirmed to correctly carry `custom_audiences`, interests, and `pixel_id` through. The one genuinely new piece needed was a campaign equivalent of `toFormFields` — nothing today clones an actual source campaign's own settings (`/launch`'s "new campaign" path always starts from hardcoded defaults). A full plan (design, file-by-file changes, phasing, and several flagged risks — CBO/ABO must be a per-request not per-ad-set decision, `special_ad_categories` currently always dropped, outer concurrency compounding at campaign level, Page-access never verified anywhere today) was written up and approved before implementation — saved at `/Users/architmittal/.claude/plans/optimized-pondering-avalanche.md`, since it's too long to usefully duplicate here.
+
+**This PR is Phase 1 of 4 — plumbing only, no UI change, zero behavior change to the existing ad-level path**:
+- `lib/adCopy.js`: extracted the per-ad copy loop out of `pages/api/fb/copy-ads/copy.js` into a new exported `copyAdsIntoAdset()` so a future ad-set/campaign-level route can run the identical loop against an ad set it just created, not only one that already existed. `copy.js` itself is now a thin wrapper calling it once.
+- `lib/adCopy.js`: new `fetchAdsForCopyByIds`/`fetchAdsInAdsetForCopy` (extracted from `fetchCopyableAds`'s batch-fetch internals) for "every ad currently in this ad set," with no date-range filtering (ad-set copy means the whole ad set, not just recently-active ads).
+- `lib/campaignLaunch.js`: new `campaignFormFieldsFromSource(campaign)`.
+- `pages/api/fb/campaigns-list.js` / `pages/api/fb/adsets-list.js`: new `?campaignId=` modes (mirroring each file's existing `?accountId=`/`?adsetId=` modes); `adsets-list.js`'s `?adsetId=` response now also returns its parent campaign's own pre-converted fields (one Graph call, already fetching a `campaign{}` expansion — just widened).
+
+Verified via a standalone script exercising `copyAdsIntoAdset` against a mocked Graph API for both a copyable and a non-copyable ad (confirmed identical steps/createdAdIds/overallSuccess shape to the original inline loop), `fetchCopyableAds`'s refactored delegation, `fetchAdsInAdsetForCopy`'s no-date-filter listing, and `campaignFormFieldsFromSource`'s CBO/ABO/Advantage+/flagged-category derivation — plus a production-build runtime smoke test confirming every touched/new route loads and responds correctly with no server crash. `npm run lint && npm run build` clean.
 
 ### Duplicate-ad popup: direct ad-set picker, collapsed name edit (PR #314, 2026-10-23)
 
@@ -606,6 +620,8 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 ---
 
 ## 7. What's next
+
+**Copy Ads ad-set/campaign-level extension, in progress (PR #316 = Phase 1 of 4)**: **read `/Users/architmittal/.claude/plans/optimized-pondering-avalanche.md` first** — it has the full approved design, the remaining phasing (2: Ad Set level with an existing-campaign destination only; 3: Ad Set level with a new-campaign destination; 4: Campaign level; 5: polish), and several flagged risks to carry into each phase (CBO/ABO must be decided once per request not per ad set; `special_ad_categories` currently always dropped; outer concurrency compounds at campaign level — start low; Page access is never verified anywhere in this app today). Phase 1 shipped is plumbing only (no UI), verified via standalone scripts and a runtime smoke test — nothing here has touched a real Meta account yet, so there's no real-account check to do until Phase 2 ships its first actual UI surface.
 
 **Duplicate-ad popup, new (PR #314)**: on the real account, open a Duplicate action on an ad row (Custom Views/Explore/Recent Changes) and confirm: clicking "Choose" on Destination ad set works immediately with no campaign picked, the full ad-set list (with campaign names) renders correctly, picking one auto-fills the right destination campaign, and the ad actually gets created in the right place after "Duplicate." Also confirm editing the ad's name via the new "Edit" button actually changes what gets created (not just what's displayed before submit).
 
