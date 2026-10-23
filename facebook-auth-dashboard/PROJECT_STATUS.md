@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-23**, by Claude, right after merging PR #312 (optional Microsoft Clarity integration — session recordings/heatmaps, identified by the logged-in user's email).
+> Last updated: **2026-10-23**, by Claude, right after merging PR #314 (Duplicate-ad popup: pick a destination ad set directly without a campaign first; ad name editable but collapsed behind "Edit").
 
 ---
 
@@ -82,6 +82,15 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work
+
+### Duplicate-ad popup: direct ad-set picker, collapsed name edit (PR #314, 2026-10-23)
+
+Two reports about the same place: the "Duplicate" row action's popup for a single ad (`components/DuplicateEntityModal.js`, opened from Custom Views/Explore/Recent Changes — a different, smaller entry point than `/launch`'s own "Duplicate an Ad Set" card, which was already a flat, campaign-independent picker and unaffected by this). A quick clarifying question with the user up front confirmed which of several "duplicate" flows in this app they meant, before any code changed.
+
+1. **"I have to pick a campaign before I can pick the ad set."** True for this one flow: the destination ad-set picker's full list was already loaded flat at modal-open time, but the picker UI filtered it down to `adsetChoices.filter(a => a.campaign?.id === destinationCampaign?.id)` — with `destinationCampaign` starting `null`, that's an empty list until a campaign was chosen first, and the button itself was `disabled` until then too. Now the "Choose" button on Destination ad set is always enabled; with no campaign picked yet, it searches every ad set on the account (campaign name shown as a subtitle so same-named ad sets in different campaigns stay distinguishable), and picking one auto-fills its own campaign as the destination. Picking a campaign first still works exactly as before and narrows the list to it — this is additive, not a replacement of the existing path.
+2. **"Let me edit the ad's name, but it shouldn't be upfront."** The name field already existed (an always-visible text input, pre-filled with `"<original ad name> - Copy"`), so the actual ask was to de-emphasize it, not add it. Investigated whether this app has any existing "advanced/collapsed field" convention to follow — it doesn't (no pencil-icon or collapsible-advanced-section pattern anywhere) — so it now follows the exact same label-plus-"Choose/Change"-button row style already used right above it for Destination campaign/ad set: a plain text label by default, with an "Edit" button that reveals an auto-focused input; Enter or clicking away collapses it back to the label with the edited value kept.
+
+Verified via a disposable mocked preview of the real component (level="ad", four fake ad sets spanning two campaigns): confirmed "Choose" on Destination ad set is clickable immediately with no campaign selected, the full cross-campaign list renders with campaign-name subtitles, search narrows it, picking an ad set from a *different* campaign than the source ad's own correctly auto-fills that campaign as the destination (unlocking "Duplicate"), and the name field collapses/expands/commits correctly. `npm run lint && npm run build` clean. Not yet confirmed on a real account — see §7.
 
 ### App-wide: optional Microsoft Clarity integration (PR #312, 2026-10-23)
 
@@ -597,6 +606,8 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 ---
 
 ## 7. What's next
+
+**Duplicate-ad popup, new (PR #314)**: on the real account, open a Duplicate action on an ad row (Custom Views/Explore/Recent Changes) and confirm: clicking "Choose" on Destination ad set works immediately with no campaign picked, the full ad-set list (with campaign names) renders correctly, picking one auto-fills the right destination campaign, and the ad actually gets created in the right place after "Duplicate." Also confirm editing the ad's name via the new "Edit" button actually changes what gets created (not just what's displayed before submit).
 
 **App-wide, new and not a code task (PR #312)**: Microsoft Clarity is wired in but fully inert until the user (1) creates a free project at clarity.microsoft.com and (2) sets `NEXT_PUBLIC_CLARITY_PROJECT_ID` in Vercel. Once that's done, confirm on the real deployed site: a real session shows up in Clarity's dashboard, and it's correctly tagged with the logged-in user's actual email (not "anonymous") — open the app, click around, then check Clarity a few minutes later (session processing isn't instant).
 
