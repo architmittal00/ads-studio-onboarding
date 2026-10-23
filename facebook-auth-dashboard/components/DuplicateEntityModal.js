@@ -110,13 +110,23 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
   // Which destination the "pick_destination" step is choosing — only ever
   // "adset" for an "adset" duplication (there's no ad-set-level destination
   // to pick, the new ad set itself IS the thing being placed into a
-  // campaign), but an "ad" duplication needs campaign picked before ad set
-  // can even be scoped, so it's either.
+  // campaign). An "ad" duplication can go either way: picking a campaign
+  // first narrows the ad-set list to it, but `adsetChoices` is always
+  // loaded in full up front (see the load effect below), so a campaign
+  // isn't actually REQUIRED before picking an ad set directly — reported by
+  // a user who already knew which ad set they wanted and didn't want to
+  // find its campaign first just to unlock the picker.
   const [pickTarget, setPickTarget] = useState(null); // "campaign" | "adset"
 
   // "ad" duplication
   const [adSource, setAdSource] = useState(null);
   const [adName, setAdName] = useState("");
+  // Not shown as an editable field by default — see the "confirm" step's
+  // name row below. Reported by a user who wanted to be able to tweak the
+  // auto-generated "<original> - Copy" name (e.g. to update a stale date
+  // baked into their own naming convention) but didn't want an extra text
+  // field competing for attention in the common case of just accepting it.
+  const [editingAdName, setEditingAdName] = useState(false);
   const [destinationCampaign, setDestinationCampaign] = useState(null);
   const [adDestination, setAdDestination] = useState(null);
   const [adsetChoices, setAdsetChoices] = useState([]);
@@ -331,18 +341,33 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
             <BackLink onClick={() => setStep("confirm")} />
             {pickTarget === "adset" ? (
               <PickerList
-                items={adsetChoices.filter((a) => a.campaign?.id === destinationCampaign?.id)}
+                // Only narrowed to one campaign once a campaign has actually
+                // been chosen (via the "Destination campaign" row) — picking
+                // an ad set directly, with no campaign pre-selected, searches
+                // every ad set on the account instead of staying stuck
+                // showing none until a campaign is chosen first.
+                items={destinationCampaign ? adsetChoices.filter((a) => a.campaign?.id === destinationCampaign.id) : adsetChoices}
                 query={pickerQuery}
                 onQueryChange={setPickerQuery}
-                emptyLabel="No ad sets found in this campaign."
+                emptyLabel={destinationCampaign ? "No ad sets found in this campaign." : "No ad sets found on this account."}
                 renderRow={(a) => (
                   <PickerRow
                     key={a.id}
                     item={a}
-                    subtitle={budgetLabel(a, currency)}
+                    // Campaign name shown here since the list isn't always
+                    // pre-filtered to one campaign anymore — otherwise two
+                    // same-named ad sets in different campaigns would be
+                    // indistinguishable.
+                    subtitle={`${a.campaign?.name ? `${a.campaign.name} · ` : ""}${budgetLabel(a, currency)}`}
                     badge={a.status}
                     onClick={() => {
                       setAdDestination(a);
+                      // Picking an ad set directly also resolves its
+                      // campaign, so the "Destination campaign" row above
+                      // reflects it immediately instead of still reading
+                      // "Not selected yet" after a destination was already
+                      // fully chosen.
+                      setDestinationCampaign(a.campaign || null);
                       setStep("confirm");
                     }}
                   />
@@ -413,13 +438,12 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
                   Destination ad set
                 </p>
                 <div style={{ fontWeight: 600, fontSize: 13, color: adDestination ? "var(--t1)" : "var(--t3)" }}>
-                  {adDestination?.name || (destinationCampaign ? "Not selected yet" : "Choose a campaign first")}
+                  {adDestination?.name || "Not selected yet"}
                 </div>
               </div>
               <button
                 type="button"
                 className={styles.btnSecondary}
-                disabled={!destinationCampaign}
                 onClick={() => {
                   setPickerQuery("");
                   setPickTarget("adset");
@@ -429,11 +453,31 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
                 {adDestination ? "Change" : "Choose"}
               </button>
             </div>
-            <div style={{ marginTop: 14 }}>
-              <p className={styles.sub} style={{ marginBottom: 6 }}>
-                Name for the new ad
-              </p>
-              <input type="text" className={styles.select} style={{ width: "100%" }} value={adName} onChange={(e) => setAdName(e.target.value)} />
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p className={styles.sub} style={{ marginBottom: 2 }}>
+                  Name for the new ad
+                </p>
+                {editingAdName ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    className={styles.select}
+                    style={{ width: "100%" }}
+                    value={adName}
+                    onChange={(e) => setAdName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                    onBlur={() => setEditingAdName(false)}
+                  />
+                ) : (
+                  <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{adName}</div>
+                )}
+              </div>
+              {!editingAdName && (
+                <button type="button" className={styles.btnSecondary} onClick={() => setEditingAdName(true)}>
+                  Edit
+                </button>
+              )}
             </div>
           </div>
         )}
