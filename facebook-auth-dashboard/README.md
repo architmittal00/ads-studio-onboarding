@@ -78,6 +78,7 @@ Copy `.env.example` to `.env.local` for local development, or set these directly
 | `NEXTAUTH_URL` | The deployed URL (e.g. `https://your-app.vercel.app`). Not required on Vercel in production (auto-detected), but needed for local dev. |
 | `OPENROUTER_API_KEY` | OpenRouter API key (keep private — never commit), used by Strategy 8's AI interest-recommendation step (`lib/openrouter.js`) |
 | `OPENROUTER_MODEL` | Optional — overrides the default Gemini model slug called via OpenRouter (defaults to `google/gemini-2.5-flash`). OpenRouter's model strings change over time; bump this instead of editing code |
+| `NEXT_PUBLIC_CLARITY_PROJECT_ID` | Optional — a [Microsoft Clarity](https://clarity.microsoft.com) project ID (free: session recordings + heatmaps). Unset by default, so nothing loads until you create a project there and set this. `pages/_app.js` tags every recorded session with the logged-in user's email (`lib/clarity.js`), so a session in Clarity's dashboard can be found by who actually generated it, not just an anonymous visitor id. `NEXT_PUBLIC_`-prefixed since the tracking script has to run in the browser — this is a public project id, not a secret, the same way Clarity's own install snippet is public on any site that uses it. |
 
 ## Facebook App configuration
 

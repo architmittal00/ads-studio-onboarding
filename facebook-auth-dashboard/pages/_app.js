@@ -1,11 +1,13 @@
 import "@/styles/globals.css";
 import { useEffect } from "react";
-import { SessionProvider } from "next-auth/react";
+import Script from "next/script";
+import { SessionProvider, useSession } from "next-auth/react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AccountProvider } from "@/components/AccountProvider";
 import ApiLogsFab from "@/components/ApiLogsFab";
 import { getThemePreference } from "@/lib/clientStorage";
 import { sweepAllKnownCaches } from "@/lib/clientCache";
+import { CLARITY_PROJECT_ID, identifyClarityUser } from "@/lib/clarity";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -76,6 +78,19 @@ function useSweepStaleCaches() {
   }, []);
 }
 
+// Tags the current Clarity recording with the real logged-in user's email
+// (see lib/clarity.js) instead of leaving it an anonymous visitor. Has to
+// live inside <SessionProvider> to call useSession() — this file's own App
+// component wraps that provider around everything else, so it can't call
+// the hook itself.
+function ClarityIdentify() {
+  const { data: session } = useSession();
+  useEffect(() => {
+    identifyClarityUser(session?.user?.email);
+  }, [session?.user?.email]);
+  return null;
+}
+
 export default function App({
   Component,
   pageProps: { session, ...pageProps },
@@ -85,6 +100,20 @@ export default function App({
   useBodyFontClass();
   return (
     <SessionProvider session={session}>
+      {CLARITY_PROJECT_ID && (
+        <Script
+          id="clarity-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(c,l,a,r,i,t,y){
+              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "${CLARITY_PROJECT_ID}");`,
+          }}
+        />
+      )}
+      <ClarityIdentify />
       <AccountProvider>
         <main className={plusJakartaSans.variable} style={{ fontFamily: "var(--font-studio)" }}>
           <Component {...pageProps} />
