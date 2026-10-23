@@ -1,12 +1,20 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
-import { ATTRIBUTION_SPECS } from "@/lib/campaignLaunch";
+import { ATTRIBUTION_SPECS, campaignFormFieldsFromSource } from "@/lib/campaignLaunch";
 import { lastNDaysRange } from "@/lib/adCreativeDetails";
 import { roasFromRow, pickPurchaseCount } from "@/lib/metrics";
 
+// `campaign{...}` widened (beyond what the same-account ad-set-duplicate
+// path alone needs) to also carry budget/bid-strategy/special-categories —
+// Copy Ads' ad-set-level cross-account copy needs the source ad set's own
+// PARENT campaign's full settings too (its own "create a new campaign
+// matching the source" option), and this ad set fetch already expands
+// `campaign{}` once, so widening it is one Graph call cheaper than a second
+// round trip to campaigns-list.js?campaignId= for the same data.
 const DETAIL_FIELDS =
-  "name,campaign_id,campaign{objective,name},optimization_goal,bid_strategy,daily_budget,lifetime_budget,targeting,promoted_object,status,attribution_spec";
+  "name,campaign_id,campaign{objective,name,bid_strategy,daily_budget,lifetime_budget,special_ad_categories,smart_promotion_type}," +
+  "optimization_goal,bid_strategy,daily_budget,lifetime_budget,targeting,promoted_object,status,attribution_spec";
 
 const GENDERS_TO_FIELD = { "": "all", "1": "male", "2": "female" };
 
@@ -65,17 +73,19 @@ function toFormFields(adset) {
   };
 }
 
-// Two modes: `?accountId=` lists an account's ad sets (light fields, for the
-// "duplicate an existing ad set" picker — searched client-side, same reason
-// as campaigns-list.js); `?adsetId=` fetches one ad set's full targeting and
-// returns it pre-converted to the Launch form's field shape.
+// Three modes: `?accountId=` lists an account's ad sets (light fields, for
+// the "duplicate an existing ad set" picker — searched client-side, same
+// reason as campaigns-list.js); `?adsetId=` fetches one ad set's full
+// targeting and returns it pre-converted to the Launch form's field shape;
+// `?campaignId=` (new, for Copy Ads' campaign-level cross-account copy)
+// lists just the ad sets under one campaign.
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session?.accessToken) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, adsetId } = req.query;
+  const { accountId, adsetId, campaignId } = req.query;
   const token = session.accessToken;
 
   try {
@@ -110,8 +120,26 @@ export default async function handler(req, res) {
         campaignName: adset.campaign?.name || null,
         campaignObjective: adset.campaign?.objective || null,
         fields: toFormFields(adset),
+        // The parent campaign's own settings, pre-converted the same way
+        // campaigns-list.js?campaignId= would — used by Copy Ads'
+        // ad-set-level copy when the user picks "create a new campaign
+        // matching the source" instead of an existing destination campaign.
+        campaignFields: adset.campaign ? campaignFormFieldsFromSource(adset.campaign) : null,
         ads,
       });
+      return;
+    }
+    if (campaignId) {
+      // Ad sets under one campaign — for Copy Ads' campaign-level copy,
+      // listing which ad sets a copied campaign needs to recreate. Lighter
+      // fields than the ?accountId= mode below (no account-wide insights
+      // join): this is a within-one-campaign list, not a picker needing its
+      // own performance numbers to choose between many.
+      const result = await graphGetAllPages(`/${campaignId}/adsets`, token, {
+        fields: "id,name,status,daily_budget,lifetime_budget,optimization_goal",
+        limit: 200,
+      });
+      res.status(200).json({ adsets: result.data || [] });
       return;
     }
     if (accountId) {
@@ -153,7 +181,7 @@ export default async function handler(req, res) {
       res.status(200).json({ adsets });
       return;
     }
-    res.status(400).json({ error: "accountId or adsetId is required" });
+    res.status(400).json({ error: "accountId, adsetId, or campaignId is required" });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
   }
