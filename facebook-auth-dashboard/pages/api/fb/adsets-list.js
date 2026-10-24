@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, adsetId, campaignId, since, until, metrics } = req.query;
+  const { accountId, adsetId, campaignId, since, until, metrics, onlyWithSpend } = req.query;
   const token = session.accessToken;
 
   try {
@@ -187,10 +187,22 @@ export default async function handler(req, res) {
         }
       }
 
-      const adsets = (listResult.value.data || []).map((a) => ({
+      let adsets = (listResult.value.data || []).map((a) => ({
         ...a,
         performance: performanceByAdsetId.get(a.id) || null,
       }));
+      // Opt-in (never applied for /launch's own callers, which don't pass
+      // this) — Copy Ads' Ad Set-level picker only wants to offer ad sets
+      // that actually delivered in the chosen window, mirroring the Ad
+      // level's own picker (which can never show a zero-spend ad in the
+      // first place, since it discovers ad ids via /insights itself — see
+      // lib/adCopy.js's fetchCopyableAds). This list-then-filter approach is
+      // the ad-set-level equivalent: the list call itself can't be scoped to
+      // "only ad sets with spend," so this filters the already-joined
+      // performance numbers instead.
+      if (onlyWithSpend === "1" || onlyWithSpend === "true") {
+        adsets = adsets.filter((a) => (a.performance?.spend || 0) > 0);
+      }
       res.status(200).json({ adsets });
       return;
     }
