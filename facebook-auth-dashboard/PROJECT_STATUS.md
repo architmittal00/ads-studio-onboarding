@@ -2,7 +2,7 @@
 
 > **Maintenance rule (read this first): keep this file current.** Whoever (human or Claude) finishes a meaningful chunk of work on this repo — a shipped PR, a new finding, a change of plan — must update the **"Most recent work"** and **"What's next"** sections below before ending the session. This file is what lets anyone (any device, any fresh Claude session) pick the project up cold. Stale status here is worse than no status at all, so don't skip the update.
 >
-> Last updated: **2026-10-24**, by Claude, right after merging PR #318 (Copy Ads: Ad Set and Campaign level cross-account copy — the full UI/API, Phases 2-4, on top of PR #316's plumbing). **This feature's full design/reasoning is saved at `/Users/architmittal/.claude/plans/optimized-pondering-avalanche.md`** — read it before touching this feature further; it has detail that doesn't all fit in this file.
+> Last updated: **2026-10-24**, by Claude, right after merging PR #320 (Copy Ads: date range + metric picker parity for the Ad Set/Campaign levels, matching the Ad level). **This feature's full design/reasoning is saved at `/Users/architmittal/.claude/plans/optimized-pondering-avalanche.md`** — read it before touching this feature further; it has detail that doesn't all fit in this file.
 
 ---
 
@@ -82,6 +82,16 @@ No open PRs. Everything described below is merged and live.
 ---
 
 ## 5. Most recent work
+
+### Copy Ads: date range + metric picker parity for Ad Set/Campaign levels (PR #320, 2026-10-24)
+
+Reported right after PR #318 shipped: the Ad Set and Campaign pickers had no date-range or metric controls at all — `pages/api/fb/adsets-list.js`/`campaigns-list.js`'s `?accountId=` modes always pulled a hardcoded last-30-day spend/purchases/ROAS, with no way to change either the window or which metrics showed as columns, unlike the Ad level's own picker.
+
+Widened both endpoints to accept the same optional `since`/`until`/`metrics` params the Ad level's `source-ads.js` already sends, switching from the old inline `roasFromRow`/`pickPurchaseCount` computation to `lib/insightsMetrics.js`'s generic `resolveGraphFields`/`deriveRowMetrics` (the same mechanism used everywhere else metrics are configurable in this app). Both params are optional specifically because these two endpoints are shared with `/launch`'s own existing-campaign/ad-set pickers, which never pass them — confirmed the "purchases"/"roas" catalog entries extract identically to the old inline code, so that caller's hardcoded `performance.spend`/`.purchases`/`.roas` rendering is unaffected.
+
+`pages/copy-ads.js` now shows the same `DateRangeMenu` + `MetricPicker` for all three levels (previously gated to `level === "ad"` only), and the Ad Set/Campaign tables' metric columns are generated dynamically from the selected metrics — the exact same column-generation pattern the Ad-level table already uses — instead of a fixed Spend/Purchases/ROAS trio.
+
+Verified via a disposable mocked preview: switching to Ad Set/Campaign level shows the full date-range + metric picker; toggling a metric (added Impressions) and loading correctly sent `since`/`until`/`metrics` in the request and rendered exactly the selected columns. `npm run lint && npm run build` clean.
 
 ### Copy Ads: Ad Set and Campaign level cross-account copy — Phases 2-4, feature complete (PR #318, 2026-10-24)
 
@@ -633,12 +643,13 @@ If a plan file resurfaces again claiming to be the active plan, always verify ag
 
 ## 7. What's next
 
-**Copy Ads ad-set/campaign-level extension, feature-complete but entirely unverified against a real account (PR #316, #318)**: **read `/Users/architmittal/.claude/plans/optimized-pondering-avalanche.md` first** — the full design/reasoning, including several flagged risks that matter most for the *first* real test: `special_ad_categories` is currently always dropped when cloning a campaign (fine for this user's real D2C accounts, but would silently under-restrict a flagged campaign if one is ever copied); Page access is never verified anywhere in this app, including here — a destination account that can't post to the source's Page will fail deep into the copy, after a campaign/ad set already exist there; outer concurrency at Campaign level (`ADSET_CONCURRENCY = 2`) is a guess, not yet tested against a real multi-ad-set campaign. Real-account checks needed, roughly in the order they'd actually bite:
+**Copy Ads ad-set/campaign-level extension, feature-complete but entirely unverified against a real account (PR #316, #318, #320)**: **read `/Users/architmittal/.claude/plans/optimized-pondering-avalanche.md` first** — the full design/reasoning, including several flagged risks that matter most for the *first* real test: `special_ad_categories` is currently always dropped when cloning a campaign (fine for this user's real D2C accounts, but would silently under-restrict a flagged campaign if one is ever copied); Page access is never verified anywhere in this app, including here — a destination account that can't post to the source's Page will fail deep into the copy, after a campaign/ad set already exist there; outer concurrency at Campaign level (`ADSET_CONCURRENCY = 2`) is a guess, not yet tested against a real multi-ad-set campaign. Real-account checks needed, roughly in the order they'd actually bite:
 1. **Ad Set level, existing-campaign destination**: copy one real ad set into an existing campaign in a different account. Confirm the new ad set's targeting/budget/pixel/optimization settings genuinely match the source in Ads Manager, and that its ads copy in correctly (this part reuses the already real-account-tested ad-level machinery, so the main unconfirmed piece is the new ad set itself).
 2. **Ad Set level, new-campaign destination**: same, but letting it create a new campaign too — confirm the new campaign's own settings (objective, bid strategy, CBO/ABO + budget amount) match the source, especially the ABO budget-amount fix called out in §5's PR #318 entry.
 3. **Campaign level**: copy a real campaign with at least 2 ad sets — confirm the new campaign, both new ad sets, and every ad all land correctly, that excluding one ad set (or one ad) via the review step's checkboxes actually excludes it from what's created, and that the live per-step progress reads sensibly for a multi-ad-set batch.
 4. **Cross-account pixel/custom-audience ids**: the user confirmed these are shared across their accounts via one Business Manager — confirm Meta actually accepts them on the newly-created ad set(s) rather than rejecting with a scoping error.
 5. If a Campaign-level copy with several ad sets ever throws a visible Meta rate-limit error, that's the signal to lower `ADSET_CONCURRENCY` in `pages/api/fb/copy-ads/copy-campaign.js` — not yet seen, since no real multi-ad-set campaign has been tried.
+6. **New (PR #320)**: on the Ad Set/Campaign pickers, change the date range and toggle a metric or two before loading — confirm the resulting spend/purchases/etc. numbers shown for each real ad set/campaign actually match what Ads Manager reports for that same window (verified so far only via mocked preview with fake performance numbers, never against real Graph Insights data at these two levels).
 
 **Duplicate-ad popup, new (PR #314)**: on the real account, open a Duplicate action on an ad row (Custom Views/Explore/Recent Changes) and confirm: clicking "Choose" on Destination ad set works immediately with no campaign picked, the full ad-set list (with campaign names) renders correctly, picking one auto-fills the right destination campaign, and the ad actually gets created in the right place after "Duplicate." Also confirm editing the ad's name via the new "Edit" button actually changes what gets created (not just what's displayed before submit).
 
