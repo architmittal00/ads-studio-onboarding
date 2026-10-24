@@ -19,7 +19,7 @@ import { RANGE_PRESETS, computeRange } from "@/lib/dateRanges";
 import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
 import { METRIC_CATALOG, formatMetricValue } from "@/lib/insightsMetrics";
 import { METRIC_FILTER_OPERATORS, applyResultFilters } from "@/lib/copyAdsFilters";
-import { fetchWithTimeout } from "@/lib/fetchJson";
+import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import { getCopyAdsQueryPanelCollapsed, setCopyAdsQueryPanelCollapsed } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -77,7 +77,21 @@ function summarizeCopyAdsQuery(accountName, rangePreset, metricCount) {
 // Load Ads…") picked by whichever precondition wasn't yet met — those read
 // as an afterthought and left most of the page blank; this explains what the
 // page is for regardless of which step the user is currently missing.
-function CopyAdsEmptyState({ canRun, onRun, loading }) {
+// Level-specific copy, same icon+numbered-steps shell for all three —
+// "Ad" keeps its original wording verbatim (defaults below); "Ad Set" and
+// "Campaign" (pages/copy-ads.js's level selector) pass their own title/
+// description/steps/runLabel instead of this component needing its own
+// level-awareness.
+function CopyAdsEmptyState({
+  canRun,
+  onRun,
+  loading,
+  title = "Clone ads into another ad account",
+  description = "Load ads from a source account, pick the ones you want, then copy their creative — Page and all — into an ad set that already exists in a different ad account.",
+  steps = ["Pick a source ad account", "Choose a date range with spend", 'Click "Load Ads"', "Select ads and copy them to a destination"],
+  runLabel = "Load Ads",
+  loadingLabel = "Loading…",
+}) {
   return (
     <section className={styles.card}>
       <div className={styles.exploreEmptyState}>
@@ -86,25 +100,20 @@ function CopyAdsEmptyState({ canRun, onRun, loading }) {
         </div>
         <div>
           <h2 className={styles.h2} style={{ marginBottom: 6 }}>
-            Clone ads into another ad account
+            {title}
           </h2>
-          <p className={styles.sub}>
-            Load ads from a source account, pick the ones you want, then copy their creative — Page and all — into an
-            ad set that already exists in a different ad account.
-          </p>
+          <p className={styles.sub}>{description}</p>
         </div>
         <div className={styles.exploreEmptySteps}>
-          {["Pick a source ad account", "Choose a date range with spend", 'Click "Load Ads"', "Select ads and copy them to a destination"].map(
-            (step, i) => (
-              <div key={step} className={styles.exploreEmptyStep}>
-                <span className={styles.exploreEmptyStepNum}>{i + 1}</span>
-                {step}
-              </div>
-            )
-          )}
+          {steps.map((step, i) => (
+            <div key={step} className={styles.exploreEmptyStep}>
+              <span className={styles.exploreEmptyStepNum}>{i + 1}</span>
+              {step}
+            </div>
+          ))}
         </div>
         <button type="button" className={styles.btnPrimary} disabled={!canRun || loading} onClick={onRun}>
-          {loading ? "Loading…" : "Load Ads"}
+          {loading ? loadingLabel : runLabel}
         </button>
       </div>
     </section>
@@ -145,6 +154,18 @@ const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 1
 export default function CopyAdsPage() {
   const { adAccounts, accountsLoading, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
 
+  // Which kind of object this page's picker table shows and copies — "ad"
+  // is the original, real-account-tested behavior (below); "adset" and
+  // "campaign" are new (see PROJECT_STATUS.md/the feature's own plan),
+  // creating a brand-new ad set/campaign with matching properties in the
+  // destination account rather than copying into one that already exists.
+  // Each level owns its own picker state entirely (adsetItems*/campaignItems*
+  // below) rather than reusing `ads`' shape, since an ad set/campaign row
+  // and an ad row have little in common and forcing one shape onto all
+  // three would make every column/render function level-conditional instead
+  // of just the handful of places that actually need to branch.
+  const [level, setLevel] = useState("ad"); // "ad" | "adset" | "campaign"
+
   const [ads, setAds] = useState([]);
   const [adsLoading, setAdsLoading] = useState(false);
   const [adsError, setAdsError] = useState(null);
@@ -152,6 +173,20 @@ export default function CopyAdsPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [lightboxItem, setLightboxItem] = useState(null);
+
+  // Declared up here (ahead of the rest of each level's own state/loader
+  // further down) only because `queryPanelExpanded` below needs all three
+  // "has this level's picker ever loaded" flags together — everything else
+  // about the Ad Set/Campaign levels is declared together, closer to where
+  // it's actually used.
+  const [adsetHasLoaded, setAdsetHasLoaded] = useState(false);
+  const [campaignHasLoaded, setCampaignHasLoaded] = useState(false);
+  const hasLoadedForLevel = level === "ad" ? hasLoaded : level === "adset" ? adsetHasLoaded : campaignHasLoaded;
+  // Also declared up here (not with the rest of each level's own state
+  // further down) since the table-height recompute effect below needs their
+  // `.length` alongside hasLoadedForLevel's own flags.
+  const [adsetItems, setAdsetItems] = useState([]);
+  const [campaignItems, setCampaignItems] = useState([]);
 
   // Defaults to a short, cheap window rather than "every ad ever" — an
   // unfiltered (or too-wide) account-wide pull with this picker's heavy
@@ -185,7 +220,7 @@ export default function CopyAdsPage() {
       return next;
     });
   }
-  const queryPanelExpanded = !hasLoaded || !queryPanelCollapsed;
+  const queryPanelExpanded = !hasLoadedForLevel || !queryPanelCollapsed;
 
   // Same sticky-height recompute as Explore's own query panel — `.exploreQueryPanel`'s
   // CSS caps it at `calc(100vh - 40px)` assuming its top edge sits at the
@@ -254,7 +289,11 @@ export default function CopyAdsPage() {
       window.removeEventListener("resize", onScrollOrResize);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [hasLoaded, ads.length]);
+    // Shared by all three levels' tables (same tableRef/tableMaxHeight) —
+    // recompute whenever any of their loaded-state/row-count changes, not
+    // just the ad-level ones, since switching levels swaps which table is
+    // actually mounted at that ref.
+  }, [level, hasLoaded, ads.length, adsetHasLoaded, adsetItems.length, campaignHasLoaded, campaignItems.length]);
 
   // Which lib/insightsMetrics.js catalog columns show in the picker table —
   // session-only (no persistence), same as every other piece of state on
@@ -294,12 +333,70 @@ export default function CopyAdsPage() {
     setAppliedConditions(draftConditions);
   }
 
+  // Ad Set level: every ad set in the source account, reusing
+  // pages/api/fb/adsets-list.js's existing ?accountId= list mode (already
+  // returns status/budget/optimization-goal/campaign/30-day performance —
+  // no new endpoint needed for the picker itself, only for the actual copy).
+  // adsetItems/setAdsetItems and adsetHasLoaded/setAdsetHasLoaded declared
+  // earlier, alongside hasLoadedForLevel.
+  const [adsetItemsLoading, setAdsetItemsLoading] = useState(false);
+  const [adsetItemsError, setAdsetItemsError] = useState(null);
+  // Single-select for v1 — bulk-copying several source ad sets at once
+  // raises an unresolved "one shared new campaign or one per source ad set"
+  // question the feature's own plan deliberately deferred rather than
+  // guessing at before the single-item flow was even proven.
+  const [selectedAdsetId, setSelectedAdsetId] = useState(null);
+
+  function loadAdsetsToCopy() {
+    if (!selectedAccountId) return;
+    setAdsetItemsLoading(true);
+    setAdsetItemsError(null);
+    fetchWithTimeout(`/api/fb/adsets-list?accountId=${encodeURIComponent(selectedAccountId)}`)
+      .then(parseJsonResponse)
+      .then((json) => {
+        if (json.error) setAdsetItemsError(json.error);
+        else setAdsetItems(json.adsets || []);
+      })
+      .catch((err) => setAdsetItemsError(err.message))
+      .finally(() => {
+        setAdsetItemsLoading(false);
+        setAdsetHasLoaded(true);
+      });
+  }
+
+  // Campaign level: every campaign in the source account, same reuse of an
+  // existing list endpoint (campaigns-list.js's ?accountId= mode).
+  // campaignItems/setCampaignItems and campaignHasLoaded/setCampaignHasLoaded
+  // declared earlier, alongside hasLoadedForLevel.
+  const [campaignItemsLoading, setCampaignItemsLoading] = useState(false);
+  const [campaignItemsError, setCampaignItemsError] = useState(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState(null);
+
+  function loadCampaignsToCopy() {
+    if (!selectedAccountId) return;
+    setCampaignItemsLoading(true);
+    setCampaignItemsError(null);
+    fetchWithTimeout(`/api/fb/campaigns-list?accountId=${encodeURIComponent(selectedAccountId)}`)
+      .then(parseJsonResponse)
+      .then((json) => {
+        if (json.error) setCampaignItemsError(json.error);
+        else setCampaignItems(json.campaigns || []);
+      })
+      .catch((err) => setCampaignItemsError(err.message))
+      .finally(() => {
+        setCampaignItemsLoading(false);
+        setCampaignHasLoaded(true);
+      });
+  }
+
   // Clears out any ads/selection left over from a previously loaded
   // account — doesn't itself fetch anything (that still needs an explicit
   // Load Ads click below), just prevents the table from silently going on
   // showing a different account's ads/selection once `selectedAccountId`
   // has already moved on, which would otherwise let a copy fire against a
-  // mismatched source account.
+  // mismatched source account. Declared here (after every level's own state)
+  // rather than right after the ad-level state it originally only reset, so
+  // every setter it calls is already in scope.
   useEffect(() => {
     // Reacting to the source account changing, not a derived-state
     // anti-pattern — clears state tied to whichever account was previously
@@ -309,6 +406,14 @@ export default function CopyAdsPage() {
     setSelectedIds(new Set());
     setHasLoaded(false);
     setAdsError(null);
+    setAdsetItems([]);
+    setSelectedAdsetId(null);
+    setAdsetHasLoaded(false);
+    setAdsetItemsError(null);
+    setCampaignItems([]);
+    setSelectedCampaignId(null);
+    setCampaignHasLoaded(false);
+    setCampaignItemsError(null);
   }, [selectedAccountId]);
 
   // Deliberately NOT an effect that auto-fires on every account/range
@@ -450,6 +555,150 @@ export default function CopyAdsPage() {
     },
   ];
 
+  // Ad Set / Campaign level pickers — single-select (a radio, not a
+  // checkbox, makes that visually obvious) over whichever list just loaded.
+  // No metric-threshold filtering or thumbnail/copyable-reason columns here
+  // like the ad-level table has — picking a whole ad set/campaign to clone
+  // isn't a per-row-eligibility selection the way picking individual ads is.
+  const adsetColumns = [
+    {
+      key: "select",
+      label: "",
+      maxWidth: 32,
+      render: (row) => (
+        <input type="radio" name="copy-ads-select-adset" checked={selectedAdsetId === row.id} onChange={() => setSelectedAdsetId(row.id)} />
+      ),
+    },
+    { key: "name", label: "Ad Set", maxWidth: 240 },
+    { key: "campaignName", label: "Campaign", maxWidth: 160, render: (row) => row.campaign?.name || "—", sortValue: (row) => row.campaign?.name || "" },
+    {
+      key: "status",
+      label: "Status",
+      maxWidth: 90,
+      render: (row) => <span className={row.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo}>{row.status}</span>,
+    },
+    { key: "optimization_goal", label: "Optimization Goal", maxWidth: 170 },
+    {
+      key: "budget",
+      label: "Budget",
+      align: "right",
+      maxWidth: 110,
+      sortValue: (row) => row.daily_budget || row.lifetime_budget || 0,
+      render: (row) =>
+        row.daily_budget
+          ? `${formatMetricValue(row.daily_budget / 100, "currency", sourceCurrency)}/day`
+          : row.lifetime_budget
+          ? `${formatMetricValue(row.lifetime_budget / 100, "currency", sourceCurrency)} lifetime`
+          : "—",
+    },
+    { key: "spend", label: "Spend (30d)", align: "right", maxWidth: 110, sortValue: (row) => row.performance?.spend ?? -Infinity, render: (row) => formatMetricValue(row.performance?.spend, "currency", sourceCurrency) },
+    { key: "purchases", label: "Purchases (30d)", align: "right", maxWidth: 120, sortValue: (row) => row.performance?.purchases ?? -Infinity, render: (row) => formatMetricValue(row.performance?.purchases, "number") },
+    { key: "roas", label: "ROAS (30d)", align: "right", maxWidth: 90, sortValue: (row) => row.performance?.roas ?? -Infinity, render: (row) => formatMetricValue(row.performance?.roas, "decimal") },
+  ];
+
+  const campaignColumns = [
+    {
+      key: "select",
+      label: "",
+      maxWidth: 32,
+      render: (row) => (
+        <input type="radio" name="copy-ads-select-campaign" checked={selectedCampaignId === row.id} onChange={() => setSelectedCampaignId(row.id)} />
+      ),
+    },
+    { key: "name", label: "Campaign", maxWidth: 260 },
+    { key: "objective", label: "Objective", maxWidth: 150 },
+    {
+      key: "status",
+      label: "Status",
+      maxWidth: 90,
+      render: (row) => <span className={row.effective_status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo}>{row.effective_status}</span>,
+    },
+    {
+      key: "budget",
+      label: "Budget",
+      align: "right",
+      maxWidth: 110,
+      sortValue: (row) => row.daily_budget || row.lifetime_budget || 0,
+      render: (row) =>
+        row.daily_budget
+          ? `${formatMetricValue(row.daily_budget / 100, "currency", sourceCurrency)}/day`
+          : row.lifetime_budget
+          ? `${formatMetricValue(row.lifetime_budget / 100, "currency", sourceCurrency)} lifetime`
+          : "No campaign-level budget (ABO)",
+    },
+    { key: "spend", label: "Spend (30d)", align: "right", maxWidth: 110, sortValue: (row) => row.performance?.spend ?? -Infinity, render: (row) => formatMetricValue(row.performance?.spend, "currency", sourceCurrency) },
+    { key: "purchases", label: "Purchases (30d)", align: "right", maxWidth: 120, sortValue: (row) => row.performance?.purchases ?? -Infinity, render: (row) => formatMetricValue(row.performance?.purchases, "number") },
+    { key: "roas", label: "ROAS (30d)", align: "right", maxWidth: 90, sortValue: (row) => row.performance?.roas ?? -Infinity, render: (row) => formatMetricValue(row.performance?.roas, "decimal") },
+  ];
+
+  const adsetResultArea = (
+    <>
+      {adsetItemsLoading && <Loader label="Loading ad sets…" />}
+      {!adsetHasLoaded && !adsetItemsLoading && (
+        <CopyAdsEmptyState
+          canRun={!!selectedAccountId}
+          loading={adsetItemsLoading}
+          onRun={loadAdsetsToCopy}
+          title="Clone a whole ad set into another ad account"
+          description="Load this account's ad sets, pick one, then create a matching ad set — same targeting, budget, and optimization settings — in a different ad account, with every one of its ads copied into it."
+          steps={["Pick a source ad account", 'Click "Load Ad Sets"', "Select an ad set and copy it to a destination"]}
+          runLabel="Load Ad Sets"
+          loadingLabel="Loading…"
+        />
+      )}
+      {adsetItemsError && <div className={styles.error}>{adsetItemsError}</div>}
+      {!adsetItemsError && adsetHasLoaded && (
+        <div ref={tableRef}>
+          <SortableTable
+            columns={adsetColumns}
+            rows={adsetItems}
+            defaultSortKey="name"
+            defaultSortDir="asc"
+            searchable
+            searchKeys={["name"]}
+            emptyMessage="No ad sets found in this account."
+            fixedColumnWidths
+            maxHeight={tableMaxHeight}
+          />
+        </div>
+      )}
+    </>
+  );
+
+  const campaignResultArea = (
+    <>
+      {campaignItemsLoading && <Loader label="Loading campaigns…" />}
+      {!campaignHasLoaded && !campaignItemsLoading && (
+        <CopyAdsEmptyState
+          canRun={!!selectedAccountId}
+          loading={campaignItemsLoading}
+          onRun={loadCampaignsToCopy}
+          title="Clone a whole campaign into another ad account"
+          description="Load this account's campaigns, pick one, then create a matching campaign — plus every one of its ad sets, with matching settings — in a different ad account, with every ad copied into its new ad set."
+          steps={["Pick a source ad account", 'Click "Load Campaigns"', "Select a campaign and copy it to a destination"]}
+          runLabel="Load Campaigns"
+          loadingLabel="Loading…"
+        />
+      )}
+      {campaignItemsError && <div className={styles.error}>{campaignItemsError}</div>}
+      {!campaignItemsError && campaignHasLoaded && (
+        <div ref={tableRef}>
+          <SortableTable
+            columns={campaignColumns}
+            rows={campaignItems}
+            defaultSortKey="name"
+            defaultSortDir="asc"
+            searchable
+            searchKeys={["name"]}
+            emptyMessage="No campaigns found in this account."
+            fixedColumnWidths
+            maxHeight={tableMaxHeight}
+          />
+        </div>
+      )}
+    </>
+  );
+
   // Everything downstream of "how to fetch" — shown in the content area on
   // both sides of the collapsible panel below (side-by-side with it when
   // expanded, full-width under the collapsed-panel summary row otherwise) —
@@ -549,6 +798,20 @@ export default function CopyAdsPage() {
 
   const sourceAccountName = adAccounts.find((a) => a.id === selectedAccountId)?.name;
 
+  // Level-generalized versions of the handful of things that differ between
+  // the three pickers — everything else (the collapsible panel shell,
+  // sticky-height recompute, source account picker, Load/Reload button
+  // itself) is shared verbatim across all three.
+  const activeResultArea = level === "ad" ? resultArea : level === "adset" ? adsetResultArea : campaignResultArea;
+  const loadingForLevel = level === "ad" ? adsLoading : level === "adset" ? adsetItemsLoading : campaignItemsLoading;
+  const canRunLoadForLevel = level === "ad" ? !!selectedAccountId && !!range : !!selectedAccountId;
+  const runLoadForLevel = level === "ad" ? loadAds : level === "adset" ? loadAdsetsToCopy : loadCampaignsToCopy;
+  const loadButtonLabel = level === "ad" ? "Ads" : level === "adset" ? "Ad Sets" : "Campaigns";
+  const selectedAdsetName = adsetItems.find((a) => a.id === selectedAdsetId)?.name;
+  const selectedCampaign = campaignItems.find((c) => c.id === selectedCampaignId);
+  const selectionCount = level === "ad" ? selectedAds.length : level === "adset" ? (selectedAdsetId ? 1 : 0) : selectedCampaignId ? 1 : 0;
+  const selectionLabel = level === "ad" ? "ad" : level === "adset" ? "ad set" : "campaign";
+
   return (
     <Layout>
       <Head>
@@ -557,16 +820,37 @@ export default function CopyAdsPage() {
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: queryPanelExpanded ? 1800 : 1600, margin: "0 auto" }}>
           <h1 className={styles.h1}>Copy Ads Across Accounts</h1>
-          <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
-            Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad
-            account — the same Page, no retargeting needed.
+          <p className={styles.sub} style={{ marginTop: -8, marginBottom: 14 }}>
+            {level === "ad" &&
+              "Select ads running in one ad account and copy their creative into an ad set that already exists in a different ad account — the same Page, no retargeting needed."}
+            {level === "adset" &&
+              "Pick one ad set and create a matching one — same targeting, budget, and settings — in a different ad account, with every one of its ads copied into it."}
+            {level === "campaign" &&
+              "Pick one campaign and create a matching one, plus every one of its ad sets, in a different ad account, with every ad copied into its new ad set."}
           </p>
+
+          <div className={styles.tabGroup} style={{ marginBottom: 20, width: "fit-content" }}>
+            {[
+              { key: "ad", label: "Ad" },
+              { key: "adset", label: "Ad Set" },
+              { key: "campaign", label: "Campaign" },
+            ].map((l) => (
+              <button
+                key={l.key}
+                type="button"
+                className={level === l.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => setLevel(l.key)}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
           {queryPanelExpanded ? (
             <div className={styles.exploreLayout}>
-              <div className={styles.exploreContent}>{resultArea}</div>
+              <div className={styles.exploreContent}>{activeResultArea}</div>
 
               <aside
                 ref={queryPanelRef}
@@ -577,11 +861,11 @@ export default function CopyAdsPage() {
                   <div className={styles.exploreQueryHeader}>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
                       <SettingsIcon size={15} />
-                      Source &amp; Metrics
+                      {level === "ad" ? "Source & Metrics" : "Source"}
                     </span>
                     {/* No collapse control until something's loaded at least once —
                         collapsing here would leave the page with nothing on it at all. */}
-                    {hasLoaded && (
+                    {hasLoadedForLevel && (
                       <button
                         type="button"
                         className={styles.appSidebarIconBtn}
@@ -601,43 +885,60 @@ export default function CopyAdsPage() {
                       <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" style={{ width: "100%" }} loading={accountsLoading} />
                     </div>
 
-                    <div>
-                      <p
-                        className={styles.sub}
-                        style={{ marginBottom: 6 }}
-                        title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
-                      >
-                        Only show ads with spend in
-                      </p>
-                      <DateRangeMenu
-                        rangePreset={rangePreset}
-                        customSince={customSince}
-                        customUntil={customUntil}
-                        maxRangeDays={MAX_RANGE_DAYS}
-                        compareToPrevious={false}
-                        compareCustomSince=""
-                        compareDisplay="change"
-                        compareDisabled
-                        compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
-                        onApply={(patch) => {
-                          setRangePreset(patch.rangePreset);
-                          setCustomSince(patch.customSince);
-                          setCustomUntil(patch.customUntil);
-                        }}
-                      />
-                    </div>
+                    {level === "ad" && (
+                      <>
+                        <div>
+                          <p
+                            className={styles.sub}
+                            style={{ marginBottom: 6 }}
+                            title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
+                          >
+                            Only show ads with spend in
+                          </p>
+                          <DateRangeMenu
+                            rangePreset={rangePreset}
+                            customSince={customSince}
+                            customUntil={customUntil}
+                            maxRangeDays={MAX_RANGE_DAYS}
+                            compareToPrevious={false}
+                            compareCustomSince=""
+                            compareDisplay="change"
+                            compareDisabled
+                            compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
+                            onApply={(patch) => {
+                              setRangePreset(patch.rangePreset);
+                              setCustomSince(patch.customSince);
+                              setCustomUntil(patch.customUntil);
+                            }}
+                          />
+                        </div>
 
-                    <div>
-                      <p className={styles.sub} style={{ marginBottom: 10 }}>
-                        Metrics to show — changes take effect next time you Load Ads.
+                        <div>
+                          <p className={styles.sub} style={{ marginBottom: 10 }}>
+                            Metrics to show — changes take effect next time you Load Ads.
+                          </p>
+                          <MetricPicker catalog={PICKER_METRIC_CATALOG} selectedKeys={metricKeys} onToggle={toggleMetric} />
+                        </div>
+                      </>
+                    )}
+                    {level !== "ad" && (
+                      <p className={styles.muted} style={{ fontSize: 11.5 }}>
+                        {level === "adset"
+                          ? "Every ad set in this account, with its last-30-day performance."
+                          : "Every campaign in this account, with its last-30-day performance."}
                       </p>
-                      <MetricPicker catalog={PICKER_METRIC_CATALOG} selectedKeys={metricKeys} onToggle={toggleMetric} />
-                    </div>
+                    )}
                   </div>
 
                   <div className={styles.exploreQueryFooter}>
-                    <button type="button" className={styles.btnPrimary} onClick={loadAds} disabled={!selectedAccountId || !range || adsLoading} style={{ width: "100%" }}>
-                      {adsLoading ? "Loading…" : hasLoaded ? "Reload Ads" : "Load Ads"}
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      onClick={runLoadForLevel}
+                      disabled={!canRunLoadForLevel || loadingForLevel}
+                      style={{ width: "100%" }}
+                    >
+                      {loadingForLevel ? "Loading…" : hasLoadedForLevel ? `Reload ${loadButtonLabel}` : `Load ${loadButtonLabel}`}
                     </button>
                   </div>
                 </div>
@@ -656,7 +957,9 @@ export default function CopyAdsPage() {
                 }}
               >
                 <p className={styles.sub} style={{ margin: 0 }}>
-                  {summarizeCopyAdsQuery(sourceAccountName, rangePreset, metricKeys.length)}
+                  {level === "ad"
+                    ? summarizeCopyAdsQuery(sourceAccountName, rangePreset, metricKeys.length)
+                    : `${sourceAccountName || "No account selected"} · ${level === "adset" ? adsetItems.length : campaignItems.length} ${level === "adset" ? "ad set" : "campaign"}${(level === "adset" ? adsetItems.length : campaignItems.length) === 1 ? "" : "s"}`}
                 </p>
                 <button type="button" className={styles.btnSecondary} onClick={toggleQueryPanel} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <SettingsIcon size={13} />
@@ -664,16 +967,26 @@ export default function CopyAdsPage() {
                   <ChevronIcon direction="left" size={12} />
                 </button>
               </div>
-              {resultArea}
+              {activeResultArea}
             </div>
           )}
         </main>
       </div>
 
-      <SelectionBar count={selectedAds.length} onClear={() => setSelectedIds(new Set())} onCopy={() => setModalOpen(true)} />
+      <SelectionBar
+        count={selectionCount}
+        label={selectionLabel}
+        onClear={() => {
+          if (level === "ad") setSelectedIds(new Set());
+          else if (level === "adset") setSelectedAdsetId(null);
+          else setSelectedCampaignId(null);
+        }}
+        onCopy={() => setModalOpen(true)}
+      />
 
-      {modalOpen && (
+      {modalOpen && level === "ad" && (
         <CopyAdsModal
+          level="ad"
           sourceAccountId={selectedAccountId}
           ads={selectedAds}
           adAccounts={adAccounts}
@@ -686,6 +999,34 @@ export default function CopyAdsPage() {
                 return next;
               });
             }
+          }}
+        />
+      )}
+
+      {modalOpen && level === "adset" && selectedAdsetId && (
+        <CopyAdsModal
+          level="adset"
+          sourceAccountId={selectedAccountId}
+          sourceAdsetId={selectedAdsetId}
+          sourceAdsetName={selectedAdsetName}
+          adAccounts={adAccounts}
+          onClose={() => setModalOpen(false)}
+          onDone={(result) => {
+            if (result?.createdAdsetId) setSelectedAdsetId(null);
+          }}
+        />
+      )}
+
+      {modalOpen && level === "campaign" && selectedCampaignId && (
+        <CopyAdsModal
+          level="campaign"
+          sourceAccountId={selectedAccountId}
+          sourceCampaignId={selectedCampaignId}
+          sourceCampaignName={selectedCampaign?.name}
+          adAccounts={adAccounts}
+          onClose={() => setModalOpen(false)}
+          onDone={(result) => {
+            if (result?.createdCampaignId) setSelectedCampaignId(null);
           }}
         />
       )}

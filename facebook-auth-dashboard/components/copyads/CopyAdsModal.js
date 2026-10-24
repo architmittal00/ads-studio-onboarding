@@ -4,6 +4,8 @@ import AccountSelect from "@/components/AccountSelect";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import CopyIdButton from "@/components/CopyIdButton";
+import CampaignFields from "@/components/CampaignFields";
+import AdSetFields from "@/components/AdSetFields";
 import { CloseIcon, ChevronIcon, DatabaseIcon, ListIcon, CopyIcon, CheckIcon, PauseIcon, PlayIcon } from "@/components/icons";
 import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
@@ -33,10 +35,14 @@ const PHASE_LABEL = {
 // its own visual identity instead of every screen in this modal looking
 // identical aside from its heading text.
 const STEP_ICON = {
+  loading_source: DatabaseIcon,
   pick_destination: DatabaseIcon,
+  choose_campaign_mode: DatabaseIcon,
+  pick_campaign: ListIcon,
   pick_adset: ListIcon,
   review: CopyIcon,
   done: CheckIcon,
+  error: DatabaseIcon,
 };
 
 // Small gradient icon badge — same background (`var(--grad)`, the app's own
@@ -123,6 +129,43 @@ function AdsetPickerList({ adsets, query, onQueryChange, onPick }) {
   );
 }
 
+// Same pattern as AdsetPickerList above, for the Ad Set level's "attach to
+// an existing campaign" destination option.
+function CampaignPickerList({ campaigns, query, onQueryChange, onPick }) {
+  const filtered = query.trim() ? campaigns.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())) : campaigns;
+  return (
+    <div>
+      <input
+        type="text"
+        autoFocus
+        className={styles.select}
+        style={{ width: "100%", marginBottom: 10 }}
+        placeholder="Search campaigns…"
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+      />
+      {filtered.length === 0 ? (
+        <p className={styles.sub}>No campaigns found in this account.</p>
+      ) : (
+        <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", maxHeight: 280, overflowY: "auto" }}>
+          {filtered.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => onPick(c)}
+              style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}
+            >
+              <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+              <span className={styles.badgeInfo} style={{ flexShrink: 0 }}>
+                {c.effective_status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BackLink({ onClick }) {
   return (
     <button
@@ -151,10 +194,10 @@ function StepRow({ step }) {
         {step.error && <span> · {step.error}</span>}
         {step.warning && <span> · {step.warning}</span>}
       </span>
-      {/* Only the "Ad" step (not "Creative") carries the actually-useful id
-          to copy — the new ad's own id, so the user can jump straight to it
+      {/* Only a step that actually created something carries a useful id to
+          copy — the new object's own id, so the user can jump straight to it
           in Ads Manager. */}
-      {step.type === "ad" && step.success && step.id && <CopyIdButton id={step.id} />}
+      {(step.type === "ad" || step.type === "adset" || step.type === "campaign") && step.success && step.id && <CopyIdButton id={step.id} />}
     </div>
   );
 }
@@ -209,23 +252,109 @@ function CopiedAdGroup({ steps, sourceAd, newName, onPreview }) {
   );
 }
 
-// Destination picker + review + confirm + live-progress result, for cloning
-// a batch of ads (creative and all) from one ad account into an already-
-// existing ad set in a different one. Modeled on components/
-// DuplicateEntityModal.js's step-state-machine shape and
-// pages/api/fb/partnership/launch.js's NDJSON progress consumption (the
-// client-side reader loop is the same one components/LaunchPanel.js already
-// uses), just pointed at the new cross-account pages/api/fb/copy-ads/copy.js
-// endpoint instead.
-export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts, onClose, onDone }) {
+// Reads one of the new ad-set/campaign-level streaming endpoints' NDJSON
+// response — same convention as pages/copy-ads.js's own fetchSourceAdsStream,
+// just a small local copy since this file already has its own small helpers
+// for similar reasons (see AdsetPickerList's comment).
+async function readNdjson(res, onEvent) {
+  if (!res.ok || !res.body) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.error || `Request failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      onEvent(JSON.parse(line));
+    }
+  }
+}
+
+function newCampaignBudgetFromSource(sourceFields) {
+  return {
+    budgetStrategy: sourceFields?.budgetStrategy || "ABO",
+    budgetType: sourceFields?.budgetType || "DAILY",
+    budgetAmount: sourceFields?.budgetAmount || "",
+  };
+}
+
+// Checklist of ads to copy — the Ad Set/Campaign levels' own version of
+// pages/copy-ads.js's ad-level picker table, scoped to one ad set's worth of
+// ads instead of a whole account. Every copyable ad starts checked; a
+// non-copyable one is shown disabled with its reason, same treatment as the
+// ad-level picker.
+function AdChecklist({ ads, selectedIds, onToggle, onPreview }) {
+  if (ads.length === 0) return <p className={styles.sub}>No ads in this ad set.</p>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+      {ads.map((ad) => (
+        <div key={ad.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 8, background: "var(--bg)" }}>
+          <input type="checkbox" checked={selectedIds.has(ad.id)} disabled={!ad.copyable} onChange={() => onToggle(ad.id, ad.copyable)} title={ad.copyable ? undefined : ad.reason} />
+          <Thumb src={ad.thumbnailUrl} isVideo={ad.isVideo} size={28} onClick={() => onPreview(ad)} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: ad.copyable ? undefined : "var(--t2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ad.name}</p>
+            {!ad.copyable && (
+              <span className={styles.badgeWarn} style={{ fontSize: 10 }}>
+                {ad.reason}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Destination picker + review + confirm + live-progress result. Three
+// levels, one modal — the step-state-machine shape and NDJSON progress
+// consumption below is shared across all of them (modeled on components/
+// DuplicateEntityModal.js and pages/api/fb/partnership/launch.js's own
+// client-side reader loop, same as before this file supported more than
+// ad-level copying):
+//
+// - "ad" (original, real-account-tested): clone a batch of ads' creative
+//   into an ad set that already exists in a different account. Untouched by
+//   the two levels below — same state, same steps, same endpoint
+//   (pages/api/fb/copy-ads/copy.js).
+// - "adset": clone one whole ad set — its own targeting/budget/pixel
+//   settings, via lib/campaignLaunch.js's buildGenericAdsetPayload — into a
+//   brand-new campaign cloned from its parent (or an existing destination
+//   campaign), then copy every one of its ads the same way the "ad" level
+//   already does. Endpoint: pages/api/fb/copy-ads/copy-adset.js.
+// - "campaign": clone a whole campaign — a brand-new campaign, every one of
+//   its ad sets recreated under it, every ad copied into each. No live
+//   per-ad-set field editing in this first version (see the feature's own
+//   plan) — each ad set clones its source settings as-is; only which ad
+//   sets/ads to include is adjustable. Endpoint:
+//   pages/api/fb/copy-ads/copy-campaign.js.
+export default function CopyAdsModal({
+  level = "ad",
+  sourceAccountId,
+  ads: adsProp,
+  sourceAdsetId,
+  sourceAdsetName,
+  sourceCampaignId,
+  sourceCampaignName,
+  adAccounts,
+  onClose,
+  onDone,
+}) {
   // Captured once at mount, not read live off the prop for the rest of this
   // component's life — onDone (below) tells the parent page to clear its
   // selection the moment a copy succeeds, which would otherwise shrink
   // `adsProp` out from under the still-open result screen mid-render (the
   // exact "N of 0" stale-count bug class already hit once this session in
   // components/partnership/BulkPermissionModal.js, fixed there the same way).
-  const [ads] = useState(adsProp);
-  const [step, setStep] = useState("pick_destination"); // pick_destination | pick_adset | review | done
+  const [ads] = useState(adsProp || []);
+  const [step, setStep] = useState(level === "ad" ? "pick_destination" : "loading_source");
+  const [loadError, setLoadError] = useState(null);
   const [destAccountId, setDestAccountId] = useState("");
   const [adsetsLoading, setAdsetsLoading] = useState(false);
   const [adsetsError, setAdsetsError] = useState(null);
@@ -246,6 +375,34 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
   // every row renders immediately rather than waiting for the first server
   // event.
   const [adProgress, setAdProgress] = useState({});
+  // Shared by the Ad Set/Campaign levels for their own new object creation
+  // steps — keyed by a synthetic id ("campaign", or an ad set's sourceAdsetId)
+  // -> { phase, name, id?, error? }.
+  const [objectProgress, setObjectProgress] = useState({});
+
+  // ── Ad Set level only ──
+  const [adsetSourceFields, setAdsetSourceFields] = useState(null); // toFormFields() shape, pre-filled AdSetFields value
+  const [adsetSourceCampaignFields, setAdsetSourceCampaignFields] = useState(null); // {fields, budgetStrategy, budgetType, budgetAmount, specialAdCategories}
+  const [destinationMode, setDestinationMode] = useState("existing_campaign"); // "new_campaign" | "existing_campaign"
+  const [destCampaignsLoading, setDestCampaignsLoading] = useState(false);
+  const [destCampaignsError, setDestCampaignsError] = useState(null);
+  const [destCampaigns, setDestCampaigns] = useState([]);
+  const [destCampaign, setDestCampaign] = useState(null); // existing destination campaign object, when destinationMode is "existing_campaign"
+  const [campaignQuery, setCampaignQuery] = useState("");
+  const [newCampaignFields, setNewCampaignFields] = useState(null); // CampaignFields value
+  const [newAdsetFields, setNewAdsetFields] = useState(null); // AdSetFields value
+  const [campaignBudget, setCampaignBudget] = useState({ budgetStrategy: "ABO", budgetType: "DAILY", budgetAmount: "" });
+  const [destPixels, setDestPixels] = useState([]);
+  const [sourceAdItems, setSourceAdItems] = useState([]); // adset-ads.js's cross-account-ready ad list for sourceAdsetId
+  const [sourceAdItemsLoading, setSourceAdItemsLoading] = useState(false);
+  const [selectedSourceAdIds, setSelectedSourceAdIds] = useState(new Set());
+
+  // ── Campaign level only ──
+  // Per source ad set under sourceCampaignId: { name, status, fields
+  // (AdSetFields-shape, from toFormFields), ads (adset-ads.js list), loading,
+  // error, included (boolean), selectedAdIds (Set) }.
+  const [campaignAdsets, setCampaignAdsets] = useState({});
+  const [campaignAdsetOrder, setCampaignAdsetOrder] = useState([]); // stable render order
 
   useEffect(() => {
     function handleKey(e) {
@@ -254,6 +411,136 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [submitting, onClose]);
+
+  // One-time load of the source object(s) this modal was opened for — the
+  // "ad" level needs nothing here (the selected ads already carry everything
+  // this modal needs), but "adset"/"campaign" need to fetch the real,
+  // current settings of what's being cloned before the destination/review
+  // steps have anything to show.
+  useEffect(() => {
+    if (level === "adset") {
+      Promise.all([
+        fetchWithTimeout(`/api/fb/adsets-list?adsetId=${encodeURIComponent(sourceAdsetId)}`).then(parseJsonResponse),
+        fetchWithTimeout(`/api/fb/copy-ads/adset-ads?adsetId=${encodeURIComponent(sourceAdsetId)}`),
+      ])
+        .then(async ([adsetJson, adsRes]) => {
+          if (adsetJson.error) {
+            setLoadError(adsetJson.error);
+            setStep("error");
+            return;
+          }
+          setAdsetSourceFields(adsetJson.fields);
+          setNewAdsetFields(adsetJson.fields);
+          setAdsetSourceCampaignFields(adsetJson.campaignFields);
+          setNewCampaignFields(adsetJson.campaignFields?.fields || null);
+          // Strategy (CBO/ABO) and type come from the source CAMPAIGN's own
+          // shape (it decides where a budget lives at all); the AMOUNT under
+          // ABO has to come from the source AD SET's own budget instead —
+          // an ABO campaign has no budget of its own by definition, so
+          // newCampaignBudgetFromSource(campaignFields) alone would always
+          // derive an empty amount for exactly the case (ABO) where an
+          // amount is actually needed.
+          const derivedBudget = newCampaignBudgetFromSource(adsetJson.campaignFields);
+          setCampaignBudget(derivedBudget.budgetStrategy === "ABO" ? { ...derivedBudget, budgetAmount: adsetJson.fields.budgetAmount || "" } : derivedBudget);
+
+          const items = [];
+          await readNdjson(adsRes, (event) => {
+            if (event.type === "ads_batch") items.push(...event.ads);
+          });
+          setSourceAdItems(items);
+          setSelectedSourceAdIds(new Set(items.filter((a) => a.copyable).map((a) => a.id)));
+          setNames(Object.fromEntries(items.map((a) => [a.id, `${a.name} - Copy`])));
+          setStep("pick_destination");
+        })
+        .catch((err) => {
+          setLoadError(err.message);
+          setStep("error");
+        });
+    } else if (level === "campaign") {
+      Promise.all([
+        fetchWithTimeout(`/api/fb/campaigns-list?campaignId=${encodeURIComponent(sourceCampaignId)}`).then(parseJsonResponse),
+        fetchWithTimeout(`/api/fb/adsets-list?campaignId=${encodeURIComponent(sourceCampaignId)}`).then(parseJsonResponse),
+      ])
+        .then(([campJson, adsetsJson]) => {
+          if (campJson.error) {
+            setLoadError(campJson.error);
+            setStep("error");
+            return;
+          }
+          if (adsetsJson.error) {
+            setLoadError(adsetsJson.error);
+            setStep("error");
+            return;
+          }
+          setNewCampaignFields(campJson.fields.fields);
+          setCampaignBudget(newCampaignBudgetFromSource(campJson.fields));
+
+          const order = (adsetsJson.adsets || []).map((a) => a.id);
+          setCampaignAdsetOrder(order);
+          setCampaignAdsets(
+            Object.fromEntries(
+              (adsetsJson.adsets || []).map((a) => [a.id, { name: a.name, status: a.status, fields: null, ads: [], loading: true, error: null, included: true, selectedAdIds: new Set() }])
+            )
+          );
+          // Each ad set's own full detail (for toFormFields, matching
+          // properties) + its own copyable ad list — fetched in parallel,
+          // not blocking the destination-account step from being shown.
+          order.forEach((adsetId) => {
+            Promise.all([
+              fetchWithTimeout(`/api/fb/adsets-list?adsetId=${encodeURIComponent(adsetId)}`).then(parseJsonResponse),
+              fetchWithTimeout(`/api/fb/copy-ads/adset-ads?adsetId=${encodeURIComponent(adsetId)}`),
+            ])
+              .then(async ([adsetJson, adsRes]) => {
+                if (adsetJson.error) throw new Error(adsetJson.error);
+                const items = [];
+                await readNdjson(adsRes, (event) => {
+                  if (event.type === "ads_batch") items.push(...event.ads);
+                });
+                setCampaignAdsets((prev) => ({
+                  ...prev,
+                  [adsetId]: {
+                    ...prev[adsetId],
+                    fields: adsetJson.fields,
+                    ads: items,
+                    selectedAdIds: new Set(items.filter((a) => a.copyable).map((a) => a.id)),
+                    loading: false,
+                  },
+                }));
+              })
+              .catch((err) => {
+                setCampaignAdsets((prev) => ({ ...prev, [adsetId]: { ...prev[adsetId], loading: false, error: err.message, included: false } }));
+              });
+          });
+          setStep("pick_destination");
+        })
+        .catch((err) => {
+          setLoadError(err.message);
+          setStep("error");
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time load keyed to the specific object this modal was opened for
+  }, []);
+
+  // A destination campaign that already carries its own daily/lifetime
+  // budget is CBO (ad sets under it can't also have one); one with neither
+  // is ABO, so the new ad set needs its own budget amount — mirrors
+  // pages/launch.js's own campaignHasOwnBudget exactly, just derived from
+  // whichever existing campaign is currently picked here instead of a form
+  // field, and from the source's own shape when creating a new campaign.
+  useEffect(() => {
+    if (level !== "adset" || destinationMode !== "existing_campaign" || !destCampaign) return;
+    const hasOwnBudget = !!(destCampaign.daily_budget || destCampaign.lifetime_budget);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to the destination campaign choice changing, same "derive budget shape from whatever's now selected" pattern pages/launch.js already uses
+    setCampaignBudget({
+      budgetStrategy: hasOwnBudget ? "CBO" : "ABO",
+      budgetType: destCampaign.lifetime_budget ? "LIFETIME" : "DAILY",
+      // Under ABO here, the amount is still the SOURCE ad set's own budget
+      // (what's actually being cloned) — the existing destination campaign
+      // having no budget of its own just tells us ABO applies, not what the
+      // amount should be.
+      budgetAmount: hasOwnBudget ? (destCampaign.daily_budget ? String(destCampaign.daily_budget / 100) : String(destCampaign.lifetime_budget / 100)) : adsetSourceFields?.budgetAmount || "",
+    });
+  }, [level, destinationMode, destCampaign, adsetSourceFields]);
 
   const destinationAccounts = adAccounts.filter((a) => a.id !== sourceAccountId);
 
@@ -270,12 +557,41 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
       .finally(() => setAdsetsLoading(false));
   }
 
+  function loadDestPixels(accountId) {
+    fetchWithTimeout(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`)
+      .then(parseJsonResponse)
+      .then((json) => setDestPixels(json.pixels || []))
+      .catch(() => setDestPixels([]));
+  }
+
+  function loadDestCampaigns(accountId) {
+    setDestCampaignsLoading(true);
+    setDestCampaignsError(null);
+    fetchWithTimeout(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`)
+      .then(parseJsonResponse)
+      .then((json) => {
+        if (json.error) setDestCampaignsError(json.error);
+        else setDestCampaigns(json.campaigns || []);
+      })
+      .catch((err) => setDestCampaignsError(err.message))
+      .finally(() => setDestCampaignsLoading(false));
+  }
+
   function pickDestAccount(id) {
     setDestAccountId(id);
-    setDestAdset(null);
-    setAdsetQuery("");
-    loadAdsets(id);
-    setStep("pick_adset");
+    if (level === "ad") {
+      setDestAdset(null);
+      setAdsetQuery("");
+      loadAdsets(id);
+      setStep("pick_adset");
+    } else if (level === "adset") {
+      setDestCampaign(null);
+      loadDestPixels(id);
+      setStep("choose_campaign_mode");
+    } else {
+      loadDestPixels(id);
+      setStep("review");
+    }
   }
 
   function pickDestAdset(adset) {
@@ -283,7 +599,37 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
     setStep("review");
   }
 
-  async function handleConfirm() {
+  function pickDestCampaign(campaign) {
+    setDestCampaign(campaign);
+    setStep("review");
+  }
+
+  function toggleSourceAd(adId, copyable) {
+    if (!copyable) return;
+    setSelectedSourceAdIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(adId)) next.delete(adId);
+      else next.add(adId);
+      return next;
+    });
+  }
+
+  function toggleCampaignAdsetAd(adsetId, adId, copyable) {
+    if (!copyable) return;
+    setCampaignAdsets((prev) => {
+      const entry = prev[adsetId];
+      const next = new Set(entry.selectedAdIds);
+      if (next.has(adId)) next.delete(adId);
+      else next.add(adId);
+      return { ...prev, [adsetId]: { ...entry, selectedAdIds: next } };
+    });
+  }
+
+  function toggleCampaignAdsetIncluded(adsetId) {
+    setCampaignAdsets((prev) => ({ ...prev, [adsetId]: { ...prev[adsetId], included: !prev[adsetId].included } }));
+  }
+
+  async function handleConfirmAd() {
     setSubmitting(true);
     setSubmitError(null);
     setAdProgress(Object.fromEntries(ads.map((a) => [a.id, { phase: "queued" }])));
@@ -299,47 +645,118 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
           finalStatus: status,
         }),
       });
-      if (!res.ok || !res.body) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status})`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let finalResult = null;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const event = JSON.parse(line);
-          if (event.type === "ad_start") {
-            setAdProgress((prev) => ({ ...prev, [event.adId]: { ...prev[event.adId], phase: "copying" } }));
-          } else if (event.type === "ad_done") {
-            setAdProgress((prev) => ({
-              ...prev,
-              [event.adId]: {
-                phase: event.success ? "success" : event.skipped ? "skipped" : "failed",
-                error: event.error,
-                warning: event.warning,
-                newAdId: event.newAdId,
-              },
-            }));
-          } else if (event.type === "done") {
-            finalResult = event;
-          }
-          // `progress` events (the rolling "Copying ad N of M…"/"Activating…"
-          // log line) are intentionally not surfaced in the UI anymore —
-          // under concurrency it jumps around out of order across several
-          // ads at once, which reads as broken rather than informative. The
-          // per-ad table below is the real signal now; `progress` stays in
-          // the wire protocol only because createAssetCopyCoordinator's
-          // asset-copy messages still go through it server-side.
+      await readNdjson(res, (event) => {
+        if (event.type === "ad_start") {
+          setAdProgress((prev) => ({ ...prev, [event.adId]: { ...prev[event.adId], phase: "copying" } }));
+        } else if (event.type === "ad_done") {
+          setAdProgress((prev) => ({
+            ...prev,
+            [event.adId]: { phase: event.success ? "success" : event.skipped ? "skipped" : "failed", error: event.error, warning: event.warning, newAdId: event.newAdId },
+          }));
+        } else if (event.type === "done") {
+          finalResult = event;
         }
-      }
+      });
+      setResult(finalResult);
+      setStep("done");
+      onDone?.(finalResult);
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleConfirmAdset() {
+    setSubmitting(true);
+    setSubmitError(null);
+    const items = sourceAdItems.filter((a) => selectedSourceAdIds.has(a.id)).map((a) => ({ adId: a.id, name: names[a.id] }));
+    setAdProgress(Object.fromEntries(items.map((i) => [i.adId, { phase: "queued" }])));
+    setObjectProgress({ adset: { phase: "queued", name: newAdsetFields?.name }, ...(destinationMode === "new_campaign" ? { campaign: { phase: "queued", name: newCampaignFields?.name } } : {}) });
+    try {
+      const res = await fetch("/api/fb/copy-ads/copy-adset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceAccountId,
+          destAccountId,
+          sourceAdsetId,
+          destinationMode,
+          destCampaignId: destinationMode === "existing_campaign" ? destCampaign?.id : undefined,
+          campaignFields: destinationMode === "new_campaign" ? newCampaignFields : undefined,
+          campaignBudget,
+          adsetFields: newAdsetFields,
+          items,
+          finalStatus: status,
+        }),
+      });
+      let finalResult = null;
+      await readNdjson(res, (event) => {
+        if (event.type === "campaign_start") setObjectProgress((prev) => ({ ...prev, campaign: { phase: "working", name: event.name } }));
+        else if (event.type === "campaign_done")
+          setObjectProgress((prev) => ({ ...prev, campaign: { phase: event.success ? "success" : "failed", name: prev.campaign?.name, id: event.id, error: event.error } }));
+        else if (event.type === "adset_start") setObjectProgress((prev) => ({ ...prev, adset: { phase: "working", name: event.name } }));
+        else if (event.type === "adset_done")
+          setObjectProgress((prev) => ({ ...prev, adset: { phase: event.success ? "success" : "failed", name: prev.adset?.name, id: event.id, error: event.error } }));
+        else if (event.type === "ad_start") setAdProgress((prev) => ({ ...prev, [event.adId]: { ...prev[event.adId], phase: "copying" } }));
+        else if (event.type === "ad_done")
+          setAdProgress((prev) => ({ ...prev, [event.adId]: { phase: event.success ? "success" : event.skipped ? "skipped" : "failed", error: event.error, warning: event.warning, newAdId: event.newAdId } }));
+        else if (event.type === "done") finalResult = event;
+      });
+      setResult(finalResult);
+      setStep("done");
+      onDone?.(finalResult);
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleConfirmCampaign() {
+    setSubmitting(true);
+    setSubmitError(null);
+    const includedAdsetIds = campaignAdsetOrder.filter((id) => campaignAdsets[id]?.included);
+    const initialAdProgress = {};
+    const initialObjectProgress = { campaign: { phase: "queued", name: newCampaignFields?.name } };
+    for (const adsetId of includedAdsetIds) {
+      initialObjectProgress[adsetId] = { phase: "queued", name: campaignAdsets[adsetId].fields?.name || campaignAdsets[adsetId].name };
+      for (const adId of campaignAdsets[adsetId].selectedAdIds) initialAdProgress[adId] = { phase: "queued" };
+    }
+    setAdProgress(initialAdProgress);
+    setObjectProgress(initialObjectProgress);
+    try {
+      const res = await fetch("/api/fb/copy-ads/copy-campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceAccountId,
+          destAccountId,
+          sourceCampaignId,
+          campaignFields: newCampaignFields,
+          campaignBudget,
+          adsets: includedAdsetIds.map((adsetId) => ({
+            sourceAdsetId: adsetId,
+            adsetFields: campaignAdsets[adsetId].fields,
+            items: campaignAdsets[adsetId].ads.filter((a) => campaignAdsets[adsetId].selectedAdIds.has(a.id)).map((a) => ({ adId: a.id, name: names[a.id] || `${a.name} - Copy` })),
+          })),
+          finalStatus: status,
+        }),
+      });
+      let finalResult = null;
+      await readNdjson(res, (event) => {
+        if (event.type === "campaign_start") setObjectProgress((prev) => ({ ...prev, campaign: { phase: "working", name: event.name } }));
+        else if (event.type === "campaign_done")
+          setObjectProgress((prev) => ({ ...prev, campaign: { phase: event.success ? "success" : "failed", name: prev.campaign?.name, id: event.id, error: event.error } }));
+        else if (event.type === "adset_start") setObjectProgress((prev) => ({ ...prev, [event.sourceAdsetId]: { ...prev[event.sourceAdsetId], phase: "working", name: event.name } }));
+        else if (event.type === "adset_done")
+          setObjectProgress((prev) => ({ ...prev, [event.sourceAdsetId]: { phase: event.success ? "success" : "failed", name: prev[event.sourceAdsetId]?.name, id: event.id, error: event.error } }));
+        else if (event.type === "ad_start") setAdProgress((prev) => ({ ...prev, [event.adId]: { ...prev[event.adId], phase: "copying" } }));
+        else if (event.type === "ad_done")
+          setAdProgress((prev) => ({ ...prev, [event.adId]: { phase: event.success ? "success" : event.skipped ? "skipped" : "failed", error: event.error, warning: event.warning, newAdId: event.newAdId, sourceAdsetId: event.sourceAdsetId } }));
+        else if (event.type === "done") finalResult = event;
+      });
       setResult(finalResult);
       setStep("done");
       onDone?.(finalResult);
@@ -352,6 +769,30 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
 
   const destAccountName = destinationAccounts.find((a) => a.id === destAccountId)?.name || "";
 
+  const campaignAdsetsLoaded = level === "campaign" && campaignAdsetOrder.length > 0 && campaignAdsetOrder.every((id) => !campaignAdsets[id]?.loading);
+  const canSubmitAdset = !submitting && newAdsetFields?.name && (destinationMode === "existing_campaign" ? !!destCampaign : !!newCampaignFields?.name) && selectedSourceAdIds.size > 0;
+  const canSubmitCampaign = !submitting && newCampaignFields?.name && campaignAdsetOrder.some((id) => campaignAdsets[id]?.included && campaignAdsets[id]?.selectedAdIds?.size > 0);
+
+  const headerTitle =
+    step === "error"
+      ? "Couldn't load this"
+      : step === "pick_destination"
+      ? "Choose a destination account"
+      : step === "choose_campaign_mode"
+      ? "Choose a destination"
+      : step === "pick_campaign"
+      ? "Choose a destination campaign"
+      : step === "pick_adset"
+      ? "Choose a destination ad set"
+      : step === "review"
+      ? "Review & copy"
+      : step === "done"
+      ? "Copy complete"
+      : "Loading…";
+
+  const headerSub =
+    level === "ad" ? `${ads.length} ad${ads.length === 1 ? "" : "s"} selected` : level === "adset" ? `Ad set: ${sourceAdsetName || sourceAdsetId}` : `Campaign: ${sourceCampaignName || sourceCampaignId}`;
+
   return (
     <>
       <div
@@ -361,27 +802,34 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
         <div
           onClick={(e) => e.stopPropagation()}
           className={styles.card}
-          style={{ background: "var(--bg)", width: "min(640px, 100%)", maxHeight: "85vh", overflowY: "auto", display: "flex", flexDirection: "column" }}
+          style={{ background: "var(--bg)", width: "min(680px, 100%)", maxHeight: "85vh", overflowY: "auto", display: "flex", flexDirection: "column" }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <StepIcon icon={STEP_ICON[step]} />
+              <StepIcon icon={STEP_ICON[step] || DatabaseIcon} />
               <div>
                 <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-                  {step === "pick_destination" && "Choose a destination account"}
-                  {step === "pick_adset" && "Choose a destination ad set"}
-                  {step === "review" && "Review & copy"}
-                  {step === "done" && "Copy complete"}
+                  {headerTitle}
                 </h2>
-                <p className={styles.sub}>
-                  {ads.length} ad{ads.length === 1 ? "" : "s"} selected
-                </p>
+                <p className={styles.sub}>{headerSub}</p>
               </div>
             </div>
             <button type="button" onClick={onClose} disabled={submitting} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
               <CloseIcon size={14} />
             </button>
           </div>
+
+          {step === "loading_source" && (
+            <div style={{ marginTop: 16 }}>
+              <Loader label={level === "adset" ? "Loading ad set…" : "Loading campaign…"} />
+            </div>
+          )}
+
+          {step === "error" && (
+            <div className={styles.error} style={{ marginTop: 16 }}>
+              {loadError}
+            </div>
+          )}
 
           {step === "pick_destination" && (
             <div style={{ marginTop: 20 }}>
@@ -390,18 +838,11 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
               ) : (
                 <>
                   <p className={styles.sub} style={{ marginBottom: 10 }}>
-                    Pick the ad account that already has the destination ad set — its creative, Page, and copy carry
-                    over, nothing else in that ad set is touched. {destinationAccounts.length} account
-                    {destinationAccounts.length === 1 ? "" : "s"} available.
+                    {level === "ad"
+                      ? `Pick the ad account that already has the destination ad set — its creative, Page, and copy carry over, nothing else in that ad set is touched. ${destinationAccounts.length} account${destinationAccounts.length === 1 ? "" : "s"} available.`
+                      : `Pick the ad account to create the new ${level === "adset" ? "ad set" : "campaign"} in. ${destinationAccounts.length} account${destinationAccounts.length === 1 ? "" : "s"} available.`}
                   </p>
-                  <AccountSelect
-                    accounts={destinationAccounts}
-                    value={destAccountId}
-                    onChange={pickDestAccount}
-                    placeholder="Select an ad account…"
-                    usePortal
-                    zIndex={900}
-                  />
+                  <AccountSelect accounts={destinationAccounts} value={destAccountId} onChange={pickDestAccount} placeholder="Select an ad account…" usePortal zIndex={900} />
                 </>
               )}
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
@@ -409,6 +850,58 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
                   Cancel
                 </button>
               </div>
+            </div>
+          )}
+
+          {step === "choose_campaign_mode" && (
+            <div style={{ marginTop: 16 }}>
+              <BackLink onClick={() => setStep("pick_destination")} />
+              <p className={styles.sub} style={{ marginBottom: 14 }}>
+                Into: {destAccountName}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button
+                  type="button"
+                  className={styles.card}
+                  style={{ padding: 14, textAlign: "left", cursor: "pointer", border: "1px solid var(--border)" }}
+                  onClick={() => {
+                    setDestinationMode("new_campaign");
+                    setStep("review");
+                  }}
+                >
+                  <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>Create a new campaign matching the source</p>
+                  <p className={styles.sub} style={{ margin: 0 }}>
+                    Clones &quot;{sourceAdsetName ? adsetSourceCampaignFields?.fields?.name?.replace(/ - Copy$/, "") || "the source ad set's campaign" : "the source campaign"}&quot; into {destAccountName}.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  className={styles.card}
+                  style={{ padding: 14, textAlign: "left", cursor: "pointer", border: "1px solid var(--border)" }}
+                  onClick={() => {
+                    setDestinationMode("existing_campaign");
+                    setCampaignQuery("");
+                    loadDestCampaigns(destAccountId);
+                    setStep("pick_campaign");
+                  }}
+                >
+                  <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>Add to an existing campaign</p>
+                  <p className={styles.sub} style={{ margin: 0 }}>
+                    Pick a campaign that already exists in {destAccountName}.
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "pick_campaign" && (
+            <div style={{ marginTop: 16 }}>
+              <BackLink onClick={() => setStep("choose_campaign_mode")} />
+              {destCampaignsLoading && <Loader label="Loading campaigns…" />}
+              {destCampaignsError && <div className={styles.error}>{destCampaignsError}</div>}
+              {!destCampaignsLoading && !destCampaignsError && (
+                <CampaignPickerList campaigns={destCampaigns} query={campaignQuery} onQueryChange={setCampaignQuery} onPick={pickDestCampaign} />
+              )}
             </div>
           )}
 
@@ -420,13 +913,11 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
               </p>
               {adsetsLoading && <Loader label="Loading ad sets…" />}
               {adsetsError && <div className={styles.error}>{adsetsError}</div>}
-              {!adsetsLoading && !adsetsError && (
-                <AdsetPickerList adsets={adsets} query={adsetQuery} onQueryChange={setAdsetQuery} onPick={pickDestAdset} />
-              )}
+              {!adsetsLoading && !adsetsError && <AdsetPickerList adsets={adsets} query={adsetQuery} onQueryChange={setAdsetQuery} onPick={pickDestAdset} />}
             </div>
           )}
-  
-          {step === "review" && (
+
+          {step === "review" && level === "ad" && (
             <div style={{ marginTop: 16 }}>
               {!submitting && <BackLink onClick={() => setStep("pick_adset")} />}
               <p className={styles.sub} style={{ marginBottom: 14 }}>
@@ -438,27 +929,13 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
                   <Section icon={CopyIcon} title={`${ads.length} ad${ads.length === 1 ? "" : "s"} to copy`}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
                       {ads.map((ad) => (
-                        <div
-                          key={ad.id}
-                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 8, background: "var(--bg)" }}
-                        >
-                          <Thumb
-                            src={ad.thumbnailUrl}
-                            isVideo={ad.isVideo}
-                            size={32}
-                            onClick={() => setLightboxItem({ id: ad.id, name: ad.name, thumbnailUrl: ad.thumbnailUrl, isVideo: ad.isVideo })}
-                          />
+                        <div key={ad.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 8, background: "var(--bg)" }}>
+                          <Thumb src={ad.thumbnailUrl} isVideo={ad.isVideo} size={32} onClick={() => setLightboxItem({ id: ad.id, name: ad.name, thumbnailUrl: ad.thumbnailUrl, isVideo: ad.isVideo })} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p className={styles.muted} style={{ fontSize: 11, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {ad.name}
                             </p>
-                            <input
-                              type="text"
-                              className={styles.select}
-                              style={{ width: "100%" }}
-                              value={names[ad.id] || ""}
-                              onChange={(e) => setNames((prev) => ({ ...prev, [ad.id]: e.target.value }))}
-                            />
+                            <input type="text" className={styles.select} style={{ width: "100%" }} value={names[ad.id] || ""} onChange={(e) => setNames((prev) => ({ ...prev, [ad.id]: e.target.value }))} />
                           </div>
                         </div>
                       ))}
@@ -488,32 +965,14 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
                 <Section icon={ListIcon} title="Copying your ads">
                   {(() => {
                     const doneCount = Object.values(adProgress).filter((p) => p.phase === "success" || p.phase === "failed" || p.phase === "skipped").length;
-                    return doneCount < ads.length ? (
-                      <Loader inline label={`${doneCount} of ${ads.length} done`} />
-                    ) : (
-                      <p className={styles.sub}>{doneCount} of {ads.length} done</p>
-                    );
+                    return doneCount < ads.length ? <Loader inline label={`${doneCount} of ${ads.length} done`} /> : <p className={styles.sub}>{doneCount} of {ads.length} done</p>;
                   })()}
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      maxHeight: 280,
-                      overflowY: "auto",
-                      marginTop: 10,
-                    }}
-                  >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto", marginTop: 10 }}>
                     {ads.map((ad) => {
                       const p = adProgress[ad.id] || { phase: "queued" };
                       return (
-                        <div
-                          key={ad.id}
-                          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", borderRadius: 8, background: "var(--bg)" }}
-                        >
-                          <span style={{ fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
-                            {ad.name}
-                          </span>
+                        <div key={ad.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", borderRadius: 8, background: "var(--bg)" }}>
+                          <span style={{ fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{ad.name}</span>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                             <span className={PHASE_BADGE_CLASS[p.phase] || styles.badgeInfo}>{PHASE_LABEL[p.phase] || "Queued"}</span>
                             {p.phase === "success" && p.newAdId && <CopyIdButton id={p.newAdId} />}
@@ -530,14 +989,221 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
                 <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={submitting}>
                   Cancel
                 </button>
-                <button type="button" className={styles.btnPrimary} onClick={handleConfirm} disabled={submitting}>
+                <button type="button" className={styles.btnPrimary} onClick={handleConfirmAd} disabled={submitting}>
                   {submitting ? "Copying…" : `Copy ${ads.length} ad${ads.length === 1 ? "" : "s"}`}
                 </button>
               </div>
             </div>
           )}
-  
-          {step === "done" && result && (() => {
+
+          {step === "review" && level === "adset" && newAdsetFields && (
+            <div style={{ marginTop: 16 }}>
+              {!submitting && <BackLink onClick={() => setStep(destinationMode === "new_campaign" ? "choose_campaign_mode" : "pick_campaign")} />}
+              <p className={styles.sub} style={{ marginBottom: 14 }}>
+                Into {destAccountName}
+                {destinationMode === "existing_campaign" && destCampaign ? ` — "${destCampaign.name}"` : " — a new campaign"}
+              </p>
+
+              {!submitting && (
+                <>
+                  {destinationMode === "new_campaign" && newCampaignFields && (
+                    <Section icon={DatabaseIcon} title="New campaign (matching the source)">
+                      <CampaignFields value={newCampaignFields} onChange={setNewCampaignFields} />
+                    </Section>
+                  )}
+
+                  {campaignBudget.budgetStrategy === "ABO" && (
+                    <Section icon={DatabaseIcon} title={`New ad set's ${campaignBudget.budgetType === "LIFETIME" ? "lifetime" : "daily"} budget`}>
+                      <input
+                        type="number"
+                        min="1"
+                        className={styles.select}
+                        style={{ width: "100%" }}
+                        value={campaignBudget.budgetAmount}
+                        onChange={(e) => setCampaignBudget((prev) => ({ ...prev, budgetAmount: e.target.value }))}
+                      />
+                    </Section>
+                  )}
+
+                  <Section icon={ListIcon} title="New ad set (matching the source)">
+                    <AdSetFields value={newAdsetFields} onChange={setNewAdsetFields} campaignObjective={newCampaignFields?.objective} accountId={destAccountId} pixels={destPixels} />
+                  </Section>
+
+                  <Section icon={CopyIcon} title={`${selectedSourceAdIds.size} of ${sourceAdItems.length} ad${sourceAdItems.length === 1 ? "" : "s"} to copy`}>
+                    <AdChecklist
+                      ads={sourceAdItems}
+                      selectedIds={selectedSourceAdIds}
+                      onToggle={toggleSourceAd}
+                      onPreview={(ad) => setLightboxItem({ id: ad.id, name: ad.name, thumbnailUrl: ad.thumbnailUrl, isVideo: ad.isVideo })}
+                    />
+                  </Section>
+
+                  <Section icon={CheckIcon} title="Status after copying">
+                    <div className={styles.tabGroup}>
+                      <button type="button" className={status === "PAUSED" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("PAUSED")}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <PauseIcon size={12} />
+                          Paused — review before spending
+                        </span>
+                      </button>
+                      <button type="button" className={status === "ACTIVE" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("ACTIVE")}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <PlayIcon size={12} />
+                          Active immediately
+                        </span>
+                      </button>
+                    </div>
+                  </Section>
+                </>
+              )}
+
+              {submitting && (
+                <Section icon={ListIcon} title="Copying your ad set">
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+                    {objectProgress.campaign && <StepRow step={{ type: "campaign", label: `Campaign — ${objectProgress.campaign.name || ""}`, success: objectProgress.campaign.phase === "success", error: objectProgress.campaign.error, id: objectProgress.campaign.id }} />}
+                    {objectProgress.adset && <StepRow step={{ type: "adset", label: `Ad set — ${objectProgress.adset.name || ""}`, success: objectProgress.adset.phase === "success", error: objectProgress.adset.error, id: objectProgress.adset.id }} />}
+                  </div>
+                  {(() => {
+                    const total = Object.keys(adProgress).length;
+                    const doneCount = Object.values(adProgress).filter((p) => p.phase === "success" || p.phase === "failed" || p.phase === "skipped").length;
+                    return total > 0 ? doneCount < total ? <Loader inline label={`${doneCount} of ${total} ads done`} /> : <p className={styles.sub}>{doneCount} of {total} ads done</p> : null;
+                  })()}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginTop: 10 }}>
+                    {Object.entries(adProgress).map(([adId, p]) => {
+                      const ad = sourceAdItems.find((a) => a.id === adId);
+                      return (
+                        <div key={adId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", borderRadius: 8, background: "var(--bg)" }}>
+                          <span style={{ fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{ad?.name || adId}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                            <span className={PHASE_BADGE_CLASS[p.phase] || styles.badgeInfo}>{PHASE_LABEL[p.phase] || "Queued"}</span>
+                            {p.phase === "success" && p.newAdId && <CopyIdButton id={p.newAdId} />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Section>
+              )}
+              {submitError && <div className={styles.error}>{submitError}</div>}
+
+              <div style={{ display: "flex", gap: 10, marginTop: 10, justifyContent: "flex-end" }}>
+                <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={submitting}>
+                  Cancel
+                </button>
+                <button type="button" className={styles.btnPrimary} onClick={handleConfirmAdset} disabled={!canSubmitAdset}>
+                  {submitting ? "Copying…" : "Copy ad set"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "review" && level === "campaign" && newCampaignFields && (
+            <div style={{ marginTop: 16 }}>
+              {!submitting && <BackLink onClick={() => setStep("pick_destination")} />}
+              <p className={styles.sub} style={{ marginBottom: 14 }}>
+                Into {destAccountName} — a new campaign with {campaignAdsetOrder.length} ad set{campaignAdsetOrder.length === 1 ? "" : "s"}
+              </p>
+
+              {!submitting && (
+                <>
+                  <Section icon={DatabaseIcon} title="New campaign (matching the source)">
+                    <CampaignFields value={newCampaignFields} onChange={setNewCampaignFields} />
+                  </Section>
+
+                  {campaignBudget.budgetStrategy === "CBO" && (
+                    <Section icon={DatabaseIcon} title={`Campaign's ${campaignBudget.budgetType === "LIFETIME" ? "lifetime" : "daily"} budget`}>
+                      <input
+                        type="number"
+                        min="1"
+                        className={styles.select}
+                        style={{ width: "100%" }}
+                        value={campaignBudget.budgetAmount}
+                        onChange={(e) => setCampaignBudget((prev) => ({ ...prev, budgetAmount: e.target.value }))}
+                      />
+                    </Section>
+                  )}
+
+                  {!campaignAdsetsLoaded && <Loader label="Loading this campaign's ad sets…" />}
+
+                  {campaignAdsetsLoaded &&
+                    campaignAdsetOrder.map((adsetId) => {
+                      const entry = campaignAdsets[adsetId];
+                      return (
+                        <Section key={adsetId} icon={ListIcon} title={entry.fields?.name || entry.name}>
+                          {entry.error ? (
+                            <div className={styles.error}>{entry.error}</div>
+                          ) : (
+                            <>
+                              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 10 }}>
+                                <input type="checkbox" checked={entry.included} onChange={() => toggleCampaignAdsetIncluded(adsetId)} />
+                                Include this ad set
+                              </label>
+                              {entry.included && (
+                                <AdChecklist
+                                  ads={entry.ads}
+                                  selectedIds={entry.selectedAdIds}
+                                  onToggle={(adId, copyable) => toggleCampaignAdsetAd(adsetId, adId, copyable)}
+                                  onPreview={(ad) => setLightboxItem({ id: ad.id, name: ad.name, thumbnailUrl: ad.thumbnailUrl, isVideo: ad.isVideo })}
+                                />
+                              )}
+                            </>
+                          )}
+                        </Section>
+                      );
+                    })}
+
+                  <Section icon={CheckIcon} title="Status after copying">
+                    <div className={styles.tabGroup}>
+                      <button type="button" className={status === "PAUSED" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("PAUSED")}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <PauseIcon size={12} />
+                          Paused — review before spending
+                        </span>
+                      </button>
+                      <button type="button" className={status === "ACTIVE" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setStatus("ACTIVE")}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <PlayIcon size={12} />
+                          Active immediately
+                        </span>
+                      </button>
+                    </div>
+                  </Section>
+                </>
+              )}
+
+              {submitting && (
+                <Section icon={ListIcon} title="Copying your campaign">
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+                    {objectProgress.campaign && <StepRow step={{ type: "campaign", label: `Campaign — ${objectProgress.campaign.name || ""}`, success: objectProgress.campaign.phase === "success", error: objectProgress.campaign.error, id: objectProgress.campaign.id }} />}
+                    {campaignAdsetOrder
+                      .filter((id) => campaignAdsets[id]?.included)
+                      .map((adsetId) => {
+                        const p = objectProgress[adsetId];
+                        if (!p) return null;
+                        return <StepRow key={adsetId} step={{ type: "adset", label: `Ad set — ${p.name || ""}`, success: p.phase === "success", error: p.error, id: p.id }} />;
+                      })}
+                  </div>
+                  {(() => {
+                    const total = Object.keys(adProgress).length;
+                    const doneCount = Object.values(adProgress).filter((p) => p.phase === "success" || p.phase === "failed" || p.phase === "skipped").length;
+                    return total > 0 ? doneCount < total ? <Loader inline label={`${doneCount} of ${total} ads done`} /> : <p className={styles.sub}>{doneCount} of {total} ads done</p> : null;
+                  })()}
+                </Section>
+              )}
+              {submitError && <div className={styles.error}>{submitError}</div>}
+
+              <div style={{ display: "flex", gap: 10, marginTop: 10, justifyContent: "flex-end" }}>
+                <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={submitting}>
+                  Cancel
+                </button>
+                <button type="button" className={styles.btnPrimary} onClick={handleConfirmCampaign} disabled={!canSubmitCampaign}>
+                  {submitting ? "Copying…" : "Copy campaign"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "done" && result && level === "ad" && (() => {
             // Per-ad steps all carry the adId they came from; the batch-level
             // activation step (if any) doesn't, and used to just get mixed
             // into the same flat list at the end as a name-less "Activated —"
@@ -591,6 +1257,70 @@ export default function CopyAdsModal({ sourceAccountId, ads: adsProp, adAccounts
               </div>
             );
           })()}
+
+          {step === "done" && result && (level === "adset" || level === "campaign") && (() => {
+            const adStepsById = new Map();
+            for (const s of result.steps) {
+              if (!s.adId) continue;
+              if (!adStepsById.has(s.adId)) adStepsById.set(s.adId, []);
+              adStepsById.get(s.adId).push(s);
+            }
+            const topSteps = result.steps.filter((s) => s.type === "campaign" || s.type === "adset");
+            const activationStep = result.steps.find((s) => s.type === "activation");
+            const adSourceById = level === "adset" ? new Map(sourceAdItems.map((a) => [a.id, a])) : new Map(campaignAdsetOrder.flatMap((id) => campaignAdsets[id].ads.map((a) => [a.id, a])));
+            return (
+              <div style={{ marginTop: 16 }}>
+                <div className={result.success ? styles.success : styles.error} style={{ marginBottom: 14 }}>
+                  <p style={{ marginBottom: 2 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
+                  <p style={{ fontWeight: 400, opacity: 0.85 }}>
+                    {result.createdAdIds.length} ad{result.createdAdIds.length === 1 ? "" : "s"} created {status === "ACTIVE" && activationStep?.success ? "and activated" : "paused"} in {destAccountName}
+                    {!(status === "ACTIVE" && activationStep?.success) && " — check Ads Manager before activating"}.
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                  {topSteps.map((s, i) => (
+                    <StepRow key={i} step={s} />
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[...adStepsById.entries()].map(([adId, steps]) => (
+                    <CopiedAdGroup
+                      key={adId}
+                      steps={steps}
+                      sourceAd={adSourceById.get(adId)}
+                      newName={names[adId]}
+                      onPreview={() => {
+                        const a = adSourceById.get(adId);
+                        if (a) setLightboxItem({ id: a.id, name: a.name, thumbnailUrl: a.thumbnailUrl, isVideo: a.isVideo });
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {activationStep && !activationStep.success && (
+                  <div className={styles.error} style={{ marginTop: 10 }}>
+                    {activationStep.label}: {activationStep.error}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                  <button type="button" className={styles.btnPrimary} onClick={onClose}>
+                    Done
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {step === "error" && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+              <button type="button" className={styles.btnSecondary} onClick={onClose}>
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />

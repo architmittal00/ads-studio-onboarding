@@ -2,8 +2,10 @@ import styles from "@/styles/Home.module.css";
 
 // Floating bottom bar, same fixed-position/pill convention as
 // components/partnership/SelectionBar.js — appears once at least one
-// copyable ad is checked in the source ads table.
-export default function SelectionBar({ count, onClear, onCopy }) {
+// copyable ad (or, at the Ad Set/Campaign levels, one ad set/campaign) is
+// selected. `label` is the singular noun to pluralize — "ad" (default),
+// "ad set", or "campaign" — since the other two levels are single-select.
+export default function SelectionBar({ count, label = "ad", onClear, onCopy }) {
   if (count === 0) return null;
   return (
     <div
@@ -25,14 +27,15 @@ export default function SelectionBar({ count, onClear, onCopy }) {
       }}
     >
       <span style={{ fontSize: 13, fontWeight: 700 }}>
-        {count} ad{count === 1 ? "" : "s"} selected
+        {count} {label}
+        {count === 1 ? "" : "s"} selected
       </span>
       <button type="button" onClick={onClear} className={styles.muted} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12 }}>
         ✕ Clear
       </button>
       <div style={{ width: 1, height: 18, background: "var(--border)" }} />
       <button type="button" className={styles.btnPrimary} onClick={onCopy}>
-        Copy to another account ({count}) →
+        Copy to another account →
       </button>
     </div>
   );
