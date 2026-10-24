@@ -3,7 +3,8 @@ import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { ATTRIBUTION_SPECS, campaignFormFieldsFromSource } from "@/lib/campaignLaunch";
 import { lastNDaysRange } from "@/lib/adCreativeDetails";
-import { roasFromRow, pickPurchaseCount } from "@/lib/metrics";
+import { resolveGraphFields, deriveRowMetrics } from "@/lib/insightsMetrics";
+import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
 
 // `campaign{...}` widened (beyond what the same-account ad-set-duplicate
 // path alone needs) to also carry budget/bid-strategy/special-categories —
@@ -85,7 +86,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, adsetId, campaignId } = req.query;
+  const { accountId, adsetId, campaignId, since, until, metrics } = req.query;
   const token = session.accessToken;
 
   try {
@@ -146,11 +147,24 @@ export default async function handler(req, res) {
       // Name + parent campaign alone isn't enough to decide which ad set to
       // duplicate (the screenshot that prompted this: a long list of
       // similarly-named ad sets with nothing to tell them apart) — status,
-      // budget, and optimization goal come from the same list call; last-
-      // 30-day spend/purchases/ROAS needs one extra account-wide insights
-      // call (one call for every ad set's numbers, not one per ad set). A
-      // failed insights call still returns the list, just without
-      // performance data (Promise.allSettled).
+      // budget, and optimization goal come from the same list call;
+      // spend/purchases/ROAS (or whatever metrics the caller asks for) needs
+      // one extra account-wide insights call (one call for every ad set's
+      // numbers, not one per ad set). A failed insights call still returns
+      // the list, just without performance data (Promise.allSettled).
+      //
+      // `since`/`until`/`metrics` are optional — this endpoint is also the
+      // Launch tab's own "duplicate an existing ad set" picker and
+      // DuplicateEntityModal.js's destination-ad-set search, neither of
+      // which pass them, so omitting all three falls back to exactly this
+      // route's original behavior (last 30 days, spend/purchases/roas) and
+      // keeps `performance.spend`/`.purchases`/`.roas` present for those
+      // callers' own hardcoded rendering. Copy Ads' own Ad Set-level picker
+      // (pages/copy-ads.js) is the one caller that actually passes these, for
+      // the same configurable date-range/metric-picker parity its Ad-level
+      // picker already has.
+      const metricKeys = typeof metrics === "string" && metrics.trim() ? metrics.split(",").map((k) => k.trim()).filter(Boolean) : DEFAULT_COPY_METRIC_KEYS;
+      const timeRange = since && until ? { since, until } : lastNDaysRange(30, new Date());
       const [listResult, insightsResult] = await Promise.allSettled([
         graphGetAllPages(`/${accountId}/adsets`, token, {
           fields: "id,name,status,daily_budget,lifetime_budget,optimization_goal,campaign{id,name}",
@@ -158,8 +172,8 @@ export default async function handler(req, res) {
         }),
         graphGetInsights(`/${accountId}/insights`, token, {
           level: "adset",
-          fields: "adset_id,spend,actions,action_values,purchase_roas",
-          time_range: lastNDaysRange(30, new Date()),
+          fields: resolveGraphFields(metricKeys, [], "adset").join(","),
+          time_range: timeRange,
           limit: 500,
         }),
       ]);
@@ -169,8 +183,7 @@ export default async function handler(req, res) {
       const performanceByAdsetId = new Map();
       if (insightsResult.status === "fulfilled") {
         for (const row of insightsResult.value.data || []) {
-          const { spend, roas } = roasFromRow(row);
-          performanceByAdsetId.set(row.adset_id, { spend, purchases: pickPurchaseCount(row.actions), roas });
+          performanceByAdsetId.set(row.adset_id, deriveRowMetrics(row, metricKeys, []));
         }
       }
 

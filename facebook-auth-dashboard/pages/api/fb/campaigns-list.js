@@ -2,7 +2,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { lastNDaysRange } from "@/lib/adCreativeDetails";
-import { roasFromRow, pickPurchaseCount } from "@/lib/metrics";
+import { resolveGraphFields, deriveRowMetrics } from "@/lib/insightsMetrics";
+import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
 import { campaignFormFieldsFromSource } from "@/lib/campaignLaunch";
 
 // Full Graph fields needed to clone a source campaign's own settings — see
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, campaignId } = req.query;
+  const { accountId, campaignId, since, until, metrics } = req.query;
   if (!accountId && !campaignId) {
     return res.status(400).json({ error: "accountId or campaignId is required" });
   }
@@ -43,6 +44,13 @@ export default async function handler(req, res) {
       res.status(200).json({ name: campaign.name, fields: campaignFormFieldsFromSource(campaign) });
       return;
     }
+    // `since`/`until`/`metrics` optional — see adsets-list.js's identical
+    // comment on why: this endpoint's `?accountId=` mode is also the Launch
+    // tab's own "existing campaign" picker, which never passes them, so
+    // omitting all three preserves this route's original behavior (last 30
+    // days, spend/purchases/roas) for that caller's own hardcoded rendering.
+    const metricKeys = typeof metrics === "string" && metrics.trim() ? metrics.split(",").map((k) => k.trim()).filter(Boolean) : DEFAULT_COPY_METRIC_KEYS;
+    const timeRange = since && until ? { since, until } : lastNDaysRange(30, new Date());
     const [listResult, insightsResult] = await Promise.allSettled([
       graphGetAllPages(`/${accountId}/campaigns`, token, {
         fields: "id,name,effective_status,objective,daily_budget,lifetime_budget",
@@ -50,8 +58,8 @@ export default async function handler(req, res) {
       }),
       graphGetInsights(`/${accountId}/insights`, token, {
         level: "campaign",
-        fields: "campaign_id,spend,actions,action_values,purchase_roas",
-        time_range: lastNDaysRange(30, new Date()),
+        fields: resolveGraphFields(metricKeys, [], "campaign").join(","),
+        time_range: timeRange,
         limit: 500,
       }),
     ]);
@@ -61,8 +69,7 @@ export default async function handler(req, res) {
     const performanceByCampaignId = new Map();
     if (insightsResult.status === "fulfilled") {
       for (const row of insightsResult.value.data || []) {
-        const { spend, roas } = roasFromRow(row);
-        performanceByCampaignId.set(row.campaign_id, { spend, purchases: pickPurchaseCount(row.actions), roas });
+        performanceByCampaignId.set(row.campaign_id, deriveRowMetrics(row, metricKeys, []));
       }
     }
 

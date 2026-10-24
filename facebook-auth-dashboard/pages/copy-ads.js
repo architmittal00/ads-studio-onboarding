@@ -334,9 +334,12 @@ export default function CopyAdsPage() {
   }
 
   // Ad Set level: every ad set in the source account, reusing
-  // pages/api/fb/adsets-list.js's existing ?accountId= list mode (already
-  // returns status/budget/optimization-goal/campaign/30-day performance —
-  // no new endpoint needed for the picker itself, only for the actual copy).
+  // pages/api/fb/adsets-list.js's existing ?accountId= list mode — now
+  // widened to accept the same since/until/metrics params the Ad level's
+  // own picker already sends (see that route's own comment), for the same
+  // configurable date-range/metric-picker parity requested for all three
+  // levels. No new endpoint needed for the picker itself, only for the
+  // actual copy.
   // adsetItems/setAdsetItems and adsetHasLoaded/setAdsetHasLoaded declared
   // earlier, alongside hasLoadedForLevel.
   const [adsetItemsLoading, setAdsetItemsLoading] = useState(false);
@@ -348,10 +351,11 @@ export default function CopyAdsPage() {
   const [selectedAdsetId, setSelectedAdsetId] = useState(null);
 
   function loadAdsetsToCopy() {
-    if (!selectedAccountId) return;
+    if (!selectedAccountId || !range) return;
     setAdsetItemsLoading(true);
     setAdsetItemsError(null);
-    fetchWithTimeout(`/api/fb/adsets-list?accountId=${encodeURIComponent(selectedAccountId)}`)
+    const params = new URLSearchParams({ accountId: selectedAccountId, since: range.since, until: range.until, metrics: metricKeys.join(",") });
+    fetchWithTimeout(`/api/fb/adsets-list?${params.toString()}`)
       .then(parseJsonResponse)
       .then((json) => {
         if (json.error) setAdsetItemsError(json.error);
@@ -373,10 +377,11 @@ export default function CopyAdsPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
 
   function loadCampaignsToCopy() {
-    if (!selectedAccountId) return;
+    if (!selectedAccountId || !range) return;
     setCampaignItemsLoading(true);
     setCampaignItemsError(null);
-    fetchWithTimeout(`/api/fb/campaigns-list?accountId=${encodeURIComponent(selectedAccountId)}`)
+    const params = new URLSearchParams({ accountId: selectedAccountId, since: range.since, until: range.until, metrics: metricKeys.join(",") });
+    fetchWithTimeout(`/api/fb/campaigns-list?${params.toString()}`)
       .then(parseJsonResponse)
       .then((json) => {
         if (json.error) setCampaignItemsError(json.error);
@@ -591,9 +596,17 @@ export default function CopyAdsPage() {
           ? `${formatMetricValue(row.lifetime_budget / 100, "currency", sourceCurrency)} lifetime`
           : "—",
     },
-    { key: "spend", label: "Spend (30d)", align: "right", maxWidth: 110, sortValue: (row) => row.performance?.spend ?? -Infinity, render: (row) => formatMetricValue(row.performance?.spend, "currency", sourceCurrency) },
-    { key: "purchases", label: "Purchases (30d)", align: "right", maxWidth: 120, sortValue: (row) => row.performance?.purchases ?? -Infinity, render: (row) => formatMetricValue(row.performance?.purchases, "number") },
-    { key: "roas", label: "ROAS (30d)", align: "right", maxWidth: 90, sortValue: (row) => row.performance?.roas ?? -Infinity, render: (row) => formatMetricValue(row.performance?.roas, "decimal") },
+    ...metricKeys
+      .map((key) => PICKER_METRIC_CATALOG.find((m) => m.key === key))
+      .filter(Boolean)
+      .map((metric) => ({
+        key: metric.key,
+        label: metric.label,
+        align: "right",
+        maxWidth: METRIC_COLUMN_WIDTH[metric.format] || METRIC_COLUMN_WIDTH.number,
+        sortValue: (row) => (typeof row.performance?.[metric.key] === "number" ? row.performance[metric.key] : -Infinity),
+        render: (row) => formatMetricValue(row.performance?.[metric.key], metric.format, sourceCurrency),
+      })),
   ];
 
   const campaignColumns = [
@@ -626,9 +639,17 @@ export default function CopyAdsPage() {
           ? `${formatMetricValue(row.lifetime_budget / 100, "currency", sourceCurrency)} lifetime`
           : "No campaign-level budget (ABO)",
     },
-    { key: "spend", label: "Spend (30d)", align: "right", maxWidth: 110, sortValue: (row) => row.performance?.spend ?? -Infinity, render: (row) => formatMetricValue(row.performance?.spend, "currency", sourceCurrency) },
-    { key: "purchases", label: "Purchases (30d)", align: "right", maxWidth: 120, sortValue: (row) => row.performance?.purchases ?? -Infinity, render: (row) => formatMetricValue(row.performance?.purchases, "number") },
-    { key: "roas", label: "ROAS (30d)", align: "right", maxWidth: 90, sortValue: (row) => row.performance?.roas ?? -Infinity, render: (row) => formatMetricValue(row.performance?.roas, "decimal") },
+    ...metricKeys
+      .map((key) => PICKER_METRIC_CATALOG.find((m) => m.key === key))
+      .filter(Boolean)
+      .map((metric) => ({
+        key: metric.key,
+        label: metric.label,
+        align: "right",
+        maxWidth: METRIC_COLUMN_WIDTH[metric.format] || METRIC_COLUMN_WIDTH.number,
+        sortValue: (row) => (typeof row.performance?.[metric.key] === "number" ? row.performance[metric.key] : -Infinity),
+        render: (row) => formatMetricValue(row.performance?.[metric.key], metric.format, sourceCurrency),
+      })),
   ];
 
   const adsetResultArea = (
@@ -804,7 +825,7 @@ export default function CopyAdsPage() {
   // itself) is shared verbatim across all three.
   const activeResultArea = level === "ad" ? resultArea : level === "adset" ? adsetResultArea : campaignResultArea;
   const loadingForLevel = level === "ad" ? adsLoading : level === "adset" ? adsetItemsLoading : campaignItemsLoading;
-  const canRunLoadForLevel = level === "ad" ? !!selectedAccountId && !!range : !!selectedAccountId;
+  const canRunLoadForLevel = !!selectedAccountId && !!range;
   const runLoadForLevel = level === "ad" ? loadAds : level === "adset" ? loadAdsetsToCopy : loadCampaignsToCopy;
   const loadButtonLabel = level === "ad" ? "Ads" : level === "adset" ? "Ad Sets" : "Campaigns";
   const selectedAdsetName = adsetItems.find((a) => a.id === selectedAdsetId)?.name;
@@ -861,7 +882,7 @@ export default function CopyAdsPage() {
                   <div className={styles.exploreQueryHeader}>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
                       <SettingsIcon size={15} />
-                      {level === "ad" ? "Source & Metrics" : "Source"}
+                      Source &amp; Metrics
                     </span>
                     {/* No collapse control until something's loaded at least once —
                         collapsing here would leave the page with nothing on it at all. */}
@@ -885,49 +906,42 @@ export default function CopyAdsPage() {
                       <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" style={{ width: "100%" }} loading={accountsLoading} />
                     </div>
 
-                    {level === "ad" && (
-                      <>
-                        <div>
-                          <p
-                            className={styles.sub}
-                            style={{ marginBottom: 6 }}
-                            title="Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
-                          >
-                            Only show ads with spend in
-                          </p>
-                          <DateRangeMenu
-                            rangePreset={rangePreset}
-                            customSince={customSince}
-                            customUntil={customUntil}
-                            maxRangeDays={MAX_RANGE_DAYS}
-                            compareToPrevious={false}
-                            compareCustomSince=""
-                            compareDisplay="change"
-                            compareDisabled
-                            compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
-                            onApply={(patch) => {
-                              setRangePreset(patch.rangePreset);
-                              setCustomSince(patch.customSince);
-                              setCustomUntil(patch.customUntil);
-                            }}
-                          />
-                        </div>
-
-                        <div>
-                          <p className={styles.sub} style={{ marginBottom: 10 }}>
-                            Metrics to show — changes take effect next time you Load Ads.
-                          </p>
-                          <MetricPicker catalog={PICKER_METRIC_CATALOG} selectedKeys={metricKeys} onToggle={toggleMetric} />
-                        </div>
-                      </>
-                    )}
-                    {level !== "ad" && (
-                      <p className={styles.muted} style={{ fontSize: 11.5 }}>
-                        {level === "adset"
-                          ? "Every ad set in this account, with its last-30-day performance."
-                          : "Every campaign in this account, with its last-30-day performance."}
+                    <div>
+                      <p
+                        className={styles.sub}
+                        style={{ marginBottom: 6 }}
+                        title={
+                          level === "ad"
+                            ? "Only ads with real delivery (spend/impressions) in this window show up — there's no way to list ads by recency any other way on this API. A just-launched ad with no spend yet won't appear until it has some."
+                            : `Every ${level === "adset" ? "ad set" : "campaign"} in this account shows up regardless of delivery — this only scopes the performance numbers shown alongside each one.`
+                        }
+                      >
+                        {level === "ad" ? "Only show ads with spend in" : `Show performance from`}
                       </p>
-                    )}
+                      <DateRangeMenu
+                        rangePreset={rangePreset}
+                        customSince={customSince}
+                        customUntil={customUntil}
+                        maxRangeDays={MAX_RANGE_DAYS}
+                        compareToPrevious={false}
+                        compareCustomSince=""
+                        compareDisplay="change"
+                        compareDisabled
+                        compareDisabledReason="Not available for Copy Ads — there's no comparison view here, just the ads active in this window."
+                        onApply={(patch) => {
+                          setRangePreset(patch.rangePreset);
+                          setCustomSince(patch.customSince);
+                          setCustomUntil(patch.customUntil);
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <p className={styles.sub} style={{ marginBottom: 10 }}>
+                        Metrics to show — changes take effect next time you Load {loadButtonLabel}.
+                      </p>
+                      <MetricPicker catalog={PICKER_METRIC_CATALOG} selectedKeys={metricKeys} onToggle={toggleMetric} />
+                    </div>
                   </div>
 
                   <div className={styles.exploreQueryFooter}>
