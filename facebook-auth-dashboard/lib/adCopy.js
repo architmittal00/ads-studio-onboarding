@@ -2,6 +2,7 @@ import { graphGet, graphPost, graphGetAllPages, graphGetInsights } from "./faceb
 import { chunk } from "./adCreativeDetails";
 import { resolveGraphFields } from "./insightsMetrics";
 import { mapWithConcurrency } from "./metaInterestSearch";
+import { buildGenericAdsetPayload, toMinorUnits } from "./campaignLaunch";
 
 // How many ads one copyAdsIntoAdset call copies at once. Each ad is itself
 // several sequential Graph calls (re-fetch, asset copy/video poll, creative
@@ -26,6 +27,16 @@ import { mapWithConcurrency } from "./metaInterestSearch";
 // Moved here (from pages/api/fb/copy-ads/copy.js) alongside copyAdsIntoAdset
 // itself — the ad-set/campaign-level copy routes need the same default.
 export const COPY_CONCURRENCY = 5;
+
+// How many ad sets copyAdsetsIntoCampaign (below) creates — and copies ads
+// into — at once. Kept deliberately lower than COPY_CONCURRENCY (which
+// already runs up to 5 concurrent ad-copies *within* one ad set) — several
+// ad sets, each copying several ads, compounds into far more simultaneous
+// write-heavy Graph calls than this app has ever exercised at the plain
+// ad-set level. Unverified against a real multi-ad-set account at this
+// value; the first signal to dial it down is the same one COPY_CONCURRENCY
+// already watches for (a visible Meta rate-limit error). See PROJECT_STATUS.md.
+export const ADSET_CONCURRENCY = 2;
 
 // Default picker-table metrics, shared between the client (initial column
 // selection) and the server (fallback when the `metrics` query param is
@@ -669,4 +680,130 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
   });
 
   return { createdAdIds, steps: stepsByItem.flat(), overallSuccess };
+}
+
+// Creates N ad sets under one already-resolved destination campaign id, then
+// copies each one's own selected ads into it — the shared "several ad sets,
+// one campaign" loop extracted from pages/api/fb/copy-ads/copy-campaign.js so
+// pages/api/fb/copy-ads/copy-adset.js's own multi-select case (several source
+// ad sets landing in one EXISTING campaign, never a new one — see that
+// route's own comment) can reuse the exact same mechanics instead of a
+// second, easily-divergent copy of this logic. (This is exactly how the
+// ABO-budget-amount bug in an earlier version of copy-campaign.js got fixed
+// once and not the second time around.)
+//
+// One asset-copy coordinator shared across every ad set in `adsets` — not
+// per ad set — so a creative asset reused across two of them (a common case:
+// several ad sets testing different audiences against the same base
+// creative, or several hand-picked ad sets that happen to share one) is
+// still only ever copied once. Partial-failure semantics match every other
+// creation flow in this app: one ad set failing to create doesn't abort the
+// rest (mapWithConcurrency keeps going), but the caller decides what to do
+// about overall activation based on the returned `overallSuccess`.
+export async function copyAdsetsIntoCampaign(
+  token,
+  {
+    destAccountId,
+    sourceAccountId,
+    campaignId,
+    adsets,
+    campaignBidStrategy,
+    budgetStrategy,
+    budgetType,
+    budgetAmountMinorUnits,
+    concurrency = ADSET_CONCURRENCY,
+    adConcurrency = COPY_CONCURRENCY,
+    onProgress,
+    onAdsetStart,
+    onAdsetDone,
+    onAdStart,
+    onAdDone,
+  }
+) {
+  const assets = createAssetCopyCoordinator(token, destAccountId, sourceAccountId, onProgress);
+
+  const createdAdsetIds = [];
+  const allCreatedAdIds = [];
+  const allSteps = [];
+  let overallSuccess = true;
+
+  const adsetResults = await mapWithConcurrency(adsets, concurrency, async (entry, i) => {
+    const { sourceAdsetId, adsetFields, items } = entry;
+    onProgress?.(`Creating ad set ${i + 1} of ${adsets.length}: ${adsetFields.name}…`);
+
+    // Budget STRATEGY is shared by every ad set under the campaign (it has
+    // to match the campaign's own CBO/ABO shape) but the AMOUNT is not:
+    // under ABO, each source ad set can carry its own distinct budget, so
+    // the amount has to come from THIS ad set's own adsetFields (already
+    // resolved to the source's real value by adsets-list.js's toFormFields),
+    // not the one shared campaign-level amount, which only ever applies to a
+    // CBO campaign's own budget (a single, genuinely shared number) and is
+    // irrelevant here otherwise.
+    const ownBudget = parseFloat(adsetFields.budgetAmount);
+    const adsetBudgetAmountMinorUnits = budgetStrategy === "ABO" && ownBudget > 0 ? toMinorUnits(ownBudget) : budgetAmountMinorUnits;
+    const adsetPayload = buildGenericAdsetPayload({
+      ...adsetFields,
+      campaignId,
+      // When a new campaign was just created to match a real source
+      // (copy-campaign.js, or copy-adset.js's own new_campaign mode),
+      // `campaignBidStrategy` is given and every ad set matches it — Meta
+      // expects this consistent, especially under CBO. When ad sets are
+      // instead landing in an EXISTING campaign this function never created
+      // (copy-adset.js's existing_campaign mode, including its multi-select
+      // case), there's no campaign-level choice to enforce, so each ad set
+      // keeps its own real bid strategy instead of being silently
+      // homogenized to buildGenericAdsetPayload's generic default.
+      bidStrategy: campaignBidStrategy || adsetFields.bidStrategy,
+      budgetStrategy,
+      budgetType,
+      budgetAmountMinorUnits: adsetBudgetAmountMinorUnits,
+    });
+    onAdsetStart?.(sourceAdsetId, adsetPayload.name);
+    let adsetId;
+    try {
+      const json = await graphPost(`/${destAccountId}/adsets`, token, adsetPayload);
+      adsetId = json.id;
+      onAdsetDone?.(sourceAdsetId, { success: true, id: adsetId });
+    } catch (err) {
+      onAdsetDone?.(sourceAdsetId, { success: false, error: err.message });
+      return {
+        adsetStep: { type: "adset", label: "Ad set", name: adsetPayload.name, sourceAdsetId, success: false, error: err.message },
+        adSteps: [],
+        createdAdIds: [],
+        success: false,
+      };
+    }
+
+    const {
+      createdAdIds,
+      steps: adSteps,
+      overallSuccess: adsSucceeded,
+    } = await copyAdsIntoAdset(token, {
+      destAccountId,
+      destAdsetId: adsetId,
+      items,
+      assets,
+      concurrency: adConcurrency,
+      onProgress,
+      onAdStart,
+      onAdDone: (adId, result) => onAdDone?.(adId, { ...result, sourceAdsetId }),
+    });
+
+    return {
+      adsetStep: { type: "adset", label: "Ad set", name: adsetPayload.name, sourceAdsetId, success: true, id: adsetId },
+      adSteps: adSteps.map((s) => ({ ...s, sourceAdsetId })),
+      createdAdIds,
+      success: adsSucceeded,
+    };
+  });
+
+  for (const r of adsetResults) {
+    allSteps.push(r.adsetStep);
+    allSteps.push(...r.adSteps);
+    if (r.adsetStep.id) createdAdsetIds.push(r.adsetStep.id);
+    allCreatedAdIds.push(...r.createdAdIds);
+    if (!r.success) overallSuccess = false;
+  }
+
+  return { createdAdsetIds, createdAdIds: allCreatedAdIds, steps: allSteps, overallSuccess };
 }

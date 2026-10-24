@@ -1,24 +1,28 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
-import { createAssetCopyCoordinator, copyAdsIntoAdset, COPY_CONCURRENCY } from "@/lib/adCopy";
-import { buildGenericCampaignPayload, buildGenericAdsetPayload, toMinorUnits } from "@/lib/campaignLaunch";
+import { copyAdsetsIntoCampaign } from "@/lib/adCopy";
+import { buildGenericCampaignPayload, toMinorUnits } from "@/lib/campaignLaunch";
 
-// Ad Set-level cross-account copy: creates a brand-new ad set in the
-// destination account — either under a brand-new campaign cloned from the
-// source ad set's own parent campaign (`destinationMode: "new_campaign"`) or
-// under a campaign that already exists there (`"existing_campaign"`) — then
-// copies every selected ad from the source ad set into it via the exact same
-// machinery pages/api/fb/copy-ads/copy.js already uses for its own ad-level
-// path (lib/adCopy.js's copyAdsIntoAdset, extracted from that route for
-// exactly this reuse).
+// Ad Set-level cross-account copy: creates one or more brand-new ad sets in
+// the destination account — either under a brand-new campaign cloned from
+// the (single) source ad set's own parent campaign (`destinationMode:
+// "new_campaign"`, only valid for one ad set at a time — see the validation
+// below) or under a campaign that already exists there
+// (`"existing_campaign"`, the only mode multi-select supports: several
+// source ad sets can land together in one existing destination campaign, but
+// never spread across several new ones) — then copies every selected ad from
+// each source ad set into its new one via lib/adCopy.js's
+// copyAdsetsIntoCampaign (shared with pages/api/fb/copy-ads/copy-campaign.js,
+// which does the identical "N ad sets, one campaign" work for its own
+// always-new-campaign case).
 //
 // Same two-phase safety pattern as every other creation flow in this app:
-// the campaign (if created)/ad set/every ad are all created PAUSED first,
-// only flipped to ACTIVE in one final step, and only if every single one of
-// those creates succeeded — mirrors pages/api/fb/launch-campaign.js's own
-// "only activate what this request itself created" rule exactly, just with
-// a cross-account creative copy standing in for launch-campaign.js's
+// the campaign (if created)/every ad set/every ad are all created PAUSED
+// first, only flipped to ACTIVE in one final step, and only if every single
+// one of those creates succeeded — mirrors pages/api/fb/launch-campaign.js's
+// own "only activate what this request itself created" rule exactly, just
+// with a cross-account creative copy standing in for launch-campaign.js's
 // same-account creative_id reuse.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -30,39 +34,44 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const {
-    sourceAccountId,
-    destAccountId,
-    sourceAdsetId,
-    destinationMode,
-    destCampaignId,
-    campaignFields,
-    campaignBudget,
-    adsetFields,
-    items,
-    finalStatus: rawFinalStatus,
-  } = req.body || {};
+  const { sourceAccountId, destAccountId, adsets, destinationMode, destCampaignId, campaignFields, campaignBudget, finalStatus: rawFinalStatus } =
+    req.body || {};
 
-  if (!sourceAccountId || !destAccountId || !sourceAdsetId) {
-    return res.status(400).json({ error: "sourceAccountId, destAccountId, and sourceAdsetId are required" });
+  if (!sourceAccountId || !destAccountId) {
+    return res.status(400).json({ error: "sourceAccountId and destAccountId are required" });
   }
   if (sourceAccountId === destAccountId) {
     return res.status(400).json({ error: "Source and destination ad accounts must be different." });
   }
+  if (!Array.isArray(adsets) || adsets.length === 0) {
+    return res.status(400).json({ error: "A non-empty adsets array is required" });
+  }
+  for (const a of adsets) {
+    if (!a?.sourceAdsetId || !a?.adsetFields?.name || !a?.adsetFields?.optimizationGoal || !Array.isArray(a.items) || a.items.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Each entry in adsets needs sourceAdsetId, adsetFields (with name, optimizationGoal), and a non-empty items array" });
+    }
+  }
   if (destinationMode !== "new_campaign" && destinationMode !== "existing_campaign") {
     return res.status(400).json({ error: "destinationMode must be 'new_campaign' or 'existing_campaign'" });
+  }
+  // Creating a brand-new campaign only makes sense for exactly one ad set —
+  // several ad sets selected together can only ever land in one EXISTING
+  // campaign (the user's own explicit choice: "all the ad sets to 1
+  // campaign only, that too one which exists before"), never spread across
+  // several freshly-created ones or bundled into a single new one that
+  // doesn't correspond to any one of their real source campaigns.
+  if (destinationMode === "new_campaign" && adsets.length > 1) {
+    return res
+      .status(400)
+      .json({ error: "Creating a new campaign is only supported for a single ad set — pick an existing destination campaign to copy several ad sets at once." });
   }
   if (destinationMode === "existing_campaign" && !destCampaignId) {
     return res.status(400).json({ error: "destCampaignId is required when destinationMode is 'existing_campaign'" });
   }
   if (destinationMode === "new_campaign" && !campaignFields?.name) {
     return res.status(400).json({ error: "campaignFields.name is required when destinationMode is 'new_campaign'" });
-  }
-  if (!adsetFields?.name || !adsetFields?.optimizationGoal) {
-    return res.status(400).json({ error: "adsetFields (with name, optimizationGoal) is required" });
-  }
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "A non-empty items array is required" });
   }
 
   const token = session.accessToken;
@@ -83,19 +92,12 @@ export default async function handler(req, res) {
   function progress(message) {
     res.write(`${JSON.stringify({ type: "progress", message })}\n`);
   }
-  function adStart(adId) {
-    res.write(`${JSON.stringify({ type: "ad_start", adId })}\n`);
-  }
-  function adDone(adId, result) {
-    res.write(`${JSON.stringify({ type: "ad_done", adId, ...result })}\n`);
-  }
   function finish(body) {
     res.write(`${JSON.stringify({ type: "done", ...body })}\n`);
     res.end();
   }
 
   const steps = [];
-  let overallSuccess = true;
   let campaignId = destinationMode === "existing_campaign" ? destCampaignId : null;
   let weCreatedCampaign = false;
 
@@ -118,53 +120,33 @@ export default async function handler(req, res) {
     }
   }
 
-  // Bid strategy mirrors the campaign's own choice when we just created one
-  // (Meta expects these consistent, especially under CBO) — falls back to
-  // the ad set's own source-derived bid strategy when attaching to an
-  // existing campaign instead, same reasoning launch-campaign.js's own
-  // comment gives for the identical choice.
-  const adsetPayload = buildGenericAdsetPayload({
-    ...adsetFields,
+  // `campaignBidStrategy` only passed when we just created a new campaign to
+  // match — see lib/adCopy.js's copyAdsetsIntoCampaign for why each ad set
+  // falls back to its own real bid strategy otherwise (an existing
+  // destination campaign this route didn't create has no bid strategy of
+  // its own to enforce).
+  const {
+    createdAdsetIds,
+    createdAdIds,
+    steps: adsetSteps,
+    overallSuccess: adsetsSucceeded,
+  } = await copyAdsetsIntoCampaign(token, {
+    destAccountId,
+    sourceAccountId,
     campaignId,
-    bidStrategy: destinationMode === "new_campaign" ? campaignFields?.bidStrategy : adsetFields.bidStrategy,
+    adsets,
+    campaignBidStrategy: destinationMode === "new_campaign" ? campaignFields?.bidStrategy : undefined,
     budgetStrategy,
     budgetType,
     budgetAmountMinorUnits,
-  });
-  res.write(`${JSON.stringify({ type: "adset_start", sourceAdsetId, name: adsetPayload.name })}\n`);
-  let adsetId = null;
-  try {
-    const json = await graphPost(`/${destAccountId}/adsets`, token, adsetPayload);
-    adsetId = json.id;
-    res.write(`${JSON.stringify({ type: "adset_done", sourceAdsetId, success: true, id: adsetId })}\n`);
-    steps.push({ type: "adset", label: "Ad set", name: adsetPayload.name, success: true, id: adsetId });
-  } catch (err) {
-    res.write(`${JSON.stringify({ type: "adset_done", sourceAdsetId, success: false, error: err.message })}\n`);
-    steps.push({ type: "adset", label: "Ad set", name: adsetPayload.name, success: false, error: err.message });
-    finish({ success: false, createdCampaignId: weCreatedCampaign ? campaignId : null, steps });
-    return;
-  }
-
-  // Shared across just this one ad set's items — same dedup guarantee
-  // pages/api/fb/copy-ads/copy.js's own batch gets, scoped the same way
-  // (one ad set's worth of ads, not spanning several).
-  const assets = createAssetCopyCoordinator(token, destAccountId, sourceAccountId, progress);
-  const {
-    createdAdIds,
-    steps: adSteps,
-    overallSuccess: adsSucceeded,
-  } = await copyAdsIntoAdset(token, {
-    destAccountId,
-    destAdsetId: adsetId,
-    items,
-    assets,
-    concurrency: COPY_CONCURRENCY,
     onProgress: progress,
-    onAdStart: adStart,
-    onAdDone: adDone,
+    onAdsetStart: (sourceAdsetId, name) => res.write(`${JSON.stringify({ type: "adset_start", sourceAdsetId, name })}\n`),
+    onAdsetDone: (sourceAdsetId, result) => res.write(`${JSON.stringify({ type: "adset_done", sourceAdsetId, ...result })}\n`),
+    onAdStart: (adId) => res.write(`${JSON.stringify({ type: "ad_start", adId })}\n`),
+    onAdDone: (adId, result) => res.write(`${JSON.stringify({ type: "ad_done", adId, ...result })}\n`),
   });
-  steps.push(...adSteps);
-  if (!adsSucceeded) overallSuccess = false;
+  steps.push(...adsetSteps);
+  let overallSuccess = adsetsSucceeded;
 
   if (finalStatus === "ACTIVE" && overallSuccess && createdAdIds.length > 0) {
     progress("Activating…");
@@ -173,7 +155,7 @@ export default async function handler(req, res) {
       // what this request itself created, same rule launch-campaign.js
       // already enforces for its own existingCampaignId path.
       if (weCreatedCampaign) await graphPost(`/${campaignId}`, token, { status: "ACTIVE" });
-      await graphPost(`/${adsetId}`, token, { status: "ACTIVE" });
+      await Promise.all(createdAdsetIds.map((id) => graphPost(`/${id}`, token, { status: "ACTIVE" })));
       await Promise.all(createdAdIds.map((id) => graphPost(`/${id}`, token, { status: "ACTIVE" })));
       steps.push({ type: "activation", label: "Activated", success: true });
     } catch (err) {
@@ -190,7 +172,7 @@ export default async function handler(req, res) {
   finish({
     success: overallSuccess,
     createdCampaignId: weCreatedCampaign ? campaignId : null,
-    createdAdsetId: adsetId,
+    createdAdsetIds,
     createdAdIds,
     steps,
   });

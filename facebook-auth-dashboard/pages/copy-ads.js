@@ -344,17 +344,28 @@ export default function CopyAdsPage() {
   // earlier, alongside hasLoadedForLevel.
   const [adsetItemsLoading, setAdsetItemsLoading] = useState(false);
   const [adsetItemsError, setAdsetItemsError] = useState(null);
-  // Single-select for v1 — bulk-copying several source ad sets at once
-  // raises an unresolved "one shared new campaign or one per source ad set"
-  // question the feature's own plan deliberately deferred rather than
-  // guessing at before the single-item flow was even proven.
-  const [selectedAdsetId, setSelectedAdsetId] = useState(null);
+  // Multi-select: several source ad sets can be copied in one batch, but
+  // per the user's own resolution of this feature's one deferred question,
+  // they can only ever land together in a single EXISTING destination
+  // campaign — never spread across several new ones (see CopyAdsModal.js's
+  // isMultiAdset handling and copy-adset.js's own validation of this).
+  const [selectedAdsetIds, setSelectedAdsetIds] = useState(new Set());
 
   function loadAdsetsToCopy() {
     if (!selectedAccountId || !range) return;
     setAdsetItemsLoading(true);
     setAdsetItemsError(null);
-    const params = new URLSearchParams({ accountId: selectedAccountId, since: range.since, until: range.until, metrics: metricKeys.join(",") });
+    setSelectedAdsetIds(new Set());
+    const params = new URLSearchParams({
+      accountId: selectedAccountId,
+      since: range.since,
+      until: range.until,
+      metrics: metricKeys.join(","),
+      // Only ad sets that actually delivered in this window are worth
+      // offering to copy — mirrors the Ad level's own picker, which can
+      // never show a zero-spend ad in the first place.
+      onlyWithSpend: "1",
+    });
     fetchWithTimeout(`/api/fb/adsets-list?${params.toString()}`)
       .then(parseJsonResponse)
       .then((json) => {
@@ -374,13 +385,20 @@ export default function CopyAdsPage() {
   // declared earlier, alongside hasLoadedForLevel.
   const [campaignItemsLoading, setCampaignItemsLoading] = useState(false);
   const [campaignItemsError, setCampaignItemsError] = useState(null);
-  const [selectedCampaignId, setSelectedCampaignId] = useState(null);
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState(new Set());
 
   function loadCampaignsToCopy() {
     if (!selectedAccountId || !range) return;
     setCampaignItemsLoading(true);
     setCampaignItemsError(null);
-    const params = new URLSearchParams({ accountId: selectedAccountId, since: range.since, until: range.until, metrics: metricKeys.join(",") });
+    setSelectedCampaignIds(new Set());
+    const params = new URLSearchParams({
+      accountId: selectedAccountId,
+      since: range.since,
+      until: range.until,
+      metrics: metricKeys.join(","),
+      onlyWithSpend: "1",
+    });
     fetchWithTimeout(`/api/fb/campaigns-list?${params.toString()}`)
       .then(parseJsonResponse)
       .then((json) => {
@@ -412,11 +430,11 @@ export default function CopyAdsPage() {
     setHasLoaded(false);
     setAdsError(null);
     setAdsetItems([]);
-    setSelectedAdsetId(null);
+    setSelectedAdsetIds(new Set());
     setAdsetHasLoaded(false);
     setAdsetItemsError(null);
     setCampaignItems([]);
-    setSelectedCampaignId(null);
+    setSelectedCampaignIds(new Set());
     setCampaignHasLoaded(false);
     setCampaignItemsError(null);
   }, [selectedAccountId]);
@@ -560,19 +578,63 @@ export default function CopyAdsPage() {
     },
   ];
 
-  // Ad Set / Campaign level pickers — single-select (a radio, not a
-  // checkbox, makes that visually obvious) over whichever list just loaded.
-  // No metric-threshold filtering or thumbnail/copyable-reason columns here
-  // like the ad-level table has — picking a whole ad set/campaign to clone
-  // isn't a per-row-eligibility selection the way picking individual ads is.
+  // Ad Set / Campaign level pickers — multi-select checkboxes, same
+  // select-all pattern as the Ad level's own `columns` above. Every row
+  // shown already has real spend/delivery in the chosen window (see
+  // onlyWithSpend above), so — unlike the Ad level — there's no per-row
+  // "copyable" eligibility to gate on here; every visible row is selectable.
+  function toggleAdsetSelection(id) {
+    setSelectedAdsetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  const adsetSelectableIds = adsetItems.map((a) => a.id);
+  const allAdsetsSelected = adsetSelectableIds.length > 0 && adsetSelectableIds.every((id) => selectedAdsetIds.has(id));
+  const someAdsetsSelected = !allAdsetsSelected && adsetSelectableIds.some((id) => selectedAdsetIds.has(id));
+  function toggleSelectAllAdsets() {
+    setSelectedAdsetIds((prev) => {
+      const next = new Set(prev);
+      if (allAdsetsSelected) {
+        for (const id of adsetSelectableIds) next.delete(id);
+      } else {
+        for (const id of adsetSelectableIds) next.add(id);
+      }
+      return next;
+    });
+  }
+  function toggleCampaignSelection(id) {
+    setSelectedCampaignIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  const campaignSelectableIds = campaignItems.map((c) => c.id);
+  const allCampaignsSelected = campaignSelectableIds.length > 0 && campaignSelectableIds.every((id) => selectedCampaignIds.has(id));
+  const someCampaignsSelected = !allCampaignsSelected && campaignSelectableIds.some((id) => selectedCampaignIds.has(id));
+  function toggleSelectAllCampaigns() {
+    setSelectedCampaignIds((prev) => {
+      const next = new Set(prev);
+      if (allCampaignsSelected) {
+        for (const id of campaignSelectableIds) next.delete(id);
+      } else {
+        for (const id of campaignSelectableIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
   const adsetColumns = [
     {
       key: "select",
-      label: "",
+      label: <SelectAllCheckbox checked={allAdsetsSelected} indeterminate={someAdsetsSelected} onChange={toggleSelectAllAdsets} />,
+      freezeExempt: true,
       maxWidth: 32,
-      render: (row) => (
-        <input type="radio" name="copy-ads-select-adset" checked={selectedAdsetId === row.id} onChange={() => setSelectedAdsetId(row.id)} />
-      ),
+      render: (row) => <input type="checkbox" checked={selectedAdsetIds.has(row.id)} onChange={() => toggleAdsetSelection(row.id)} />,
     },
     { key: "name", label: "Ad Set", maxWidth: 240 },
     { key: "campaignName", label: "Campaign", maxWidth: 160, render: (row) => row.campaign?.name || "—", sortValue: (row) => row.campaign?.name || "" },
@@ -612,11 +674,10 @@ export default function CopyAdsPage() {
   const campaignColumns = [
     {
       key: "select",
-      label: "",
+      label: <SelectAllCheckbox checked={allCampaignsSelected} indeterminate={someCampaignsSelected} onChange={toggleSelectAllCampaigns} />,
+      freezeExempt: true,
       maxWidth: 32,
-      render: (row) => (
-        <input type="radio" name="copy-ads-select-campaign" checked={selectedCampaignId === row.id} onChange={() => setSelectedCampaignId(row.id)} />
-      ),
+      render: (row) => <input type="checkbox" checked={selectedCampaignIds.has(row.id)} onChange={() => toggleCampaignSelection(row.id)} />,
     },
     { key: "name", label: "Campaign", maxWidth: 260 },
     { key: "objective", label: "Objective", maxWidth: 150 },
@@ -828,9 +889,9 @@ export default function CopyAdsPage() {
   const canRunLoadForLevel = !!selectedAccountId && !!range;
   const runLoadForLevel = level === "ad" ? loadAds : level === "adset" ? loadAdsetsToCopy : loadCampaignsToCopy;
   const loadButtonLabel = level === "ad" ? "Ads" : level === "adset" ? "Ad Sets" : "Campaigns";
-  const selectedAdsetName = adsetItems.find((a) => a.id === selectedAdsetId)?.name;
-  const selectedCampaign = campaignItems.find((c) => c.id === selectedCampaignId);
-  const selectionCount = level === "ad" ? selectedAds.length : level === "adset" ? (selectedAdsetId ? 1 : 0) : selectedCampaignId ? 1 : 0;
+  const selectedAdsets = adsetItems.filter((a) => selectedAdsetIds.has(a.id));
+  const selectedCampaigns = campaignItems.filter((c) => selectedCampaignIds.has(c.id));
+  const selectionCount = level === "ad" ? selectedAds.length : level === "adset" ? selectedAdsetIds.size : selectedCampaignIds.size;
   const selectionLabel = level === "ad" ? "ad" : level === "adset" ? "ad set" : "campaign";
 
   return (
@@ -992,8 +1053,8 @@ export default function CopyAdsPage() {
         label={selectionLabel}
         onClear={() => {
           if (level === "ad") setSelectedIds(new Set());
-          else if (level === "adset") setSelectedAdsetId(null);
-          else setSelectedCampaignId(null);
+          else if (level === "adset") setSelectedAdsetIds(new Set());
+          else setSelectedCampaignIds(new Set());
         }}
         onCopy={() => setModalOpen(true)}
       />
@@ -1017,30 +1078,40 @@ export default function CopyAdsPage() {
         />
       )}
 
-      {modalOpen && level === "adset" && selectedAdsetId && (
+      {/* No `selectedAdsetIds.size > 0`/selectedCampaignIds.size > 0 gate here
+          (unlike this condition's own single-select predecessor) — onDone
+          below clears that same selection on success, in the same render as
+          CopyAdsModal's own setStep("done"), so gating on it here would
+          unmount the modal the instant it succeeds, before its "done" screen
+          ever has a chance to render (caught live in this round's own
+          mocked-preview verification). CopyAdsModal already captures
+          sourceAdsets/sourceCampaigns once via its own useState on mount
+          (see that file's own comment), so it keeps showing the right ad
+          sets/campaigns even once the parent's own selection — and the
+          `selectedAdsets`/`selectedCampaigns` arrays derived from it below —
+          goes back to empty. */}
+      {modalOpen && level === "adset" && (
         <CopyAdsModal
           level="adset"
           sourceAccountId={selectedAccountId}
-          sourceAdsetId={selectedAdsetId}
-          sourceAdsetName={selectedAdsetName}
+          sourceAdsets={selectedAdsets.map((a) => ({ id: a.id, name: a.name }))}
           adAccounts={adAccounts}
           onClose={() => setModalOpen(false)}
           onDone={(result) => {
-            if (result?.createdAdsetId) setSelectedAdsetId(null);
+            if (result?.createdAdsetIds?.length) setSelectedAdsetIds(new Set());
           }}
         />
       )}
 
-      {modalOpen && level === "campaign" && selectedCampaignId && (
+      {modalOpen && level === "campaign" && (
         <CopyAdsModal
           level="campaign"
           sourceAccountId={selectedAccountId}
-          sourceCampaignId={selectedCampaignId}
-          sourceCampaignName={selectedCampaign?.name}
+          sourceCampaigns={selectedCampaigns.map((c) => ({ id: c.id, name: c.name }))}
           adAccounts={adAccounts}
           onClose={() => setModalOpen(false)}
           onDone={(result) => {
-            if (result?.createdCampaignId) setSelectedCampaignId(null);
+            if (result?.success) setSelectedCampaignIds(new Set());
           }}
         />
       )}
