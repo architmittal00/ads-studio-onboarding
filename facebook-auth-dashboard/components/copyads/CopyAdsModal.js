@@ -718,6 +718,17 @@ export default function CopyAdsModal({
     setCampaignAdsets((prev) => ({ ...prev, [adsetId]: { ...prev[adsetId], included: !prev[adsetId].included } }));
   }
 
+  // Under ABO, this campaign's new ad sets each carry their OWN budget
+  // (cloned from the source ad set's own daily/lifetime amount via
+  // adsets-list.js's toFormFields) — there's no campaign-level amount to
+  // confirm instead. Previously that per-ad-set amount was silently carried
+  // through with no way to see or adjust it before copying; this lets each
+  // card's own budget be confirmed/edited, same as the single-ad-set flow's
+  // own ABO budget input already does for its one ad set.
+  function updateCampaignAdsetBudget(adsetId, budgetAmount) {
+    setCampaignAdsets((prev) => ({ ...prev, [adsetId]: { ...prev[adsetId], fields: { ...prev[adsetId].fields, budgetAmount } } }));
+  }
+
   // Same pair of handlers as toggleCampaignAdsetAd/Included above, for the
   // Ad Set level's own multi-select entries (adsetEntries).
   function toggleAdsetEntryAd(adsetId, adId, copyable) {
@@ -733,6 +744,13 @@ export default function CopyAdsModal({
 
   function toggleAdsetEntryIncluded(adsetId) {
     setAdsetEntries((prev) => ({ ...prev, [adsetId]: { ...prev[adsetId], included: !prev[adsetId].included } }));
+  }
+
+  // Same reasoning as updateCampaignAdsetBudget above, for the Ad Set
+  // level's own multi-select entries — ABO under an existing destination
+  // campaign means each of these ad sets keeps its own budget too.
+  function updateAdsetEntryBudget(adsetId, budgetAmount) {
+    setAdsetEntries((prev) => ({ ...prev, [adsetId]: { ...prev[adsetId], fields: { ...prev[adsetId].fields, budgetAmount } } }));
   }
 
   async function handleConfirmAd() {
@@ -1315,6 +1333,21 @@ export default function CopyAdsModal({
                                 <input type="checkbox" checked={entry.included} onChange={() => toggleAdsetEntryIncluded(adsetId)} />
                                 Include this ad set
                               </label>
+                              {entry.included && campaignBudget.budgetStrategy === "ABO" && (
+                                <div style={{ marginBottom: 10 }}>
+                                  <p className={styles.sub} style={{ marginBottom: 4 }}>
+                                    {campaignBudget.budgetType === "LIFETIME" ? "Lifetime" : "Daily"} budget
+                                  </p>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    className={styles.select}
+                                    style={{ width: "100%" }}
+                                    value={entry.fields?.budgetAmount ?? ""}
+                                    onChange={(e) => updateAdsetEntryBudget(adsetId, e.target.value)}
+                                  />
+                                </div>
+                              )}
                               {entry.included && (
                                 <AdChecklist
                                   ads={entry.ads}
@@ -1425,6 +1458,21 @@ export default function CopyAdsModal({
                                 <input type="checkbox" checked={entry.included} onChange={() => toggleCampaignAdsetIncluded(adsetId)} />
                                 Include this ad set
                               </label>
+                              {entry.included && campaignBudget.budgetStrategy === "ABO" && (
+                                <div style={{ marginBottom: 10 }}>
+                                  <p className={styles.sub} style={{ marginBottom: 4 }}>
+                                    {campaignBudget.budgetType === "LIFETIME" ? "Lifetime" : "Daily"} budget
+                                  </p>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    className={styles.select}
+                                    style={{ width: "100%" }}
+                                    value={entry.fields?.budgetAmount ?? ""}
+                                    onChange={(e) => updateCampaignAdsetBudget(adsetId, e.target.value)}
+                                  />
+                                </div>
+                              )}
                               {entry.included && (
                                 <AdChecklist
                                   ads={entry.ads}

@@ -42,11 +42,18 @@ export function compareMetricValue(rowValue, operator, threshold) {
 // correctly treats as "doesn't match," silently hiding every row instead of
 // just no-op'ing the dangling condition. A condition whose value was cleared
 // mid-edit (the number input momentarily blank) is guarded the same way.
-export function applyResultFilters(rows, conditions, availableMetricKeys) {
+//
+// `getValue` defaults to the Ad level's own shape (metrics flattened
+// directly onto each row, e.g. `row.spend`). The Ad Set/Campaign-level
+// pickers instead nest their performance numbers under `row.performance`
+// (see pages/api/fb/adsets-list.js/campaigns-list.js) — those callers pass
+// `(row, key) => row.performance?.[key]` instead, reusing this exact same
+// filtering logic rather than a second copy of it.
+export function applyResultFilters(rows, conditions, availableMetricKeys, getValue = (row, key) => row[key]) {
   if (!rows) return rows;
   const active = (conditions || []).filter(
     (c) => availableMetricKeys.includes(c.metricKey) && typeof c.value === "number" && !isNaN(c.value)
   );
   if (active.length === 0) return rows;
-  return rows.filter((row) => active.every((c) => compareMetricValue(row[c.metricKey], c.operator, c.value)));
+  return rows.filter((row) => active.every((c) => compareMetricValue(getValue(row, c.metricKey), c.operator, c.value)));
 }

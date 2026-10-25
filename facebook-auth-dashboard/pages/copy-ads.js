@@ -125,6 +125,88 @@ function newFilterId() {
   return `f${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
+// Post-query metric-threshold filter bar — originally built for the Ad
+// level's own picker alone, now shared by all three levels (one set of
+// conditions, kept live across level switches, same as `metricKeys`'s own
+// already-shared behavior — picking "Spend ≥ 500" means the same thing
+// whichever level you're filtering). Extracted into its own component so
+// this one JSX block (draft condition rows, Apply Filters button, result
+// count badge) doesn't need a third near-identical copy for ad sets and a
+// fourth for campaigns — every prop here is already level-agnostic.
+function MetricFilterBar({
+  totalCount,
+  filteredCount,
+  itemLabel,
+  loading,
+  metricKeys,
+  draftConditions,
+  hasPendingFilterChanges,
+  onAddCondition,
+  onUpdateCondition,
+  onRemoveCondition,
+  onApply,
+}) {
+  return (
+    <div className={styles.card} style={{ padding: 12, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span className={styles.muted} style={{ fontWeight: 600 }}>
+          Filter results
+        </span>
+        <span className={styles.badgeInfo}>
+          {filteredCount === totalCount
+            ? `${totalCount} ${itemLabel}${totalCount === 1 ? "" : "s"}`
+            : `${filteredCount} of ${totalCount} ${itemLabel}${totalCount === 1 ? "" : "s"}`}
+          {loading && " · loading…"}
+        </span>
+        <button type="button" className={styles.btnSecondary} onClick={onAddCondition}>
+          + Metric filter
+        </button>
+        {(draftConditions.length > 0 || hasPendingFilterChanges) && (
+          <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={onApply}>
+            Apply Filters
+          </button>
+        )}
+      </div>
+
+      {draftConditions.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          {draftConditions.map((c) => (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <select className={styles.select} value={c.metricKey} onChange={(e) => onUpdateCondition(c.id, { metricKey: e.target.value })}>
+                {metricKeys
+                  .filter((k) => PICKER_METRIC_CATALOG.find((m) => m.key === k)?.format !== "text")
+                  .map((k) => (
+                    <option key={k} value={k}>
+                      {PICKER_METRIC_CATALOG.find((m) => m.key === k)?.label || k}
+                    </option>
+                  ))}
+              </select>
+              <select className={styles.select} value={c.operator} onChange={(e) => onUpdateCondition(c.id, { operator: e.target.value })}>
+                {METRIC_FILTER_OPERATORS.map((op) => (
+                  <option key={op.value} value={op.value}>
+                    {op.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                className={styles.select}
+                style={{ width: 110 }}
+                value={c.value}
+                onChange={(e) => onUpdateCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                onKeyDown={(e) => e.key === "Enter" && onApply()}
+              />
+              <button type="button" className={styles.btnSecondary} onClick={() => onRemoveCondition(c.id)} aria-label="Remove filter">
+                <CloseIcon size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Capped tighter than Explore's 365-day ceiling: this picker's per-ad fields
 // are heavier (full object_story_spec/asset_feed_spec, carousel
 // child_attachments), and this feature has already hit real Graph errors
@@ -578,11 +660,23 @@ export default function CopyAdsPage() {
     },
   ];
 
+  // Same metric-threshold filtering the Ad level's own picker already has
+  // (MetricFilterBar/applyResultFilters above), reading each row's numbers
+  // out of its nested `performance` object instead of the Ad level's flat
+  // shape — see lib/copyAdsFilters.js's applyResultFilters for why that's a
+  // `getValue` param rather than a second copy of the filtering logic.
+  const filteredAdsetItems = applyResultFilters(adsetItems, appliedConditions, metricKeys, (row, key) => row.performance?.[key]);
+  const filteredCampaignItems = applyResultFilters(campaignItems, appliedConditions, metricKeys, (row, key) => row.performance?.[key]);
+
   // Ad Set / Campaign level pickers — multi-select checkboxes, same
   // select-all pattern as the Ad level's own `columns` above. Every row
   // shown already has real spend/delivery in the chosen window (see
   // onlyWithSpend above), so — unlike the Ad level — there's no per-row
-  // "copyable" eligibility to gate on here; every visible row is selectable.
+  // "copyable" eligibility to gate on here; every visible (filtered) row is
+  // selectable. Select-all only acts on the currently filtered rows, same
+  // "filtering is a view, not a selection change" reasoning as the Ad
+  // level's own `selectedAds`/`selectableIds` above — a selected ad set that
+  // a filter then hides stays selected.
   function toggleAdsetSelection(id) {
     setSelectedAdsetIds((prev) => {
       const next = new Set(prev);
@@ -591,7 +685,7 @@ export default function CopyAdsPage() {
       return next;
     });
   }
-  const adsetSelectableIds = adsetItems.map((a) => a.id);
+  const adsetSelectableIds = filteredAdsetItems.map((a) => a.id);
   const allAdsetsSelected = adsetSelectableIds.length > 0 && adsetSelectableIds.every((id) => selectedAdsetIds.has(id));
   const someAdsetsSelected = !allAdsetsSelected && adsetSelectableIds.some((id) => selectedAdsetIds.has(id));
   function toggleSelectAllAdsets() {
@@ -613,7 +707,7 @@ export default function CopyAdsPage() {
       return next;
     });
   }
-  const campaignSelectableIds = campaignItems.map((c) => c.id);
+  const campaignSelectableIds = filteredCampaignItems.map((c) => c.id);
   const allCampaignsSelected = campaignSelectableIds.length > 0 && campaignSelectableIds.every((id) => selectedCampaignIds.has(id));
   const someCampaignsSelected = !allCampaignsSelected && campaignSelectableIds.some((id) => selectedCampaignIds.has(id));
   function toggleSelectAllCampaigns() {
@@ -730,19 +824,34 @@ export default function CopyAdsPage() {
       )}
       {adsetItemsError && <div className={styles.error}>{adsetItemsError}</div>}
       {!adsetItemsError && adsetHasLoaded && (
-        <div ref={tableRef}>
-          <SortableTable
-            columns={adsetColumns}
-            rows={adsetItems}
-            defaultSortKey="name"
-            defaultSortDir="asc"
-            searchable
-            searchKeys={["name"]}
-            emptyMessage="No ad sets found in this account."
-            fixedColumnWidths
-            maxHeight={tableMaxHeight}
+        <>
+          <MetricFilterBar
+            totalCount={adsetItems.length}
+            filteredCount={filteredAdsetItems.length}
+            itemLabel="ad set"
+            loading={adsetItemsLoading}
+            metricKeys={metricKeys}
+            draftConditions={draftConditions}
+            hasPendingFilterChanges={hasPendingFilterChanges}
+            onAddCondition={addDraftCondition}
+            onUpdateCondition={updateDraftCondition}
+            onRemoveCondition={removeDraftCondition}
+            onApply={applyMetricFilters}
           />
-        </div>
+          <div ref={tableRef}>
+            <SortableTable
+              columns={adsetColumns}
+              rows={filteredAdsetItems}
+              defaultSortKey="name"
+              defaultSortDir="asc"
+              searchable
+              searchKeys={["name"]}
+              emptyMessage={appliedConditions.length > 0 ? "No ad sets match the current filters." : "No ad sets found in this account."}
+              fixedColumnWidths
+              maxHeight={tableMaxHeight}
+            />
+          </div>
+        </>
       )}
     </>
   );
@@ -764,19 +873,34 @@ export default function CopyAdsPage() {
       )}
       {campaignItemsError && <div className={styles.error}>{campaignItemsError}</div>}
       {!campaignItemsError && campaignHasLoaded && (
-        <div ref={tableRef}>
-          <SortableTable
-            columns={campaignColumns}
-            rows={campaignItems}
-            defaultSortKey="name"
-            defaultSortDir="asc"
-            searchable
-            searchKeys={["name"]}
-            emptyMessage="No campaigns found in this account."
-            fixedColumnWidths
-            maxHeight={tableMaxHeight}
+        <>
+          <MetricFilterBar
+            totalCount={campaignItems.length}
+            filteredCount={filteredCampaignItems.length}
+            itemLabel="campaign"
+            loading={campaignItemsLoading}
+            metricKeys={metricKeys}
+            draftConditions={draftConditions}
+            hasPendingFilterChanges={hasPendingFilterChanges}
+            onAddCondition={addDraftCondition}
+            onUpdateCondition={updateDraftCondition}
+            onRemoveCondition={removeDraftCondition}
+            onApply={applyMetricFilters}
           />
-        </div>
+          <div ref={tableRef}>
+            <SortableTable
+              columns={campaignColumns}
+              rows={filteredCampaignItems}
+              defaultSortKey="name"
+              defaultSortDir="asc"
+              searchable
+              searchKeys={["name"]}
+              emptyMessage={appliedConditions.length > 0 ? "No campaigns match the current filters." : "No campaigns found in this account."}
+              fixedColumnWidths
+              maxHeight={tableMaxHeight}
+            />
+          </div>
+        </>
       )}
     </>
   );
@@ -802,63 +926,19 @@ export default function CopyAdsPage() {
 
       {!adsError && (hasLoaded || ads.length > 0) && (
         <>
-          <div className={styles.card} style={{ padding: 12, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span className={styles.muted} style={{ fontWeight: 600 }}>
-                Filter results
-              </span>
-              <span className={styles.badgeInfo}>
-                {filteredAds.length === ads.length
-                  ? `${ads.length} ad${ads.length === 1 ? "" : "s"}`
-                  : `${filteredAds.length} of ${ads.length} ads`}
-                {adsLoading && " · loading…"}
-              </span>
-              <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
-                + Metric filter
-              </button>
-              {(draftConditions.length > 0 || hasPendingFilterChanges) && (
-                <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
-                  Apply Filters
-                </button>
-              )}
-            </div>
-
-            {draftConditions.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                {draftConditions.map((c) => (
-                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
-                      {metricKeys
-                        .filter((k) => PICKER_METRIC_CATALOG.find((m) => m.key === k)?.format !== "text")
-                        .map((k) => (
-                          <option key={k} value={k}>
-                            {PICKER_METRIC_CATALOG.find((m) => m.key === k)?.label || k}
-                          </option>
-                        ))}
-                    </select>
-                    <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
-                      {METRIC_FILTER_OPERATORS.map((op) => (
-                        <option key={op.value} value={op.value}>
-                          {op.label}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      className={styles.select}
-                      style={{ width: 110 }}
-                      value={c.value}
-                      onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
-                      onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
-                    />
-                    <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
-                      <CloseIcon size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <MetricFilterBar
+            totalCount={ads.length}
+            filteredCount={filteredAds.length}
+            itemLabel="ad"
+            loading={adsLoading}
+            metricKeys={metricKeys}
+            draftConditions={draftConditions}
+            hasPendingFilterChanges={hasPendingFilterChanges}
+            onAddCondition={addDraftCondition}
+            onUpdateCondition={updateDraftCondition}
+            onRemoveCondition={removeDraftCondition}
+            onApply={applyMetricFilters}
+          />
 
           <div ref={tableRef}>
             <SortableTable
