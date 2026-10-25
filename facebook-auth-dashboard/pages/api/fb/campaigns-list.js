@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, campaignId, since, until, metrics } = req.query;
+  const { accountId, campaignId, since, until, metrics, onlyWithSpend } = req.query;
   if (!accountId && !campaignId) {
     return res.status(400).json({ error: "accountId or campaignId is required" });
   }
@@ -73,10 +73,15 @@ export default async function handler(req, res) {
       }
     }
 
-    const campaigns = (listResult.value.data || []).map((c) => ({
+    let campaigns = (listResult.value.data || []).map((c) => ({
       ...c,
       performance: performanceByCampaignId.get(c.id) || null,
     }));
+    // Opt-in, same reasoning as adsets-list.js's identical filter — never
+    // applied for /launch's own caller, which doesn't pass this.
+    if (onlyWithSpend === "1" || onlyWithSpend === "true") {
+      campaigns = campaigns.filter((c) => (c.performance?.spend || 0) > 0);
+    }
     res.status(200).json({ campaigns });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
