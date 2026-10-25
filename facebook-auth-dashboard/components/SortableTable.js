@@ -268,8 +268,19 @@ export default function SortableTable({
       const bv = getValue(b);
       if (av == null) return 1;
       if (bv == null) return -1;
-      if (typeof av === "string") {
-        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      // A column can have a genuinely mixed-type value across rows (e.g. a
+      // metric that's usually a number but falls back to a placeholder
+      // string for some rows) — checking only `av`'s type and then calling
+      // `.localeCompare` on whichever of av/bv the sort direction happens to
+      // put first crashed the whole page the moment a row with the other
+      // type sorted after one of this type (`bv.localeCompare is not a
+      // function` when av is a string but bv isn't, or vice versa). Coercing
+      // both sides to strings whenever either one is a string avoids that
+      // regardless of sort direction or which row holds which type.
+      if (typeof av === "string" || typeof bv === "string") {
+        const as = String(av);
+        const bs = String(bv);
+        return sortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
       }
       return sortDir === "asc" ? av - bv : bv - av;
     });
