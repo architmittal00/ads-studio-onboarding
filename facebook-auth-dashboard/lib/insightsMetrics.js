@@ -671,7 +671,10 @@ export function catalogGroups(catalog) {
 // always agree on how a given metric reads. `currency` is only used for
 // `format: "currency"`; falls back to a plain number if omitted (matches
 // the rest of this app's `money()`-less-currency fallback convention).
-export function formatMetricValue(value, format, currency) {
+// `compact` (phone cards, where a cell is ~100px wide) abbreviates large
+// currency/count values the Indian way — ₹1.2L, 3.4Cr — instead of
+// "₹1,23,456.78", which would wrap or truncate.
+export function formatMetricValue(value, format, currency, { compact = false } = {}) {
   if (value == null) return "—";
   if (format === "text") return String(value);
   if (typeof value !== "number" || isNaN(value)) return "—";
@@ -679,6 +682,14 @@ export function formatMetricValue(value, format, currency) {
     case "currency":
       if (!currency) return value.toFixed(2);
       try {
+        if (compact) {
+          return new Intl.NumberFormat("en-IN", {
+            style: "currency",
+            currency,
+            notation: "compact",
+            maximumFractionDigits: 1,
+          }).format(value);
+        }
         return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
       } catch {
         return `${value.toFixed(2)} ${currency}`;
@@ -688,6 +699,7 @@ export function formatMetricValue(value, format, currency) {
     case "decimal":
       return value.toFixed(2);
     case "number":
+      if (compact) return new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 1 }).format(value);
       return Math.round(value).toLocaleString("en-IN");
     default:
       return String(value);

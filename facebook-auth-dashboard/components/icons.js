@@ -287,3 +287,29 @@ export function LockIcon(props) {
     </Svg>
   );
 }
+
+export function MoreIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" />
+    </Svg>
+  );
+}
+
+export function SortIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3" />
+    </Svg>
+  );
+}
+
+export function FilterIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M3 5h18l-7 8v6l-4-2v-4L3 5z" />
+    </Svg>
+  );
+}

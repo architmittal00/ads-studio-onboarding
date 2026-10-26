@@ -136,6 +136,22 @@ function Switch({ checked, onChange, disabled }) {
   );
 }
 
+const DAY_SHORT_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+// Phone-width trigger: "Last 30 Days · Sep 26 – Oct 25" — drops the year when
+// the range sits entirely in the current one, so it fits on a single line.
+function formatCompactTriggerLabel(rangePreset, since, until) {
+  if (!since || !until) return "Select dates…";
+  const thisYear = String(todayUTC().getUTCFullYear());
+  const fmt = since.startsWith(thisYear) && until.startsWith(thisYear) ? DAY_SHORT_FMT : DAY_LABEL_FMT;
+  const dates =
+    since === until
+      ? fmt.format(new Date(`${since}T00:00:00Z`))
+      : `${fmt.format(new Date(`${since}T00:00:00Z`))} – ${fmt.format(new Date(`${until}T00:00:00Z`))}`;
+  const presetLabel = RANGE_PRESETS.find((p) => p.key === rangePreset)?.label;
+  return !presetLabel || rangePreset === "custom" ? dates : `${presetLabel} · ${dates}`;
+}
+
 function formatTriggerLabel(rangePreset, since, until) {
   if (!since || !until) return "Select dates…";
   const datesLabel =
@@ -191,6 +207,7 @@ export default function DateRangeMenu({
   // against the header pill cluster.
   triggerClassName,
   triggerStyle,
+  fullWidth = false,
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(null);
@@ -204,7 +221,9 @@ export default function DateRangeMenu({
 
   const maxIso = isoDate(todayUTC());
   const committedRange = computeRange(rangePreset, customSince, customUntil);
-  const triggerLabel = formatTriggerLabel(rangePreset, committedRange?.since, committedRange?.until);
+  const triggerLabel = fullWidth
+    ? formatCompactTriggerLabel(rangePreset, committedRange?.since, committedRange?.until)
+    : formatTriggerLabel(rangePreset, committedRange?.since, committedRange?.until);
 
   function openMenu() {
     const rect = triggerRef.current.getBoundingClientRect();
@@ -278,7 +297,7 @@ export default function DateRangeMenu({
         type="button"
         ref={triggerRef}
         className={triggerClassName ? `${styles.btnSecondary} ${triggerClassName}` : styles.btnSecondary}
-        style={{ display: "inline-flex", alignItems: "center", gap: 8, ...triggerStyle }}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(fullWidth ? { width: "100%", minHeight: 40, justifyContent: "space-between" } : null), ...triggerStyle }}
         onClick={openMenu}
       >
         <CalendarIcon size={13} />
@@ -326,12 +345,12 @@ export default function DateRangeMenu({
   }
 
   return (
-    <div style={{ position: "relative", display: "inline-block" }}>
+    <div style={{ position: "relative", display: fullWidth ? "block" : "inline-block" }}>
       <button
         type="button"
         ref={triggerRef}
         className={triggerClassName ? `${styles.btnSecondary} ${triggerClassName}` : styles.btnSecondary}
-        style={{ display: "inline-flex", alignItems: "center", gap: 8, ...triggerStyle }}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(fullWidth ? { width: "100%", minHeight: 40, justifyContent: "space-between" } : null), ...triggerStyle }}
         onClick={close}
       >
         <CalendarIcon size={13} />

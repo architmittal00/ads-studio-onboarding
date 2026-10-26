@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Mobile web: Custom Views redesigned for phones — cards, sheets, sticky toolbar (2026-10-27)
+
+The first mobile pass (#342) only squeezed the desktop layout. This round re-thinks the presentation for phones: results are a **ranked card list** (`components/ExploreMobileList.js`) with a **KPI totals strip**, sticky search/sort/select toolbar, inline drill-down (View ad sets/ads, day-by-day), a sticky **bulk-action bar**, and **bottom sheets** (`components/BottomSheet.js`) for sort, filters, row actions (`RowActions variant="sheet"`) and a **view switcher** replacing the browser-style tab strip. Compact currency/number formatting (`formatMetricValue(..., {compact:true})`), compact date label. Desktop unchanged. Principles + code map in `DESIGN.md` → "Mobile web". **Verified only** in a 375px emulated viewport with mocked data (light mode); not on a real phone or real account — long names, many-metric views, breakdown/multi-account results, the detail drawer and bulk-duplicate modal on mobile still need a real-device pass.
+
 ### Mobile web: Custom Views (2026-10-27)
 
 First mobile-web pass — **Custom Views (`/explore`) only**; every other screen shows a "Best on a larger screen" notice on phones (≤768px). New `lib/useIsMobile.js` (breakpoint + `MOBILE_SUPPORTED_PATHS`), `Layout`/`Sidebar` swap the rail for a compact top bar, Explore's Query & Filters panel is a full-screen sheet opened from "Edit Query" (setup form is the screen until a first result exists), `DateRangeMenu` is a bottom sheet on phones, drawers are full-width, name columns narrower, API-logs FAB hidden, 16px form controls. Documented in `DESIGN.md` → "Mobile web". **Verified only** in a 375px emulated viewport with mocked data (dark mode off/on not both checked); not on a real phone or with a real account. Next candidates in the user's priority order are still to be given.

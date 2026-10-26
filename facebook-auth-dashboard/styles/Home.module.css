@@ -892,7 +892,7 @@ button.stat:hover {
   gap: 8px;
   height: 52px;
   padding: 0 12px;
-  background: var(--card);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .mobileTopBarTitle {
@@ -1418,4 +1418,496 @@ button.stat:hover {
     border-radius: 0;
     border: none;
   }
+}
+
+/* ── Mobile Custom Views: bottom sheets, card list, KPI strip, bulk bar ──
+   Rendered only at phone widths (components/BottomSheet.js,
+   components/ExploreMobileList.js and the mobile branches in
+   pages/explore.js), so these aren't wrapped in a media query. */
+.sheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+}
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet {
+  width: 100%;
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
+  animation: sheetUp 0.18s ease-out;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.sheetGrip {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border2);
+  margin: 8px auto 0;
+}
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px 8px 18px;
+}
+.sheetTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--t1);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheetBody {
+  overflow-y: auto;
+  padding: 4px 18px 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.sheetFooter {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+}
+.sheetList {
+  display: flex;
+  flex-direction: column;
+}
+.sheetListItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--t1);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.sheetListItem:last-child {
+  border-bottom: none;
+}
+
+/* Page-level mobile header: view switcher + date + edit */
+.mvHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mvViewBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--t1);
+  text-align: left;
+  cursor: pointer;
+}
+.mvViewText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mvViewTitle {
+  font-size: 15px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mvViewSub {
+  font-size: 11.5px;
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mvControlRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.mvControlRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.mvResultBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mvMeta {
+  font-size: 12px;
+  color: var(--t3);
+  line-height: 1.4;
+}
+.mvChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--t1);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mvChipBadge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Card list */
+.mobileList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mobileListToolbar {
+  position: sticky;
+  top: 52px;
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  background: var(--bg);
+}
+.mobileSearch {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--t3);
+}
+.mobileSearch input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--t1);
+  font-family: inherit;
+}
+.mobileToolBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--t1);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mobileToolBtnLabel {
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobileToolBtnOn {
+  border-color: rgba(var(--purple-rgb), 0.5);
+  background: rgba(var(--purple-rgb), 0.14);
+  color: var(--purple);
+}
+.selectAllRow {
+  display: flex;
+  justify-content: flex-end;
+}
+.kpiStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -14px;
+  padding: 2px 14px 4px;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: 14px;
+  scrollbar-width: none;
+}
+.kpiStrip::-webkit-scrollbar {
+  display: none;
+}
+.kpiTile {
+  flex: 0 0 auto;
+  min-width: 104px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  scroll-snap-align: start;
+}
+.kpiLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--t3);
+  white-space: nowrap;
+}
+.kpiValue {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--t1);
+  white-space: nowrap;
+}
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rowCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.rowCardSelected {
+  border-color: var(--purple);
+  background: rgba(var(--purple-rgb), 0.08);
+}
+.rowCardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.rowCardTitleBtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.rowCardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--t1);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.rowCardSub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  font-size: 11.5px;
+  color: var(--t3);
+}
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 2px;
+}
+.statusDotOn {
+  background: var(--green);
+}
+.statusDotOff {
+  background: var(--t3);
+}
+.statusDotWarn {
+  background: var(--amber);
+}
+.cardMoreBtn {
+  width: 36px;
+  height: 36px;
+  margin: -6px -6px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--t2);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cardMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 8px;
+}
+.cardMetric {
+  min-width: 0;
+}
+.cardMetricLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cardMetricLabelActive {
+  color: var(--purple);
+}
+.cardMetricValue {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cardLinkBtn {
+  align-self: flex-start;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  color: var(--purple);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cardDrillBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  margin: 0 -12px -12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--t2);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 0 0 14px 14px;
+}
+.cardChildWrap {
+  margin: 8px 0 0 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.selectDot {
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  background: transparent;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.selectDotOn {
+  background: var(--purple);
+  border-color: var(--purple);
+}
+.mobileBulkBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.18);
+  overflow-x: auto;
+}
+.mobileBulkCount {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--t1);
+  white-space: nowrap;
+}
+.mobileBulkBar button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.mvResultSection {
+  min-width: 0;
+}
+.mvChartControls {
+  flex-direction: column;
+  align-items: stretch !important;
+  gap: 10px !important;
+}
+.mvChartControls > div {
+  width: 100%;
+  justify-content: space-between;
+}
+.mvChartControls select {
+  flex: 1;
+  min-width: 0;
+  max-width: 62%;
 }
