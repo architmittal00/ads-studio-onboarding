@@ -10,6 +10,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Verbatim clone of sr-ads-launch (see launch-ad/); kept unmodified so it can be diffed against the source repo.
+    "launch-ad/**",
+    "app/**",
   ]),
 ]);
 

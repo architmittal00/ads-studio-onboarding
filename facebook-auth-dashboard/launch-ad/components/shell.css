@@ -1,0 +1,56 @@
+/* Fastrr Ads app shell: sidebar with logo + single item, top bar with breadcrumb. */
+.app { display: flex; min-height: 100vh; }
+.side {
+  position: sticky; top: 0; height: 100vh; flex: none; width: 224px;
+  background: var(--bg); border-right: 1px solid var(--card-line);
+  padding: 18px 16px; display: flex; flex-direction: column; gap: 22px;
+  transition: width .18s ease;
+}
+.app.collapsed .side { width: 72px; padding: 18px 12px; align-items: center; }
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.app.collapsed .side-top { flex-direction: column; gap: 14px; }
+.side-toggle {
+  width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; flex: none;
+  background: transparent; color: var(--ink); border: 1.5px solid var(--coral);
+}
+.wordmark { display: flex; flex-direction: column; line-height: 1; padding-left: 2px; }
+.wm-row { display: flex; align-items: center; gap: 4px; }
+.wm-lines { display: inline-flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+.wm-lines i { display: block; height: 2.5px; border-radius: 2px; background: var(--ink); }
+.wm-lines i:first-child { width: 11px; }
+.wm-lines i:last-child { width: 8px; margin-left: 3px; }
+.wm-name { font-size: 21px; font-weight: 800; font-style: italic; letter-spacing: -0.02em; color: var(--ink); }
+.wm-sub { font-size: 10px; font-weight: 600; color: var(--ink-2); margin: 3px 0 0 18px; }
+.side-nav { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.side-item {
+  display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 10px;
+  color: var(--ink); text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent;
+}
+.side-item svg { color: var(--ink-2); flex: none; }
+.side-item[aria-current='page'] { background: var(--seg-on); border-color: var(--seg-on-line); }
+.side-item[aria-current='page'] svg { color: var(--coral); }
+.app.collapsed .side-item { justify-content: center; padding: 10px; }
+.app.collapsed .side-item span { display: none; }
+
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar {
+  height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; border-bottom: 1px solid var(--card-line); background: var(--bg);
+  position: sticky; top: 0; z-index: 30;
+}
+.crumbs { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.crumbs .sep { opacity: .6; }
+.crumbs .here { color: var(--ink); font-weight: 500; }
+.top-actions { display: flex; align-items: center; gap: 6px; }
+.icon-btn { width: 34px; height: 34px; border-radius: 8px; border: 0; background: transparent; color: var(--ink-2); display: grid; place-items: center; }
+.icon-btn:hover, .icon-btn[aria-pressed='true'] { background: var(--seg-on); color: var(--coral); }
+.who { display: inline-flex; margin: 0 4px; }
+.app .main { flex: 1; }
+
+/* Login screen inside the shell */
+.login-in-shell { display: grid; place-items: center; padding: 56px 20px 80px; }
+
+@media (max-width: 760px) {
+  .side { display: none; }
+  .topbar { padding: 0 16px; }
+}
