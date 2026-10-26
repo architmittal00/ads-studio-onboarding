@@ -570,3 +570,13 @@
 .la-root .cat-empty-ic { background: rgba(var(--purple-rgb), 0.12); color: var(--purple); }
 .la-root .cat-empty h3 { font-size: 15px; font-weight: 700; }
 .la-root .loading { color: var(--t2); font-size: 12px; }
+
+/* Page frame matches pages/partnership-ads.js: .main = flex column, gap 20, padding 48px 32px, max 1500. */
+.la-root .content, .la-root .content.wide { display: flex; flex-direction: column; gap: 20px; max-width: 1500px; margin: 0 auto; padding: 48px 32px 120px; }
+
+/* Stat tiles use .stat/.statLabel/.statValue values (Home.module.css). */
+.la-root .cat-metric .k, .la-root .cat-delta .k { font-size: 10px; font-weight: 600; letter-spacing: .4px; color: var(--t3); margin-bottom: 4px; }
+.la-root .cat-metric .v { font-size: 16px; font-weight: 800; color: var(--t1); }
+.la-root .cat-delta .big { font-size: 20px; font-weight: 800; color: var(--t1); }
+.la-root .cat-card, .la-root .cat-delta { background: var(--card); border: 1px solid var(--border); }
+.la-root .cat-card { padding: 20px; }

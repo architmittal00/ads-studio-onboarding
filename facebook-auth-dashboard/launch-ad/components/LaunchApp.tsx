@@ -4,7 +4,8 @@ import { apiGet } from '@/launch-ad/lib/client-api';
 import { adFirstForm, clearAccountBound, repeatForm } from '@/launch-ad/lib/form';
 import { useAsync } from '@/launch-ad/lib/hooks';
 import type { AdAccount, FormState, LaunchResult } from '@/launch-ad/lib/types';
-import AccountPicker from './AccountPicker';
+import PageHeader, { AccountNotices, AdAccountPill } from './PageHeader';
+import styles from '@/styles/Home.module.css';
 import AdFirstWorkspace from './AdFirstWorkspace';
 import LegalLinks from './LegalLinks';
 import ResultView from './ResultView';
@@ -75,13 +76,10 @@ export default function LaunchApp({ declined }: { declined: string[] }) {
 
   return (
     <div className={`content ${view.kind === 'ad' ? 'wide' : ''}`}>
-      <div className={`page-top ${view.kind === 'ad' ? 'compact' : ''}`}>
-        <div>
-          <h1 className="page-title">Start with an Ad</h1>
-          <p className="page-sub">Create the ad, choose where it runs, launch.</p>
-        </div>
-        <AccountPicker accounts={accounts} value={accountId} onChange={changeAccount} />
-      </div>
+      <PageHeader title="Start with an Ad" sub="Create the ad, choose where it runs, launch.">
+        <AdAccountPill accounts={accounts} value={accountId} onChange={changeAccount} />
+      </PageHeader>
+      <AccountNotices accounts={accounts} />
 
       {declined.length ? (
         <div className="notice warn" style={{ marginBottom: 16 }}>

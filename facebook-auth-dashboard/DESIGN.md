@@ -83,15 +83,16 @@ Visual primitives were converged in `launch-ad/launch-ad.scoped.css` (blanket to
 | 9 | Table look → `.table` header/cell/hover values. Still the clone's own `.cat-table`: no sort/resize/freeze/search | Visual fixed; **`SortableTable` swap open** |
 | 10 | Spinner/loading → shared `Loader` in the main "Loading" state (button-inline spinners keep the clone's) | **Mostly fixed** |
 | 11 | Empty state → icon/heading colors aligned with `.exploreEmptyState`; markup still the clone's | Partly fixed |
-| 12 | Ad account picker (`AccountPicker`/`SearchSelect`) — styled like our inputs/dropdowns; same combobox pattern as `AccountSelect` but different data shape and keyboard handling | Visual fixed; **component swap open** |
-| 13 | Date range — own `DateRange.tsx` popover vs `DateRangeMenu` | **Open** (duplicate) |
+| 12 | Page-level ad account picker → shared `AccountSelect` in the `.headerPillRow` (`launch-ad/components/PageHeader.tsx`, mirrors `pages/partnership-ads.js`). In-flow `SearchSelect`s (catalog, page, pixel…) remain the clone's | **Fixed** (header) / Open (in-flow) |
+| 13 | Date range → shared `DateRangeMenu` (clone's `DateRange.tsx` deleted) | **Fixed** |
+| 19 | Page header + frame: `.h1`/`.sub` title block, labeled pills + refresh button, `.tabGroup`/`.tab`, `.exploreEmptyState` empty state, `.main`-style frame (flex column, gap 20, 48px 32px, max 1500); stat tiles on `.stat*` values | **Fixed** |
 | 14 | Pickers — own interest/audience/location pickers vs `InterestPicker`, `TargetingSearchPicker`, `CustomAudiencePicker` | **Open** (duplicates) |
 | 15 | Icons — `lucide-react` (12 files) vs `components/icons.js` | **Open** |
 | 16 | Page layout — own `.content` (835 / 1320) instead of `.page`/`.main` | **Open** (wizard needs width; decide per screen) |
 | 17 | Overlays / z-index (25/30/40/60 vs modals 800) | **Open** — verify |
 | 18 | Sticky step bar opaque at `top: 0`; API log removed; light/dark via tokens | **Fixed** |
 
-Remaining order: 13, 14, 12, 9 (replace duplicate components — removes the most code) → 15 → 16, 17.
+Remaining order: 14, 12 (in-flow), 9 (replace duplicate components — removes the most code) → 15 → 16, 17.
 
 ## Adding or changing a component
 

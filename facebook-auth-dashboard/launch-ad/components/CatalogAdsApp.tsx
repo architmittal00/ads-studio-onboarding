@@ -1,15 +1,16 @@
 'use client';
-import { ArrowDown, ArrowUp, LineChart, RefreshCw, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, Search } from 'lucide-react';
+import { ChartIcon } from '@/components/icons';
+import styles from '@/styles/Home.module.css';
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '@/launch-ad/lib/client-api';
 import { currencySymbol } from '@/launch-ad/lib/constants';
 import { adFirstForm, clearAccountBound, repeatForm } from '@/launch-ad/lib/form';
 import { useAsync } from '@/launch-ad/lib/hooks';
 import type { AdAccount, FormState, LaunchResult } from '@/launch-ad/lib/types';
-import AccountPicker from './AccountPicker';
 import AdFirstWorkspace from './AdFirstWorkspace';
 import { SetChecks, SetThumbs, type SetHealth, type SetLite } from './CatalogPanel';
-import DateRange, { presetRange, type Range } from './DateRange';
+import PageHeader, { AccountNotices, AdAccountPill, RangePill, RefreshPill, presetRange, type Range } from './PageHeader';
 import LegalLinks from './LegalLinks';
 import { statusLabel } from './Pickers';
 import ResultView from './ResultView';
@@ -100,44 +101,45 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
 
   return (
     <div className="content wide">
-      <div className="page-top compact">
-        <div>
-          <h1 className="page-title">Catalog Ads</h1>
-          <p className="page-sub">Compare catalog ads with your other ads, browse product sets, and launch catalog ads.</p>
-        </div>
-        <AccountPicker accounts={accounts} value={accountId} onChange={changeAccount} />
-      </div>
+      <PageHeader title="Catalog Ads" sub="Compare catalog ads with your other ads, browse product sets, and launch catalog ads.">
+        <AdAccountPill accounts={accounts} value={accountId} onChange={changeAccount} />
+        {tab !== 'create' ? (
+          <>
+            <RangePill range={range} onChange={setRange} />
+            <RefreshPill onClick={() => { setChecked(true); setTick((n) => n + 1); }} />
+          </>
+        ) : null}
+      </PageHeader>
+      <AccountNotices accounts={accounts} />
 
       {declined.length ? (
-        <div className="notice warn" style={{ marginBottom: 16 }}>
+        <div className={styles.error}>
           You didn&apos;t allow <b>{declined.join(', ')}</b>. Some options won&apos;t load. <a href="/">Log in again</a> to grant them.
         </div>
       ) : null}
 
-      <div className="cat-toolbar">
-        <nav className="cat-tabs" role="tablist" aria-label="Catalog Ads">
-          {TABS.map((t) => <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>{t.label}</button>)}
-        </nav>
-        {tab !== 'create' ? (
-          <div className="cat-range">
-            <DateRange value={range} onChange={setRange} />
-            <button type="button" className="icon-btn bordered" aria-label="Refresh" title="Refresh" onClick={() => { setChecked(true); setTick((n) => n + 1); }}><RefreshCw size={15} /></button>
-          </div>
-        ) : null}
+      <div className={styles.tabGroup} style={{ flexWrap: 'wrap' }} role="tablist" aria-label="Catalog Ads">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setTab(t.key)}>{t.label}</button>
+        ))}
       </div>
 
       {!account ? null : tab === 'overview' && !checked ? (
-        <div className="card cat-empty">
-          <span className="cat-empty-ic"><LineChart size={22} /></span>
-          <h3>Ready to compare performance</h3>
-          <p>See how your catalog ads stack up against your other ads over a chosen window.</p>
-          <ol>
-            <li><span>1</span> Pick an ad account</li>
-            <li><span>2</span> Choose a date range</li>
-            <li><span>3</span> Click &ldquo;Check Performance&rdquo;</li>
-          </ol>
-          <button type="button" className="btn-primary" onClick={() => setChecked(true)}>Check Performance</button>
-        </div>
+        <section className={styles.card}>
+          <div className={styles.exploreEmptyState}>
+            <div className={styles.exploreEmptyIcon}><ChartIcon size={26} /></div>
+            <div>
+              <h2 className={styles.h2} style={{ marginBottom: 6 }}>Ready to compare performance</h2>
+              <p className={styles.sub}>See how your catalog ads stack up against your other ads over a chosen window.</p>
+            </div>
+            <div className={styles.exploreEmptySteps}>
+              {['Pick an ad account', 'Choose a date range', 'Click “Check Performance”'].map((step, i) => (
+                <div key={step} className={styles.exploreEmptyStep}><span className={styles.exploreEmptyStepNum}>{i + 1}</span>{step}</div>
+              ))}
+            </div>
+            <button type="button" className={styles.btnPrimary} onClick={() => setChecked(true)}>Check Performance</button>
+          </div>
+        </section>
       ) : tab === 'overview' ? (
         <Overview perf={perf} money={money} range={range} />
       ) : tab === 'ads' ? (
