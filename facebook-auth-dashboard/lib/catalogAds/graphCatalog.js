@@ -303,3 +303,53 @@ export async function fetchInterestSuggestions(token, names) {
   const res = await graphGet("/search", token, { type: "adinterestsuggestion", interest_list: list, limit: 20 });
   return res.data || [];
 }
+
+function mediaItem(m) {
+  return m.media_type === "VIDEO" ? { type: "video", url: m.media_url || "", poster: m.thumbnail_url || "" } : { type: "image", url: m.media_url || m.thumbnail_url || "" };
+}
+
+// Recent posts to promote as an "existing post" ad — phase 5's standard-ad
+// flow. Facebook Page posts need the Page's own token (read server-side,
+// never sent to the browser); Instagram media uses the user's own token.
+export async function fetchPosts(token, { pageId, source, igId }) {
+  need(pageId, "page");
+  if (source === "INSTAGRAM") {
+    need(igId, "Instagram account");
+    const json = await graphGet(`/${igId}/media`, token, {
+      fields: "id,caption,media_type,media_product_type,media_url,thumbnail_url,timestamp,permalink,children{media_type,media_url,thumbnail_url}",
+      limit: 24,
+    });
+    return (json.data || []).map((m) => ({
+      id: m.id,
+      text: m.caption || "",
+      image: m.thumbnail_url || m.media_url || "",
+      time: m.timestamp,
+      link: m.permalink,
+      type: m.media_product_type === "REELS" ? "REELS" : m.media_type,
+      media: (m.media_type === "CAROUSEL_ALBUM" ? (m.children?.data || []).map(mediaItem) : [mediaItem(m)]).filter((x) => x.url),
+    }));
+  }
+  const page = await graphGet(`/${pageId}`, token, { fields: "access_token" });
+  const json = await graphGet(`/${pageId}/published_posts`, page.access_token || token, {
+    fields: "id,message,full_picture,created_time,permalink_url,attachments{media_type,media,subattachments{media_type,media}}",
+    limit: 24,
+  });
+  const fbItem = (a) =>
+    /video/i.test(a?.media_type || "") && a?.media?.source
+      ? { type: "video", url: a.media.source, poster: a.media?.image?.src || "" }
+      : { type: "image", url: a?.media?.image?.src || "" };
+  return (json.data || []).map((p) => {
+    const att = p.attachments?.data?.[0];
+    const subs = att?.subattachments?.data || [];
+    const media = (subs.length ? subs.map(fbItem) : att ? [fbItem(att)] : []).filter((x) => x.url);
+    return {
+      id: p.id,
+      text: p.message || "",
+      image: p.full_picture || "",
+      type: media.some((x) => x.type === "video") ? "VIDEO" : subs.length > 1 ? "CAROUSEL_ALBUM" : "POST",
+      time: p.created_time,
+      link: p.permalink_url,
+      media: media.length ? media : p.full_picture ? [{ type: "image", url: p.full_picture }] : [],
+    };
+  });
+}

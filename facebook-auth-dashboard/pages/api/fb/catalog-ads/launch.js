@@ -1,13 +1,13 @@
 import { requireCatalogAdsRequest } from "@/lib/catalogAds/apiGuard";
 import { graphPost } from "@/lib/facebookGraph";
-import { buildCatalogAdsetPayload, buildCatalogCampaignPayload, buildCatalogCreativeParams, toMinorUnits } from "@/lib/catalogAds/launch";
+import { buildCatalogAdsetPayload, buildCatalogCampaignPayload, buildCatalogCreativeParams, buildStandardCreativeParams, toMinorUnits } from "@/lib/catalogAds/launch";
 
-// Catalog-ad launch sequence — same paused-first-then-activate-only-if-
-// everything-succeeded shape as pages/api/fb/launch-campaign.js, extended
-// with the two extra steps that endpoint never needed (a catalog ad set's
-// own creative + ad), since the existing Launch tab's "new campaign/ad set"
-// flow never creates an ad from scratch, only duplicates an existing one's
-// creative by id.
+// Catalog AND standard (image/existing-post) ad launch sequence — same
+// paused-first-then-activate-only-if-everything-succeeded shape as
+// pages/api/fb/launch-campaign.js, extended with the two extra steps that
+// endpoint never needed (this ad's own creative + ad), since the existing
+// Launch tab's "new campaign/ad set" flow never creates an ad from scratch,
+// only duplicates an existing one's creative by id.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -18,9 +18,16 @@ export default async function handler(req, res) {
   if (!session) return;
 
   const { accountId, campaign, existingCampaignId, budgetStrategy, budgetType, budgetAmount, adset, ad, status } = req.body || {};
+  const isCatalog = !!adset?.isCatalog;
 
-  if (!accountId || !adset?.name || !adset?.optimizationGoal || !adset?.productSetId) {
-    return res.status(400).json({ error: "accountId and adset (with name, optimizationGoal, productSetId) are required" });
+  if (!accountId || !adset?.name || !adset?.optimizationGoal) {
+    return res.status(400).json({ error: "accountId and adset (with name, optimizationGoal) are required" });
+  }
+  if (isCatalog && !adset?.productSetId) {
+    return res.status(400).json({ error: "adset.productSetId is required for a catalog ad set" });
+  }
+  if (!isCatalog && !adset?.pixelId) {
+    return res.status(400).json({ error: "adset.pixelId is required for a standard ad set" });
   }
   if (!campaign && !existingCampaignId) {
     return res.status(400).json({ error: "Either campaign (to create one) or existingCampaignId is required" });
@@ -28,11 +35,20 @@ export default async function handler(req, res) {
   if (campaign && existingCampaignId) {
     return res.status(400).json({ error: "Provide only one of campaign or existingCampaignId, not both" });
   }
-  if (campaign && (!campaign.name || !campaign.catalogId)) {
-    return res.status(400).json({ error: "campaign.name and campaign.catalogId are required" });
+  if (campaign && !campaign.name) {
+    return res.status(400).json({ error: "campaign.name is required" });
   }
-  if (!ad?.name || !ad?.pageId || !ad?.message || !ad?.headline || !ad?.link) {
-    return res.status(400).json({ error: "ad (with name, pageId, message, headline, link) is required" });
+  if (campaign && isCatalog && !campaign.catalogId) {
+    return res.status(400).json({ error: "campaign.catalogId is required for a new catalog campaign" });
+  }
+  if (!ad?.name || !ad?.pageId) {
+    return res.status(400).json({ error: "ad.name and ad.pageId are required" });
+  }
+  if (ad.kind === "POST" && !ad.postId) {
+    return res.status(400).json({ error: "ad.postId is required for an existing-post ad" });
+  }
+  if (ad.kind !== "POST" && (!ad.message || !ad.headline || !ad.link)) {
+    return res.status(400).json({ error: "ad.message, ad.headline and ad.link are required" });
   }
 
   const budgetIsUsed = (campaign && budgetStrategy === "CBO") || budgetStrategy === "ABO";
@@ -96,7 +112,7 @@ export default async function handler(req, res) {
 
   let adId = null;
   if (adsetId) {
-    const creativePayload = buildCatalogCreativeParams({ ad, productSetId: adset.productSetId });
+    const creativePayload = isCatalog ? buildCatalogCreativeParams({ ad, productSetId: adset.productSetId }) : buildStandardCreativeParams({ ad });
     progress(`Creating ad creative…`);
     try {
       const creative = await graphPost(`/${accountId}/adcreatives`, token, creativePayload);
