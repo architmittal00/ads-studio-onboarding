@@ -152,6 +152,62 @@ export async function graphPost(path, accessToken, params = {}) {
   return json;
 }
 
+// Multipart POST with one binary field — added for Catalog Ads' video-chunk
+// upload (lib/catalogAds/videoUpload.js), the first binary upload this app
+// sends to Graph (image uploads go through graphPost's own base64 `bytes`
+// param instead, Meta's own convention for /adimages). `file` is
+// `{field, data, filename}` — `data` a Buffer/Blob, `filename` whatever Meta
+// logs for it (not meaningful here beyond that).
+export async function graphPostFile(path, accessToken, params = {}, file) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      form.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
+    }
+  }
+  form.set("access_token", accessToken);
+  const proof = appSecretProof(accessToken);
+  if (proof) form.set("appsecret_proof", proof);
+  form.set(file.field, new Blob([file.data]), file.filename);
+
+  const url = `${BASE_URL}${path}`;
+  const redactedUrl = redactToken(`${url}?${new URLSearchParams({ ...params, [file.field]: `<${file.data.length} bytes>` }).toString()}`);
+  const start = Date.now();
+
+  let status = null;
+  let json = null;
+  let errorMessage = null;
+
+  try {
+    const res = await fetch(url, { method: "POST", body: form });
+    status = res.status;
+    json = await res.json();
+    if (json?.error) {
+      errorMessage = extractErrorMessage(json.error);
+    }
+  } catch (err) {
+    errorMessage = err.message;
+  }
+
+  logApiCall({
+    method: "POST",
+    path,
+    url: redactedUrl,
+    status,
+    durationMs: Date.now() - start,
+    error: errorMessage,
+    responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
+  });
+
+  if (errorMessage) {
+    const err = new Error(errorMessage);
+    err.graphResponse = json;
+    throw err;
+  }
+
+  return json;
+}
+
 // Fetches one additional page from a `paging.next` URL — already a complete,
 // signed URL (includes access_token and every query param from the original
 // request), so this talks to `fetch` directly rather than going through
