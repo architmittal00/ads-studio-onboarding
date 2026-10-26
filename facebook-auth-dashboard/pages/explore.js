@@ -38,6 +38,7 @@ import {
 import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_COLORS } from "@/lib/tabGroups";
 import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
 import DateRangeMenu from "@/components/DateRangeMenu";
+import { useIsMobile, MOBILE_TOP_BAR_HEIGHT } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
 
 // Recharts measures its container via ResizeObserver, so it can't be
@@ -730,7 +731,16 @@ export default function Explore() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of a per-device localStorage preference on mount, not derivable from props/state
     if (saved != null) setQueryPanelCollapsedState(saved);
   }, []);
+  // Phone layout: the panel is a full-screen sheet opened on demand rather
+  // than a persisted side-by-side preference (there's no room beside a
+  // result), so it has its own non-persisted open flag.
+  const isMobile = useIsMobile();
+  const [mobileQueryOpen, setMobileQueryOpen] = useState(false);
   function toggleQueryPanel() {
+    if (isMobile) {
+      setMobileQueryOpen((prev) => !prev);
+      return;
+    }
     setQueryPanelCollapsedState((prev) => {
       const next = !prev;
       setExploreQueryPanelCollapsed(next);
@@ -1334,7 +1344,8 @@ export default function Explore() {
   // instead — a brand-new (or still-loading-for-the-first-time) view has
   // nothing else on screen, so the form it needs to run a query stays open
   // regardless of the stored preference.
-  const queryPanelExpanded = !result || !queryPanelCollapsed;
+  const queryPanelExpanded = !result || (isMobile ? mobileQueryOpen : !queryPanelCollapsed);
+  const queryPanelIsSheet = isMobile && !!result;
 
   // `.exploreQueryPanel`'s CSS caps it at `calc(100vh - 40px)` assuming its
   // own top edge sits at the `top: 20px` it's pinned to once sticky engages
@@ -2136,7 +2147,7 @@ export default function Explore() {
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
           <h1 className={styles.h1}>Custom Views</h1>
-          <p className={styles.sub} style={{ marginTop: -8 }}>
+          <p className={`${styles.sub} ${styles.hideOnMobile}`} style={{ marginTop: -8 }}>
             Build any view of Facebook Ads data — pick an account, a date range (up to 365 days), a level, a
             breakdown, and whatever metrics you want, then view it as a table or chart. Keep several views open at
             once, like browser tabs — each with its own account and query.
@@ -2152,7 +2163,7 @@ export default function Explore() {
               gap: 6,
               flexWrap: "wrap",
               position: "sticky",
-              top: 0,
+              top: isMobile ? MOBILE_TOP_BAR_HEIGHT : 0,
               zIndex: 5,
               background: "var(--bg)",
               paddingTop: 8,
@@ -2176,13 +2187,14 @@ export default function Explore() {
             <div className={styles.exploreLayout}>
               <div className={styles.exploreContent}>
                 <div
+                  className={styles.exploreDateBar}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
                     flexWrap: "wrap",
                     marginBottom: 14,
-                    position: "sticky",
+                    position: isMobile ? "static" : "sticky",
                     top: tabsRowHeight,
                     zIndex: 4,
                     background: "var(--bg)",
@@ -2197,8 +2209,10 @@ export default function Explore() {
 
               <aside
                 ref={queryPanelRef}
-                className={styles.exploreQueryPanel}
-                style={queryPanelMaxHeight ? { maxHeight: queryPanelMaxHeight } : undefined}
+                className={
+                  queryPanelIsSheet ? `${styles.exploreQueryPanel} ${styles.exploreQueryPanelSheet}` : styles.exploreQueryPanel
+                }
+                style={queryPanelMaxHeight && !isMobile ? { maxHeight: queryPanelMaxHeight } : undefined}
               >
                 <div className={`${styles.card} ${styles.exploreQueryCard}`}>
                   <div className={styles.exploreQueryHeader}>
@@ -2215,7 +2229,7 @@ export default function Explore() {
                         onClick={toggleQueryPanel}
                         title="Collapse — focus on the result"
                       >
-                        <ChevronIcon direction="right" size={15} />
+                        {isMobile ? <CloseIcon size={15} /> : <ChevronIcon direction="right" size={15} />}
                       </button>
                     )}
                   </div>
@@ -2497,11 +2511,18 @@ export default function Explore() {
                       type="button"
                       className={styles.btnPrimary}
                       disabled={!canRunQuery || activeView.loading}
-                      onClick={() => runQueryForView(activeView, false)}
+                      onClick={() => {
+                        runQueryForView(activeView, false);
+                        setMobileQueryOpen(false);
+                      }}
                     >
                       {activeView.loading ? "Updating…" : "Update This View"}
                     </button>
-                    <button type="button" className={styles.btnSecondary} disabled={!canRunQuery} onClick={createNewViewFromActive}>
+                    <button type="button" className={styles.btnSecondary} disabled={!canRunQuery} onClick={() => {
+                        createNewViewFromActive();
+                        setMobileQueryOpen(false);
+                      }}
+                    >
                       + Create New View
                     </button>
                   </div>
@@ -2518,7 +2539,7 @@ export default function Explore() {
                   gap: 10,
                   flexWrap: "wrap",
                   marginBottom: 14,
-                  position: "sticky",
+                  position: isMobile ? "static" : "sticky",
                   top: tabsRowHeight,
                   zIndex: 4,
                   background: "var(--bg)",
@@ -2676,6 +2697,7 @@ function ExploreResultsTable({
   tableFirstColFrozen,
   onTableViewChange,
 }) {
+  const isMobile = useIsMobile();
   const allKeys = [...meta.metricKeys, ...meta.customFields];
 
   // Lets someone spot a few problem rows here, grab their IDs, and paste
@@ -2979,7 +3001,11 @@ function ExploreResultsTable({
   }
 
   const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
-  const LEADING_MAX_WIDTH = { accountId: 200, date: 120, entityLabel: 240, breakdownLabel: 200, label: 160 };
+  // Narrower name columns on a phone — the first column is frozen by
+  // default, and a 240px one would leave almost no room for metrics beside it.
+  const LEADING_MAX_WIDTH = isMobile
+    ? { accountId: 120, date: 100, entityLabel: 150, breakdownLabel: 130, label: 130 }
+    : { accountId: 200, date: 120, entityLabel: 240, breakdownLabel: 200, label: 160 };
   const leadingColumns = leadingColumnDefs(meta).map((def) => {
     if (def.key === "accountId") {
       return { ...def, maxWidth: LEADING_MAX_WIDTH.accountId, render: accountName, sortValue: accountName };

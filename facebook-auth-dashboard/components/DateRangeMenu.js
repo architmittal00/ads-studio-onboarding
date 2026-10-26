@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronIcon, CalendarIcon } from "./icons";
 import { RANGE_PRESETS, isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
+import { useIsMobile } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
 
 const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -197,6 +198,7 @@ export default function DateRangeMenu({
   const [leftMonth, setLeftMonth] = useState(() => monthKeyOf(isoDate(todayUTC())));
   const [compareMonth, setCompareMonth] = useState(null);
   const [pos, setPos] = useState(null);
+  const isMobile = useIsMobile();
   const triggerRef = useRef(null);
   const popoverRef = useRef(null);
 
@@ -341,31 +343,63 @@ export default function DateRangeMenu({
         <div
           ref={popoverRef}
           className={styles.card}
-          style={{
-            position: "fixed",
-            top: pos.top,
-            left: pos.left,
-            zIndex: 50,
-            background: "var(--bg)",
-            width: "min(760px, calc(100vw - 32px))",
-            boxShadow: "var(--shadow-md)",
-            display: "flex",
-            padding: 0,
-            overflow: "hidden",
-          }}
+          style={
+            isMobile
+              ? {
+                  // Phone: a bottom sheet — presets as wrapped chips above a
+                  // single month — instead of the side-by-side desktop popover.
+                  position: "fixed",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 60,
+                  background: "var(--bg)",
+                  boxShadow: "0 -8px 32px rgba(0,0,0,0.25)",
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: 0,
+                  maxHeight: "88vh",
+                  overflowY: "auto",
+                  borderRadius: "16px 16px 0 0",
+                }
+              : {
+                  position: "fixed",
+                  top: pos.top,
+                  left: pos.left,
+                  zIndex: 50,
+                  background: "var(--bg)",
+                  width: "min(760px, calc(100vw - 32px))",
+                  boxShadow: "var(--shadow-md)",
+                  display: "flex",
+                  padding: 0,
+                  overflow: "hidden",
+                }
+          }
         >
           <div
-            style={{
-              width: 172,
-              flexShrink: 0,
-              borderRight: "1px solid var(--border)",
-              padding: 12,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              maxHeight: 520,
-              overflowY: "auto",
-            }}
+            style={
+              isMobile
+                ? {
+                    flexShrink: 0,
+                    borderBottom: "1px solid var(--border)",
+                    padding: 12,
+                    display: "flex",
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 4,
+                  }
+                : {
+                    width: 172,
+                    flexShrink: 0,
+                    borderRight: "1px solid var(--border)",
+                    padding: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    maxHeight: 520,
+                    overflowY: "auto",
+                  }
+            }
           >
             {RANGE_PRESETS.map((p) => (
               <button
@@ -424,7 +458,9 @@ export default function DateRangeMenu({
             </div>
             <div style={{ display: "flex", gap: 18, marginTop: 8 }} onMouseLeave={() => setHoverDate(null)}>
               <Month monthKey={leftMonth} selStart={draft.since} selEnd={draft.until} hoverEnd={hoverDate} maxIso={maxIso} onPick={handleDayPick} onHover={setHoverDate} />
-              <Month monthKey={rightMonth} selStart={draft.since} selEnd={draft.until} hoverEnd={hoverDate} maxIso={maxIso} onPick={handleDayPick} onHover={setHoverDate} />
+              {!isMobile && (
+                <Month monthKey={rightMonth} selStart={draft.since} selEnd={draft.until} hoverEnd={hoverDate} maxIso={maxIso} onPick={handleDayPick} onHover={setHoverDate} />
+              )}
             </div>
             {draftTooLong && (
               <p className={styles.sub} style={{ color: "var(--red)", marginTop: 10 }}>
@@ -535,8 +571,8 @@ export default function DateRangeMenu({
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
-              <span className={styles.muted}>Dates are in your local timezone.</span>
-              <div style={{ display: "flex", gap: 10 }}>
+              {!isMobile && <span className={styles.muted}>Dates are in your local timezone.</span>}
+              <div style={{ display: "flex", gap: 10, ...(isMobile ? { width: "100%", justifyContent: "flex-end" } : null) }}>
                 <button type="button" className={styles.btnSecondary} onClick={close}>
                   Cancel
                 </button>

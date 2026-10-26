@@ -94,6 +94,16 @@ Visual primitives were converged in `launch-ad/launch-ad.scoped.css` (blanket to
 
 Remaining order: 14, 12 (in-flow), 9 (replace duplicate components — removes the most code) → 15 → 16, 17.
 
+## Mobile web (phone widths, ≤768px)
+
+Only **Custom Views** (`/explore`) is adapted for phones so far. Everything lives behind one breakpoint, `MOBILE_MAX_WIDTH = 768` in `lib/useIsMobile.js` (keep CSS `@media (max-width: 768px)` blocks in sync with it).
+
+- **Gate:** `MOBILE_SUPPORTED_PATHS` in `lib/useIsMobile.js` lists the phone-ready screens. `components/Layout.js` renders a "Best on a larger screen" notice (link to Custom Views) for any other page on a phone. Add a path there when you adapt another screen.
+- **Shell:** the sidebar rail becomes a 52px sticky top bar (`.mobileTopBar`: logo, title, theme, sign out). Sticky things that pin under it offset by `MOBILE_TOP_BAR_HEIGHT`.
+- **Patterns to reuse:** full-screen sheet for side panels (`.exploreQueryPanelSheet`, opened by an "Edit Query"-style button); bottom sheet for popovers (see `DateRangeMenu` — presets as chips above a single month); full-width drawers (`.drawerPanel`); narrower frozen/name table columns; `.hideOnMobile` for long intro copy.
+- **Rules:** form controls are 16px on phones (stops iOS zoom-on-focus, `styles/globals.css`); no floating buttons (`ApiLogsFab` is hidden); no horizontal page scroll — wide tables scroll inside their own container.
+- **Not yet verified on a real device** — checked in a 375px emulated viewport only.
+
 ## Adding or changing a component
 
 1. Check the list above and `components/` for something reusable.

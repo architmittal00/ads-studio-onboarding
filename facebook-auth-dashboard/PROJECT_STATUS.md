@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Mobile web: Custom Views (2026-10-27)
+
+First mobile-web pass — **Custom Views (`/explore`) only**; every other screen shows a "Best on a larger screen" notice on phones (≤768px). New `lib/useIsMobile.js` (breakpoint + `MOBILE_SUPPORTED_PATHS`), `Layout`/`Sidebar` swap the rail for a compact top bar, Explore's Query & Filters panel is a full-screen sheet opened from "Edit Query" (setup form is the screen until a first result exists), `DateRangeMenu` is a bottom sheet on phones, drawers are full-width, name columns narrower, API-logs FAB hidden, 16px form controls. Documented in `DESIGN.md` → "Mobile web". **Verified only** in a 375px emulated viewport with mocked data (dark mode off/on not both checked); not on a real phone or with a real account. Next candidates in the user's priority order are still to be given.
+
 ### Catalog Ads / Launch Ad aligned to Partnership Ads' layout (2026-10-27)
 
 After the first convergence pass the user still saw Catalog Ads differ visibly from Partnership Ads (header, tabs, positioning, sizes). The clones' headers now use this app's own components via new `launch-ad/components/PageHeader.tsx`: `.h1`/`.sub` title block, `.headerPillRow` with labeled `AccountSelect` + `DateRangeMenu` (+ refresh `headerPillIconBtn`) exactly as `pages/partnership-ads.js`; Catalog tabs → `.tabGroup`/`.tab`/`.tabActive`; empty state → `.exploreEmptyState*`; page frame → flex column / gap 20 / 48px 32px / max 1500; stat tiles → `.stat*` values. Deleted `DateRange.tsx` and `AccountPicker.tsx` (clone's own). Date presets now come from `lib/dateRanges.js` (`computeRange`). DESIGN.md audit updated; remaining differences: in-flow `SearchSelect`s, audience/interest pickers, `.cat-table` vs `SortableTable`, icons. Verified visually (dark, mocked data); not light mode or real account.
