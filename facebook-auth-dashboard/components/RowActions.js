@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { formatMetricValue, LEVEL_OPTIONS } from "@/lib/insightsMetrics";
-import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon, CopyIcon, InfoIcon } from "./icons";
+import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon, CopyIcon, InfoIcon, MoreIcon } from "./icons";
+import BottomSheet from "./BottomSheet";
 import DuplicateEntityModal from "./DuplicateEntityModal";
 
 // Quick budget bumps — the common "cut it back" / "push it harder" pacing
@@ -56,7 +57,10 @@ function determineActions(row, level) {
 // Explore's results table — one action shown directly as a button, several
 // shown behind a small "Take Action" menu, nothing shown at all when this
 // row has no single entity to act on or nothing about it is actionable.
-export default function RowActions({ row, level, currency, onActionApplied, onViewDetails }) {
+// `variant="sheet"` (phone cards): a ⋯ button that lists every action in a
+// bottom sheet instead of the anchored desktop dropdown — same actions, same
+// confirm/duplicate modals underneath.
+export default function RowActions({ row, level, currency, onActionApplied, onViewDetails, variant }) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Viewport-relative {top, right} for the open menu, computed from the
   // trigger button's own getBoundingClientRect() at open time — see the
@@ -75,13 +79,13 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
   // capture phase instead, which does see it. Closing on any scroll avoids a
   // menu silently drifting away from the button it belongs to.
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen || variant === "sheet") return;
     function close() {
       setMenuOpen(false);
     }
     window.addEventListener("scroll", close, true);
     return () => window.removeEventListener("scroll", close, true);
-  }, [menuOpen]);
+  }, [menuOpen, variant]);
 
   if (!row.entityId) return null;
   const actions = determineActions(row, level);
@@ -107,9 +111,42 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
     setMenuOpen((o) => !o);
   }
 
+  const sheetTrigger =
+    variant === "sheet" ? (
+      <>
+        <button type="button" className={styles.cardMoreBtn} onClick={() => setMenuOpen(true)} aria-label="Actions">
+          <MoreIcon size={18} />
+        </button>
+        <BottomSheet open={menuOpen} title={row.entityLabel || row.label || "Actions"} onClose={() => setMenuOpen(false)}>
+          <div className={styles.sheetList}>
+            {actions.map((action) => (
+              <button key={action.key} type="button" className={styles.sheetListItem} onClick={() => openAction(action)}>
+                {action.kind === "status" ? (
+                  action.nextStatus === "PAUSED" ? (
+                    <PauseIcon size={16} />
+                  ) : (
+                    <PlayIcon size={16} />
+                  )
+                ) : action.kind === "duplicate" ? (
+                  <CopyIcon size={16} />
+                ) : action.kind === "details" ? (
+                  <InfoIcon size={16} />
+                ) : (
+                  <span style={{ width: 16 }} />
+                )}
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
+      </>
+    ) : null;
+
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
-      {actions.length === 1 ? (
+      {variant === "sheet" ? (
+        sheetTrigger
+      ) : actions.length === 1 ? (
         <ActionTriggerButton action={actions[0]} onClick={() => openAction(actions[0])} />
       ) : (
         <>

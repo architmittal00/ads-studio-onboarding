@@ -16,9 +16,9 @@ import CopyIdButton from "@/components/CopyIdButton";
 import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import BulkDuplicateAdsModal from "@/components/BulkDuplicateAdsModal";
-import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon, RefreshIcon, MoreIcon, FilterIcon, PlusIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
-import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
+import { getCachedEntry, setCachedEntry, clearCachedEntry, formatAge } from "@/lib/clientCache";
 import {
   getExploreViews,
   setExploreViews,
@@ -39,6 +39,8 @@ import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_
 import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import { useIsMobile, MOBILE_TOP_BAR_HEIGHT } from "@/lib/useIsMobile";
+import BottomSheet from "@/components/BottomSheet";
+import ExploreMobileList from "@/components/ExploreMobileList";
 import styles from "@/styles/Home.module.css";
 
 // Recharts measures its container via ResizeObserver, so it can't be
@@ -536,6 +538,17 @@ function summarizeQuery(view, adAccounts) {
   const levelLabel = LEVEL_OPTIONS.find((l) => l.value === view.level)?.label;
   const metricCount = view.metricKeys.length;
   return `${accountLabel} · ${levelLabel} level · ${metricCount} metric${metricCount === 1 ? "" : "s"}`;
+}
+
+// " · Updated 3m ago" suffix for the phone result header — ticks so the age
+// keeps advancing while the page sits open (same reason as CacheStatus).
+function MobileAge({ fetchedAt }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+  return <> · Updated {formatAge(now - fetchedAt)}</>;
 }
 
 // Small "?" badge that swaps a section's always-visible explanatory paragraph
@@ -1508,97 +1521,177 @@ export default function Explore() {
     downloadCsv(`explore-${slug || "report"}-${result.meta.since}-to-${result.meta.until}.csv`, csv);
   }
 
-  // Shown in both layouts below (side-by-side with the query panel when
-  // expanded, full-width under the collapsed-panel toolbar otherwise) — kept
-  // as one value rather than duplicated JSX so there's exactly one copy of
-  // this fairly large block to keep in sync.
-  const resultArea = (
-    <>
-      {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
-      {activeView.loading && !result && <Loader label={activeView.progressMessage || "Running your query…"} />}
-      {!activeView.error && !activeView.loading && !result && (
-        <ExploreEmptyState canRunQuery={canRunQuery} loading={activeView.loading} onRun={() => runQueryForView(activeView, false)} />
-      )}
-
-      {result && (
-        <section className={styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 16 }}>
-          {isRerun && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: 14,
-                background: "rgba(10,9,20,.72)",
-                backdropFilter: "blur(2px)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 20,
+  const [viewSheetOpen, setViewSheetOpen] = useState(false);
+  // Phone replacement for the browser-style tab strip + date bar + "Edit
+  // Query" toolbar: one tappable view switcher (opens a sheet listing every
+  // open view), then date range and Edit side by side.
+  function renderMobileHeader() {
+    const activeIdx = views.findIndex((v) => v.id === activeView.id);
+    return (
+      <div className={styles.mvHeader}>
+        <button type="button" className={styles.mvViewBtn} onClick={() => setViewSheetOpen(true)}>
+          <span className={styles.mvViewText}>
+            <span className={styles.mvViewTitle}>{viewTitle(activeView, adAccounts, activeIdx === -1 ? 0 : activeIdx)}</span>
+            <span className={styles.mvViewSub}>
+              {summarizeQuery(activeView, adAccounts)}
+              {views.length > 1 && ` · ${views.length} views open`}
+            </span>
+          </span>
+          {activeView.loading && <span className={`${styles.spinner} ${styles.spinnerSm}`} />}
+          <ChevronIcon direction="down" size={14} />
+        </button>
+        <div className={styles.mvControlRow}>
+          <div>{renderDateRangeBar({ fullWidth: true })}</div>
+          {result && (
+            <button type="button" className={styles.mvChip} onClick={toggleQueryPanel}>
+              <SettingsIcon size={14} />
+              Edit
+            </button>
+          )}
+        </div>
+        <BottomSheet
+          open={viewSheetOpen}
+          title="Your views"
+          onClose={() => setViewSheetOpen(false)}
+          footer={
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              style={{ width: "100%", minHeight: 44 }}
+              onClick={() => {
+                addBlankView();
+                setViewSheetOpen(false);
               }}
             >
-              <Loader label={activeView.progressMessage || describeQuery(activeView)} />
-            </div>
-          )}
-
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-            <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
-                Export CSV
-              </button>
-              <div className={styles.tabGroup}>
+              <PlusIcon size={13} /> New view
+            </button>
+          }
+        >
+          <div className={styles.sheetList}>
+            {views.map((v, idx) => (
+              <div key={v.id} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
                 <button
-                  className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => updateActive({ viewMode: "table" })}
+                  type="button"
+                  className={styles.sheetListItem}
+                  style={{ flex: 1, minWidth: 0, borderBottom: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+                  onClick={() => {
+                    setActiveViewId(v.id);
+                    setViewSheetOpen(false);
+                  }}
                 >
-                  Table
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, maxWidth: "100%", fontWeight: v.id === activeViewId ? 800 : 600 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewTitle(v, adAccounts, idx)}</span>
+                    {v.loading && <span className={`${styles.spinner} ${styles.spinnerSm}`} />}
+                    {v.id === activeViewId && <span style={{ color: "var(--purple)" }}>●</span>}
+                  </span>
+                  <span className={styles.mvViewSub} style={{ maxWidth: "100%" }}>
+                    {summarizeQuery(v, adAccounts)}
+                  </span>
                 </button>
-                <button
-                  className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => updateActive({ viewMode: "chart" })}
-                >
-                  Chart
-                </button>
+                {views.length > 1 && (
+                  <button
+                    type="button"
+                    className={styles.appSidebarIconBtn}
+                    aria-label="Close this view"
+                    onClick={() => closeView(v.id)}
+                  >
+                    <CloseIcon size={14} />
+                  </button>
+                )}
               </div>
-            </div>
+            ))}
           </div>
+        </BottomSheet>
+      </div>
+    );
+  }
 
-          {result.meta.accountErrors?.length > 0 && (
-            <div className={styles.error}>
-              {/* An account here may have zero rows (its only/every request failed) or still have partial
-                  data (one of several chunked date-range requests failed, the rest succeeded) — this note
-                  doesn't distinguish the two, just flags that something didn't come back clean. */}
-              Some data may be missing or incomplete —{" "}
-              {result.meta.accountErrors
-                .map((e) => `${adAccounts.find((a) => a.id === e.accountId)?.name || e.accountId} (${e.message})`)
-                .join(", ")}
-              .
-            </div>
-          )}
+  // Phone result header: one compact meta line + the controls that matter
+  // (List/Chart, Filters, ⋯ more) instead of the desktop's wrapped button row.
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  function renderMobileResultBar() {
+    const filterCount =
+      (activeView.resultFilters.metricConditions?.length || 0) + (activeView.resultFilters.statusValues ? 1 : 0);
+    const rowText =
+      filteredRows.length === result.meta.rowCount
+        ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
+        : `${filteredRows.length} of ${result.meta.rowCount} rows`;
+    return (
+      <>
+        <div className={styles.mvResultBar}>
+          <div className={styles.tabGroup}>
+            <button
+              className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              onClick={() => updateActive({ viewMode: "table" })}
+            >
+              List
+            </button>
+            <button
+              className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              onClick={() => updateActive({ viewMode: "chart" })}
+            >
+              Chart
+            </button>
+          </div>
+          <button type="button" className={styles.mvChip} onClick={() => setMobileFiltersOpen(true)}>
+            <FilterIcon size={14} />
+            Filters
+            {filterCount > 0 && <span className={styles.mvChipBadge}>{filterCount}</span>}
+          </button>
+          <button
+            type="button"
+            className={styles.mvChip}
+            style={{ marginLeft: "auto" }}
+            onClick={() => setMobileMoreOpen(true)}
+            aria-label="More"
+          >
+            <MoreIcon size={16} />
+          </button>
+        </div>
+        <div className={styles.mvMeta}>
+          {result.meta.since} → {result.meta.until}
+          {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
+          {` · ${rowText}`}
+          {result.meta.filteredByNameCount > 0 && ` · ${result.meta.filteredByNameCount} hidden by name filter`}
+          {activeView.resultFetchedAt && <MobileAge fetchedAt={activeView.resultFetchedAt} />}
+        </div>
+        <BottomSheet open={mobileFiltersOpen} title="Filter results" onClose={() => setMobileFiltersOpen(false)}>
+          {renderFilterCard()}
+        </BottomSheet>
+        <BottomSheet open={mobileMoreOpen} title="More" onClose={() => setMobileMoreOpen(false)}>
+          <div className={styles.sheetList}>
+            <button
+              type="button"
+              className={styles.sheetListItem}
+              onClick={() => {
+                setMobileMoreOpen(false);
+                runQueryForView(activeView, true);
+              }}
+            >
+              <RefreshIcon size={16} />
+              Hard refresh
+            </button>
+            <button
+              type="button"
+              className={styles.sheetListItem}
+              onClick={() => {
+                setMobileMoreOpen(false);
+                handleExportCsv();
+              }}
+            >
+              <CopyIcon size={16} />
+              Export CSV
+            </button>
+          </div>
+        </BottomSheet>
+      </>
+    );
+  }
 
-          <p className={styles.sub}>
-            {result.meta.since} → {result.meta.until}
-            {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
-            {" · "}
-            {filteredRows.length === result.meta.rowCount
-              ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
-              : `${filteredRows.length} of ${result.meta.rowCount} rows (filtered)`}
-            {result.meta.filteredByNameCount > 0 &&
-              ` · ${result.meta.filteredByNameCount} filtered out by name filter`}
-          </p>
-          {result.meta.excludedMetrics?.length > 0 && (
-            <p className={styles.sub}>
-              {result.meta.excludedMetrics.map((k) => effectiveCatalog.find((m) => m.key === k)?.label || k).join(", ")} not
-              shown — a name filter required combining finer-grained data, and those can&apos;t be correctly
-              combined across entities.
-            </p>
-          )}
-
-          {/* Post-query pivot filters — applied to `result` already sitting in state, no re-fetch.
-              Metric conditions are a local draft until "Apply Filters" is clicked, so typing a
-              value doesn't re-filter the table on every keystroke; Status checkboxes (below)
-              stay instant since a checkbox click has no typing-jank to smooth over. */}
-          <div className={styles.card} style={{ padding: 12 }}>
+  function renderFilterCard() {
+    return (
+      <div className={styles.card} style={{ padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span className={styles.muted} style={{ fontWeight: 600 }}>
                 Filter results
@@ -1697,9 +1790,107 @@ export default function Explore() {
               </div>
             )}
           </div>
+    );
+  }
+
+  // Shown in both layouts below (side-by-side with the query panel when
+  // expanded, full-width under the collapsed-panel toolbar otherwise) — kept
+  // as one value rather than duplicated JSX so there's exactly one copy of
+  // this fairly large block to keep in sync.
+  const resultArea = (
+    <>
+      {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
+      {activeView.loading && !result && <Loader label={activeView.progressMessage || "Running your query…"} />}
+      {!activeView.error && !activeView.loading && !result && (
+        <ExploreEmptyState canRunQuery={canRunQuery} loading={activeView.loading} onRun={() => runQueryForView(activeView, false)} />
+      )}
+
+      {result && (
+        <section className={isMobile ? styles.mvResultSection : styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+          {isRerun && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 14,
+                background: "rgba(10,9,20,.72)",
+                backdropFilter: "blur(2px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 20,
+              }}
+            >
+              <Loader label={activeView.progressMessage || describeQuery(activeView)} />
+            </div>
+          )}
+
+          {isMobile ? renderMobileResultBar() : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
+                Export CSV
+              </button>
+              <div className={styles.tabGroup}>
+                <button
+                  className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => updateActive({ viewMode: "table" })}
+                >
+                  Table
+                </button>
+                <button
+                  className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                  onClick={() => updateActive({ viewMode: "chart" })}
+                >
+                  Chart
+                </button>
+              </div>
+            </div>
+          </div>
+          )}
+
+          {result.meta.accountErrors?.length > 0 && (
+            <div className={styles.error}>
+              {/* An account here may have zero rows (its only/every request failed) or still have partial
+                  data (one of several chunked date-range requests failed, the rest succeeded) — this note
+                  doesn't distinguish the two, just flags that something didn't come back clean. */}
+              Some data may be missing or incomplete —{" "}
+              {result.meta.accountErrors
+                .map((e) => `${adAccounts.find((a) => a.id === e.accountId)?.name || e.accountId} (${e.message})`)
+                .join(", ")}
+              .
+            </div>
+          )}
+
+          {!isMobile && (
+          <p className={styles.sub}>
+            {result.meta.since} → {result.meta.until}
+            {result.meta.compareToPrevious && ` · vs. ${result.meta.previousSince} → ${result.meta.previousUntil}`}
+            {" · "}
+            {filteredRows.length === result.meta.rowCount
+              ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
+              : `${filteredRows.length} of ${result.meta.rowCount} rows (filtered)`}
+            {result.meta.filteredByNameCount > 0 &&
+              ` · ${result.meta.filteredByNameCount} filtered out by name filter`}
+          </p>
+          )}
+          {result.meta.excludedMetrics?.length > 0 && (
+            <p className={styles.sub}>
+              {result.meta.excludedMetrics.map((k) => effectiveCatalog.find((m) => m.key === k)?.label || k).join(", ")} not
+              shown — a name filter required combining finer-grained data, and those can&apos;t be correctly
+              combined across entities.
+            </p>
+          )}
+
+          {/* Post-query pivot filters — applied to `result` already sitting in state, no re-fetch.
+              Metric conditions are a local draft until "Apply Filters" is clicked, so typing a
+              value doesn't re-filter the table on every keystroke; Status checkboxes (below)
+              stay instant since a checkbox click has no typing-jank to smooth over. */}
+          {!isMobile && renderFilterCard()}
 
           {activeView.viewMode === "chart" && chartableMetricKeys.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <div className={isMobile ? styles.mvChartControls : undefined} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span className={styles.muted}>Y axis</span>
                 <select
@@ -2102,10 +2293,11 @@ export default function Explore() {
   // validation messages — shared by both the expanded and collapsed layouts
   // below so a performance marketer scanning several tabs can change either
   // one without the panel being open at all.
-  function renderDateRangeBar() {
+  function renderDateRangeBar({ fullWidth = false } = {}) {
     return (
       <>
         <DateRangeMenu
+          fullWidth={fullWidth}
           rangePreset={activeView.rangePreset}
           customSince={activeView.customSince}
           customUntil={activeView.customUntil}
@@ -2146,7 +2338,7 @@ export default function Explore() {
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Custom Views</h1>
+          <h1 className={`${styles.h1} ${styles.hideOnMobile}`}>Custom Views</h1>
           <p className={`${styles.sub} ${styles.hideOnMobile}`} style={{ marginTop: -8 }}>
             Build any view of Facebook Ads data — pick an account, a date range (up to 365 days), a level, a
             breakdown, and whatever metrics you want, then view it as a table or chart. Keep several views open at
@@ -2155,6 +2347,10 @@ export default function Explore() {
 
           {accountsError && <div className={styles.error}>Error loading ad accounts: {accountsError}</div>}
 
+          {isMobile ? (
+            renderMobileHeader()
+          ) : (
+            <>
           <div
             ref={tabsRowRef}
             style={{
@@ -2182,10 +2378,13 @@ export default function Explore() {
             </button>
           </div>
           {renderTabMenu()}
+            </>
+          )}
 
           {queryPanelExpanded ? (
             <div className={styles.exploreLayout}>
               <div className={styles.exploreContent}>
+                {!isMobile && (
                 <div
                   className={styles.exploreDateBar}
                   style={{
@@ -2204,6 +2403,7 @@ export default function Explore() {
                 >
                   {renderDateRangeBar()}
                 </div>
+                )}
                 {resultArea}
               </div>
 
@@ -2531,6 +2731,7 @@ export default function Explore() {
             </div>
           ) : (
             <div className={styles.exploreContent}>
+              {!isMobile && (
               <div
                 style={{
                   display: "flex",
@@ -2564,6 +2765,7 @@ export default function Explore() {
                   <ChevronIcon direction="left" size={12} />
                 </button>
               </div>
+              )}
               {resultArea}
             </div>
           )}
@@ -2820,8 +3022,8 @@ function ExploreResultsTable({
   // pages/explore.js, passed down as `resultFilters`) the visible top-level
   // rows are under also apply to a drilled-into row's children, instead of
   // those always showing in raw API order with every status/filter ignored.
-  const [childSort, setChildSort] = useState({ key: null, dir: "desc" });
-  const [childSearch, setChildSearch] = useState("");
+  const [childSort, setChildSort] = useState({ key: tableSortKey || null, dir: tableSortDir || "desc" });
+  const [childSearch, setChildSearch] = useState(tableSearch || "");
   // Mirrors which column the parent table currently has frozen — a
   // drilled-into row never creates its own "Campaign"/"Ad Set" column (it
   // reuses the same leading name column, just indented), so without this a
@@ -3411,6 +3613,148 @@ function ExploreResultsTable({
     }
     if (!drillDownEnabled || !row.entityId) return null;
     return renderChildBlock(row.entityId, 1);
+  }
+
+  // ── Phone layout: cards instead of the table ──
+  if (isMobile) {
+    const currencyFor = (row) =>
+      row.accountId ? currencyByAccountId.get(row.accountId) : meta.accountIds.length === 1 ? currencyByAccountId.get(meta.accountIds[0]) : undefined;
+    const metricColumns = columns.filter((c) => allKeys.includes(c.key));
+    const nameKey = leadingColumns.find((c) => c.key === "entityLabel" || c.key === "label" || c.key === "breakdownLabel" || c.key === "date")?.key;
+    const getTitle = (row) => String(row.entityLabel ?? row.label ?? row.breakdownLabel ?? row.date ?? "");
+    const getSubtitle = (row) => {
+      const parts = [];
+      if (meta.accountIds.length > 1 && row.accountId) parts.push(accountName(row));
+      if (row.breakdownLabel && row.breakdownLabel !== getTitle(row)) parts.push(row.breakdownLabel);
+      if (row.date && !timePivotEnabled && row.date !== getTitle(row)) parts.push(formatPivotDateLabel(row.date, meta.timeIncrement));
+      return parts.join(" · ");
+    };
+    const sortColumns = [
+      ...(nameKey ? [{ key: "__name", label: "Name (A–Z)", isName: true, sortValue: (row) => getTitle(row).toLowerCase() }] : []),
+      ...metricColumns.filter((c) => c.key !== "landing_page"),
+    ];
+    const sortKey = childSort.key && sortColumns.some((c) => c.key === childSort.key) ? childSort.key : meta.metricKeys[0] || sortColumns[0]?.key;
+    const sortDir = childSort.key ? childSort.dir : tableSortDir || "desc";
+    const metricByKey = new Map(metricColumns.map((c) => [c.key, c]));
+    function renderMetric(row, key) {
+      const metric = effectiveCatalog.find((m) => m.key === key);
+      const format = metric?.format || "number";
+      if (key === "landing_page") {
+        const url = row[key];
+        return url ? (
+          <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+            {landingPageLinkLabel(url)}
+          </a>
+        ) : (
+          "—"
+        );
+      }
+      const currency = currencyFor(row);
+      const value = formatMetricValue(row[key], format, currency, { compact: true });
+      if (!metricByKey.has(key) || !(meta.compareToPrevious && format !== "text")) return value;
+      const previous = row._previous?.[key];
+      const absoluteDiff = typeof row[key] === "number" && typeof previous === "number" ? row[key] - previous : null;
+      return (
+        <>
+          {value}
+          <DeltaBadge mode={compareDisplay} deltaPct={row._deltaPct?.[key]} absoluteDiff={absoluteDiff} format={format} currency={currency} />
+        </>
+      );
+    }
+    const bulkButtons = selectedIds.size > 0 && (
+      <div className={styles.mobileBulkBar}>
+        <span className={styles.mobileBulkCount}>{selectedIds.size} selected</span>
+        {(CHILD_LEVEL[meta.level] || meta.level === "ad") && (
+          <button type="button" className={styles.btnPrimary} onClick={() => onOpenChildView(meta.level, [...selectedIds])}>
+            {CHILD_LEVEL[meta.level] ? "Open New" : "Open in New Tab"}
+          </button>
+        )}
+        {meta.level === "ad" && (
+          <button type="button" className={styles.btnSecondary} disabled={selectedAccountIds.length !== 1} onClick={() => setBulkDuplicating(true)}>
+            Duplicate
+          </button>
+        )}
+        <button type="button" className={styles.btnSecondary} onClick={() => copyText([...selectedIds].join(", "))}>
+          Copy IDs
+        </button>
+        <button type="button" className={styles.btnSecondary} onClick={() => setSelectedIds(new Set())}>
+          Clear
+        </button>
+      </div>
+    );
+    return (
+      <div>
+        <ExploreMobileList
+          rows={topLevelRows}
+          level={meta.level}
+          metricColumns={metricColumns}
+          sortColumns={sortColumns}
+          statusAvailable={!!meta.statusAvailable}
+          totalsRow={showTotalsRow ? meta.totalsRow : null}
+          renderMetric={renderMetric}
+          getTitle={getTitle}
+          getSubtitle={getSubtitle}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSortChange={(key, dir) => {
+            setChildSort({ key, dir });
+            // The synthetic name-sort isn't a real column, so it isn't saved
+            // as the view's (desktop table) sort.
+            if (key !== "__name") onTableViewChange?.({ tableSortKey: key, tableSortDir: dir });
+          }}
+          search={childSearch}
+          onSearchChange={(term) => {
+            setChildSearch(term);
+            onTableViewChange?.({ tableSearch: term });
+          }}
+          selectedIds={selectedIds}
+          onToggleSelected={toggleSelected}
+          onSelectAll={toggleSelectAll}
+          allSelected={allSelected}
+          drill={{
+            enabled: drillDownEnabled,
+            pivotEnabled: timePivotEnabled,
+            expansions,
+            childLevel: (lvl) => CHILD_LEVEL[lvl],
+            plural: (lvl) => CHILD_LEVEL_PLURAL[lvl] || "items",
+            onToggle: toggleExpand,
+            onRetry: (exp) => startFetch(exp.parentRow, exp.childLevel),
+            orderChildren: applyChildRowOrdering,
+            onChildApplied: applyChildActionPatch,
+            onTopApplied: onActionApplied,
+            pivotOpenIds,
+            pivotChildren: pivotChildrenByEntity || new Map(),
+            onTogglePivot: togglePivotOpen,
+            pivotDateLabel: (iso) => formatPivotDateLabel(iso, meta.timeIncrement),
+          }}
+          renderActions={(row, rowLevel, onApplied) => (
+            <RowActions
+              variant="sheet"
+              row={row}
+              level={rowLevel}
+              currency={currencyFor(row)}
+              onActionApplied={onApplied}
+              onViewDetails={setDetailEntity}
+            />
+          )}
+          onViewDetails={setDetailEntity}
+          onOpenThumb={(row, title) =>
+            setLightboxItem({ id: row.entityId, name: title || row.entityId, thumbnailUrl: row.thumbnailUrl, isVideo: row.isVideo })
+          }
+        />
+        {bulkButtons}
+        <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+        <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} onNavigate={setDetailEntity} />
+        {bulkDuplicating && (
+          <BulkDuplicateAdsModal
+            ads={selectedRows.map((r) => ({ id: r.entityId, name: r.entityLabel || r.label || r.entityId }))}
+            accountId={selectedAccountIds[0]}
+            currency={currencyByAccountId.get(selectedAccountIds[0])}
+            onClose={() => setBulkDuplicating(false)}
+          />
+        )}
+      </div>
+    );
   }
 
   return (

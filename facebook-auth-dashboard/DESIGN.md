@@ -96,13 +96,29 @@ Remaining order: 14, 12 (in-flow), 9 (replace duplicate components — removes t
 
 ## Mobile web (phone widths, ≤768px)
 
-Only **Custom Views** (`/explore`) is adapted for phones so far. Everything lives behind one breakpoint, `MOBILE_MAX_WIDTH = 768` in `lib/useIsMobile.js` (keep CSS `@media (max-width: 768px)` blocks in sync with it).
+Only **Custom Views** (`/explore`) is adapted for phones so far. Mobile is **not the desktop layout squeezed down** — it presents the same data differently. One breakpoint: `MOBILE_MAX_WIDTH = 768` in `lib/useIsMobile.js` (keep CSS `@media (max-width: 768px)` blocks in sync).
 
-- **Gate:** `MOBILE_SUPPORTED_PATHS` in `lib/useIsMobile.js` lists the phone-ready screens. `components/Layout.js` renders a "Best on a larger screen" notice (link to Custom Views) for any other page on a phone. Add a path there when you adapt another screen.
-- **Shell:** the sidebar rail becomes a 52px sticky top bar (`.mobileTopBar`: logo, title, theme, sign out). Sticky things that pin under it offset by `MOBILE_TOP_BAR_HEIGHT`.
-- **Patterns to reuse:** full-screen sheet for side panels (`.exploreQueryPanelSheet`, opened by an "Edit Query"-style button); bottom sheet for popovers (see `DateRangeMenu` — presets as chips above a single month); full-width drawers (`.drawerPanel`); narrower frozen/name table columns; `.hideOnMobile` for long intro copy.
-- **Rules:** form controls are 16px on phones (stops iOS zoom-on-focus, `styles/globals.css`); no floating buttons (`ApiLogsFab` is hidden); no horizontal page scroll — wide tables scroll inside their own container.
-- **Not yet verified on a real device** — checked in a 375px emulated viewport only.
+**Principles**
+- One job per screen region; glanceable first (totals + ranked list), detail on demand (tap).
+- **Cards, not tables.** A 10-column table can't be read at 375px. Each entity is a card: name (2-line clamp) + status, a 3-column metric grid, compact numbers (`formatMetricValue(..., {compact:true})` → ₹1.2L). The metric you sort by leads the card and is tinted.
+- **Sheets, not popovers/modals.** Every "pick one" or "edit settings" interaction is a bottom sheet (`components/BottomSheet.js`): sort, filters, row actions, view switcher, date range. Query & Filters is a full-screen sheet.
+- **Thumb-reachable and 44px targets.** Primary actions in a sticky bottom bar (bulk selection); filters/sort/search in a sticky toolbar under the top bar.
+- No browser-style tab strip: views are a single switcher button → sheet.
+
+**Structure of Custom Views on a phone**
+1. Top bar (52px, `.mobileTopBar`: logo, title, theme, sign out) — replaces the sidebar rail.
+2. View switcher (title + "account · level · N metrics") → "Your views" sheet (switch / close / New view).
+3. Date range (compact label, bottom sheet) + **Edit** (opens the query sheet).
+4. List | Chart, **Filters** (count badge), ⋯ (hard refresh, export CSV); one meta line (range · rows · updated).
+5. Sticky toolbar: Search, Sort (sheet; High→Low / Low→High), Select (multi-select mode).
+6. Totals as a horizontally scrolling KPI strip; then the card list. Campaign/ad set cards have "View ad sets/ads" that nests child cards inline; time-grouped results have "View day-by-day".
+7. Selecting rows shows a sticky bottom bar (Open New / Duplicate / Copy IDs / Clear). Card ⋯ and tapping a card open actions / details.
+
+**Code map:** `components/ExploreMobileList.js` (card list), `components/BottomSheet.js`, `RowActions variant="sheet"`, `DateRangeMenu fullWidth` (+ bottom-sheet popover), mobile branches in `pages/explore.js` (`renderMobileHeader`, `renderMobileResultBar`, `ExploreResultsTable`'s `isMobile` return), CSS in the "Mobile Custom Views" section of `styles/Home.module.css`.
+
+**Gate:** `MOBILE_SUPPORTED_PATHS` in `lib/useIsMobile.js` lists phone-ready screens; `components/Layout.js` shows a "Best on a larger screen" notice for the rest. Form controls are 16px on phones (stops iOS zoom-on-focus); no floating buttons (`ApiLogsFab` hidden); no horizontal page scroll.
+
+**Not yet verified on a real device** — checked in a 375px emulated viewport with mocked data only.
 
 ## Adding or changing a component
 
