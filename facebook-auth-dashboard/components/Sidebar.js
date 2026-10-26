@@ -20,6 +20,7 @@ import {
   RocketIcon,
   HandshakeIcon,
   CopyIcon,
+  TagIcon,
 } from "./icons";
 
 const LINKS = [
@@ -28,6 +29,7 @@ const LINKS = [
   { href: "/recent-changes", label: "Recent Changes", icon: HistoryIcon },
   { href: "/copy-ads", label: "Copy Ads", icon: CopyIcon },
   { href: "/launch", label: "Launch", icon: RocketIcon },
+  { href: "/catalog-ads", label: "Catalog Ads", icon: TagIcon },
   { href: "/strategy", label: "Figure Out Strategy", icon: TargetIcon },
   { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },
   { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
