@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Catalog Ads replaced by the sr-ads-launch clone; DESIGN.md added (2026-10-26)
+
+The cloned catalog screen is now the app's **Catalog Ads** at `/catalog-ads` (sidebar label "Catalog Ads"); the earlier hand-ported, PIN-gated implementation was deleted (`pages/catalog-ads.js`, `components/catalogads/`, `lib/catalogAds/`, `pages/api/fb/catalog-ads/`, `pages/api/catalog-ads/unlock.js`, `CATALOG_ADS_PIN`) — recover from git history (PRs #325–#331) if needed. **The new page has no PIN lock** (the clone never had one; the old "lock for now" requirement is gone unless re-added). The `business_management`/`catalog_management` OAuth scopes and `appsecret_proof` in `lib/facebookGraph.js` stay (the clone needs them). The clone's own API-log drawer/button was removed from `PageShell` (we have `/logs`). New **`DESIGN.md`** documents this app's design system (tokens, type, components, conventions) and audits where Launch Ad/Catalog Ads deviate (19-row table with Open/Fixed status and a suggested convergence order) — keep it updated whenever UI conventions change.
+
 ### Launch Ad polish + Catalog Ads (New) clone (2026-10-26)
 
 Follow-ups on the sr-ads-launch clone: (1) the wizard's sticky step bar (`.ws-bar`) now sticks at `top: 0` of our scroll area (it had the source's 52px top-bar offset, letting content pass above it) and `.ws-side` offset adjusted; (2) segmented controls (`.seg`, e.g. Facebook Page / Instagram account) now use a neutral track with a solid purple selected pill instead of the muddy tint-on-tint; both edited directly in the generated `launch-ad/launch-ad.scoped.css`. (3) New sidebar item **Catalog Ads (New)** at `/catalog-ads-new`: sr-ads-launch's `/catalog-ads` screen (`CatalogAdsApp`) cloned the same way as Launch Ad. Our own PIN-locked `/catalog-ads` (earlier hand port) is untouched — the two coexist until the user decides which to keep. Shared wrapper `launch-ad/components/PageShell.tsx` (Layout + `.la-root` + API-log toggle) now backs both cloned pages. Verified visually with mocked data; real-account use unverified.
