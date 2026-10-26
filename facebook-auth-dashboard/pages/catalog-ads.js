@@ -10,6 +10,7 @@ import PinGate from "@/components/catalogads/PinGate";
 import CatalogOverview from "@/components/catalogads/CatalogOverview";
 import CatalogAdsTable from "@/components/catalogads/CatalogAdsTable";
 import ProductSetsPanel from "@/components/catalogads/ProductSetsPanel";
+import CreateAdWizard from "@/components/catalogads/CreateAdWizard";
 import { TagIcon, ChartIcon, RefreshIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { computeRange } from "@/lib/dateRanges";
@@ -35,10 +36,10 @@ export default function CatalogAdsPage({ unlocked }) {
   );
 }
 
-// Compares catalog ads with other ads, browses product sets, and (from
-// phase 4 onward) launches catalog ads — ported from sr-ads-launch's own
-// CatalogAdsApp, reusing this app's AccountProvider/AccountSelect and
-// DateRangeMenu instead of that app's own account picker and calendar.
+// Compares catalog ads with other ads, browses product sets, and launches
+// catalog ads — ported from sr-ads-launch's own CatalogAdsApp, reusing this
+// app's AccountProvider/AccountSelect and DateRangeMenu instead of that
+// app's own account picker and calendar.
 function CatalogAdsContent() {
   const { adAccounts, accountsLoading, accountsError, selectedAccountId, setSelectedAccountId } = useAccounts();
   const [tab, setTab] = useState("overview");
@@ -154,13 +155,13 @@ function CatalogAdsContent() {
             onCreateAd={startCreate}
           />
         ) : (
-          <div className={styles.card}>
-            <p className={styles.sub} style={{ marginTop: 0 }}>
-              {createParams?.productSetId
-                ? "The guided ad-launch wizard for this product set is coming in an upcoming round."
-                : "The guided ad-launch wizard is coming in an upcoming round."}
-            </p>
-          </div>
+          <CreateAdWizard
+            key={`${account.id}-${createParams?.catalogId || ""}-${createParams?.productSetId || ""}`}
+            accountId={account.id}
+            currency={account.currency}
+            initialCatalogId={createParams?.catalogId}
+            initialProductSetId={createParams?.productSetId}
+          />
         )}
       </main>
     </div>
