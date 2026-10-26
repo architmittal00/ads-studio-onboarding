@@ -266,7 +266,12 @@ const GENDER_MAP = { all: [], male: [1], female: [2] };
 // `geo_locations` wants these split into separate sub-keys by granularity
 // (`countries` as plain ISO codes, `regions`/`cities` as `{key}` objects) —
 // NOT one array of picker objects, which Facebook rejects outright.
-function buildGeoLocations(locations) {
+// Exported for lib/catalogAds/launch.js's "Broad audience" case (Catalog
+// Ads' ad set can use either a catalog-retargeting spec this file knows
+// nothing about, or a normal broad audience — identical to what this
+// function already builds for the existing Launch tab). Purely additive:
+// no existing caller's behavior changes.
+export function buildGeoLocations(locations) {
   if (!locations?.length) return { countries: [HARDCODED_COUNTRY] };
   const geo = {};
   for (const loc of locations) {
@@ -277,7 +282,9 @@ function buildGeoLocations(locations) {
   return geo;
 }
 
-function buildTargeting(fields) {
+// Exported for lib/catalogAds/launch.js's "Broad audience" case — see
+// buildGeoLocations' comment above, same reasoning.
+export function buildTargeting(fields) {
   const targeting = {
     geo_locations: buildGeoLocations(fields.countries),
     age_min: fields.ageMin ?? 18,
