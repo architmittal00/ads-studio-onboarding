@@ -156,6 +156,21 @@ export function buildStandardCreativeParams({ ad }) {
   if (ad.kind === "POST") {
     return { name, object_id: ad.pageId, instagram_user_id: ad.instagramUserId, source_instagram_media_id: ad.postId };
   }
+  if (ad.videoId) {
+    // Video ad: Meta needs a thumbnail (a frame of the video, uploaded as a
+    // regular image — see components/catalogads/videoUpload.js's frameOf()).
+    const video = {
+      video_id: ad.videoId,
+      image_hash: ad.imageHash,
+      message: ad.message,
+      call_to_action: { type: ad.cta, value: { link: ad.link.trim() } },
+    };
+    if (ad.headline.trim()) video.title = ad.headline;
+    if (ad.description.trim()) video.link_description = ad.description;
+    const story = { page_id: ad.pageId, video_data: video };
+    if (ad.instagramUserId) story.instagram_user_id = ad.instagramUserId;
+    return { name, object_story_spec: story };
+  }
   const link = {
     image_hash: ad.imageHash,
     link: ad.link.trim(),

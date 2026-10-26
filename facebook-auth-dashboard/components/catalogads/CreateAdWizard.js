@@ -30,6 +30,9 @@ function defaultAdFields(catalog) {
     imageHash: "",
     imageUrl: "",
     imageName: "",
+    videoId: "",
+    videoStatus: "",
+    videoUrl: "",
     postSource: "FACEBOOK",
     postId: "",
   };
@@ -182,7 +185,18 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
     ? !!(catalogId && productSetId && ad.name && ad.pageId && ad.message && ad.headline && ad.link)
     : ad.kind === "POST"
     ? !!(ad.name && ad.pageId && ad.postId)
-    : !!(ad.name && ad.pageId && ad.imageHash && ad.message && ad.headline && ad.link);
+    : !!(
+        ad.name &&
+        ad.pageId &&
+        ad.imageHash &&
+        ad.message &&
+        ad.headline &&
+        ad.link &&
+        // A video must finish Meta's own processing before it can go into an
+        // ad — "uploading"/"processing"/"error" all block Continue, same as
+        // sr-ads-launch's own validateAd.
+        (!ad.videoId || ad.videoStatus === "ready")
+      );
   const setupReady = !!(adsetFields.name && budgetAmount && (destination === "existing" || campaignName) && (isCatalog || pixelId));
 
   const filteredCampaigns = pickerQuery.trim()

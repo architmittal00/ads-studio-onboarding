@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Loader from "@/components/Loader";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import { useJsonFetch } from "@/lib/catalogAds/useJsonFetch";
+import { uploadVideoToMeta, useVideoProcessingPoll } from "@/lib/catalogAds/videoUpload";
 import AiCopyBox from "./AiCopyBox";
 import styles from "@/styles/Home.module.css";
 
@@ -21,10 +22,10 @@ function pageWebsite(p) {
   return /^https?:\/\//i.test(first) ? first : `https://${first}`;
 }
 
-// Image or existing-post ad — ported from sr-ads-launch's StandardAdSection,
-// trimmed to drop its video-upload path (chunked upload + Meta processing-
-// status polling is a later phase). Image upload here is a single request
-// (base64, under 3 MB), no chunking needed.
+// Image, video or existing-post ad — ported from sr-ads-launch's
+// StandardAdSection. Image upload is a single request (base64, under 3 MB);
+// video goes through lib/catalogAds/videoUpload.js's chunked upload +
+// processing-status poll.
 export default function StandardAdFields({ accountId, pages, value, onChange }) {
   function set(patch) {
     onChange({ ...value, ...patch });
@@ -35,6 +36,23 @@ export default function StandardAdFields({ accountId, pages, value, onChange }) 
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [processingPct, setProcessingPct] = useState(null);
+
+  // Calls `onChange` with a functional update (React's setState form, not
+  // `set()`'s plain object merge) rather than closing over `value` — this
+  // callback is handed to useVideoProcessingPoll once and then called from
+  // a poll loop that can run for minutes, by which point `value` from this
+  // render would be stale and a status update would silently roll back any
+  // editing done to the rest of the ad in the meantime.
+  const onVideoStatus = useCallback(
+    (update) => {
+      if (update.status) onChange((prev) => ({ ...prev, videoStatus: update.status }));
+      if (typeof update.progress === "number") setProcessingPct(update.progress);
+    },
+    [onChange]
+  );
+  const checkNow = useVideoProcessingPoll(value.videoId, value.videoStatus, onVideoStatus);
 
   const postsRes = useJsonFetch(
     value.kind === "POST" && value.pageId && (value.postSource === "FACEBOOK" || ig?.id)
@@ -43,11 +61,29 @@ export default function StandardAdFields({ accountId, pages, value, onChange }) 
   );
   const posts = postsRes.data?.posts || [];
 
+  async function onVideo(file) {
+    const objectUrl = URL.createObjectURL(file);
+    setVideoProgress(0);
+    setProcessingPct(null);
+    set({ videoStatus: "uploading", videoUrl: objectUrl, videoId: "", imageHash: "", imageUrl: "", imageName: file.name });
+    try {
+      const { videoId, imageHash, imageUrl } = await uploadVideoToMeta(file, accountId, setVideoProgress);
+      set({ videoId, videoStatus: "processing", imageHash, imageUrl });
+    } catch (err) {
+      setUploadError(err.message);
+      set({ videoStatus: "", videoId: "", videoUrl: "", imageHash: "", imageUrl: "", imageName: "" });
+    }
+  }
+
   async function onFile(file) {
     if (!file) return;
     setUploadError("");
+    if (/^video\/(mp4|quicktime)$/.test(file.type)) {
+      await onVideo(file);
+      return;
+    }
     if (!/^image\/(jpeg|png)$/.test(file.type)) {
-      setUploadError("Use a JPG or PNG image.");
+      setUploadError("Use a JPG or PNG image, or an MP4 or MOV video.");
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -70,7 +106,7 @@ export default function StandardAdFields({ accountId, pages, value, onChange }) 
       });
       const json = await parseJsonResponse(res);
       if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
-      set({ imageHash: json.hash, imageUrl: dataUrl, imageName: file.name });
+      set({ imageHash: json.hash, imageUrl: dataUrl, imageName: file.name, videoId: "", videoStatus: "", videoUrl: "" });
     } catch (err) {
       setUploadError(err.message);
     } finally {
@@ -124,7 +160,7 @@ export default function StandardAdFields({ accountId, pages, value, onChange }) 
         </p>
         <div className={styles.tabGroup}>
           <button type="button" className={value.kind === "UPLOAD" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => set({ kind: "UPLOAD" })}>
-            Upload an image
+            Upload an image or video
           </button>
           <button type="button" className={value.kind === "POST" ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => set({ kind: "POST" })}>
             Existing post
@@ -136,14 +172,38 @@ export default function StandardAdFields({ accountId, pages, value, onChange }) 
         <>
           <div>
             <p className={styles.sub} style={{ marginBottom: 6 }}>
-              Image
+              Image or video
             </p>
-            <input type="file" accept="image/jpeg,image/png" disabled={uploading} onChange={(e) => onFile(e.target.files?.[0])} />
+            <input
+              type="file"
+              accept="image/jpeg,image/png,video/mp4,video/quicktime"
+              disabled={uploading || value.videoStatus === "uploading"}
+              onChange={(e) => {
+                onFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
             {value.imageUrl && (
               // eslint-disable-next-line @next/next/no-img-element -- local object/data URL preview, not worth Next/Image config for this
               <img src={value.imageUrl} alt="" style={{ maxWidth: 200, display: "block", marginTop: 8, borderRadius: 6 }} />
             )}
             {uploading && <Loader label="Uploading image to Meta…" inline />}
+            {value.videoStatus === "uploading" && (
+              <div style={{ marginTop: 8 }}>
+                <Loader label={`Uploading video to Meta… ${Math.round(videoProgress * 100)}%`} inline />
+              </div>
+            )}
+            {value.videoStatus === "processing" && (
+              <p className={styles.sub} style={{ marginTop: 6 }}>
+                Meta is processing the video{processingPct != null && processingPct > 0 ? `: ${processingPct}%` : ""}. This usually takes under a
+                minute; you can keep editing.{" "}
+                <button type="button" className={styles.btnSecondary} onClick={() => checkNow.current()}>
+                  Check now
+                </button>
+              </p>
+            )}
+            {value.videoStatus === "ready" && <p className={styles.sub} style={{ marginTop: 6, color: "var(--green)" }}>Video ready on Meta.</p>}
+            {value.videoStatus === "error" && <div className={styles.error}>Meta couldn&apos;t process this video. Upload a different file.</div>}
             {uploadError && <div className={styles.error}>{uploadError}</div>}
           </div>
 
