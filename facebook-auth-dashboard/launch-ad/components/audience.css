@@ -1,0 +1,21 @@
+/* Audience size gauge, interest suggestions */
+.audience-est { margin: 18px 0 4px; padding: 14px 16px; border: 1px solid var(--card-line); border-radius: 12px; background: var(--bg); }
+.est-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.est-num { font-size: 15px; font-weight: 700; color: var(--ink); }
+.est-badge { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; }
+.est-badge.narrow { background: rgba(192, 57, 43, .12); color: var(--bad, #c0392b); }
+.est-badge.moderate { background: rgba(46, 125, 79, .12); color: var(--ok, #2e7d4f); }
+.est-badge.broad { background: var(--seg); color: var(--ink-2); }
+.est-bar { position: relative; display: grid; grid-template-columns: 25% 50% 25%; height: 8px; margin-top: 14px; }
+.est-bar .seg { height: 100%; }
+.est-bar .n { background: rgba(192, 57, 43, .35); border-radius: 999px 0 0 999px; }
+.est-bar .m { background: rgba(46, 125, 79, .4); }
+.est-bar .b { background: var(--seg-on-line); border-radius: 0 999px 999px 0; }
+.est-bar i { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: var(--ink); }
+.est-scale { display: grid; grid-template-columns: 25% 50% 25%; font-size: 10.5px; color: var(--muted); margin-top: 6px; }
+.est-scale span:nth-child(2) { text-align: center; }
+.est-scale span:nth-child(3) { text-align: right; }
+.suggest { margin: -2px 0 14px; }
+.suggest .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggest-chip { cursor: pointer; border: 1px dashed var(--seg-on-line); background: transparent; color: var(--coral-ink); font-size: 12px; padding: 3px 10px; border-radius: 999px; }
+.suggest-chip:hover { background: var(--seg-on); }

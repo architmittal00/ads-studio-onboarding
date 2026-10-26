@@ -30,6 +30,7 @@ const LINKS = [
   { href: "/copy-ads", label: "Copy Ads", icon: CopyIcon },
   { href: "/launch", label: "Launch", icon: RocketIcon },
   { href: "/catalog-ads", label: "Catalog Ads", icon: TagIcon },
+  { href: "/launch-ad", label: "Launch Ad", icon: RocketIcon },
   { href: "/strategy", label: "Figure Out Strategy", icon: TargetIcon },
   { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },
   { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
