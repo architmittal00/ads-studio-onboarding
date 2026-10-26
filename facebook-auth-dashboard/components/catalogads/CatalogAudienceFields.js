@@ -62,16 +62,18 @@ function Checkbox({ checked, onChange, label }) {
 // controls are duplicated from AdSetFields.js rather than imported, so that
 // file (the existing, working Launch tab) stays completely untouched by
 // this feature.
-export default function CatalogAudienceFields({ value, onChange, accountId, catalogId }) {
+export default function CatalogAudienceFields({ value, onChange, accountId, catalogId, isCatalog = true, pixels = [], pixelId, onPixelChange, goalOptions }) {
   function set(patch) {
     onChange({ ...value, ...patch });
   }
 
-  const isRetarget = value.catalogAudienceMode === "RETARGET";
+  // A standard (non-catalog) ad set has no retargeting concept at all — see
+  // lib/catalogAds/launch.js's own buildCatalogAdsetTargeting.
+  const isRetarget = isCatalog && value.catalogAudienceMode === "RETARGET";
   const needsCustomCombo = value.retargetPreset === "CUSTOM";
   const needsSourceSet = value.retargetPreset === "UPSELL" || value.retargetPreset === "CROSS_SELL";
 
-  const productSetsRes = useJsonFetch(needsSourceSet && catalogId ? `/api/fb/catalog-ads/product-sets?catalogId=${encodeURIComponent(catalogId)}` : null);
+  const productSetsRes = useJsonFetch(isRetarget && needsSourceSet && catalogId ? `/api/fb/catalog-ads/product-sets?catalogId=${encodeURIComponent(catalogId)}` : null);
   const productSets = productSetsRes.data?.productSets || [];
 
   const needsCustomEvent = value.optimizationGoal === "OFFSITE_CONVERSIONS" || value.optimizationGoal === "VALUE";
@@ -90,7 +92,7 @@ export default function CatalogAudienceFields({ value, onChange, accountId, cata
           Performance goal
         </p>
         <select className={styles.select} style={{ width: "100%" }} value={value.optimizationGoal} onChange={(e) => set({ optimizationGoal: e.target.value })}>
-          {CATALOG_GOALS.map((g) => (
+          {(goalOptions || CATALOG_GOALS).map((g) => (
             <option key={g.value} value={g.value}>
               {g.label}
             </option>
@@ -113,27 +115,47 @@ export default function CatalogAudienceFields({ value, onChange, accountId, cata
         </div>
       )}
 
-      <div>
-        <p className={styles.sub} style={{ marginBottom: 6 }}>
-          Audience
-        </p>
-        <div className={styles.tabGroup}>
-          <button
-            type="button"
-            className={isRetarget ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-            onClick={() => set({ catalogAudienceMode: "RETARGET" })}
-          >
-            Retarget shoppers
-          </button>
-          <button
-            type="button"
-            className={!isRetarget ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-            onClick={() => set({ catalogAudienceMode: "BROAD" })}
-          >
-            Broad audience
-          </button>
+      {!isCatalog && (
+        <div>
+          <p className={styles.sub} style={{ marginBottom: 6 }}>
+            Dataset (pixel)
+          </p>
+          <select className={styles.select} style={{ width: "100%" }} value={pixelId} onChange={(e) => onPixelChange(e.target.value)}>
+            <option value="" disabled>
+              Select a dataset…
+            </option>
+            {pixels.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
+      )}
+
+      {isCatalog && (
+        <div>
+          <p className={styles.sub} style={{ marginBottom: 6 }}>
+            Audience
+          </p>
+          <div className={styles.tabGroup}>
+            <button
+              type="button"
+              className={isRetarget ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              onClick={() => set({ catalogAudienceMode: "RETARGET" })}
+            >
+              Retarget shoppers
+            </button>
+            <button
+              type="button"
+              className={!isRetarget ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              onClick={() => set({ catalogAudienceMode: "BROAD" })}
+            >
+              Broad audience
+            </button>
+          </div>
+        </div>
+      )}
 
       {isRetarget ? (
         <>

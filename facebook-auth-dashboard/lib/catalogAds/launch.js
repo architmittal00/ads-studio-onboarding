@@ -55,7 +55,9 @@ function buildCatalogRetargetTargeting(adset) {
 }
 
 export function buildCatalogAdsetTargeting(adset) {
-  return adset.catalogAudienceMode === "RETARGET" ? buildCatalogRetargetTargeting(adset) : buildTargeting(adset);
+  // A standard (non-catalog) ad set has no retargeting concept at all — only
+  // a catalog ad set's own audience-mode toggle can select it.
+  return adset.isCatalog && adset.catalogAudienceMode === "RETARGET" ? buildCatalogRetargetTargeting(adset) : buildTargeting(adset);
 }
 
 export function buildCatalogCampaignPayload({ name, bidStrategy, catalogId, budgetStrategy, budgetType, budgetAmountMinorUnits }) {
@@ -64,8 +66,10 @@ export function buildCatalogCampaignPayload({ name, bidStrategy, catalogId, budg
     objective: "OUTCOME_SALES",
     status: "PAUSED",
     special_ad_categories: [],
-    promoted_object: { product_catalog_id: catalogId },
   };
+  // Only a catalog campaign carries a catalog id — a standard (image/
+  // existing-post) Sales campaign from this same wizard has none.
+  if (catalogId) payload.promoted_object = { product_catalog_id: catalogId };
   if (budgetStrategy === "CBO" && budgetAmountMinorUnits) {
     payload.bid_strategy = bidStrategy || "LOWEST_COST_WITHOUT_CAP";
     if (budgetType === "LIFETIME") payload.lifetime_budget = budgetAmountMinorUnits;
@@ -79,6 +83,12 @@ export function buildCatalogCampaignPayload({ name, bidStrategy, catalogId, budg
   return payload;
 }
 
+// `fields.isCatalog` picks the promoted_object shape: a catalog ad set's
+// conversion tracking comes from the catalog's own linked dataset (phase 2's
+// link-pixel), not a per-ad-set pixel field, so it carries product_set_id
+// instead of pixel_id — the same distinction lib/campaignLaunch.js's own
+// buildGenericAdsetPayload never had to make since it only ever builds
+// non-catalog ad sets.
 export function buildCatalogAdsetPayload(fields) {
   const targeting = buildCatalogAdsetTargeting(fields);
   const payload = {
@@ -87,18 +97,16 @@ export function buildCatalogAdsetPayload(fields) {
     status: "PAUSED",
     billing_event: "IMPRESSIONS",
     optimization_goal: fields.optimizationGoal,
-    // Catalog ad sets send people to the website explicitly — left empty,
-    // Meta may default to the app.
+    // Both catalog and standard ad sets here send people to the website
+    // explicitly — left empty, Meta may default to the app.
     destination_type: "WEBSITE",
     targeting,
     bid_strategy: fields.bidStrategy || "LOWEST_COST_WITHOUT_CAP",
-    // No pixel_id here: a catalog ad set's conversion tracking comes from the
-    // catalog's own linked dataset (phase 2's link-pixel), not a per-ad-set
-    // pixel field the way a normal ad set's promoted_object would carry one.
-    promoted_object:
-      fields.optimizationGoal === "LINK_CLICKS"
+    promoted_object: fields.isCatalog
+      ? fields.optimizationGoal === "LINK_CLICKS"
         ? { product_set_id: fields.productSetId }
-        : { product_set_id: fields.productSetId, custom_event_type: fields.customEventType || "PURCHASE" },
+        : { product_set_id: fields.productSetId, custom_event_type: fields.customEventType || "PURCHASE" }
+      : { pixel_id: fields.pixelId, custom_event_type: fields.customEventType || "PURCHASE" },
     start_time: new Date(Date.now() + 60_000).toISOString(),
   };
   if (fields.attributionSetting && ATTRIBUTION_SPECS[fields.attributionSetting]) {
@@ -134,6 +142,31 @@ export function buildCatalogCreativeParams({ ad, productSetId }) {
     object_story_spec: story,
     applink_treatment: "web_only",
   };
+}
+
+// Standard (non-catalog) ad creative: an uploaded image, or an existing
+// Facebook/Instagram post — ported from sr-ads-launch's own
+// standardCreativeParams, trimmed to drop its videoId branch (video upload
+// is a later phase; see components/catalogads/StandardAdFields.js).
+export function buildStandardCreativeParams({ ad }) {
+  const name = `${ad.name.trim() || "Ad"} - Creative`;
+  if (ad.kind === "POST" && ad.postSource === "FACEBOOK") {
+    return { name, object_story_id: ad.postId };
+  }
+  if (ad.kind === "POST") {
+    return { name, object_id: ad.pageId, instagram_user_id: ad.instagramUserId, source_instagram_media_id: ad.postId };
+  }
+  const link = {
+    image_hash: ad.imageHash,
+    link: ad.link.trim(),
+    message: ad.message,
+    call_to_action: { type: ad.cta, value: { link: ad.link.trim() } },
+  };
+  if (ad.headline.trim()) link.name = ad.headline;
+  if (ad.description.trim()) link.description = ad.description;
+  const story = { page_id: ad.pageId, link_data: link };
+  if (ad.instagramUserId) story.instagram_user_id = ad.instagramUserId;
+  return { name, object_story_spec: story };
 }
 
 export { toMinorUnits };

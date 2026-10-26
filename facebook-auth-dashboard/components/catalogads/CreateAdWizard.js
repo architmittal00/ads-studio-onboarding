@@ -2,23 +2,36 @@ import { useEffect, useState } from "react";
 import Loader from "@/components/Loader";
 import { ChevronIcon, RocketIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
+import { OPTIMIZATION_GOALS_BY_OBJECTIVE } from "@/components/AdSetFields";
 import { useJsonFetch } from "@/lib/catalogAds/useJsonFetch";
 import CatalogAdFields from "./CatalogAdFields";
+import StandardAdFields from "./StandardAdFields";
 import CatalogAudienceFields from "./CatalogAudienceFields";
 import CatalogLaunchReview from "./CatalogLaunchReview";
 import styles from "@/styles/Home.module.css";
 
-function defaultAdFields() {
+// Same goal list components/AdSetFields.js already uses for a Sales-
+// objective ad set (OUTCOME_SALES) — a standard ad from this wizard is
+// always a Sales campaign, same as a catalog one.
+const STANDARD_GOALS = OPTIMIZATION_GOALS_BY_OBJECTIVE.OUTCOME_SALES;
+
+function defaultAdFields(catalog) {
   return {
+    kind: catalog ? "CATALOG" : "UPLOAD",
     name: "",
     pageId: "",
     instagramUserId: "",
     format: "CAROUSEL",
-    message: "Still thinking about it? {{product.name}} is waiting for you.",
-    headline: "{{product.name}}",
-    description: "{{product.current_price}}",
+    message: catalog ? "Still thinking about it? {{product.name}} is waiting for you." : "",
+    headline: catalog ? "{{product.name}}" : "",
+    description: catalog ? "{{product.current_price}}" : "",
     cta: "SHOP_NOW",
     link: "",
+    imageHash: "",
+    imageUrl: "",
+    imageName: "",
+    postSource: "FACEBOOK",
+    postId: "",
   };
 }
 
@@ -73,12 +86,14 @@ function BackLink({ onClick, label = "Start over" }) {
   );
 }
 
-// Four-step catalog-ad wizard: Ad -> Destination -> Setup -> Review & Launch
-// — ported from sr-ads-launch's AdFirstWorkspace, scoped to catalog ads only
-// (phase 4 of the Catalog Ads plan; image/video/post ads are a later
-// phase). Mirrors pages/launch.js's own screen-flow conventions (entry
-// cards, a plain campaign/budget/audience form, NDJSON-streaming review) so
-// it feels like the same app, not a bolted-on second launcher.
+// Four-step ad wizard: Ad -> Destination -> Setup -> Review & Launch —
+// ported from sr-ads-launch's AdFirstWorkspace. Catalog ads shipped first
+// (phase 4); phase 5 adds image and existing-post ads via the "Ad type"
+// toggle below (video upload is still a later phase — see
+// components/catalogads/StandardAdFields.js). Mirrors pages/launch.js's own
+// screen-flow conventions (entry cards, a plain campaign/budget/audience
+// form, NDJSON-streaming review) so it feels like the same app, not a
+// bolted-on second launcher.
 export default function CreateAdWizard({ accountId, currency, initialCatalogId, initialProductSetId }) {
   const { pages } = useAccounts();
   const pixelsRes = useJsonFetch(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`);
@@ -88,7 +103,7 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
   const [catalogId, setCatalogId] = useState(initialCatalogId || "");
   const [productSetId, setProductSetId] = useState(initialProductSetId || "");
   const [pixelId, setPixelId] = useState("");
-  const [ad, setAd] = useState(defaultAdFields);
+  const [ad, setAd] = useState(() => defaultAdFields(true));
 
   const [destination, setDestination] = useState(null); // "new" | "existing"
   const [campaignName, setCampaignName] = useState("");
@@ -113,7 +128,7 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
     setScreen("ad");
     setCatalogId(initialCatalogId || "");
     setProductSetId(initialProductSetId || "");
-    setAd(defaultAdFields());
+    setAd(defaultAdFields(true));
     setDestination(null);
     setCampaignName("");
     setExistingCampaign(null);
@@ -162,8 +177,13 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
   const campaignHasOwnBudget = destination === "new" || !!(existingCampaign?.daily_budget || existingCampaign?.lifetime_budget);
   const budgetStrategy = campaignHasOwnBudget ? "CBO" : "ABO";
 
-  const adReady = !!(catalogId && productSetId && ad.name && ad.pageId && ad.message && ad.headline && ad.link);
-  const setupReady = !!(adsetFields.name && budgetAmount && (destination === "existing" || campaignName));
+  const isCatalog = ad.kind === "CATALOG";
+  const adReady = isCatalog
+    ? !!(catalogId && productSetId && ad.name && ad.pageId && ad.message && ad.headline && ad.link)
+    : ad.kind === "POST"
+    ? !!(ad.name && ad.pageId && ad.postId)
+    : !!(ad.name && ad.pageId && ad.imageHash && ad.message && ad.headline && ad.link);
+  const setupReady = !!(adsetFields.name && budgetAmount && (destination === "existing" || campaignName) && (isCatalog || pixelId));
 
   const filteredCampaigns = pickerQuery.trim()
     ? campaigns.filter((c) => c.name.toLowerCase().includes(pickerQuery.trim().toLowerCase()))
@@ -173,22 +193,55 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
     <div>
       {screen === "ad" && (
         <>
-          <CatalogAdFields
-            accountId={accountId}
-            pages={pages}
-            pixels={pixels}
-            catalogId={catalogId}
-            onCatalogChange={(id) => {
-              setCatalogId(id);
-              setProductSetId("");
-            }}
-            productSetId={productSetId}
-            onProductSetChange={setProductSetId}
-            pixelId={pixelId}
-            onPixelChange={setPixelId}
-            value={ad}
-            onChange={setAd}
-          />
+          <div style={{ marginBottom: 16 }}>
+            <p className={styles.sub} style={{ marginBottom: 6 }}>
+              Ad type
+            </p>
+            <div className={styles.tabGroup}>
+              <button
+                type="button"
+                className={ad.kind === "CATALOG" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => {
+                  setAd(defaultAdFields(true));
+                  setAdsetFields(defaultAdsetFields());
+                }}
+              >
+                Catalog ad
+              </button>
+              <button
+                type="button"
+                className={ad.kind !== "CATALOG" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => {
+                  setAd(defaultAdFields(false));
+                  setAdsetFields({ ...defaultAdsetFields(), catalogAudienceMode: "BROAD", optimizationGoal: STANDARD_GOALS[0].value });
+                }}
+              >
+                Image or existing post
+              </button>
+            </div>
+          </div>
+
+          {isCatalog ? (
+            <CatalogAdFields
+              accountId={accountId}
+              pages={pages}
+              pixels={pixels}
+              catalogId={catalogId}
+              onCatalogChange={(id) => {
+                setCatalogId(id);
+                setProductSetId("");
+              }}
+              productSetId={productSetId}
+              onProductSetChange={setProductSetId}
+              pixelId={pixelId}
+              onPixelChange={setPixelId}
+              value={ad}
+              onChange={setAd}
+            />
+          ) : (
+            <StandardAdFields accountId={accountId} pages={pages} value={ad} onChange={setAd} />
+          )}
+
           <button type="button" className={styles.btnPrimary} style={{ marginTop: 16 }} disabled={!adReady} onClick={() => setScreen("destination")}>
             Continue
           </button>
@@ -202,7 +255,11 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
             Where should this run?
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
-            <EntryCard title="New Campaign + Ad Set" description="Create a brand-new Sales campaign for this catalog, and its first ad set." onClick={startNewCampaign} />
+            <EntryCard
+              title="New Campaign + Ad Set"
+              description={`Create a brand-new Sales campaign${isCatalog ? " for this catalog" : ""}, and its first ad set.`}
+              onClick={startNewCampaign}
+            />
             <EntryCard title="New Ad Set → Existing Campaign" description="Add this ad set to a Sales campaign you already have." onClick={startExistingCampaign} />
           </div>
         </div>
@@ -308,7 +365,17 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
             Ad Set
           </h2>
           <div className={styles.card} style={{ marginBottom: 20 }}>
-            <CatalogAudienceFields value={adsetFields} onChange={setAdsetFields} accountId={accountId} catalogId={catalogId} />
+            <CatalogAudienceFields
+              value={adsetFields}
+              onChange={setAdsetFields}
+              accountId={accountId}
+              catalogId={catalogId}
+              isCatalog={isCatalog}
+              pixels={pixels}
+              pixelId={pixelId}
+              onPixelChange={setPixelId}
+              goalOptions={isCatalog ? undefined : STANDARD_GOALS}
+            />
           </div>
 
           <button type="button" className={styles.btnPrimary} disabled={!setupReady} onClick={() => setScreen("review")}>
@@ -323,13 +390,19 @@ export default function CreateAdWizard({ accountId, currency, initialCatalogId, 
           <CatalogLaunchReview
             accountId={accountId}
             currency={currency}
-            campaign={destination === "new" ? { name: campaignName, bidStrategy, catalogId } : null}
+            campaign={destination === "new" ? { name: campaignName, bidStrategy, catalogId: isCatalog ? catalogId : undefined } : null}
             existingCampaignId={destination === "existing" ? existingCampaign.id : null}
             existingCampaignName={destination === "existing" ? existingCampaign.name : null}
             budgetStrategy={budgetStrategy}
             budgetType={budgetType}
             budgetAmount={budgetAmount}
-            adset={{ ...adsetFields, campaignId: destination === "existing" ? existingCampaign.id : undefined, productSetId }}
+            adset={{
+              ...adsetFields,
+              campaignId: destination === "existing" ? existingCampaign.id : undefined,
+              isCatalog,
+              productSetId: isCatalog ? productSetId : undefined,
+              pixelId: isCatalog ? undefined : pixelId,
+            }}
             ad={ad}
             onBack={resetFlow}
           />
