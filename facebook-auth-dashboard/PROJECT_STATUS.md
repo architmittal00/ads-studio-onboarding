@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Catalog Ads / Launch Ad aligned to Partnership Ads' layout (2026-10-27)
+
+After the first convergence pass the user still saw Catalog Ads differ visibly from Partnership Ads (header, tabs, positioning, sizes). The clones' headers now use this app's own components via new `launch-ad/components/PageHeader.tsx`: `.h1`/`.sub` title block, `.headerPillRow` with labeled `AccountSelect` + `DateRangeMenu` (+ refresh `headerPillIconBtn`) exactly as `pages/partnership-ads.js`; Catalog tabs → `.tabGroup`/`.tab`/`.tabActive`; empty state → `.exploreEmptyState*`; page frame → flex column / gap 20 / 48px 32px / max 1500; stat tiles → `.stat*` values. Deleted `DateRange.tsx` and `AccountPicker.tsx` (clone's own). Date presets now come from `lib/dateRanges.js` (`computeRange`). DESIGN.md audit updated; remaining differences: in-flow `SearchSelect`s, audience/interest pickers, `.cat-table` vs `SortableTable`, icons. Verified visually (dark, mocked data); not light mode or real account.
+
 ### Launch Ad / Catalog Ads design convergence (2026-10-26)
 
 Followed the audit in `DESIGN.md`: the clones' visual primitives were brought in line with the app (radii, type scale, buttons, inputs, tabs/segmented, badges/chips, notices, table look, hardcoded colors → tokens; shared `Loader` for the main loading state) via blanket edits and a final "Design-system convergence" block in `launch-ad/launch-ad.scoped.css`. **Not done** (structural, behaviour-affecting — each needs its own pass): swapping the clones' own date range, audience/interest/location pickers, ad-account combobox and `.cat-table` for `DateRangeMenu`, the shared pickers, `AccountSelect` and `SortableTable`; `lucide-react` → `components/icons.js`. `DESIGN.md` has the per-item status. Verified visually (dark) on Launch Ad only; Catalog Ads inherits the same CSS.
