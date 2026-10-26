@@ -15,7 +15,8 @@ import EntityDetailDrawer from "@/components/EntityDetailDrawer";
 import CopyIdButton from "@/components/CopyIdButton";
 import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
-import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon } from "@/components/icons";
+import BulkDuplicateAdsModal from "@/components/BulkDuplicateAdsModal";
+import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
 import {
@@ -469,6 +470,19 @@ async function fetchAdThumbnails(adIds) {
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
   return json.thumbnails || {};
+}
+
+// Same shape as fetchAdThumbnails above, for the "Landing Page" metric — see
+// loadLandingPagesForView() below for how this gets fired and merged in.
+async function fetchAdLandingPages(adIds) {
+  const res = await fetch("/api/fb/ad-landing-pages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adIds }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+  return json.landingPages || {};
 }
 
 // Keeps at most MAX_VIEWS tabs, evicting the oldest one that isn't the
@@ -938,6 +952,33 @@ export default function Explore() {
     fetchAdThumbnails(adIds).then(applyThumbnails).catch(() => applyThumbnails({}));
   }
 
+  // Same shape as loadThumbnailsForView above, for the "Landing Page" metric
+  // (see lib/insightsMetrics.js) — gated on it actually being selected, since
+  // unlike thumbnails (always shown for an Ad-level row) this is an opt-in
+  // column most Explore queries never ask for.
+  function loadLandingPagesForView(viewId, json, cacheKey) {
+    if (json.meta.level !== "ad" || json.meta.landingPagesFetched) return;
+    if (!json.meta.metricKeys?.includes("landing_page")) return;
+    const adIds = [...new Set(json.rows.map((r) => r.entityId).filter(Boolean))];
+    if (adIds.length === 0) return;
+
+    const applyLandingPages = (landingPages) => {
+      const withLandingPages = (list) =>
+        list?.map((r) => (r.entityId ? { ...r, landing_page: landingPages[r.entityId] ?? null } : r)) ?? list;
+      const updatedJson = {
+        ...json,
+        rows: withLandingPages(json.rows),
+        meta: { ...json.meta, pivotRows: withLandingPages(json.meta.pivotRows), landingPagesFetched: true },
+      };
+      updateView(viewId, (v) => (v.result === json ? { result: updatedJson } : {}));
+      setCachedEntry(cacheKey, updatedJson, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
+    };
+
+    // Soft-fail — same reasoning as loadThumbnailsForView: a failed fetch
+    // just leaves the column blank instead of spinning forever.
+    fetchAdLandingPages(adIds).then(applyLandingPages).catch(() => applyLandingPages({}));
+  }
+
   // One-time restore of previously-open tabs from localStorage — replaces
   // the single deterministic blank tab wholesale. Pre-populates each
   // restored tab's result from the shared query cache when still fresh, so
@@ -994,6 +1035,9 @@ export default function Explore() {
       // synchronous state update this effect makes right after.
       if (cached?.data && !cached.data.meta.thumbnailsFetched && cached.data.meta.level === "ad") {
         loadThumbnailsForView(migrated.id, cached.data, cacheKey);
+      }
+      if (cached?.data && !cached.data.meta.landingPagesFetched && cached.data.meta.level === "ad") {
+        loadLandingPagesForView(migrated.id, cached.data, cacheKey);
       }
       return {
         ...migrated,
@@ -1082,6 +1126,7 @@ export default function Explore() {
           chartMetricKey: firstChartableKey(cached.data.meta.metricKeys, effectiveCatalog, cached.data.meta.accountIds.length),
         });
         loadThumbnailsForView(view.id, cached.data, cacheKey);
+        loadLandingPagesForView(view.id, cached.data, cacheKey);
         return;
       }
     }
@@ -1112,6 +1157,7 @@ export default function Explore() {
         });
         setCachedEntry(cacheKey, json, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
         loadThumbnailsForView(view.id, json, cacheKey);
+        loadLandingPagesForView(view.id, json, cacheKey);
       })
       .catch((err) => updateView(view.id, { error: err.message }))
       .finally(() => updateView(view.id, { loading: false, progressMessage: null }));
@@ -1135,23 +1181,31 @@ export default function Explore() {
     runQueryForView(newView, false);
   }
 
-  // "Open new" on a set of selected Campaign/Ad Set rows — a new tab at the
-  // next level down (Ad Set for a Campaign selection, Ad for an Ad Set
-  // selection), scoped to exactly those selected entities via the same
-  // "Only show these IDs" mechanism the query panel already exposes, with
-  // every other query parameter (date range, metrics, breakdown, name
-  // filters, compare-to-previous, …) carried over unchanged from the active
-  // view. Overwrites whatever idFilter the active view already had — that's
-  // the whole point of this one, not a filter someone else set earlier.
+  // "Open new"/"Open in New Tab" on a set of selected rows — scoped to
+  // exactly those selected entities via the same "Only show these IDs"
+  // mechanism the query panel already exposes, with every other query
+  // parameter (date range, metrics, breakdown, name filters,
+  // compare-to-previous, …) carried over unchanged from the active view.
+  // Overwrites whatever idFilter the active view already had — that's the
+  // whole point of this one, not a filter someone else set earlier.
+  // Campaign/Ad Set selections open at the next level down (Ad Set for a
+  // Campaign selection, Ad for an Ad Set selection) — there's more to see
+  // one level in. An Ad selection has no level further in, so it opens at
+  // the SAME level instead, filtered down to just the selected ads, via
+  // ID_FILTER_FIELDS' own "Ad ID" entry.
   function openChildViewFromSelection(parentLevel, entityIds) {
+    if (entityIds.length === 0) return;
     const childLevel = CHILD_LEVEL[parentLevel];
-    if (!childLevel || entityIds.length === 0) return;
+    const idFilter = childLevel
+      ? { field: CHILD_ID_FILTER_FIELD[childLevel], value: entityIds.join(",") }
+      : { field: ID_FILTER_FIELDS.find((f) => f.level === parentLevel)?.field, value: entityIds.join(",") };
+    if (!idFilter.field) return;
     const newView = {
       ...activeView,
       id: newViewId(),
       customTitle: null,
-      level: childLevel,
-      idFilter: { field: CHILD_ID_FILTER_FIELD[childLevel], value: entityIds.join(",") },
+      level: childLevel || parentLevel,
+      idFilter,
       result: null,
       resultFetchedAt: null,
       loading: false,
@@ -2369,16 +2423,22 @@ export default function Explore() {
                         // blocked outright, since switching Level with it
                         // already selected shouldn't silently drop it.
                         const budgetUnavailable = m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset";
+                        // Same "still toggleable, visually dimmed" treatment
+                        // — a landing page only exists on an ad's own
+                        // creative, nothing above it.
+                        const landingPageUnavailable = m.key === "landing_page" && activeView.level !== "ad";
                         // Still toggleable (so an already-selected one can be
                         // turned off), but visually flagged — it'll be
                         // silently absent from the result anyway once a
                         // filter forces a rollup.
-                        return (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable;
+                        return (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable || landingPageUnavailable;
                       }}
                       unavailableTitle={(m) =>
                         m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset"
                           ? "Only available at Campaign or Ad Set level"
-                          : "Not available while a name filter requires combining finer-grained data"
+                          : m.key === "landing_page" && activeView.level !== "ad"
+                            ? "Only available at Ad level"
+                            : "Not available while a name filter requires combining finer-grained data"
                       }
                     />
                     <div style={{ marginTop: 14 }}>
@@ -2554,6 +2614,23 @@ function formatPivotDateLabel(iso, timeIncrement) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
+// Short, readable link text for the "Landing Page" metric column — a
+// deliberately simpler cousin of lib/adCreativeDetails.js's own
+// extractLandingPageLabel() (duplicated, not imported: that file pulls in
+// lib/facebookGraph.js's Node-only `crypto` use for appsecret_proof, which
+// has no business in a page's client bundle). That helper derives a grouping
+// label (e.g. a Shopify product handle); this one just needs something
+// shorter than the full URL that still reads as "this is a real link."
+function landingPageLinkLabel(url) {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/+$/, "");
+    return path ? `${parsed.hostname}${path}` : parsed.hostname;
+  } catch {
+    return url;
+  }
+}
+
 // The leading, non-metric columns a result can have — shared between the
 // on-screen table (which wants per-column render/sortValue/maxWidth) and the
 // CSV export (which just wants `{key, label}` to read `row[key]` through). A
@@ -2607,6 +2684,11 @@ function ExploreResultsTable({
   // resets whenever the query re-runs, same as SortableTable's own sort/
   // search state; there's no reason a selection should survive a new result.
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  // Opens BulkDuplicateAdsModal for the currently-selected ad rows — holds
+  // just a boolean, same as RowActions' own single-row `duplicating` state;
+  // the modal reads `selectedRows`/`accountId` directly off this component's
+  // own render, no need to snapshot them into this state too.
+  const [bulkDuplicating, setBulkDuplicating] = useState(false);
   // Defaults on — most views benefit from seeing the Total at a glance —
   // but some people want the table to just be the rows, so it's a toggle,
   // not forced. Local to this one render of the table, same as every other
@@ -2812,6 +2894,17 @@ function ExploreResultsTable({
   const selectableIds = [...new Set(selectableRows.map((r) => r.entityId))];
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
   const someSelected = !allSelected && selectableIds.some((id) => selectedIds.has(id));
+  // Backs the bulk "Duplicate" action below — the selected ad rows
+  // themselves (already carrying `entityId`/`entityLabel`/`accountId`, no
+  // extra fetch needed to know what's being duplicated) and whether they all
+  // belong to the same ad account. /api/fb/duplicate-ad takes one `accountId`
+  // for both the source ad and the destination ad set, so a selection
+  // spanning accounts (only possible in a multi-account Explore view) has no
+  // single account to duplicate within — flagged the same "still visible,
+  // explained in a tooltip" way as every other unavailable bulk action here,
+  // rather than silently dropping the out-of-account ads from the batch.
+  const selectedRows = selectableRows.filter((r) => selectedIds.has(r.entityId));
+  const selectedAccountIds = [...new Set(selectedRows.map((r) => r.accountId))];
 
   function startFetch(row, childLevel) {
     const id = row.entityId;
@@ -2994,10 +3087,23 @@ function ExploreResultsTable({
       return {
         key,
         label,
-        align: "right",
+        align: key === "landing_page" ? "left" : "right",
         maxWidth: METRIC_COLUMN_WIDTH[format] || METRIC_COLUMN_WIDTH.number,
         sortValue: (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
         render: (row) => {
+          // A link, not plain formatted text — formatMetricValue has no
+          // concept of "this text is a URL," and the row's own full URL
+          // would blow out this column's width anyway.
+          if (key === "landing_page") {
+            const url = row[key];
+            return url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ textDecoration: "underline" }}>
+                {landingPageLinkLabel(url)}
+              </a>
+            ) : (
+              "—"
+            );
+          }
           const currency = currencyByAccountId.get(row.accountId);
           const value = formatMetricValue(row[key], format, currency);
           if (!comparable) return value;
@@ -3294,7 +3400,7 @@ function ExploreResultsTable({
                     people reach for after selecting a batch of rows, and it
                     used to blend into the row as just another secondary-
                     looking button. */}
-                {CHILD_LEVEL[meta.level] && (
+                {CHILD_LEVEL[meta.level] ? (
                   <button
                     type="button"
                     className={`${styles.btnPrimary} ${styles.openNewCta}`}
@@ -3305,6 +3411,36 @@ function ExploreResultsTable({
                   >
                     <RocketIcon size={14} />
                     Open New
+                  </button>
+                ) : (
+                  meta.level === "ad" && (
+                    <button
+                      type="button"
+                      className={`${styles.btnPrimary} ${styles.openNewCta}`}
+                      onClick={() => onOpenChildView(meta.level, [...selectedIds])}
+                      title={`Open a new tab showing just the selected ad${
+                        selectedIds.size === 1 ? "" : "s"
+                      }, with the same date range, metrics, and other query settings as this view`}
+                    >
+                      <RocketIcon size={14} />
+                      Open in New Tab
+                    </button>
+                  )
+                )}
+                {meta.level === "ad" && (
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    disabled={selectedAccountIds.length !== 1}
+                    title={
+                      selectedAccountIds.length !== 1
+                        ? "Select ads from a single ad account to duplicate them together"
+                        : undefined
+                    }
+                    onClick={() => setBulkDuplicating(true)}
+                  >
+                    <CopyIcon size={11} />
+                    Duplicate {selectedIds.size} Ad{selectedIds.size === 1 ? "" : "s"}
                   </button>
                 )}
                 <button type="button" className={styles.btnSecondary} onClick={() => copyText([...selectedIds].join(", "))}>
@@ -3374,7 +3510,15 @@ function ExploreResultsTable({
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
-      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
+      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} onNavigate={setDetailEntity} />
+      {bulkDuplicating && (
+        <BulkDuplicateAdsModal
+          ads={selectedRows.map((r) => ({ id: r.entityId, name: r.entityLabel || r.label || r.entityId }))}
+          accountId={selectedAccountIds[0]}
+          currency={currencyByAccountId.get(selectedAccountIds[0])}
+          onClose={() => setBulkDuplicating(false)}
+        />
+      )}
     </div>
   );
 }
