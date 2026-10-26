@@ -4,7 +4,6 @@ import { apiGet, apiPost } from '@/launch-ad/lib/client-api';
 import { useAsync } from '@/launch-ad/lib/hooks';
 import type { AudienceItem, FlowContext, FormState, InterestItem } from '@/launch-ad/lib/types';
 import { Chip, Field, Loading, SearchSelect } from './ui';
-import './audience.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

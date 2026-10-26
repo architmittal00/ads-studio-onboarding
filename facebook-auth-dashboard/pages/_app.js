@@ -1,4 +1,5 @@
 import "@/styles/globals.css";
+import "@/launch-ad/launch-ad.scoped.css";
 import { useEffect } from "react";
 import Script from "next/script";
 import { SessionProvider, useSession } from "next-auth/react";

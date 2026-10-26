@@ -8,7 +8,6 @@ import { CTAS } from '@/launch-ad/lib/constants';
 import type { FormState } from '@/launch-ad/lib/types';
 import { useProxy } from '@/launch-ad/lib/video-proxy';
 import { Segmented, TextInput } from './ui';
-import './aicopy.css';
 
 const LANGS: { key: CopyLanguage; label: string }[] = [{ key: 'EN', label: 'English' }, { key: 'HINGLISH', label: 'Hinglish' }, { key: 'HI', label: 'हिन्दी' }];
 
