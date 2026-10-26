@@ -11,7 +11,7 @@ import styles from "@/styles/Home.module.css";
 // level comes from /api/fb/entity-details (see lib/entityDetails.js for what
 // each level actually fetches/resolves).
 export default function EntityDetailDrawer({ entity, onClose, onNavigate }) {
-  const [data, setData] = useState(null);
+  const [loaded, setLoaded] = useState(null); // { key, data } — data tagged with the entity it was fetched for
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -28,15 +28,16 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate }) {
     if (!entity) return;
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets stale data/error from a previously-opened row, not derivable from props/state
-    setData(null);
+    setLoaded(null);
     setError(null);
     setLoading(true);
+    const key = `${entity.level}:${entity.id}`;
     fetch(`/api/fb/entity-details?level=${entity.level}&id=${encodeURIComponent(entity.id)}`)
       .then((res) => res.json())
       .then((json) => {
         if (cancelled) return;
         if (json.error) setError(json.error);
-        else setData(json);
+        else setLoaded({ key, data: json });
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -50,6 +51,13 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate }) {
   }, [entity]);
 
   if (!entity) return null;
+
+  // Navigating (e.g. ad -> its ad set) swaps `entity` one render before the
+  // fetch effect above clears the previous entity's data; without this
+  // check that render hands the old level's shape to the new level's
+  // component (AdSetDetails reading `placements` off an ad's data crashed).
+  const data = loaded && loaded.key === `${entity.level}:${entity.id}` ? loaded.data : null;
+  const showLoading = loading || (!data && !error);
 
   const levelLabel = LEVEL_OPTIONS.find((l) => l.value === entity.level)?.label || "Entity";
 
@@ -68,7 +76,7 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate }) {
           </button>
         </div>
 
-        {loading && (
+        {showLoading && !error && (
           <p className={styles.sub} style={{ marginTop: 20 }}>
             Loading…
           </p>
@@ -79,7 +87,7 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate }) {
           </div>
         )}
 
-        {!loading && !error && data && (
+        {!showLoading && !error && data && (
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
             {entity.level === "campaign" && <CampaignDetails data={data} />}
             {entity.level === "adset" && <AdSetDetails data={data} />}
@@ -273,6 +281,20 @@ function AdDetails({ adId, data, onNavigate }) {
       </DetailRow>
       <DetailRow label="Preview">
         <AdPreview adId={adId} />
+        {/* The CTA inside Meta's own preview frame is a static render with
+            no destination (cross-origin, can't be wired up from here) — this
+            is the working equivalent. */}
+        {data.landingUrl && (
+          <a
+            href={data.landingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.btnPrimary}
+            style={{ display: "inline-block", marginTop: 10, textDecoration: "none" }}
+          >
+            {data.ctaLabel || "Visit landing page"} ↗
+          </a>
+        )}
       </DetailRow>
     </>
   );
@@ -313,8 +335,8 @@ function AdPreview({ adId }) {
     return (
       <iframe
         src={preview.url}
-        width={340}
-        height={480}
+        width={500}
+        height={700}
         allow="autoplay; encrypted-media"
         sandbox="allow-scripts allow-same-origin allow-popups"
         style={{ maxWidth: "100%", border: "1px solid var(--border)", borderRadius: 10 }}
