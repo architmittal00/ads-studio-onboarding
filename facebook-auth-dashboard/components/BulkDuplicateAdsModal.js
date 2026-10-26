@@ -34,6 +34,8 @@ function budgetLabel(entity, currency) {
 // ad names the way the single-ad modal does (that one also needs the ad's
 // creative id up front for its own display; this one doesn't show per-ad
 // creative details, so a GET for each ad is extra round trips this skips).
+const DUPLICATE_CONCURRENCY = 5;
+
 export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClose }) {
   const [step, setStep] = useState("loading"); // loading | error | pick | confirm | submitting | done
   const [loadError, setLoadError] = useState(null);
@@ -92,14 +94,16 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
     if (selectedAdsets.length === 0) return;
     setStep("submitting");
     setProgress({ done: 0, total: totalPairs });
-    const collected = [];
-    // Sequential, not parallel — same reasoning the single-ad/ad-set flow's
-    // own NDJSON launch sequence follows: this hits the same ad account's
-    // Graph rate limit as every other write this app makes, and a batch here
-    // can already be dozens of calls (N ads × M ad sets) without also racing
-    // them against each other.
-    for (const ad of ads) {
-      for (const adset of selectedAdsets) {
+    const pairs = ads.flatMap((ad) => selectedAdsets.map((adset) => ({ ad, adset })));
+    const collected = new Array(pairs.length);
+    // A small worker pool (same shape as Copy Ads' own concurrent copy) —
+    // fast enough for N x M batches without firing every call at the ad
+    // account's Graph rate limit at once.
+    let next = 0;
+    async function worker() {
+      while (next < pairs.length) {
+        const i = next++;
+        const { ad, adset } = pairs[i];
         try {
           const res = await fetch("/api/fb/duplicate-ad", {
             method: "POST",
@@ -107,18 +111,14 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
             body: JSON.stringify({ accountId, sourceAdId: ad.id, destinationAdsetId: adset.id, name: `${ad.name} - Copy` }),
           });
           const json = await res.json();
-          collected.push({
-            adName: ad.name,
-            adsetName: adset.name,
-            success: res.ok && !!json.success,
-            error: res.ok ? null : json.error || "Request failed",
-          });
+          collected[i] = { adName: ad.name, adsetName: adset.name, success: res.ok && !!json.success, error: res.ok ? null : json.error || "Request failed" };
         } catch (err) {
-          collected.push({ adName: ad.name, adsetName: adset.name, success: false, error: err.message });
+          collected[i] = { adName: ad.name, adsetName: adset.name, success: false, error: err.message };
         }
         setProgress((p) => ({ ...p, done: p.done + 1 }));
       }
     }
+    await Promise.all(Array.from({ length: Math.min(DUPLICATE_CONCURRENCY, pairs.length) }, worker));
     setResults(collected);
     setStep("done");
   }
