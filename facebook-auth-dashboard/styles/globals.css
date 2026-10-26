@@ -157,3 +157,13 @@ input {
   background: rgba(var(--surface-tint-rgb), 0.07);
   border-radius: 3px;
 }
+
+/* Mobile web: iOS Safari zooms the page when a focused field's font-size is
+   below 16px, so form controls are bumped to 16px on phone widths. */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/lib/clientStorage";
 import { clearCachedEntry } from "@/lib/clientCache";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { ACCOUNT_DATA_CACHE_KEY } from "./AccountProvider";
 import {
   FileTextIcon,
@@ -49,6 +50,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const [hovering, setHovering] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const saved = getSidebarCollapsed();
@@ -82,6 +84,19 @@ export default function Sidebar() {
     });
   }
 
+  function handleSignOut() {
+    // Reported by the user: a newly-connected Meta ad account didn't
+    // show up even after signing out and back in — AccountProvider's
+    // 30-minute account-data cache (lib/clientCache.js) isn't keyed
+    // to the session at all, so signing out alone never invalidated
+    // it; the next sign-in just kept reading the same stale entry.
+    // Clearing it here means a sign-out/sign-in cycle is guaranteed
+    // to reflect whatever changed on Meta's side, same as the user
+    // would expect.
+    clearCachedEntry(ACCOUNT_DATA_CACHE_KEY);
+    signOut({ callbackUrl: "/" });
+  }
+
   // Persisted preference stays collapsed; hovering just temporarily reveals
   // labels without writing to localStorage, so the rail snaps back once the
   // pointer leaves.
@@ -94,6 +109,30 @@ export default function Sidebar() {
     .slice(0, 2)
     .map((part) => part[0].toUpperCase())
     .join("") || "?";
+
+  if (isMobile) {
+    // Phone layout: a slim top bar instead of the rail — only Custom Views is
+    // supported on mobile for now, so there's nothing to navigate between.
+    return (
+      <nav className={styles.mobileTopBar}>
+        <div className={styles.logoMark} style={{ width: 30, height: 30, fontSize: 12 }}>
+          f
+        </div>
+        <span className={styles.mobileTopBarTitle}>Custom Views</span>
+        <button
+          type="button"
+          className={styles.appSidebarIconBtn}
+          onClick={toggleTheme}
+          title={isDark ? "Switch to light theme" : "Switch to dark theme"}
+        >
+          {isDark ? <SunIcon size={16} /> : <MoonIcon size={16} />}
+        </button>
+        <button type="button" className={styles.appSidebarIconBtn} onClick={handleSignOut} title="Sign out">
+          <LogoutIcon size={16} />
+        </button>
+      </nav>
+    );
+  }
 
   return (
     <nav
@@ -156,18 +195,7 @@ export default function Sidebar() {
         <button
           type="button"
           className={styles.appSidebarIconBtn}
-          onClick={() => {
-            // Reported by the user: a newly-connected Meta ad account didn't
-            // show up even after signing out and back in — AccountProvider's
-            // 30-minute account-data cache (lib/clientCache.js) isn't keyed
-            // to the session at all, so signing out alone never invalidated
-            // it; the next sign-in just kept reading the same stale entry.
-            // Clearing it here means a sign-out/sign-in cycle is guaranteed
-            // to reflect whatever changed on Meta's side, same as the user
-            // would expect.
-            clearCachedEntry(ACCOUNT_DATA_CACHE_KEY);
-            signOut({ callbackUrl: "/" });
-          }}
+          onClick={handleSignOut}
           title="Sign out"
         >
           <LogoutIcon size={16} />

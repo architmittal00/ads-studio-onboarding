@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import styles from "@/styles/Home.module.css";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { ListIcon, CloseIcon, RefreshIcon } from "./icons";
 
 const POLL_MS = 5000;
@@ -15,6 +16,7 @@ const POLL_MS = 5000;
 // stays as-is for anyone who wants the larger, dedicated view.
 export default function ApiLogsFab() {
   const { status } = useSession();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,9 @@ export default function ApiLogsFab() {
 
   // No session yet (pre-login screen) — nothing to log in on, and /api/logs
   // would just 401.
-  if (status !== "authenticated") return null;
+  // Phone layout has no room for a floating button (and /logs itself isn't
+  // adapted for mobile yet).
+  if (status !== "authenticated" || isMobile) return null;
 
   return (
     <div ref={containerRef} style={{ position: "fixed", bottom: 24, right: 24, zIndex: 900 }}>

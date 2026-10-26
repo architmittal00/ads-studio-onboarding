@@ -882,30 +882,42 @@ button.stat:hover {
   min-width: 0;
 }
 
-@media (max-width: 900px) {
+/* ── Mobile shell (phone widths): slim top bar replaces the sidebar rail ── */
+.mobileTopBar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.mobileTopBarTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--t1);
+}
+.mobileUnsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 40px 20px;
+}
+
+@media (max-width: 768px) {
   .appShell {
     flex-direction: column;
   }
+  /* Hides the desktop rail during the first (server-matching) render pass;
+     Sidebar swaps in the mobile top bar right after hydration. */
   .appSidebar {
-    width: 100%;
-    height: auto;
-    position: static;
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-    gap: 12px;
-  }
-  .appSidebarHeader {
-    flex-shrink: 0;
-  }
-  .appNavList {
-    flex-direction: row;
-  }
-  .appSidebarFooter {
-    flex-direction: row;
-    border-top: none;
-    padding-top: 0;
-    flex-shrink: 0;
+    display: none;
   }
 }
 
@@ -1345,4 +1357,65 @@ button.stat:hover {
   font-weight: 700;
   color: #fff;
   white-space: nowrap;
+}
+
+/* ── Mobile (phone widths) ──
+   Custom Views is the only screen adapted so far (see MOBILE_SUPPORTED_PATHS
+   in lib/useIsMobile.js); other pages show a notice instead of rendering. */
+@media (max-width: 768px) {
+  .hideOnMobile {
+    display: none !important;
+  }
+  .card {
+    padding: 14px;
+  }
+  /* Detail / changes drawers take the whole screen on a phone. */
+  .drawerPanel {
+    width: 100vw;
+    height: 100dvh;
+    padding: 16px;
+    border-left: none;
+  }
+  .main {
+    padding: 14px 14px 96px;
+    gap: 14px;
+  }
+  .exploreLayout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  /* Flatten the content column so the date bar can sit above the setup form
+     while the result stays below it. */
+  .exploreContent {
+    display: contents;
+  }
+  .exploreDateBar {
+    order: -2;
+    margin-bottom: 0 !important;
+  }
+  /* No result yet: the setup form IS the screen, so it leads and the
+     "set up your query in the panel on the right" card is redundant. */
+  .exploreQueryPanel {
+    position: static;
+    max-height: none;
+    order: -1;
+  }
+  .exploreEmptyState {
+    display: none;
+  }
+  /* With a result on screen the form becomes a full-screen sheet below the
+     top bar, opened by "Edit Query". */
+  .exploreQueryPanelSheet {
+    position: fixed;
+    inset: 52px 0 0 0;
+    z-index: 40;
+    order: 0;
+    padding: 0;
+    background: var(--bg);
+  }
+  .exploreQueryPanelSheet .exploreQueryCard {
+    height: 100%;
+    border-radius: 0;
+    border: none;
+  }
 }
