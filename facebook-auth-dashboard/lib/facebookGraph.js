@@ -1,3 +1,4 @@
+import { createHmac } from "crypto";
 import { logApiCall } from "./apiLogger";
 
 // v23.0: the minimum version carrying the unified Advantage+ automation-lever
@@ -11,6 +12,20 @@ const BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 function redactToken(url) {
   return url.replace(/access_token=[^&]+/, "access_token=[REDACTED]");
+}
+
+// Added for Catalog Ads (lib/catalogAds/): every call sr-ads-launch made to
+// Graph included this, and the business-owned-catalog edges it needs
+// (owned_product_catalogs, client_product_catalogs) are exactly the kind of
+// business-scoped call Meta's "Require App Secret Proof" setting is meant to
+// guard. Every existing call in this file has worked fine without it so far,
+// so this is additive — sent whenever FACEBOOK_APP_SECRET is configured
+// (always, in this app) rather than gated to only the new catalog calls, to
+// keep one request-building code path instead of two.
+function appSecretProof(accessToken) {
+  const secret = process.env.FACEBOOK_APP_SECRET;
+  if (!secret) return null;
+  return createHmac("sha256", secret).update(accessToken).digest("hex");
 }
 
 // Graph's own `error.message` is often a generic one-liner ("Invalid
@@ -39,6 +54,8 @@ export async function graphGet(path, accessToken, params = {}) {
     }
   }
   search.set("access_token", accessToken);
+  const proof = appSecretProof(accessToken);
+  if (proof) search.set("appsecret_proof", proof);
 
   const url = `${BASE_URL}${path}?${search.toString()}`;
   const redactedUrl = redactToken(url);
@@ -90,6 +107,8 @@ export async function graphPost(path, accessToken, params = {}) {
     }
   }
   body.set("access_token", accessToken);
+  const proof = appSecretProof(accessToken);
+  if (proof) body.set("appsecret_proof", proof);
 
   const url = `${BASE_URL}${path}`;
   const redactedUrl = redactToken(`${url}?${body.toString()}`);
