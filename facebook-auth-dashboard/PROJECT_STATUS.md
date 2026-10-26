@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Launch Ad / Catalog Ads design convergence (2026-10-26)
+
+Followed the audit in `DESIGN.md`: the clones' visual primitives were brought in line with the app (radii, type scale, buttons, inputs, tabs/segmented, badges/chips, notices, table look, hardcoded colors → tokens; shared `Loader` for the main loading state) via blanket edits and a final "Design-system convergence" block in `launch-ad/launch-ad.scoped.css`. **Not done** (structural, behaviour-affecting — each needs its own pass): swapping the clones' own date range, audience/interest/location pickers, ad-account combobox and `.cat-table` for `DateRangeMenu`, the shared pickers, `AccountSelect` and `SortableTable`; `lucide-react` → `components/icons.js`. `DESIGN.md` has the per-item status. Verified visually (dark) on Launch Ad only; Catalog Ads inherits the same CSS.
+
 ### Catalog Ads replaced by the sr-ads-launch clone; DESIGN.md added (2026-10-26)
 
 The cloned catalog screen is now the app's **Catalog Ads** at `/catalog-ads` (sidebar label "Catalog Ads"); the earlier hand-ported, PIN-gated implementation was deleted (`pages/catalog-ads.js`, `components/catalogads/`, `lib/catalogAds/`, `pages/api/fb/catalog-ads/`, `pages/api/catalog-ads/unlock.js`, `CATALOG_ADS_PIN`) — recover from git history (PRs #325–#331) if needed. **The new page has no PIN lock** (the clone never had one; the old "lock for now" requirement is gone unless re-added). The `business_management`/`catalog_management` OAuth scopes and `appsecret_proof` in `lib/facebookGraph.js` stay (the clone needs them). The clone's own API-log drawer/button was removed from `PageShell` (we have `/logs`). New **`DESIGN.md`** documents this app's design system (tokens, type, components, conventions) and audits where Launch Ad/Catalog Ads deviate (19-row table with Open/Fixed status and a suggested convergence order) — keep it updated whenever UI conventions change.
