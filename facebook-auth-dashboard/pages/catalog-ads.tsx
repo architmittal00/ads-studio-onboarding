@@ -5,9 +5,9 @@ import CatalogAdsApp from "@/launch-ad/components/CatalogAdsApp";
 import PageShell from "@/launch-ad/components/PageShell";
 
 // sr-ads-launch's /catalog-ads screen inside this app's own shell — see PageShell.
-export default function CatalogAdsNew() {
+export default function CatalogAds() {
   return (
-    <PageShell title="Catalog Ads (New)">
+    <PageShell title="Catalog Ads">
       <CatalogAdsApp declined={[]} />
     </PageShell>
   );
