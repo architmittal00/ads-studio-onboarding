@@ -64,33 +64,34 @@ Scale in use: 10, 11, 11.5 (tabs), 12, 12.5 (tables), 13, 15, 16. Don't add half
 
 ## Cloned screens: Launch Ad & Catalog Ads (sr-ads-launch)
 
-These two pages are verbatim clones of `lovebhardwaj-commits/sr-ads-launch` (`launch-ad/`), deliberately kept diffable against that repo so they can be changed one piece at a time. They are wrapped by `launch-ad/components/PageShell.tsx` (our `Layout` + a `.la-root` container). Their CSS is `launch-ad/launch-ad.scoped.css`: every selector prefixed `.la-root`, every variable renamed `--la-*` and mapped onto the tokens above (`--la-coral`→`--purple`, `--la-ink`→`--t1`, `--la-card`→`--card`, …), so colors and light/dark already follow this system. **Anything not listed as "fixed" below still uses the clone's own sizes, radii and components.**
+These two pages are verbatim clones of `lovebhardwaj-commits/sr-ads-launch` (`launch-ad/`), deliberately kept diffable against that repo so they can be changed one piece at a time. They are wrapped by `launch-ad/components/PageShell.tsx` (our `Layout` + a `.la-root` container). Their CSS is `launch-ad/launch-ad.scoped.css`: every selector prefixed `.la-root`, every variable renamed `--la-*` and mapped onto the tokens above (`--la-coral`→`--purple`, `--la-ink`→`--t1`, `--la-card`→`--card`, …), so colors and light/dark already follow this system. **Anything marked Open in the audit below still uses the clone's own components.**
 
 ### Audit: where the clones differ from the rest of the app
 
-| # | Area | Clone | App convention | Status |
-|---|---|---|---|---|
-| 1 | Colors | `--la-*` mapped to tokens ✔; but literal `#fff` ×23, `#111`, `#000`, ok/bad badges hardcode `#2e7d4f`/`#c0392b` | tokens only (`--green`, `--red`) | **Open** (badges) |
-| 2 | Selected segmented control | `.seg` solid purple pill (changed on request) | `.tabActive` = purple tint | **Inconsistent** — the Catalog tab bar uses tint while `.seg` is solid; pick one |
-| 3 | Radii | cards 12, buttons 8, inputs 7, chips/badges 999 | 14 / 10 / 9 / 20 | Open |
-| 4 | Type scale | 10.5 / 11.5 / 12.5 mixed; page title 16/**600**; section title 14/600; button 12.5/600 | 16/800, 15/700, button 13/700 | Open |
-| 5 | Primary button | flat gradient, no glow/hover | glow shadow, hover .88 | Open |
-| 6 | Secondary button | `.btn-ghost` solid `--card` with `--t1` text | translucent, `--t2` text, hover → `--t1` | Open |
-| 7 | Inputs | fixed 34px height, purple border on focus only | 9px/13px padding, purple border **and** 5% wash | Open |
-| 8 | Tables | own `.cat-table` (10.5/600/.05em headers, no sort/resize/freeze/search) | `SortableTable` | Open — biggest functional gap |
-| 9 | Ad account picker | native `<select>` (`AccountPicker`) | `AccountSelect` (search) | Open |
-| 10 | Date range | own `DateRange.tsx` popover (`dr-pop`) | `DateRangeMenu` | Open — duplicate component |
-| 11 | Pickers | own interest/audience/location pickers (`AudienceControls`, `Pickers`) | `InterestPicker`, `TargetingSearchPicker`, `CustomAudiencePicker` | Open — duplicates |
-| 12 | Icons | `lucide-react` (12 imports) | `components/icons.js` | Open |
-| 13 | Loading / empty | own spinner keyframes, own empty-state markup | `Loader`, `.exploreEmptyState` | Open |
-| 14 | Messages | `.notice.{ok,warn,bad,info}` | `.error`, `.badge*` | Open |
-| 15 | Page layout | own `.content` (max 835 / 1320, own padding), own title classes | `.page`/`.main`, `.h1`/`.sub` | Open |
-| 16 | Overlays / z-index | sticky bars 25/30, drawer 40, popover 60 | modals 800 | Open — verify against Sidebar/modals |
-| 17 | Sticky step bar | `top: 0` inside our scroll area, opaque `--bg` | — | **Fixed** |
-| 18 | API log drawer | removed (we have `/logs`) | — | **Fixed** |
-| 19 | Theme | tokens mapped, dark works | — | **Fixed** |
+Visual primitives were converged in `launch-ad/launch-ad.scoped.css` (blanket token/radius/size fixes plus a final "Design-system convergence" block that restates controls in this app's sizes). **Structural duplicates were not replaced** — swapping them for our shared components changes behaviour/APIs, so each needs its own pass.
 
-Suggested order when converging: 8, 10, 9, 11 (replace duplicate components — also removes the most code) → 3–7 (restyle primitives in `launch-ad.scoped.css`) → 1, 2, 12–16.
+| # | Area | Status |
+|---|---|---|
+| 1 | Colors — hardcoded ok/bad hexes → `--green`/`--red`; `#fff` remains only on solid fills and white product-image backgrounds | **Fixed** |
+| 2 | Selected segmented control / catalog tabs → `.tabGroup`/`.tab` look (15% tint, purple text) | **Fixed** |
+| 3 | Radii → card 14, button 10, secondary/input/notice 9, badge/chip 20 | **Fixed** |
+| 4 | Type scale → page title 16/800, section 15/700, buttons 13/700 · 12/700, badges 10/700; 10.5/13.5 removed | **Fixed** (11.5/12.5 kept — both in our scale) |
+| 5 | Primary button → glow, hover .88, disabled .35 | **Fixed** |
+| 6 | Secondary button (`.btn-ghost`) → `.btnSecondary` look | **Fixed** |
+| 7 | Inputs → `.select` look (padding, 9px, focus wash); fixed 34px height removed | **Fixed** |
+| 8 | Notices/badges/chips → `.error`/`.badge*`/`.pill` tints | **Fixed** |
+| 9 | Table look → `.table` header/cell/hover values. Still the clone's own `.cat-table`: no sort/resize/freeze/search | Visual fixed; **`SortableTable` swap open** |
+| 10 | Spinner/loading → shared `Loader` in the main "Loading" state (button-inline spinners keep the clone's) | **Mostly fixed** |
+| 11 | Empty state → icon/heading colors aligned with `.exploreEmptyState`; markup still the clone's | Partly fixed |
+| 12 | Ad account picker (`AccountPicker`/`SearchSelect`) — styled like our inputs/dropdowns; same combobox pattern as `AccountSelect` but different data shape and keyboard handling | Visual fixed; **component swap open** |
+| 13 | Date range — own `DateRange.tsx` popover vs `DateRangeMenu` | **Open** (duplicate) |
+| 14 | Pickers — own interest/audience/location pickers vs `InterestPicker`, `TargetingSearchPicker`, `CustomAudiencePicker` | **Open** (duplicates) |
+| 15 | Icons — `lucide-react` (12 files) vs `components/icons.js` | **Open** |
+| 16 | Page layout — own `.content` (835 / 1320) instead of `.page`/`.main` | **Open** (wizard needs width; decide per screen) |
+| 17 | Overlays / z-index (25/30/40/60 vs modals 800) | **Open** — verify |
+| 18 | Sticky step bar opaque at `top: 0`; API log removed; light/dark via tokens | **Fixed** |
+
+Remaining order: 13, 14, 12, 9 (replace duplicate components — removes the most code) → 15 → 16, 17.
 
 ## Adding or changing a component
 

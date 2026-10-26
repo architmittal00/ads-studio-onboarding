@@ -2,6 +2,7 @@
 import { ChevronDown, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { apiGet } from '@/launch-ad/lib/client-api';
+import Loader from '@/components/Loader';
 
 export function Field({ label, hint, children }: { label?: ReactNode; hint?: ReactNode; children: ReactNode }) {
   return (
@@ -259,5 +260,5 @@ export function SearchSelect({ value, onChange, options, placeholder, searchPlac
 /** Every loading state reads the same: data comes from Meta. (`text` is accepted for older callers and ignored.) */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function Loading(_props: { text?: string }) {
-  return <div className="loading"><span className="spinner" />Fetching data from Meta…</div>;
+  return <div className="loading"><Loader inline label="Fetching data from Meta…" /></div>;
 }
