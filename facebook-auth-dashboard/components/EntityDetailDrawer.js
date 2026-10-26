@@ -10,7 +10,7 @@ import styles from "@/styles/Home.module.css";
 // `entity` is `{ level: "campaign"|"adset"|"ad", id, name }`; data for each
 // level comes from /api/fb/entity-details (see lib/entityDetails.js for what
 // each level actually fetches/resolves).
-export default function EntityDetailDrawer({ entity, onClose }) {
+export default function EntityDetailDrawer({ entity, onClose, onNavigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -83,7 +83,7 @@ export default function EntityDetailDrawer({ entity, onClose }) {
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
             {entity.level === "campaign" && <CampaignDetails data={data} />}
             {entity.level === "adset" && <AdSetDetails data={data} />}
-            {entity.level === "ad" && <AdDetails adId={entity.id} data={data} />}
+            {entity.level === "ad" && <AdDetails adId={entity.id} data={data} onNavigate={onNavigate} />}
           </div>
         )}
       </div>
@@ -202,9 +202,39 @@ function AdSetDetails({ data }) {
   );
 }
 
-function AdDetails({ adId, data }) {
+// Clickable parent-entity name — re-points this same open drawer at the
+// ad's own campaign/ad set (same `{level, id, name}` shape EntityDetailDrawer
+// already takes, so no new fetch path is needed) instead of navigating away
+// from Explore. `onNavigate` is optional: RowActions' own "View Details"
+// entry point is the only caller that supplies it today, but nothing stops
+// another caller from rendering this drawer read-only.
+function ParentEntityLink({ level, id, name, onNavigate }) {
+  if (!id) return <p className={styles.sub}>—</p>;
+  if (!onNavigate) {
+    return <p className={styles.sub}>{name || id}</p>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate({ level, id, name })}
+      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", color: "var(--t1)", fontWeight: 600, fontSize: 13, textAlign: "left" }}
+    >
+      {name || id}
+    </button>
+  );
+}
+
+function AdDetails({ adId, data, onNavigate }) {
   return (
     <>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        <DetailRow label="Campaign">
+          <ParentEntityLink level="campaign" id={data.campaign?.id} name={data.campaign?.name} onNavigate={onNavigate} />
+        </DetailRow>
+        <DetailRow label="Ad Set">
+          <ParentEntityLink level="adset" id={data.adset?.id} name={data.adset?.name} onNavigate={onNavigate} />
+        </DetailRow>
+      </div>
       <DetailRow label="Primary Text">
         <TextVariantList items={data.primaryTexts} />
       </DetailRow>
@@ -215,7 +245,31 @@ function AdDetails({ adId, data }) {
         <TextVariantList items={data.descriptions} />
       </DetailRow>
       <DetailRow label="CTA">
-        <PillList items={data.ctaLabel ? [data.ctaLabel] : null} />
+        {/* A plain PillList (just a label, nothing to click) whenever there's
+            no landing page to send someone to — otherwise the button would
+            promise a destination it can't deliver. */}
+        {data.ctaLabel && data.landingUrl ? (
+          <a
+            href={data.landingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.badgeInfo}
+            style={{ textDecoration: "none", display: "inline-block" }}
+          >
+            {data.ctaLabel} ↗
+          </a>
+        ) : (
+          <PillList items={data.ctaLabel ? [data.ctaLabel] : null} />
+        )}
+      </DetailRow>
+      <DetailRow label="Landing Page">
+        {data.landingUrl ? (
+          <a href={data.landingUrl} target="_blank" rel="noopener noreferrer" className={styles.sub} style={{ wordBreak: "break-all" }}>
+            {data.landingUrl}
+          </a>
+        ) : (
+          <p className={styles.sub}>No landing page detected for this ad.</p>
+        )}
       </DetailRow>
       <DetailRow label="Preview">
         <AdPreview adId={adId} />

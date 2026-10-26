@@ -1,6 +1,7 @@
 import { graphGet } from "./facebookGraph";
 import { searchTargeting } from "./metaInterestSearch";
 import { titleCaseSnake } from "./reportShared";
+import { deriveLandingUrl } from "./adCreativeDetails";
 
 // Backs Explore's "View Details" row action (components/EntityDetailDrawer.js)
 // — a read-only look at how a campaign/ad set/ad is actually configured on
@@ -141,7 +142,7 @@ export async function fetchAdSetDetails(id, token) {
 export async function fetchAdCopyDetails(id, token) {
   const data = await graphGet(`/${id}`, token, {
     fields:
-      "name,creative{id,thumbnail_url,video_id,body,call_to_action,object_story_spec{link_data{name,message,description},video_data{title,message,call_to_action{type}}},asset_feed_spec{titles{text},bodies{text},descriptions{text}}}",
+      "name,campaign{id,name},adset{id,name},creative{id,thumbnail_url,video_id,body,call_to_action,object_story_spec{link_data{name,message,description,link},video_data{title,message,call_to_action{type,value{link}}}},asset_feed_spec{titles{text},bodies{text},descriptions{text},link_urls{website_url}}}",
   });
   const creative = data.creative || {};
   const asset = creative.asset_feed_spec || {};
@@ -166,9 +167,12 @@ export async function fetchAdCopyDetails(id, token) {
 
   return {
     name: data.name,
+    campaign: data.campaign ? { id: data.campaign.id, name: data.campaign.name } : null,
+    adset: data.adset ? { id: data.adset.id, name: data.adset.name } : null,
     primaryTexts,
     headlines,
     descriptions,
     ctaLabel: ctaType ? titleCaseSnake(ctaType.toLowerCase()) : null,
+    landingUrl: deriveLandingUrl(creative),
   };
 }

@@ -607,6 +607,17 @@ export const METRIC_CATALOG = [
     fields: ["conversion_rate_ranking"],
     extract: (r) => r.conversion_rate_ranking || "unknown",
   },
+
+  // Same out-of-band shape as `budget` above — the landing page isn't an
+  // Insights-API field either (it lives on the ad's creative object), so
+  // `extract` is a placeholder and the real value is injected onto each row
+  // separately once it resolves. Only ever populated at Ad level: see
+  // pages/api/fb/ad-landing-pages.js (the top-level, async, per-selected-
+  // metric lookup pages/explore.js's own loadLandingPagesForView() fires) and
+  // pages/api/fb/explore-insights.js's `includeCreative` block (the
+  // synchronous drill-down/expand path, which already fetches ad creative
+  // details for its thumbnail).
+  { key: "landing_page", label: "Landing Page", group: "Creative", format: "text", fields: [], extract: () => null },
 ];
 
 export function getMetric(key) {

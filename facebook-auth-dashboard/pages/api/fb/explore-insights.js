@@ -916,6 +916,13 @@ export default async function handler(req, res) {
       const details = detailsByAdId[row.entityId];
       row.thumbnailUrl = details?.thumbnailUrl ?? null;
       row.isVideo = !!details?.videoId;
+      // Overwrites the `landing_page` metric's placeholder `null` from the
+      // generic extraction pass above (same convention as `budget` just
+      // above) — doesn't resolve the post-based fallback fetchPostLandingUrls()
+      // covers (details.postId), same tradeoff this drill-down path already
+      // makes for thumbnails: good enough for a small, synchronously-fetched
+      // id list, not worth a second Graph round trip here.
+      row.landing_page = details?.landingUrl ?? null;
     }
   }
 
@@ -1018,6 +1025,11 @@ export default async function handler(req, res) {
     // loadThumbnailsForView(). Meaningless (and left false) at every other
     // level, which never carries creative data regardless.
     thumbnailsFetched: includeCreative && level === "ad",
+    // Same idea as thumbnailsFetched, for the `landing_page` metric — true
+    // only when this same `includeCreative` lookup already resolved it (the
+    // drill-down/expand path), false otherwise so pages/explore.js's own
+    // loadLandingPagesForView() knows it still needs to run.
+    landingPagesFetched: includeCreative && level === "ad",
   };
   res.write(`${JSON.stringify({ type: "done", rows, meta })}\n`);
   res.end();

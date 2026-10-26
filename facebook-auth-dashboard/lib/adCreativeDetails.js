@@ -28,6 +28,28 @@ export function chunk(array, size) {
   return chunks;
 }
 
+// Pure extraction of an ad creative's destination URL, checked across every
+// shape it can show up in — shared by fetchAdDetails below and
+// lib/entityDetails.js's fetchAdCopyDetails (Explore's "View Details"
+// drawer), so both agree on exactly what counts as this ad's landing page.
+// `creative.call_to_action` (top-level, separate from the one nested under
+// object_story_spec.video_data) turned out to be the big one — verified
+// against a real account's "Unknown landing page" ads: 10 of 10 video ads
+// with no object_story_spec/asset_feed_spec at all still carried their
+// destination here. Catalog ads have no single fixed URL — their real
+// destination is generated per-product by Facebook at serve time — so this
+// stays null for them.
+export function deriveLandingUrl(creative) {
+  if (!creative) return null;
+  return (
+    creative.object_story_spec?.link_data?.link ||
+    creative.object_story_spec?.video_data?.call_to_action?.value?.link ||
+    creative.call_to_action?.value?.link ||
+    creative.asset_feed_spec?.link_urls?.[0]?.website_url ||
+    null
+  );
+}
+
 // Fetches per-ad details (status, thumbnail, video id) for an exact list of
 // ad IDs, via the Graph API's `?ids=a,b,c` batch-by-ID endpoint (chunked —
 // large ID lists can hit URL/response-size limits). This matters because
@@ -60,20 +82,7 @@ export async function fetchAdDetails(adIds, token) {
       // Ads / Advantage+ catalog ads) rather than being a single fixed
       // image or video creative.
       const creativeType = creative.product_set_id ? "Catalog" : videoId ? "Video" : "Static";
-      // The ad's destination URL, checked across the shapes it can show up
-      // in. `creative.call_to_action` (top-level, separate from the one
-      // nested under object_story_spec.video_data) turned out to be the big
-      // one — verified against a real account's "Unknown landing page" ads:
-      // 10 of 10 video ads with no object_story_spec/asset_feed_spec at all
-      // still carried their destination here. Catalog ads have no single
-      // fixed URL — their real destination is generated per-product by
-      // Facebook at serve time — so this stays null for them.
-      const landingUrl =
-        creative.object_story_spec?.link_data?.link ||
-        creative.object_story_spec?.video_data?.call_to_action?.value?.link ||
-        creative.call_to_action?.value?.link ||
-        creative.asset_feed_spec?.link_urls?.[0]?.website_url ||
-        null;
+      const landingUrl = deriveLandingUrl(creative);
       // Primary ad text, checked across the shapes it can show up in — plain
       // image/video ads carry it on `body`, link/video-post ads carry it on
       // their object_story_spec instead, and Advantage+/dynamic-creative ads
@@ -141,6 +150,32 @@ export async function fetchPostLandingUrls(postIds, token) {
   }
 
   return urlByPostId;
+}
+
+// Resolves the final landing-page URL for an exact list of ad IDs — the
+// fetchAdDetails() lookup plus, for whatever's left with no direct link, the
+// fetchPostLandingUrls() post-based fallback. Backs pages/api/fb/
+// ad-landing-pages.js (Explore's "Landing Page" metric column, see
+// lib/insightsMetrics.js). pages/api/fb/top-landing-pages.js runs the same
+// two steps inline instead of calling this — it also needs `creativeType`
+// off of fetchAdDetails' own result (to skip catalog ads), so reusing this
+// helper there would mean fetching every ad's details twice.
+export async function resolveLandingUrls(adIds, token) {
+  const detailsByAdId = await fetchAdDetails(adIds, token);
+  const postIdsNeedingLink = [...new Set(Object.values(detailsByAdId).map((d) => d.postId).filter(Boolean))];
+  let postLandingUrlByPostId = {};
+  try {
+    postLandingUrlByPostId = await fetchPostLandingUrls(postIdsNeedingLink, token);
+  } catch {
+    // Soft-fail — same reasoning as fetchPostLandingUrls' own per-ID
+    // handling: a few ads just keep an unresolved landing page.
+  }
+  const urlByAdId = {};
+  for (const id of adIds) {
+    const details = detailsByAdId[id];
+    urlByAdId[id] = details?.landingUrl || (details?.postId ? postLandingUrlByPostId[details.postId] : null) || null;
+  }
+  return urlByAdId;
 }
 
 // Best-effort "what product is this ad pointing at" derived from its landing
