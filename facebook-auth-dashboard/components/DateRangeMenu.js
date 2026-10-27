@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ChevronIcon, CalendarIcon } from "./icons";
 import { RANGE_PRESETS, isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
 import { useIsMobile } from "@/lib/useIsMobile";
+import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
 
 const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -333,6 +334,7 @@ export default function DateRangeMenu({
   }
 
   function handleApply() {
+    track("date_range_applied", { preset: draft.rangePreset, compare: !!draft.compareToPrevious });
     onApply({
       rangePreset: draft.rangePreset,
       customSince: draft.rangePreset === "custom" ? draft.since : "",

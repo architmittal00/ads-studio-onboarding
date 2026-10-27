@@ -31,6 +31,9 @@ export default function MobileTabBar() {
             href={item.href}
             className={active ? `${styles.mobileTab} ${styles.mobileTabActive}` : styles.mobileTab}
             aria-current={active ? "page" : undefined}
+            data-track="nav_clicked"
+            data-track-item={item.title}
+            data-track-surface="bottom_bar"
           >
             <span className={styles.mobileTabIcon}>
               <Icon size={20} />

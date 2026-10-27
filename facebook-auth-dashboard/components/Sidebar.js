@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/lib/clientStorage";
 import { clearCachedEntry } from "@/lib/clientCache";
+import { track } from "@/lib/analytics";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { ACCOUNT_DATA_CACHE_KEY } from "./AccountProvider";
 import { mobileNavFor } from "./MobileTabBar";
@@ -73,6 +74,7 @@ export default function Sidebar() {
   }
 
   function toggleTheme() {
+    track("theme_toggled", { to: isDark ? "light" : "dark" });
     setIsDark((prev) => {
       const next = !prev;
       setThemePreference(next ? "dark" : "light");
@@ -86,6 +88,7 @@ export default function Sidebar() {
   }
 
   function handleSignOut() {
+    track("signed_out");
     // Reported by the user: a newly-connected Meta ad account didn't
     // show up even after signing out and back in — AccountProvider's
     // 30-minute account-data cache (lib/clientCache.js) isn't keyed
@@ -166,6 +169,9 @@ export default function Sidebar() {
               key={link.href}
               href={link.href}
               title={expanded ? undefined : link.label}
+              data-track="nav_clicked"
+              data-track-item={link.label}
+              data-track-surface="sidebar"
               className={active ? `${styles.appNavLink} ${styles.appNavLinkActive}` : styles.appNavLink}
             >
               <Icon size={17} />

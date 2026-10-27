@@ -1138,7 +1138,7 @@ export default function Explore() {
   function runQueryForView(view, force) {
     if (!isViewRunnable(view, effectiveCatalog)) return;
     const spec = buildQuerySpecFromView(view, customMetrics);
-    track("explore_query_run", { level: view.level, metric_count: view.metrics?.length, account_count: view.accountIds?.length, forced: !!force });
+    track("explore_query_run", { level: view.level, metric_count: view.metricKeys?.length, account_count: view.accountIds?.length, forced: !!force });
     const cacheKey = EXPLORE_CACHE_PREFIX + JSON.stringify(spec);
 
     if (!force) {
@@ -1189,6 +1189,7 @@ export default function Explore() {
   }
 
   function createNewViewFromActive() {
+    track("explore_view_duplicated");
     // customTitle resets — a duplicated tab showing the active tab's own
     // custom name would read as two tabs with the same, now-ambiguous label;
     // it falls back to the usual auto-derived account/level title instead.
@@ -1242,12 +1243,14 @@ export default function Explore() {
   }
 
   function addBlankView() {
+    track("explore_view_added");
     const blank = createBlankView(selectedAccountId);
     setViews((prev) => [...withCapApplied(prev, activeViewId), blank]);
     setActiveViewId(blank.id);
   }
 
   function closeView(id) {
+    track("explore_view_closed");
     if (views.length <= 1) return;
     const idx = views.findIndex((v) => v.id === id);
     if (idx === -1) return;

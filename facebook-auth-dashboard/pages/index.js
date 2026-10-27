@@ -30,7 +30,7 @@ export default function Home() {
           <p className={styles.sub} style={{ maxWidth: 360 }}>
             Sign in with Facebook to view your profile, Pages, and Ad Account performance.
           </p>
-          <button className={styles.btnPrimary} onClick={() => signIn("facebook", { callbackUrl: "/report" })}>
+          <button className={styles.btnPrimary} data-track="login_clicked" onClick={() => signIn("facebook", { callbackUrl: "/report" })}>
             Continue with Facebook
           </button>
         </main>
