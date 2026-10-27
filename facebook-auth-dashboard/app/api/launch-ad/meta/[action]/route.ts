@@ -28,7 +28,7 @@ async function safe<T>(fn: () => Promise<T>): Promise<T | { unavailable: string 
 async function handleGet(action: string, q: URLSearchParams, token: string): Promise<any> {
   switch (action) {
     case 'adaccounts':
-      return graph.list('me/adaccounts', token, { fields: 'id,account_id,name,currency,account_status,business{id,name}', limit: 100 }, 20);
+      return graph.list('me/adaccounts', token, { fields: 'id,account_id,name,currency,account_status,timezone_name,business{id,name}', limit: 100 }, 20);
 
     case 'campaigns':
       return graph.list(`${act(q.get('account'))}/campaigns`, token, {

@@ -368,7 +368,9 @@ export default async function handler(req, res) {
   if (since > until) {
     return res.status(400).json({ error: "since must not be after until" });
   }
-  const todayStr = isoDate(new Date());
+  // The client resolves "today" in the ad account's own time zone, which can be
+  // a calendar day ahead of UTC (up to UTC+14) — allow that one day of slack.
+  const todayStr = isoDate(new Date(Date.now() + 86400000));
   if (until > todayStr) {
     return res.status(400).json({ error: "until cannot be in the future" });
   }

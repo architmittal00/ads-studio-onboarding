@@ -27,10 +27,43 @@ export function addDaysUTC(dateStr, n) {
   return isoDate(d);
 }
 
-export function todayUTC() {
+// Meta reports every ad account in that account's own time zone (the
+// `timezone_name` field, e.g. "America/Los_Angeles"), so "today" — and with it
+// "Last 7 Days", "Yesterday", "This Month" — is the account's calendar day, not
+// the viewer's or UTC's. At 2 PM India time it is still the previous day in
+// the US, so the same preset resolves to a different window per account.
+// A missing/invalid zone falls back to UTC (the previous behaviour).
+export function resolveTimeZone(timeZone) {
+  if (!timeZone) return "UTC";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone });
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
+// The calendar date it currently is in `timeZone`, as a Date at 00:00 UTC of
+// that date — same shape todayUTC() always returned, so every addDaysUTC /
+// isoDate caller keeps working unchanged.
+export function todayInTimeZone(timeZone, now = new Date()) {
+  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: resolveTimeZone(timeZone), year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return new Date(`${ymd}T00:00:00Z`);
+}
+
+export function todayUTC(timeZone) {
+  if (timeZone) return todayInTimeZone(timeZone);
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
   return d;
+}
+
+// Short label for the UI, e.g. "Asia/Kolkata (UTC+5:30)".
+export function formatTimeZoneLabel(timeZone, now = new Date()) {
+  const tz = resolveTimeZone(timeZone);
+  const part = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "longOffset" }).formatToParts(now).find((p) => p.type === "timeZoneName")?.value || "";
+  const offset = part.replace("GMT", "UTC").replace(/^UTC$/, "UTC+0");
+  return `${tz.replace(/_/g, " ")} (${offset})`;
 }
 
 // Mirrors pages/report.js's own lastNDaysRangeUTC() (and lib/adCreativeDetails.js's
@@ -46,8 +79,8 @@ function lastNDaysRangeExcludingToday(n, today) {
 
 // Every preset resolves to a concrete {since, until} — "custom" is the only
 // one that depends on user input rather than "now".
-export function computeRange(preset, customSince, customUntil) {
-  const today = todayUTC();
+export function computeRange(preset, customSince, customUntil, timeZone) {
+  const today = todayUTC(timeZone);
   switch (preset) {
     case "today":
       return { since: isoDate(today), until: isoDate(today) };

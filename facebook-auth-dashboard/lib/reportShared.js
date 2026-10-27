@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
+import { todayInTimeZone } from "@/lib/dateRanges";
 
 // Shared by every pages/api/fb/report/*.js endpoint — the Handover Report
 // used to be one big handler computing everything in one response; it's now
@@ -167,7 +168,9 @@ export async function requireReportRequest(req, res, lastNDaysRange) {
     return null;
   }
 
-  const today = new Date();
+  // "Today" is the ad account's calendar day: the client sends its IANA zone
+  // (`timeZone`, the account's timezone_name); missing/invalid falls back to UTC.
+  const today = todayInTimeZone(typeof req.query.timeZone === "string" ? req.query.timeZone : undefined);
   const range = resolveRange(req.query, today, lastNDaysRange);
   // Facebook's `time_range` param rejects any keys beyond since/until — strip
   // the label/preset we attach to `range` for our own response/cache-key use.

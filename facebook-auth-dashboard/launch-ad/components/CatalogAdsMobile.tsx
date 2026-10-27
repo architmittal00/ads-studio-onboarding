@@ -56,12 +56,13 @@ function PerfState({ perf, children }: { perf: Perf; children: () => ReactNode }
 
 /* ── Context: account + date + refresh (same chrome as Partnership Ads) ── */
 
-export function MobileContext({ accounts, accountId, onAccount, range, onRange, onRefresh, showRange, refreshing }: {
+export function MobileContext({ accounts, accountId, onAccount, range, onRange, timeZone, onRefresh, showRange, refreshing }: {
   accounts: { data?: AdAccount[]; loading: boolean; error: string };
   accountId: string;
   onAccount: (id: string) => void;
   range: Range;
   onRange: (r: Range) => void;
+  timeZone?: string;
   onRefresh: () => void;
   showRange: boolean;
   refreshing?: boolean;
@@ -91,7 +92,7 @@ export function MobileContext({ accounts, accountId, onAccount, range, onRange, 
             {showRange ? (
               <div className={styles.pvField}>
                 <span>Date range</span>
-                <RangePill range={range} onChange={onRange} fullWidth />
+                <RangePill range={range} onChange={onRange} fullWidth timeZone={timeZone} />
               </div>
             ) : null}
           </div>

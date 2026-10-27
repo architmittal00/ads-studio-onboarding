@@ -161,7 +161,7 @@ export default function PartnershipAds() {
   const [rangePreset, setRangePreset] = useState("last_30d");
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
-  const performanceRange = computeRange(rangePreset, customSince, customUntil);
+  const performanceRange = computeRange(rangePreset, customSince, customUntil, selectedAccount?.timezone_name);
 
   // Explore Ads' own, separate date range — filtering *content posted* in a
   // window, not ad performance (see the comment above). Previously lived
@@ -172,7 +172,7 @@ export default function PartnershipAds() {
   const [exploreRangePreset, setExploreRangePreset] = useState("last_30d");
   const [exploreCustomSince, setExploreCustomSince] = useState("");
   const [exploreCustomUntil, setExploreCustomUntil] = useState("");
-  const exploreRange = computeRange(exploreRangePreset, exploreCustomSince, exploreCustomUntil);
+  const exploreRange = computeRange(exploreRangePreset, exploreCustomSince, exploreCustomUntil, selectedAccount?.timezone_name);
 
   // One fetch (+ 5-minute cache) backs all three performance tabs instead of
   // each independently calling its own endpoint on its own "Load" click.
@@ -249,6 +249,7 @@ export default function PartnershipAds() {
   function renderDateMenu(fullWidth) {
     return (
       <DateRangeMenu
+        timeZone={selectedAccount?.timezone_name}
         rangePreset={isPerformanceTab ? rangePreset : exploreRangePreset}
         customSince={isPerformanceTab ? customSince : exploreCustomSince}
         customUntil={isPerformanceTab ? customUntil : exploreCustomUntil}

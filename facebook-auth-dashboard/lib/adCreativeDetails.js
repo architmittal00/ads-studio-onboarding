@@ -13,10 +13,12 @@ function toDateStr(d) {
 // window (last N full days, not including today) and surfacing the exact
 // dates in the UI makes that comparable and debuggable against Ads Manager.
 export function lastNDaysRange(n, today) {
+  // UTC methods: `today` is either an instant or (see lib/dateRanges.js's
+  // todayInTimeZone) a Date at 00:00 UTC of an account's calendar date.
   const until = new Date(today);
-  until.setDate(until.getDate() - 1);
+  until.setUTCDate(until.getUTCDate() - 1);
   const since = new Date(until);
-  since.setDate(since.getDate() - (n - 1));
+  since.setUTCDate(since.getUTCDate() - (n - 1));
   return { since: toDateStr(since), until: toDateStr(until) };
 }
 

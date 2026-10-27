@@ -63,7 +63,9 @@ export function AccountProvider({ children }) {
   const load = useCallback((force) => {
     if (!force) {
       const cached = getCachedEntry(ACCOUNT_DATA_CACHE_KEY);
-      if (cached) {
+      // Entries cached before accounts carried `timezone_name` (no `tzv`) are stale: date
+      // presets need it to resolve "today" in each account's own time zone.
+      if (cached && cached.data.tzv === 1) {
         setProfile(cached.data.profile);
         setPages(cached.data.pages || []);
         setAdAccounts(cached.data.adAccounts || []);
@@ -95,7 +97,7 @@ export function AccountProvider({ children }) {
         setBusinesses(json.businesses || []);
         setBusinessesError(json.businessesError || null);
         setAccountsFetchedAt(Date.now());
-        setCachedEntry(ACCOUNT_DATA_CACHE_KEY, json);
+        setCachedEntry(ACCOUNT_DATA_CACHE_KEY, { ...json, tzv: 1 });
       })
       .catch((err) => setAccountsError(err.message))
       .finally(() => setAccountsLoading(false));

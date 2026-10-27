@@ -25,7 +25,7 @@ import { graphGet, graphGetAllPages } from "@/lib/facebookGraph";
 async function fetchAdAccounts(token) {
   try {
     const result = await graphGetAllPages("/me/adaccounts", token, {
-      fields: "id,name,account_status,currency,business{id,name}",
+      fields: "id,name,account_status,currency,timezone_name,business{id,name}",
     });
     return { data: result.data || [], error: null };
   } catch (err) {
@@ -34,7 +34,7 @@ async function fetchAdAccounts(token) {
     }
     try {
       const result = await graphGetAllPages("/me/adaccounts", token, {
-        fields: "id,name,account_status,currency",
+        fields: "id,name,account_status,currency,timezone_name",
       });
       return { data: result.data || [], error: null };
     } catch (fallbackErr) {

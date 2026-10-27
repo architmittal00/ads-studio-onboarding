@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronIcon, CalendarIcon } from "./icons";
-import { RANGE_PRESETS, isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
+import { RANGE_PRESETS, isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount, formatTimeZoneLabel } from "@/lib/dateRanges";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
@@ -209,19 +209,22 @@ export default function DateRangeMenu({
   triggerClassName,
   triggerStyle,
   fullWidth = false,
+  // IANA zone (an ad account's `timezone_name`) that "today", "Last 7 Days" etc.
+  // are resolved in. Omitted = UTC, the previous behaviour.
+  timeZone,
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   const [hoverDate, setHoverDate] = useState(null);
-  const [leftMonth, setLeftMonth] = useState(() => monthKeyOf(isoDate(todayUTC())));
+  const [leftMonth, setLeftMonth] = useState(() => monthKeyOf(isoDate(todayUTC(timeZone))));
   const [compareMonth, setCompareMonth] = useState(null);
   const [pos, setPos] = useState(null);
   const isMobile = useIsMobile();
   const triggerRef = useRef(null);
   const popoverRef = useRef(null);
 
-  const maxIso = isoDate(todayUTC());
-  const committedRange = computeRange(rangePreset, customSince, customUntil);
+  const maxIso = isoDate(todayUTC(timeZone));
+  const committedRange = computeRange(rangePreset, customSince, customUntil, timeZone);
   const triggerLabel = fullWidth
     ? formatCompactTriggerLabel(rangePreset, committedRange?.since, committedRange?.until)
     : formatTriggerLabel(rangePreset, committedRange?.since, committedRange?.until);
@@ -245,7 +248,7 @@ export default function DateRangeMenu({
       top = Math.max(VIEWPORT_MARGIN, rect.top - estimatedHeight - 6);
     }
     setPos({ top, left });
-    const seedRange = committedRange || computeRange("last_30d", null, null);
+    const seedRange = committedRange || computeRange("last_30d", null, null, timeZone);
     setDraft({
       rangePreset,
       since: seedRange?.since || null,
@@ -316,7 +319,7 @@ export default function DateRangeMenu({
   const canApply = !!draft.since && !!draft.until && !draftTooLong && !compareTooFar;
 
   function pickPreset(key) {
-    const r = computeRange(key, null, null);
+    const r = computeRange(key, null, null, timeZone);
     setDraft((d) => ({ ...d, rangePreset: key, since: r?.since ?? d.since, until: r?.until ?? d.until }));
     if (r) setLeftMonth(monthKeyOf(r.since));
   }
@@ -591,8 +594,8 @@ export default function DateRangeMenu({
               )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
-              {!isMobile && <span className={styles.muted}>Dates are in your local timezone.</span>}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+              <span className={styles.muted} style={isMobile ? { fontSize: 12 } : undefined}>{timeZone ? `Dates follow the ad account’s time zone: ${formatTimeZoneLabel(timeZone)}.` : "Dates are in UTC."}</span>
               <div style={{ display: "flex", gap: 10, ...(isMobile ? { width: "100%", justifyContent: "flex-end" } : null) }}>
                 <button type="button" className={styles.btnSecondary} onClick={close}>
                   Cancel

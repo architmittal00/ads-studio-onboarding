@@ -7,7 +7,7 @@ export interface InterestItem { id: string; name: string }
 /** A custom audience or lookalike of the ad account */
 export interface AudienceItem { id: string; name: string; subtype?: string }
 
-export interface AdAccount { id: string; account_id: string; name: string; currency: string; account_status?: number; business?: { id: string; name: string } }
+export interface AdAccount { id: string; account_id: string; name: string; currency: string; account_status?: number; timezone_name?: string; business?: { id: string; name: string } }
 
 export interface CampaignLite {
   id: string;
