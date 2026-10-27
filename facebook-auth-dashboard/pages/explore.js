@@ -1639,6 +1639,8 @@ export default function Explore() {
   // Phone result header: one compact meta line + the controls that matter
   // (List/Chart, Filters, ⋯ more) instead of the desktop's wrapped button row.
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  // Which condition's metric/operator picker sheet is open: { id, kind: "metric" | "operator" }.
+  const [filterPick, setFilterPick] = useState(null);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   // Phone filter sheet: statuses as tappable chips, each metric condition as a
   // card that reads like a sentence ("Spend is at least 1,000"), a live
@@ -1653,6 +1655,7 @@ export default function Explore() {
       { ...activeView.resultFilters, metricConditions: draftConditions },
       result.meta.metricKeys
     ).length;
+    const pickingCond = filterPick ? draftConditions.find((c) => c.id === filterPick.id) : null;
     function clearAll() {
       setDraftConditions([]);
       updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: [], statusValues: null } }));
@@ -1712,18 +1715,10 @@ export default function Explore() {
             return (
               <div key={c.id} className={styles.fsCond}>
                 <div className={styles.fsCondHead}>
-                  <select
-                    className={styles.select}
-                    aria-label="Metric"
-                    value={c.metricKey}
-                    onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}
-                  >
-                    {numericKeys.map((k) => (
-                      <option key={k} value={k}>
-                        {effectiveCatalog.find((m) => m.key === k)?.label || k}
-                      </option>
-                    ))}
-                  </select>
+                  <button type="button" className={styles.fsPick} onClick={() => setFilterPick({ id: c.id, kind: "metric" })} aria-label="Metric">
+                    <span>{metric?.label || c.metricKey}</span>
+                    <ChevronIcon direction="down" size={14} />
+                  </button>
                   <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove this filter">
                     <CloseIcon size={12} />
                   </button>
@@ -1748,18 +1743,10 @@ export default function Explore() {
                   </div>
                 )}
                 <div className={styles.fsCondRow}>
-                  <select
-                    className={styles.select}
-                    aria-label="Condition"
-                    value={c.operator}
-                    onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}
-                  >
-                    {METRIC_FILTER_OPERATORS.map((op) => (
-                      <option key={op.value} value={op.value}>
-                        {METRIC_FILTER_OPERATOR_WORDS[op.value]}
-                      </option>
-                    ))}
-                  </select>
+                  <button type="button" className={styles.fsPick} onClick={() => setFilterPick({ id: c.id, kind: "operator" })} aria-label="Condition">
+                    <span>{METRIC_FILTER_OPERATOR_WORDS[c.operator]}</span>
+                    <ChevronIcon direction="down" size={14} />
+                  </button>
                   <div className={styles.fsValue}>
                     <input
                       type="number"
@@ -1780,6 +1767,32 @@ export default function Explore() {
           </button>
           {hasPendingMetricChanges && <p className={styles.fsHint}>Changes apply when you tap “Show rows”.</p>}
         </div>
+        {pickingCond && (
+          <BottomSheet open title={filterPick.kind === "metric" ? "Metric" : "Condition"} onClose={() => setFilterPick(null)}>
+            <div className={styles.sheetList}>
+              {(filterPick.kind === "metric"
+                ? numericKeys.map((k) => ({ value: k, label: effectiveCatalog.find((m) => m.key === k)?.label || k }))
+                : METRIC_FILTER_OPERATORS.map((op) => ({ value: op.value, label: METRIC_FILTER_OPERATOR_WORDS[op.value] }))
+              ).map((o) => {
+                const current = filterPick.kind === "metric" ? pickingCond.metricKey : pickingCond.operator;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    className={styles.sheetListItem}
+                    onClick={() => {
+                      updateDraftCondition(pickingCond.id, filterPick.kind === "metric" ? { metricKey: o.value } : { operator: o.value });
+                      setFilterPick(null);
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{o.label}</span>
+                    {o.value === current && <span style={{ color: "var(--purple)", fontWeight: 800 }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </BottomSheet>
+        )}
       </BottomSheet>
     );
   }
