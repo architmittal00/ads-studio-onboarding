@@ -1806,8 +1806,14 @@ export default function Explore() {
       )}
 
       {result && (
-        <section className={isMobile ? styles.mvResultSection : styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
-          {isRerun && (
+        <section className={isMobile ? `${styles.mvResultSection} ${isRerun ? styles.mvRerunning : ""}` : styles.card} style={{ position: "relative", display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+          {isRerun && isMobile && (
+            <div className={styles.mvRerunBar} role="status">
+              <span className={`${styles.spinner} ${styles.spinnerSm}`} />
+              <span className={styles.mvRerunText}>{activeView.progressMessage || "Refreshing results…"}</span>
+            </div>
+          )}
+          {isRerun && !isMobile && (
             <div
               style={{
                 position: "absolute",

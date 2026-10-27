@@ -8,7 +8,7 @@ import { humanizeStatus } from "@/lib/insightsMetrics";
 
 // How many metrics a card shows before "+N more" — three columns × two rows
 // is what fits a 375px screen without the numbers getting cramped.
-const VISIBLE_METRICS = 6;
+const VISIBLE_METRICS = 9;
 
 function statusTone(status) {
   if (status === "ACTIVE") return styles.statusDotOn;
