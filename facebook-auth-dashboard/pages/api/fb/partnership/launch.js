@@ -171,7 +171,18 @@ export default async function handler(req, res) {
     // (genuinely ineligible) own-post case, but firing here for a completely
     // different, fixable reason: the real partner's identity was simply
     // never read out of a field this app had been fetching the whole time.
-    const taggedPartner = firstPartnershipInfo(verified).tagged_partner || {};
+    const rawPartner = firstPartnershipInfo(verified).tagged_partner || {};
+    // Some codes are bound to the BRAND's own account as the "second identity"
+    // (Ads Manager: "This code is only valid for @brand as the second
+    // identity"), so Content Discovery reports the brand itself as the tagged
+    // partner. Sending that as the sponsor makes the brand its own partner,
+    // which Graph rejects. The sponsor must be the other party — the post's
+    // author (the creator) — so fall back to that when the "partner" is us
+    // or missing.
+    const author = verified.author || {};
+    const isAdvertiser = (p) => (!!p.ig_user_id && p.ig_user_id === igUserId) || (!!p.fb_page_id && p.fb_page_id === facebookPageId);
+    const hasIdentity = (p) => !!(p.ig_user_id || p.fb_page_id);
+    const taggedPartner = hasIdentity(rawPartner) && !isAdvertiser(rawPartner) ? rawPartner : hasIdentity(author) && !isAdvertiser(author) ? author : rawPartner;
 
     // Case-insensitive: a real queued item's `mediaType` has been observed
     // as lowercase ("video") rather than the uppercase "VIDEO" this exact-
