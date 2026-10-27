@@ -867,7 +867,7 @@ export default function CopyAdsPage() {
         />
       )}
       {adsetItemsError && <div className={styles.error}>{adsetItemsError}</div>}
-      {!adsetItemsError && adsetHasLoaded && (
+      {!adsetItemsError && !(adsetItemsLoading && adsetItems.length === 0) && adsetHasLoaded && (
         <>
           <MetricFilterBar
             totalCount={adsetItems.length}
@@ -916,7 +916,7 @@ export default function CopyAdsPage() {
         />
       )}
       {campaignItemsError && <div className={styles.error}>{campaignItemsError}</div>}
-      {!campaignItemsError && campaignHasLoaded && (
+      {!campaignItemsError && !(campaignItemsLoading && campaignItems.length === 0) && campaignHasLoaded && (
         <>
           <MetricFilterBar
             totalCount={campaignItems.length}
@@ -968,7 +968,8 @@ export default function CopyAdsPage() {
         </div>
       )}
 
-      {!adsError && (hasLoaded || ads.length > 0) && (
+      {/* While the first batch is still loading there is nothing to filter or list yet — only the loader shows (no "0 ads" bar or "No ads found" table). */}
+      {!adsError && !(adsLoading && ads.length === 0) && (hasLoaded || ads.length > 0) && (
         <>
           <MetricFilterBar
             totalCount={ads.length}
