@@ -34,6 +34,8 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved, igOpti
   const [error, setError] = useState(null);
   // Set when the code was not found under the selected Business/Instagram account but IS under another one.
   const [foundElsewhere, setFoundElsewhere] = useState(null);
+  // An ad code Content Discovery does not list; can still be launched directly from the code.
+  const [unlisted, setUnlisted] = useState(null);
   const activeMode = MODES.find((m) => m.value === mode);
 
   async function handleFetch() {
@@ -41,6 +43,7 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved, igOpti
     setLoading(true);
     setError(null);
     setFoundElsewhere(null);
+    setUnlisted(null);
     try {
       const params = new URLSearchParams({ businessId, igUserId, [mode]: value.trim() });
       const res = await fetch(`/api/fb/partnership/content-lookup?${params.toString()}`);
@@ -67,6 +70,12 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved, igOpti
           });
           return;
         }
+      }
+      if (res.status === 404 && mode === "adCode") {
+        // Some codes are not listed in Content Discovery at all but still launch
+        // fine from the code alone — offer that instead of a dead end.
+        setUnlisted(value.trim());
+        return;
       }
       const json = await readApiResponse(res);
       onResolved(json.item);
@@ -118,6 +127,33 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved, igOpti
       {error && (
         <div className={styles.error} style={{ marginTop: 10 }}>
           {error}
+        </div>
+      )}
+      {unlisted && (
+        <div className={styles.card} style={{ marginTop: 10, padding: 12 }}>
+          <p style={{ marginBottom: 8 }}>
+            Meta&apos;s content search doesn&apos;t list this code, so it can&apos;t be previewed here. It can still be launched directly with the code
+            (the ad will use your Page and Instagram account as the partner identity).
+          </p>
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={() => {
+              onResolved({
+                content_id: `code_${unlisted.slice(0, 16)}`,
+                unverified: true,
+                media_type: null,
+                caption: "",
+                permalink: null,
+                author: { display_name: "partnership code" },
+                partnership_info: [{ ad_code: unlisted }],
+              });
+              setUnlisted(null);
+              setValue("");
+            }}
+          >
+            Continue without preview
+          </button>
         </div>
       )}
       {foundElsewhere && (

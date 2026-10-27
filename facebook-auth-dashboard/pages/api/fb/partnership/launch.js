@@ -135,6 +135,17 @@ export default async function handler(req, res) {
         permalinks: !item.adCode && item.permalink ? [item.permalink] : undefined,
       });
       verified = lookups[0];
+      if (!verified && item.adCode) {
+        // Content Discovery returns nothing for some codes (e.g. ones bound to the
+        // brand as second identity), yet the creative call works with just the
+        // code and the brand's own identity as sponsor. Verify-less launch.
+        progress(`"${item.name}" is not listed in Content Discovery — launching directly with its code…`);
+        verified = {
+          content_id: undefined,
+          author: {},
+          partnership_info: [{ ad_code: item.adCode, tagged_partner: { ig_user_id: igUserId, fb_page_id: facebookPageId } }],
+        };
+      }
       if (!verified) throw new Error("Content is no longer available or eligible — it may have been removed or had its permission revoked.");
     } catch (err) {
       itemSteps.push({ type: "item", itemId: item.id, name: item.name, success: false, error: err.message });
@@ -171,18 +182,11 @@ export default async function handler(req, res) {
     // (genuinely ineligible) own-post case, but firing here for a completely
     // different, fixable reason: the real partner's identity was simply
     // never read out of a field this app had been fetching the whole time.
-    const rawPartner = firstPartnershipInfo(verified).tagged_partner || {};
-    // Some codes are bound to the BRAND's own account as the "second identity"
-    // (Ads Manager: "This code is only valid for @brand as the second
-    // identity"), so Content Discovery reports the brand itself as the tagged
-    // partner. Sending that as the sponsor makes the brand its own partner,
-    // which Graph rejects. The sponsor must be the other party — the post's
-    // author (the creator) — so fall back to that when the "partner" is us
-    // or missing.
-    const author = verified.author || {};
-    const isAdvertiser = (p) => (!!p.ig_user_id && p.ig_user_id === igUserId) || (!!p.fb_page_id && p.fb_page_id === facebookPageId);
-    const hasIdentity = (p) => !!(p.ig_user_id || p.fb_page_id);
-    const taggedPartner = hasIdentity(rawPartner) && !isAdvertiser(rawPartner) ? rawPartner : hasIdentity(author) && !isAdvertiser(author) ? author : rawPartner;
+    // For a code Ads Manager marks "only valid for @brand as the second identity",
+    // the brand itself IS the sponsor — a hand-made creative with the brand's own
+    // Page/Instagram ids as sponsor_page_id/sponsor_id succeeds — so the reported
+    // tagged partner is used exactly as returned, never swapped for the author.
+    const taggedPartner = firstPartnershipInfo(verified).tagged_partner || {};
 
     // Case-insensitive: a real queued item's `mediaType` has been observed
     // as lowercase ("video") rather than the uppercase "VIDEO" this exact-
