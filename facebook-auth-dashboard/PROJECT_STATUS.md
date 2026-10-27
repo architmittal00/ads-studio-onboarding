@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Custom Views: thumbnails no longer spin forever (2026-10-27)
+
+Cause: the background thumbnail and landing-page lookups for the same Ad-level result each wrote `{...originalJson, theirRows}` back only `if (v.result === json)`. Whichever finished first replaced the result, so the other's guard failed and its data was dropped — thumbnails (`thumbnailUrl === undefined` → spinner) stayed loading until a reload read the cache. Fix in `pages/explore.js`: `applyEnrichment()` merges each lookup onto the view's CURRENT result (if it is still the same query) and rebuilds the cache entry from the original json plus everything fetched so far (module-level `ENRICHMENT_BY_CACHE_KEY`); the spinner also stops once `meta.thumbnailsFetched` is true, in the table and the phone card list (`thumbsPending`). Other screens (Partnership My Ads, Copy Ads, Handover Report, drill-down children) receive thumbnails with their data and have no background lookup, so they don't have this failure. Verified with a mocked page where landing pages answer first and thumbnails 1.5s later: spinners 4 → 0, thumbnails and landing pages both present.
+
 ### Mobile filter sheet: app type scale (2026-10-27)
 
 The global phone rule forces every `input`/`select` to 16px (iOS zooms on focus below that), which made native selects in the Filters sheet look oversized next to the app's 13px chips/buttons. Metric and condition are now button-style pickers (13px, weight 600) that open a bottom list (`filterPick` in `pages/explore.js`); chips 13px, labels 11px, hints 12px. Only the number field stays 16px. Checked at 375px with mocked data; not on an iPhone.

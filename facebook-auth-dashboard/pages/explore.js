@@ -73,6 +73,10 @@ const TIME_GROUPING_OPTIONS = [
   { value: "monthly", label: "Monthly" },
 ];
 
+// cacheKey -> { thumbnails?, landingPages? } fetched so far for that query, so the
+// cached result is always rebuilt with everything (see applyEnrichment).
+const ENRICHMENT_BY_CACHE_KEY = new Map();
+
 function newViewId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `v${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -974,29 +978,65 @@ export default function Explore() {
   // before this resolved) never clobbers whatever's now on screen with stale
   // thumbnails. Re-caches the thumbnail-enriched result so reopening this
   // same view from cache doesn't have to re-fetch them.
+  // Both background lookups (thumbnails, landing pages) can be in flight for
+  // the same result at once. They used to each write `{...json, their rows}`
+  // back only `if (v.result === json)` — so whichever finished first replaced
+  // the result, the other's identity guard then failed and its data was
+  // silently dropped: thumbnails kept spinning until a reload read the cache.
+  // Now each lookup's data is merged onto whatever result is CURRENT for that
+  // view (as long as it's still the same query's result), and the cache entry
+  // is always rebuilt from the original json plus everything fetched so far.
+  function enrichResult(result, { thumbnails, landingPages }) {
+    const enrichRows = (list) =>
+      list?.map((r) => {
+        if (!r.entityId) return r;
+        let next = r;
+        if (thumbnails) next = { ...next, thumbnailUrl: thumbnails[r.entityId]?.thumbnailUrl ?? null, isVideo: !!thumbnails[r.entityId]?.isVideo };
+        if (landingPages) next = { ...next, landing_page: landingPages[r.entityId] ?? null };
+        return next;
+      }) ?? list;
+    return {
+      ...result,
+      rows: enrichRows(result.rows),
+      meta: {
+        ...result.meta,
+        pivotRows: enrichRows(result.meta.pivotRows),
+        ...(thumbnails ? { thumbnailsFetched: true } : {}),
+        ...(landingPages ? { landingPagesFetched: true } : {}),
+      },
+    };
+  }
+
+  // Same query's result? (A re-run or another account/range produces a result
+  // this late data must not be merged into.)
+  function isSameResultQuery(a, b) {
+    return (
+      a?.meta?.level === b.meta.level &&
+      a.meta.since === b.meta.since &&
+      a.meta.until === b.meta.until &&
+      JSON.stringify(a.meta.accountIds) === JSON.stringify(b.meta.accountIds) &&
+      JSON.stringify(a.meta.metricKeys) === JSON.stringify(b.meta.metricKeys)
+    );
+  }
+
+  function applyEnrichment(viewId, json, cacheKey, patch) {
+    const soFar = { ...ENRICHMENT_BY_CACHE_KEY.get(cacheKey), ...patch };
+    ENRICHMENT_BY_CACHE_KEY.set(cacheKey, soFar);
+    updateView(viewId, (v) => (v.result && isSameResultQuery(v.result, json) ? { result: enrichResult(v.result, patch) } : {}));
+    setCachedEntry(cacheKey, enrichResult(json, soFar), { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
+  }
+
   function loadThumbnailsForView(viewId, json, cacheKey) {
     if (json.meta.level !== "ad" || json.meta.thumbnailsFetched) return;
     const adIds = [...new Set(json.rows.map((r) => r.entityId).filter(Boolean))];
     if (adIds.length === 0) return;
 
-    const applyThumbnails = (thumbnails) => {
-      const withThumbnails = (list) =>
-        list?.map((r) =>
-          r.entityId ? { ...r, thumbnailUrl: thumbnails[r.entityId]?.thumbnailUrl ?? null, isVideo: !!thumbnails[r.entityId]?.isVideo } : r
-        ) ?? list;
-      const updatedJson = {
-        ...json,
-        rows: withThumbnails(json.rows),
-        meta: { ...json.meta, pivotRows: withThumbnails(json.meta.pivotRows), thumbnailsFetched: true },
-      };
-      updateView(viewId, (v) => (v.result === json ? { result: updatedJson } : {}));
-      setCachedEntry(cacheKey, updatedJson, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
-    };
-
     // Soft-fail — same reasoning as every other creative lookup in this app:
     // a failed fetch just means every row keeps its blank "no creative"
     // thumbnail instead of spinning forever, not a failed query.
-    fetchAdThumbnails(adIds).then(applyThumbnails).catch(() => applyThumbnails({}));
+    fetchAdThumbnails(adIds)
+      .catch(() => ({}))
+      .then((thumbnails) => applyEnrichment(viewId, json, cacheKey, { thumbnails }));
   }
 
   // Same shape as loadThumbnailsForView above, for the "Landing Page" metric
@@ -1009,21 +1049,10 @@ export default function Explore() {
     const adIds = [...new Set(json.rows.map((r) => r.entityId).filter(Boolean))];
     if (adIds.length === 0) return;
 
-    const applyLandingPages = (landingPages) => {
-      const withLandingPages = (list) =>
-        list?.map((r) => (r.entityId ? { ...r, landing_page: landingPages[r.entityId] ?? null } : r)) ?? list;
-      const updatedJson = {
-        ...json,
-        rows: withLandingPages(json.rows),
-        meta: { ...json.meta, pivotRows: withLandingPages(json.meta.pivotRows), landingPagesFetched: true },
-      };
-      updateView(viewId, (v) => (v.result === json ? { result: updatedJson } : {}));
-      setCachedEntry(cacheKey, updatedJson, { prefix: EXPLORE_CACHE_PREFIX, maxEntriesForPrefix: EXPLORE_CACHE_MAX_ENTRIES });
-    };
-
-    // Soft-fail — same reasoning as loadThumbnailsForView: a failed fetch
-    // just leaves the column blank instead of spinning forever.
-    fetchAdLandingPages(adIds).then(applyLandingPages).catch(() => applyLandingPages({}));
+    // Soft-fail — a failed fetch just leaves the column blank, never spinning.
+    fetchAdLandingPages(adIds)
+      .catch(() => ({}))
+      .then((landingPages) => applyEnrichment(viewId, json, cacheKey, { landingPages }));
   }
 
   // One-time restore of previously-open tabs from localStorage — replaces
@@ -3474,7 +3503,7 @@ function ExploreResultsTable({
                   // `thumbnailUrl` is `undefined` (not `null`) until the
                   // background fetch in loadThumbnailsForView() resolves —
                   // `null` means it resolved and this ad genuinely has none.
-                  loading={row.thumbnailUrl === undefined}
+                  loading={row.thumbnailUrl === undefined && !meta.thumbnailsFetched}
                   size={22}
                   onClick={() =>
                     setLightboxItem({ id: row.entityId, name: row[def.key] || row.entityId, thumbnailUrl: row.thumbnailUrl, isVideo: row.isVideo })
@@ -3913,6 +3942,7 @@ function ExploreResultsTable({
           metricColumns={metricColumns}
           sortColumns={sortColumns}
           statusAvailable={!!meta.statusAvailable}
+          thumbsPending={!meta.thumbnailsFetched}
           totalsRow={showTotalsRow ? meta.totalsRow : null}
           renderMetric={renderMetric}
           getTitle={getTitle}
