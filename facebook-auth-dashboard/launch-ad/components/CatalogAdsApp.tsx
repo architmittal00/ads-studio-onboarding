@@ -13,11 +13,15 @@ import type { AdAccount, FormState, LaunchResult } from '@/launch-ad/lib/types';
 import AdFirstWorkspace from './AdFirstWorkspace';
 import { SetChecks, SetThumbs, type SetHealth, type SetLite } from './CatalogPanel';
 import PageHeader, { AccountNotices, AdAccountPill, RangePill, RefreshPill, presetRange, type Range } from './PageHeader';
+import PartnershipEmptyState from '@/components/partnership/PartnershipEmptyState';
 import LegalLinks from './LegalLinks';
 import { statusLabel } from './Pickers';
 import ResultView from './ResultView';
 import { Loading, SearchSelect } from './ui';
-import { MobileAdList, MobileCheckPrompt, MobileContext, MobileOverview, MobileSets, MobileTabs } from './CatalogAdsMobile';
+import { MobileAdList, MobileContext, MobileOverview, MobileSets, MobileTabs } from './CatalogAdsMobile';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PartnershipEmptyStateC = PartnershipEmptyState as any;
 
 type Tab = 'overview' | 'ads' | 'sets' | 'create';
 const TABS: { key: Tab; label: string }[] = [
@@ -32,7 +36,7 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
   const isMobile = useIsMobile();
   const accounts = useAsync<AdAccount[]>('accounts', () => apiGet('adaccounts'));
   const [accountId, setAccountId] = useState('');
-  const [range, setRange] = useState<Range>(() => presetRange('last_7d'));
+  const [range, setRange] = useState<Range>(() => presetRange('last_30d'));
   const [tick, setTick] = useState(0);
   const [tab, setTabState] = useState<Tab>('overview');
   // Overview waits for "Check Performance"; the other tabs load on their own (and count as checked).
@@ -75,6 +79,18 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
     setResult(null); setRepeatOf(''); setWsKey((k) => k + 1); setTab('create');
   };
 
+  const checkPrompt = (
+    <PartnershipEmptyStateC
+      icon={ChartIcon}
+      title="Ready to compare performance"
+      description="See how your catalog ads stack up against your other ads over a chosen window."
+      steps={['Pick an ad account', 'Choose a date range', 'Click “Check Performance”']}
+      ctaLabel="Check Performance"
+      onRun={() => setChecked(true)}
+      canRun
+    />
+  );
+
   if (isMobile) {
     return (
       <div className="content wide la-m">
@@ -95,12 +111,12 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
           </div>
         ) : null}
         <MobileTabs
-          tabs={[{ key: 'overview', label: 'Overview' }, { key: 'ads', label: 'Ads' }, { key: 'sets', label: 'Sets' }, { key: 'create', label: 'Create ad', primary: true }]}
+          tabs={[{ key: 'overview', label: 'Overview' }, { key: 'ads', label: 'Ads' }, { key: 'sets', label: 'Sets' }, { key: 'create', label: 'Create ad' }]}
           tab={tab}
           onTab={setTab}
         />
         {!account ? null : tab === 'overview' && !checked ? (
-          <MobileCheckPrompt onCheck={() => setChecked(true)} />
+          checkPrompt
         ) : tab === 'overview' ? (
           <MobileOverview perf={perf} sym={sym} range={range} />
         ) : tab === 'ads' ? (
@@ -132,7 +148,11 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
 
   return (
     <div className="content wide">
-      <PageHeader title="Catalog Ads" sub="Compare catalog ads with your other ads, browse product sets, and launch catalog ads.">
+      <PageHeader
+        title="Catalog Ads"
+        sub="Compare catalog ads with your other ads, browse product sets, and launch catalog ads."
+        action={tab !== 'create' ? <button type="button" className={styles.btnPrimary} onClick={() => startCreate()}>Create Ad</button> : undefined}
+      >
         <AdAccountPill accounts={accounts} value={accountId} onChange={changeAccount} />
         {tab !== 'create' ? (
           <>
@@ -156,21 +176,7 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
       </div>
 
       {!account ? null : tab === 'overview' && !checked ? (
-        <section className={styles.card}>
-          <div className={styles.exploreEmptyState}>
-            <div className={styles.exploreEmptyIcon}><ChartIcon size={26} /></div>
-            <div>
-              <h2 className={styles.h2} style={{ marginBottom: 6 }}>Ready to compare performance</h2>
-              <p className={styles.sub}>See how your catalog ads stack up against your other ads over a chosen window.</p>
-            </div>
-            <div className={styles.exploreEmptySteps}>
-              {['Pick an ad account', 'Choose a date range', 'Click “Check Performance”'].map((step, i) => (
-                <div key={step} className={styles.exploreEmptyStep}><span className={styles.exploreEmptyStepNum}>{i + 1}</span>{step}</div>
-              ))}
-            </div>
-            <button type="button" className={styles.btnPrimary} onClick={() => setChecked(true)}>Check Performance</button>
-          </div>
-        </section>
+        checkPrompt
       ) : tab === 'overview' ? (
         <Overview perf={perf} money={money} range={range} />
       ) : tab === 'ads' ? (

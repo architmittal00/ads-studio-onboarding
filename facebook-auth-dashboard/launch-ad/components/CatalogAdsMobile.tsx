@@ -1,5 +1,5 @@
 'use client';
-import { ChevronDown, ChevronRight, Plus, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import BottomSheetJs from '@/components/BottomSheet';
 import { RefreshIcon, SortIcon, ChartIcon } from '@/components/icons';
@@ -10,6 +10,8 @@ import { rowMetrics, totals, type Catalog, type Row } from '@/launch-ad/lib/cata
 import type { AdAccount } from '@/launch-ad/lib/types';
 import { SetChecks, SetThumbs, type SetHealth, type SetLite } from './CatalogPanel';
 import { RangePill, type Range } from './PageHeader';
+import { MobileContextBar, MobileIconBtn, MobileChips, PickerField, PickerSheet, formatRangeLabel } from '@/components/mobile/MobileChrome';
+import { RANGE_PRESETS } from '@/lib/dateRanges';
 import { statusLabel } from './Pickers';
 import { Loading } from './ui';
 
@@ -21,6 +23,11 @@ import { Loading } from './ui';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const BottomSheet = BottomSheetJs as any;
+const MobileContextBarC = MobileContextBar as any;
+const MobileIconBtnC = MobileIconBtn as any;
+const MobileChipsC = MobileChips as any;
+const PickerFieldC = PickerField as any;
+const PickerSheetC = PickerSheet as any;
 
 type Perf = { data?: Row[]; loading: boolean; error: string };
 
@@ -47,7 +54,7 @@ function PerfState({ perf, children }: { perf: Perf; children: () => ReactNode }
   return <>{children()}</>;
 }
 
-/* ── Context: account + date + refresh ── */
+/* ── Context: account + date + refresh (same chrome as Partnership Ads) ── */
 
 export function MobileContext({ accounts, accountId, onAccount, range, onRange, onRefresh, showRange, refreshing }: {
   accounts: { data?: AdAccount[]; loading: boolean; error: string };
@@ -60,78 +67,55 @@ export function MobileContext({ accounts, accountId, onAccount, range, onRange, 
   refreshing?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
+  const [picking, setPicking] = useState(false);
   const list = accounts.data || [];
   const account = list.find((a) => a.id === accountId);
-  const filtered = list.filter((a) => !q.trim() || `${a.name} ${a.account_id}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const sub = showRange ? formatRangeLabel(RANGE_PRESETS.find((p) => p.key === range.preset)?.label, range.since, range.until) : 'Create ad';
   return (
-    <div className={styles.mvHeader}>
-      <button type="button" className={styles.mvViewBtn} onClick={() => setOpen(true)} disabled={accounts.loading && !list.length}>
-        <span className={styles.mvViewText}>
-          <span className={styles.mvViewTitle}>{account ? account.name : accounts.loading ? 'Loading ad accounts…' : 'Select an ad account'}</span>
-          <span className={styles.mvViewSub}>Ad account{account ? ` · ${account.account_id}` : ''}</span>
-        </span>
-        <ChevronDown size={18} />
-      </button>
-      {showRange ? (
-        <div className={styles.mvControlRow}>
-          <RangePill range={range} onChange={onRange} fullWidth />
-          <button type="button" className={refreshing ? `${styles.headerPillIconBtn} spinning` : styles.headerPillIconBtn} onClick={onRefresh} aria-label="Reload" disabled={!account}>
-            <RefreshIcon size={14} />
-          </button>
-        </div>
-      ) : null}
-      <BottomSheet open={open} title="Ad account" onClose={() => setOpen(false)}>
+    <>
+      <MobileContextBarC
+        title={account ? account.name : accounts.loading ? 'Loading ad accounts…' : 'Select an ad account'}
+        sub={sub}
+        onOpen={() => setOpen(true)}
+      >
+        {showRange ? (
+          <MobileIconBtnC label="Reload" onClick={onRefresh} disabled={!account || refreshing} spinning={refreshing}>
+            <RefreshIcon size={16} />
+          </MobileIconBtnC>
+        ) : null}
+      </MobileContextBarC>
+      <BottomSheet open={open} title="Account & dates" onClose={() => setOpen(false)} footer={<button type="button" className={styles.btnPrimary} style={{ flex: 1 }} onClick={() => setOpen(false)}>Done</button>}>
         <SheetBody>
-          {list.length > 6 ? <div className="la-m-search"><Search size={15} /><input placeholder="Search ad accounts" value={q} onChange={(e) => setQ(e.target.value)} /></div> : null}
-          <div className={styles.sheetList}>
-            {filtered.map((a) => (
-              <button key={a.id} type="button" className={styles.sheetListItem} onClick={() => { onAccount(a.id); setOpen(false); setQ(''); }}>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || a.account_id}</span>
-                  <span style={{ display: 'block', fontSize: 11.5, fontWeight: 500, color: 'var(--t3)' }}>{a.account_id}</span>
-                </span>
-                {a.id === accountId ? <span className="la-m-tick">✓</span> : null}
-              </button>
-            ))}
-            {!filtered.length ? <p className="note">No ad accounts match “{q}”.</p> : null}
+          <div className={styles.pvSheetFields}>
+            <PickerFieldC label="Ad account" value={account?.name} placeholder={accounts.loading ? 'Loading ad accounts…' : 'Select an ad account…'} onClick={() => setPicking(true)} />
+            {showRange ? (
+              <div className={styles.pvField}>
+                <span>Date range</span>
+                <RangePill range={range} onChange={onRange} fullWidth />
+              </div>
+            ) : null}
           </div>
         </SheetBody>
       </BottomSheet>
-    </div>
+      {picking ? (
+        <PickerSheetC
+          open
+          title="Ad account"
+          options={list.map((a) => ({ id: a.id, name: a.name || a.account_id, sub: a.account_id }))}
+          value={accountId}
+          onPick={onAccount}
+          onClose={() => setPicking(false)}
+          searchPlaceholder="Search ad accounts"
+        />
+      ) : null}
+    </>
   );
 }
 
 /* ── Section chips (sticky under the top bar) ── */
 
-export function MobileTabs<T extends string>({ tabs, tab, onTab }: { tabs: { key: T; label: string; primary?: boolean }[]; tab: T; onTab: (t: T) => void }) {
-  return (
-    <div className="la-m-tabs" role="tablist" aria-label="Catalog Ads">
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          role="tab"
-          aria-selected={tab === t.key}
-          className={`la-m-tab ${tab === t.key ? 'on' : ''} ${t.primary ? 'primary' : ''}`}
-          onClick={() => onTab(t.key)}
-        >
-          {t.primary ? <Plus size={14} strokeWidth={2.6} /> : null}{t.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-export function MobileCheckPrompt({ onCheck }: { onCheck: () => void }) {
-  return (
-    <section className="la-m-empty">
-      <div className={styles.exploreEmptyIcon}><ChartIcon size={26} /></div>
-      <h2>See how catalog ads perform</h2>
-      <p>Compare them with your other ads over the date range above.</p>
-      <button type="button" className="btn-primary la-m-cta" onClick={onCheck}>Check performance</button>
-    </section>
-  );
+export function MobileTabs<T extends string>({ tabs, tab, onTab }: { tabs: { key: T; label: string }[]; tab: T; onTab: (t: T) => void }) {
+  return <MobileChipsC label="Catalog Ads" tabs={tabs} active={tab} onChange={onTab} />;
 }
 
 /* ── Overview: KPI strip + head-to-head rows ── */

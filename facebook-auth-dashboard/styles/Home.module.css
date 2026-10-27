@@ -2340,3 +2340,80 @@ button.stat:hover {
   border: 1px solid var(--border2);
   background: var(--card);
 }
+
+/* ── Shared phone screen chrome: pickers (components/mobile/MobileChrome.js) ── */
+.pickerSearch {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  margin-bottom: 8px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border2);
+  /* --card is translucent; layer it over a solid page colour so rows
+     scrolling underneath don't show through. */
+  background: linear-gradient(var(--card), var(--card)), var(--bg);
+  color: var(--t3);
+  box-shadow: 0 -8px 0 var(--bg), 0 8px 0 var(--bg);
+}
+.pickerSearch input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--t1);
+  font-size: 16px;
+}
+.pickerItemText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pickerItemName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pickerItemSub {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--t3);
+}
+.pickerTick {
+  color: var(--purple);
+  font-weight: 800;
+}
+.pvPickerBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  color: var(--t1);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.pvPickerVal,
+.pvPickerPlaceholder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pvPickerPlaceholder {
+  color: var(--t3);
+}

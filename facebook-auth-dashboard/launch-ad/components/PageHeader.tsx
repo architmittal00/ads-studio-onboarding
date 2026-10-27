@@ -15,7 +15,8 @@ const resolve = (preset: string, since: string, until: string): Range => ({ pres
 
 // Header built from this app's own shared pieces, mirroring pages/partnership-ads.js
 // exactly: .h1/.sub title block on the left, a .headerPillRow of labeled
-// AccountSelect / DateRangeMenu / refresh button on the right.
+// AccountSelect / DateRangeMenu / refresh button on the right, then the page's
+// primary action (Partnership Ads: Ready to Launch; Catalog Ads: Create Ad).
 
 export interface Range { preset: string; since: string; until: string }
 
@@ -23,14 +24,17 @@ export function presetRange(preset: string): Range {
   return resolve(preset, '', '');
 }
 
-export default function PageHeader({ title, sub, children }: { title: string; sub: string; children?: ReactNode }) {
+export default function PageHeader({ title, sub, children, action }: { title: string; sub: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
       <div>
         <h1 className={styles.h1} style={{ margin: 0 }}>{title}</h1>
         <p className={styles.sub} style={{ marginTop: 6, marginBottom: 6 }}>{sub}</p>
       </div>
-      <div className={styles.headerPillRow} style={{ alignItems: 'flex-end' }}>{children}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div className={styles.headerPillRow} style={{ alignItems: 'flex-end' }}>{children}</div>
+        {action}
+      </div>
     </div>
   );
 }

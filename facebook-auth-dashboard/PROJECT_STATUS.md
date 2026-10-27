@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Partnership Ads / Catalog Ads: one look and feel (2026-10-27)
+
+Shared phone chrome in `components/mobile/MobileChrome.js` (context bar, chips, picker sheet with pinned search); Catalog Ads now uses it plus Partnership's empty state. Account picker search no longer scrolls away. Desktop: Catalog header gets a primary "Create Ad" action where Partnership has "Ready to Launch"; Catalog default range is 30 days. Verified at 375px and desktop with mocked data; not on a real phone.
+
 ### Mobile web: Catalog Ads redesigned for phones (2026-10-27)
 
 `/catalog-ads` now has a phone presentation (desktop untouched): context button + sticky chip row, KPI/head-to-head Overview, card lists for catalog ads and product sets (products in a sheet), and the Create Ad wizard with a compact step bar, preview sheet and pinned action bar above the bottom tab bar. New: `launch-ad/components/CatalogAdsMobile.tsx`, `launch-ad/lib/catalog-perf.ts` (shared totals/types). Verified at 375px with mocked Meta responses (Overview, Ads, Sets, products sheet, wizard step 1 + preview sheet, destination tree, result screen); NOT verified: wizard steps 2–4 end to end, real data, dark mode, real phone. `launch-ad/` is ignored by ESLint, so only `tsc --noEmit` was run.
