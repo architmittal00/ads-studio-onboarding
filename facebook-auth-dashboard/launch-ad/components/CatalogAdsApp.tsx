@@ -7,6 +7,8 @@ import { apiGet } from '@/launch-ad/lib/client-api';
 import { currencySymbol } from '@/launch-ad/lib/constants';
 import { adFirstForm, clearAccountBound, repeatForm } from '@/launch-ad/lib/form';
 import { useAsync } from '@/launch-ad/lib/hooks';
+import { useIsMobile } from '@/lib/useIsMobile';
+import { totals, rowMetrics, STATUS_TONE, type Row, type Catalog } from '@/launch-ad/lib/catalog-perf';
 import type { AdAccount, FormState, LaunchResult } from '@/launch-ad/lib/types';
 import AdFirstWorkspace from './AdFirstWorkspace';
 import { SetChecks, SetThumbs, type SetHealth, type SetLite } from './CatalogPanel';
@@ -15,6 +17,7 @@ import LegalLinks from './LegalLinks';
 import { statusLabel } from './Pickers';
 import ResultView from './ResultView';
 import { Loading, SearchSelect } from './ui';
+import { MobileAdList, MobileCheckPrompt, MobileContext, MobileOverview, MobileSets, MobileTabs } from './CatalogAdsMobile';
 
 type Tab = 'overview' | 'ads' | 'sets' | 'create';
 const TABS: { key: Tab; label: string }[] = [
@@ -24,36 +27,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'create', label: 'Create Ad' },
 ];
 
-interface Row {
-  id: string; name: string; adset: string; campaign: string; status: string; thumb: string;
-  productSetId: string; catalogId: string; isCatalog: boolean;
-  spend: number; reach: number; impressions: number; clicks: number; purchases: number; value: number;
-}
-interface Catalog { id: string; name: string; product_count?: number; relevance?: string }
-
-/** Totals and ratios for a group of ads. Reach is summed across ads, so people reached by several ads count more than once. */
-function totals(rows: Row[]) {
-  const t = rows.reduce((a, r) => ({ spend: a.spend + r.spend, reach: a.reach + r.reach, impressions: a.impressions + r.impressions, clicks: a.clicks + r.clicks, purchases: a.purchases + r.purchases, value: a.value + r.value }), { spend: 0, reach: 0, impressions: 0, clicks: 0, purchases: 0, value: 0 });
-  return {
-    ...t,
-    ads: rows.length,
-    live: rows.filter((r) => r.status === 'ACTIVE').length,
-    roas: t.spend ? t.value / t.spend : 0,
-    ctr: t.impressions ? (t.clicks / t.impressions) * 100 : 0,
-    cpa: t.purchases ? t.spend / t.purchases : 0,
-    cpm: t.impressions ? (t.spend / t.impressions) * 1000 : 0,
-    frequency: t.reach ? t.impressions / t.reach : 0,
-  };
-}
-const rowMetrics = (r: Row) => ({
-  roas: r.spend ? r.value / r.spend : 0, cpr: r.purchases ? r.spend / r.purchases : 0,
-  cpm: r.impressions ? (r.spend / r.impressions) * 1000 : 0, ctr: r.impressions ? (r.clicks / r.impressions) * 100 : 0,
-});
-
-const STATUS_TONE: Record<string, string> = { ACTIVE: 'ok', WITH_ISSUES: 'bad', DISAPPROVED: 'bad' };
-
 /** Catalog Ads: compare catalog ads with other ads, see each catalog ad, browse product sets, and create catalog ads. */
 export default function CatalogAdsApp({ declined }: { declined: string[] }) {
+  const isMobile = useIsMobile();
   const accounts = useAsync<AdAccount[]>('accounts', () => apiGet('adaccounts'));
   const [accountId, setAccountId] = useState('');
   const [range, setRange] = useState<Range>(() => presetRange('last_7d'));
@@ -98,6 +74,61 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
     setForm(adFirstForm(catalog || { catalogId: '', productSetId: '' }));
     setResult(null); setRepeatOf(''); setWsKey((k) => k + 1); setTab('create');
   };
+
+  if (isMobile) {
+    return (
+      <div className="content wide la-m">
+        <MobileContext
+          accounts={accounts}
+          accountId={accountId}
+          onAccount={changeAccount}
+          range={range}
+          onRange={setRange}
+          onRefresh={() => { setChecked(true); setTick((n) => n + 1); }}
+          showRange={tab !== 'create'}
+          refreshing={perf.loading}
+        />
+        <AccountNotices accounts={accounts} />
+        {declined.length ? (
+          <div className={styles.error}>
+            You didn&apos;t allow <b>{declined.join(', ')}</b>. Some options won&apos;t load. <a href="/">Log in again</a> to grant them.
+          </div>
+        ) : null}
+        <MobileTabs
+          tabs={[{ key: 'overview', label: 'Overview' }, { key: 'ads', label: 'Ads' }, { key: 'sets', label: 'Sets' }, { key: 'create', label: 'Create ad', primary: true }]}
+          tab={tab}
+          onTab={setTab}
+        />
+        {!account ? null : tab === 'overview' && !checked ? (
+          <MobileCheckPrompt onCheck={() => setChecked(true)} />
+        ) : tab === 'overview' ? (
+          <MobileOverview perf={perf} sym={sym} range={range} />
+        ) : tab === 'ads' ? (
+          <MobileAdList perf={perf} sym={sym} />
+        ) : tab === 'sets' ? (
+          <MobileSets account={account} perf={perf} sym={sym} onCreate={(catalogId, productSetId) => startCreate({ catalogId, productSetId })} />
+        ) : result ? (
+          <ResultView
+            result={result}
+            account={account}
+            onAgain={() => startCreate()}
+            onRepeat={lastAd && result.ok ? () => { setForm(repeatForm(lastAd.form)); setRepeatOf(lastAd.adsetName || 'the last ad set'); setResult(null); setWsKey((k) => k + 1); } : undefined}
+          />
+        ) : (
+          <AdFirstWorkspace
+            key={`${account.id}-${wsKey}`}
+            account={account}
+            form={form}
+            setForm={setForm}
+            catalogOnly
+            repeatOf={repeatOf || undefined}
+            onDone={(r) => { setLastAd(r.ok ? { form, adsetName: r.created.adset?.name || '' } : null); setResult(r); window.scrollTo({ top: 0 }); }}
+          />
+        )}
+        <LegalLinks style={{ marginTop: 32 }} />
+      </div>
+    );
+  }
 
   return (
     <div className="content wide">
