@@ -14,6 +14,7 @@ import AdFirstWorkspace from './AdFirstWorkspace';
 import { SetChecks, SetThumbs, type SetHealth, type SetLite } from './CatalogPanel';
 import PageHeader, { AccountNotices, AdAccountPill, RangePill, RefreshPill, presetRange, type Range } from './PageHeader';
 import PartnershipEmptyState from '@/components/partnership/PartnershipEmptyState';
+import { track } from '@/lib/analytics';
 import LegalLinks from './LegalLinks';
 import { statusLabel } from './Pickers';
 import ResultView from './ResultView';
@@ -57,6 +58,7 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
 
   const setTab = (t: Tab) => {
     setTabState(t);
+    track('catalog_tab_opened', { tab: t });
     const u = new URL(window.location.href); u.searchParams.set('tab', t); window.history.replaceState(null, '', u.toString());
     window.scrollTo({ top: 0 });
   };
@@ -138,7 +140,7 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
             setForm={setForm}
             catalogOnly
             repeatOf={repeatOf || undefined}
-            onDone={(r) => { setLastAd(r.ok ? { form, adsetName: r.created.adset?.name || '' } : null); setResult(r); window.scrollTo({ top: 0 }); }}
+            onDone={(r) => { track('catalog_ad_launch_result', { ok: r.ok, account: account.id }); setLastAd(r.ok ? { form, adsetName: r.created.adset?.name || '' } : null); setResult(r); window.scrollTo({ top: 0 }); }}
           />
         )}
         <LegalLinks style={{ marginTop: 32 }} />
@@ -198,7 +200,7 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
           setForm={setForm}
           catalogOnly
           repeatOf={repeatOf || undefined}
-          onDone={(r) => { setLastAd(r.ok ? { form, adsetName: r.created.adset?.name || '' } : null); setResult(r); window.scrollTo({ top: 0 }); }}
+          onDone={(r) => { track('catalog_ad_launch_result', { ok: r.ok, account: account.id }); setLastAd(r.ok ? { form, adsetName: r.created.adset?.name || '' } : null); setResult(r); window.scrollTo({ top: 0 }); }}
         />
       )}
 

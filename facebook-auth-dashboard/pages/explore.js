@@ -42,6 +42,7 @@ import { useIsMobile, MOBILE_TOP_BAR_HEIGHT } from "@/lib/useIsMobile";
 import BottomSheet from "@/components/BottomSheet";
 import ExploreMobileList from "@/components/ExploreMobileList";
 import styles from "@/styles/Home.module.css";
+import { track } from "@/lib/analytics";
 
 // Recharts measures its container via ResizeObserver, so it can't be
 // server-rendered — loaded only on this route, only on the client.
@@ -1137,6 +1138,7 @@ export default function Explore() {
   function runQueryForView(view, force) {
     if (!isViewRunnable(view, effectiveCatalog)) return;
     const spec = buildQuerySpecFromView(view, customMetrics);
+    track("explore_query_run", { level: view.level, metric_count: view.metrics?.length, account_count: view.accountIds?.length, forced: !!force });
     const cacheKey = EXPLORE_CACHE_PREFIX + JSON.stringify(spec);
 
     if (!force) {
@@ -1512,6 +1514,7 @@ export default function Explore() {
 
   function handleExportCsv() {
     if (!result) return;
+    track("explore_export_csv", { row_count: filteredRows.length });
     const csv = toCsvString(buildCsvTable(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
     const viewIndex = views.findIndex((v) => v.id === activeView.id);
     const slug = viewTitle(activeView, adAccounts, viewIndex === -1 ? 0 : viewIndex)

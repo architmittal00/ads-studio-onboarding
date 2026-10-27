@@ -1,6 +1,7 @@
 import "@/styles/globals.css";
 import "@/launch-ad/launch-ad.scoped.css";
 import { useEffect } from "react";
+import { useRouter } from "next/router";
 import Script from "next/script";
 import { SessionProvider, useSession } from "next-auth/react";
 import { Plus_Jakarta_Sans } from "next/font/google";
@@ -9,6 +10,7 @@ import ApiLogsFab from "@/components/ApiLogsFab";
 import { getThemePreference } from "@/lib/clientStorage";
 import { sweepAllKnownCaches } from "@/lib/clientCache";
 import { CLARITY_PROJECT_ID, identifyClarityUser } from "@/lib/clarity";
+import { initAnalytics, identifyUser, resetAnalytics, trackPageview } from "@/lib/analytics";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -92,6 +94,31 @@ function ClarityIdentify() {
   return null;
 }
 
+// PostHog: init once, identify the signed-in user by Facebook id, send a page
+// view on first load and every client-side route change, reset on sign-out so
+// two people on one device are never merged. See lib/analytics.js.
+function Analytics() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const userId = session?.user?.id;
+  const email = session?.user?.email;
+  const name = session?.user?.name;
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+  useEffect(() => {
+    if (userId) identifyUser({ id: userId, email, name });
+    else if (status === "unauthenticated") resetAnalytics();
+  }, [userId, email, name, status]);
+  useEffect(() => {
+    trackPageview();
+    router.events.on("routeChangeComplete", trackPageview);
+    return () => router.events.off("routeChangeComplete", trackPageview);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe once; router object identity is stable enough for events
+  }, []);
+  return null;
+}
+
 export default function App({
   Component,
   pageProps: { session, ...pageProps },
@@ -115,6 +142,7 @@ export default function App({
         />
       )}
       <ClarityIdentify />
+      <Analytics />
       <AccountProvider>
         <main className={plusJakartaSans.variable} style={{ fontFamily: "var(--font-studio)" }}>
           <Component {...pageProps} />

@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### PostHog product analytics (2026-10-27)
+
+`lib/analytics.js` + `<Analytics />` in `pages/_app.js`. Env: `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` (US cloud: `https://us.i.posthog.com`). Unique user = Facebook user id (`session.user.id`, from NextAuth `token.sub`); email/name are person properties; `reset()` on sign-out. Page views on every route change, autocapture on, PostHog's own session recording off (Clarity does that). Named events (all carry `device`): `explore_query_run`, `explore_export_csv`, `partnership_tab_opened`, `partnership_launch_started`, `catalog_tab_opened`, `catalog_ad_launch_result`, `campaign_launch_started`, `bulk_duplicate_ads_started`, `copy_ads_started`. Never send ad copy, metric values, API responses or tokens. Verified only that the SDK loads and posts to PostHog with a test key; not checked in the PostHog dashboard. Users must sign in again once for `session.user.id` to exist.
+
 ### Partnership Ads / Catalog Ads: one look and feel (2026-10-27)
 
 Shared phone chrome in `components/mobile/MobileChrome.js` (context bar, chips, picker sheet with pinned search); Catalog Ads now uses it plus Partnership's empty state. Account picker search no longer scrolls away. Desktop: Catalog header gets a primary "Create Ad" action where Partnership has "Ready to Launch"; Catalog default range is 30 days. Verified at 375px and desktop with mocked data; not on a real phone.

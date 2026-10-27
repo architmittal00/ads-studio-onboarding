@@ -3,6 +3,7 @@ import Loader from "./Loader";
 import { CloseIcon } from "./icons";
 import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
+import { track } from "@/lib/analytics";
 
 // Same formatMoney/budgetLabel shape as components/DuplicateEntityModal.js —
 // duplicated rather than imported, since neither of those is exported from
@@ -92,6 +93,7 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
 
   async function submit() {
     if (selectedAdsets.length === 0) return;
+    track("bulk_duplicate_ads_started", { ad_count: ads.length, adset_count: selectedAdsets.length });
     setStep("submitting");
     setProgress({ done: 0, total: totalPairs });
     const pairs = ads.flatMap((ad) => selectedAdsets.map((adset) => ({ ad, adset })));
