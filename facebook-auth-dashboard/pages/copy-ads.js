@@ -19,7 +19,7 @@ import { RANGE_PRESETS, computeRange } from "@/lib/dateRanges";
 import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
 import { METRIC_CATALOG, formatMetricValue } from "@/lib/insightsMetrics";
 import { METRIC_FILTER_OPERATORS, applyResultFilters } from "@/lib/copyAdsFilters";
-import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
+import { fetchWithTimeout, parseJsonResponse, responseError } from "@/lib/fetchJson";
 import { getCopyAdsQueryPanelCollapsed, setCopyAdsQueryPanelCollapsed } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
@@ -33,8 +33,7 @@ import styles from "@/styles/Home.module.css";
 async function fetchSourceAdsStream(url, onBatch) {
   const res = await fetchWithTimeout(url);
   if (!res.ok || !res.body) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error(json.error || `Request failed (${res.status})`);
+    throw await responseError(res);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

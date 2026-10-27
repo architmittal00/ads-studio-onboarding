@@ -1,3 +1,4 @@
+import { responseError, readApiResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import { getServerSession } from "next-auth/next";
@@ -441,7 +442,9 @@ function firstChartableKey(metricKeys, catalog, accountCount) {
 // return directly. `onProgress` is optional so every other caller (there
 // isn't one today, but nothing requires it) can ignore progress entirely.
 async function fetchExploreInsights(body, onProgress) {
-  const res = await fetch("/api/fb/explore-insights", {
+  // Read-only POST: safe to retry on a dropped connection / 502 / 503.
+  const res = await fetchWithTimeout("/api/fb/explore-insights", {
+    idempotent: true,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -449,8 +452,7 @@ async function fetchExploreInsights(body, onProgress) {
   // A validation failure (bad date range, too many accounts, …) returns a
   // plain JSON error before any streaming starts — same as today.
   if (!res.ok || !res.body) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error(json.error || `Request failed (${res.status})`);
+    throw await responseError(res);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -477,26 +479,26 @@ async function fetchExploreInsights(body, onProgress) {
 // Background creative lookup for a top-level Ad-level query's rows — see
 // loadThumbnailsForView() below for how this gets fired and merged in.
 async function fetchAdThumbnails(adIds) {
-  const res = await fetch("/api/fb/ad-thumbnails", {
+  const res = await fetchWithTimeout("/api/fb/ad-thumbnails", {
+    idempotent: true,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ adIds }),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+  const json = await readApiResponse(res);
   return json.thumbnails || {};
 }
 
 // Same shape as fetchAdThumbnails above, for the "Landing Page" metric — see
 // loadLandingPagesForView() below for how this gets fired and merged in.
 async function fetchAdLandingPages(adIds) {
-  const res = await fetch("/api/fb/ad-landing-pages", {
+  const res = await fetchWithTimeout("/api/fb/ad-landing-pages", {
+    idempotent: true,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ adIds }),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+  const json = await readApiResponse(res);
   return json.landingPages || {};
 }
 

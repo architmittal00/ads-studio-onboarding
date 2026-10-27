@@ -1,3 +1,4 @@
+import { responseError } from "@/lib/fetchJson";
 import { useState } from "react";
 import { CloseIcon } from "../icons";
 import styles from "@/styles/Home.module.css";
@@ -31,8 +32,7 @@ export default function BulkPermissionModal({ igUserId, creators, onClose, onDon
         body: JSON.stringify({ igUserId, creators: creators.map((c) => ({ creatorIgId: c.creatorIgId, creatorUsername: c.creatorUsername })) }),
       });
       if (!res.ok || !res.body) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status})`);
+        throw await responseError(res);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

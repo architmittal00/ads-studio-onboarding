@@ -1,3 +1,4 @@
+import { readApiResponse } from "@/lib/fetchJson";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { CloseIcon } from "../icons";
@@ -102,8 +103,7 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ igUserId, creatorIgId, creatorUsername }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Request failed");
+      await readApiResponse(res);
       addPermissionRequestLogEntry(igUserId, {
         creatorIgId,
         creatorUsername,

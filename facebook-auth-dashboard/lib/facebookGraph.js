@@ -1,5 +1,6 @@
 import { createHmac } from "crypto";
 import { logApiCall } from "./apiLogger";
+import { MAX_GRAPH_RETRIES, shouldRetryGraph, graphRetryDelayMs, sleep, describeGraphError, describeHttpFailure } from "./graphRetry";
 
 // v23.0: the minimum version carrying the unified Advantage+ automation-lever
 // fields (targeting_automation.advantage_audience, etc.) used by the
@@ -28,22 +29,65 @@ function appSecretProof(accessToken) {
   return createHmac("sha256", secret).update(accessToken).digest("hex");
 }
 
-// Graph's own `error.message` is often a generic one-liner ("Invalid
-// parameter") that gives no indication of *which* parameter or why —
-// reported by the user as a dead end while debugging a real launch failure.
-// `error_user_msg`/`error_user_title` (Graph's own "show this to the end
-// user" text) and the numeric code/subcode are usually far more specific,
-// when present, so fold them in instead of discarding them.
-function extractErrorMessage(error) {
-  if (!error) return null;
-  const parts = [error.message];
-  if (error.error_user_title) parts.push(error.error_user_title);
-  if (error.error_user_msg) parts.push(error.error_user_msg);
-  const codeParts = [];
-  if (error.code != null) codeParts.push(`code ${error.code}`);
-  if (error.error_subcode != null) codeParts.push(`subcode ${error.error_subcode}`);
-  if (codeParts.length > 0) parts.push(`(${codeParts.join(", ")})`);
-  return parts.filter(Boolean).join(" — ");
+// One Graph request with up to MAX_GRAPH_RETRIES retries (see lib/graphRetry.js
+// for exactly which failures qualify). Every attempt is logged to /logs.
+// On final failure the thrown Error carries Facebook's exact message
+// (`describeGraphError`), the raw response (`graphResponse`) and how many
+// attempts were made.
+async function graphRequest({ method, path, url, redactedUrl, init, isWrite }) {
+  let lastErr;
+  for (let attempt = 0; attempt <= MAX_GRAPH_RETRIES; attempt++) {
+    const start = Date.now();
+    let status = null;
+    let json = null;
+    let errorMessage = null;
+    let kind = null; // "network" | "http" | "graph"
+    let fbError = null;
+
+    try {
+      const res = await fetch(url, init);
+      status = res.status;
+      const text = await res.text();
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = null;
+      }
+      if (json?.error) {
+        kind = "graph";
+        fbError = json.error;
+        errorMessage = describeGraphError(json.error);
+      } else if (json === null || !res.ok) {
+        kind = "http";
+        errorMessage = describeHttpFailure(status, text);
+      }
+    } catch (err) {
+      kind = "network";
+      errorMessage = `Couldn't reach Facebook: ${err.message}`;
+    }
+
+    logApiCall({
+      method,
+      path: attempt > 0 ? `${path} (retry ${attempt})` : path,
+      url: redactedUrl,
+      status,
+      durationMs: Date.now() - start,
+      error: errorMessage,
+      responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
+    });
+
+    if (!errorMessage) return json;
+
+    lastErr = new Error(attempt > 0 ? `${errorMessage} [failed after ${attempt + 1} attempts]` : errorMessage);
+    lastErr.graphResponse = json;
+    lastErr.attempts = attempt + 1;
+    if (attempt < MAX_GRAPH_RETRIES && shouldRetryGraph({ kind, status, error: fbError, isWrite })) {
+      await sleep(graphRetryDelayMs(attempt, { rateLimited: kind === "graph" && fbError?.code != null && fbError.code !== 1 && fbError.code !== 2 }));
+      continue;
+    }
+    throw lastErr;
+  }
+  throw lastErr;
 }
 
 export async function graphGet(path, accessToken, params = {}) {
@@ -58,47 +102,15 @@ export async function graphGet(path, accessToken, params = {}) {
   if (proof) search.set("appsecret_proof", proof);
 
   const url = `${BASE_URL}${path}?${search.toString()}`;
-  const redactedUrl = redactToken(url);
-  const start = Date.now();
-
-  let status = null;
-  let json = null;
-  let errorMessage = null;
-
-  try {
-    const res = await fetch(url);
-    status = res.status;
-    json = await res.json();
-    if (json?.error) {
-      errorMessage = extractErrorMessage(json.error);
-    }
-  } catch (err) {
-    errorMessage = err.message;
-  }
-
-  logApiCall({
-    method: "GET",
-    path,
-    url: redactedUrl,
-    status,
-    durationMs: Date.now() - start,
-    error: errorMessage,
-    responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
-  });
-
-  if (errorMessage) {
-    const err = new Error(errorMessage);
-    err.graphResponse = json;
-    throw err;
-  }
-
-  return json;
+  return graphRequest({ method: "GET", path, url, redactedUrl: redactToken(url), init: undefined, isWrite: false });
 }
 
 // Write counterpart to graphGet — used by the campaign-launch flow to create
 // campaigns, ad sets, and audiences. Same logging/error shape so launch
 // failures show up in /logs exactly like a failed read would. Params go in
-// the POST body (form-encoded), not the query string.
+// the POST body (form-encoded), not the query string. Writes are retried only
+// for rate-limit rejections (nothing was executed), never for ambiguous
+// failures that might have been applied.
 export async function graphPost(path, accessToken, params = {}) {
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -111,45 +123,14 @@ export async function graphPost(path, accessToken, params = {}) {
   if (proof) body.set("appsecret_proof", proof);
 
   const url = `${BASE_URL}${path}`;
-  const redactedUrl = redactToken(`${url}?${body.toString()}`);
-  const start = Date.now();
-
-  let status = null;
-  let json = null;
-  let errorMessage = null;
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
-    status = res.status;
-    json = await res.json();
-    if (json?.error) {
-      errorMessage = extractErrorMessage(json.error);
-    }
-  } catch (err) {
-    errorMessage = err.message;
-  }
-
-  logApiCall({
+  return graphRequest({
     method: "POST",
     path,
-    url: redactedUrl,
-    status,
-    durationMs: Date.now() - start,
-    error: errorMessage,
-    responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
+    url,
+    redactedUrl: redactToken(`${url}?${body.toString()}`),
+    init: { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body },
+    isWrite: true,
   });
-
-  if (errorMessage) {
-    const err = new Error(errorMessage);
-    err.graphResponse = json;
-    throw err;
-  }
-
-  return json;
 }
 
 // Multipart POST with one binary field — added for Catalog Ads' video-chunk
@@ -171,84 +152,22 @@ export async function graphPostFile(path, accessToken, params = {}, file) {
   form.set(file.field, new Blob([file.data]), file.filename);
 
   const url = `${BASE_URL}${path}`;
-  const redactedUrl = redactToken(`${url}?${new URLSearchParams({ ...params, [file.field]: `<${file.data.length} bytes>` }).toString()}`);
-  const start = Date.now();
-
-  let status = null;
-  let json = null;
-  let errorMessage = null;
-
-  try {
-    const res = await fetch(url, { method: "POST", body: form });
-    status = res.status;
-    json = await res.json();
-    if (json?.error) {
-      errorMessage = extractErrorMessage(json.error);
-    }
-  } catch (err) {
-    errorMessage = err.message;
-  }
-
-  logApiCall({
+  return graphRequest({
     method: "POST",
     path,
-    url: redactedUrl,
-    status,
-    durationMs: Date.now() - start,
-    error: errorMessage,
-    responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
+    url,
+    redactedUrl: redactToken(`${url}?${new URLSearchParams({ ...params, [file.field]: `<${file.data.length} bytes>` }).toString()}`),
+    init: { method: "POST", body: form },
+    isWrite: true,
   });
-
-  if (errorMessage) {
-    const err = new Error(errorMessage);
-    err.graphResponse = json;
-    throw err;
-  }
-
-  return json;
 }
 
 // Fetches one additional page from a `paging.next` URL — already a complete,
 // signed URL (includes access_token and every query param from the original
-// request), so this talks to `fetch` directly rather than going through
-// graphGet's path/params builder. Logged the same way as any other call so a
-// paginated fetch shows up in /logs like every other request.
+// request), so this skips graphGet's path/params builder. Logged and retried
+// like any other call.
 async function fetchPageByUrl(nextUrl, path) {
-  const redactedUrl = redactToken(nextUrl);
-  const start = Date.now();
-
-  let status = null;
-  let json = null;
-  let errorMessage = null;
-
-  try {
-    const res = await fetch(nextUrl);
-    status = res.status;
-    json = await res.json();
-    if (json?.error) {
-      errorMessage = extractErrorMessage(json.error);
-    }
-  } catch (err) {
-    errorMessage = err.message;
-  }
-
-  logApiCall({
-    method: "GET",
-    path: `${path} (next page)`,
-    url: redactedUrl,
-    status,
-    durationMs: Date.now() - start,
-    error: errorMessage,
-    responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
-  });
-
-  if (errorMessage) {
-    const err = new Error(errorMessage);
-    err.graphResponse = json;
-    throw err;
-  }
-
-  return json;
+  return graphRequest({ method: "GET", path: `${path} (next page)`, url: nextUrl, redactedUrl: redactToken(nextUrl), init: undefined, isWrite: false });
 }
 
 // Safety cap on how many pages a single list/insights query will follow

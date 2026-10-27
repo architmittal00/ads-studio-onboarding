@@ -1,3 +1,4 @@
+import { responseError } from "@/lib/fetchJson";
 import { useState } from "react";
 import Loader from "./Loader";
 import styles from "@/styles/Home.module.css";
@@ -49,8 +50,7 @@ export default function LaunchReview({
       });
 
       if (!res.ok || !res.body) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status})`);
+        throw await responseError(res);
       }
 
       const reader = res.body.getReader();
