@@ -785,7 +785,8 @@ export async function copyAdsetsIntoCampaign(
       // case), there's no campaign-level choice to enforce, so each ad set
       // keeps its own real bid strategy instead of being silently
       // homogenized to buildGenericAdsetPayload's generic default.
-      bidStrategy: campaignBidStrategy || adsetFields.bidStrategy,
+      // ABO: the campaign has no bid strategy of its own, so each ad set keeps its own.
+      bidStrategy: budgetStrategy === "CBO" ? campaignBidStrategy || adsetFields.bidStrategy : adsetFields.bidStrategy,
       budgetStrategy,
       budgetType,
       budgetAmountMinorUnits: adsetBudgetAmountMinorUnits,
