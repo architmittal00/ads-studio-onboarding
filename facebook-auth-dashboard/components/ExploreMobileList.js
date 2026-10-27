@@ -28,6 +28,9 @@ export default function ExploreMobileList({
   metricColumns,
   sortColumns,
   statusAvailable,
+  // True while the background thumbnail lookup is still running; once it has
+  // resolved a row with no thumbnail shows the blank placeholder, never a spinner.
+  thumbsPending = false,
   totalsRow,
   renderMetric,
   getTitle,
@@ -147,7 +150,7 @@ export default function ExploreMobileList({
               <Thumb
                 src={row.thumbnailUrl}
                 isVideo={row.isVideo}
-                loading={row.thumbnailUrl === undefined}
+                loading={row.thumbnailUrl === undefined && thumbsPending}
                 size={48}
                 onClick={id ? () => onOpenThumb(row, title) : undefined}
               />
@@ -247,7 +250,7 @@ export default function ExploreMobileList({
             )}
             {renderLead && renderLead(row)}
             {!renderLead && level === "ad" && (
-              <Thumb src={row.thumbnailUrl} isVideo={row.isVideo} loading={row.thumbnailUrl === undefined} size={48} onClick={id ? () => onOpenThumb(row, title) : undefined} />
+              <Thumb src={row.thumbnailUrl} isVideo={row.isVideo} loading={row.thumbnailUrl === undefined && thumbsPending} size={48} onClick={id ? () => onOpenThumb(row, title) : undefined} />
             )}
             <button
               type="button"
