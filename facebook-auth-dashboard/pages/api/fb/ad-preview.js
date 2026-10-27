@@ -13,6 +13,9 @@ import { graphGet } from "@/lib/facebookGraph";
 // Facebook's own preview tool instead of exposing the raw file, so it isn't
 // subject to that same restriction.
 const AD_FORMAT = "DESKTOP_FEED_STANDARD";
+// Phones get the mobile feed render: Meta lays the ad out for a ~335px-wide
+// frame, which fits a phone screen, instead of squeezing the 500px desktop one.
+const ALLOWED_FORMATS = new Set(["DESKTOP_FEED_STANDARD", "MOBILE_FEED_STANDARD"]);
 
 // Called on demand (only when a video ad's lightbox is actually opened and
 // its direct file URL isn't available) rather than prefetched for every
@@ -31,13 +34,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const json = await graphGet(`/${adId}/previews`, session.accessToken, { ad_format: AD_FORMAT });
+    const requested = typeof req.query.format === "string" ? req.query.format : AD_FORMAT;
+    const adFormat = ALLOWED_FORMATS.has(requested) ? requested : AD_FORMAT;
+    const json = await graphGet(`/${adId}/previews`, session.accessToken, { ad_format: adFormat });
     const body = json.data?.[0]?.body || "";
     const srcMatch = body.match(/src="([^"]+)"/);
     if (!srcMatch) {
       return res.status(200).json({ previewUrl: null, warning: "No live preview available for this ad." });
     }
-    res.status(200).json({ previewUrl: srcMatch[1].replace(/&amp;/g, "&") });
+    // The iframe's own natural size, so the client can scale it to fit instead
+    // of clipping content that was laid out for a wider frame.
+    const width = Number(body.match(/width="(\d+)"/)?.[1]) || null;
+    const height = Number(body.match(/height="(\d+)"/)?.[1]) || null;
+    res.status(200).json({ previewUrl: srcMatch[1].replace(/&amp;/g, "&"), width, height, format: adFormat });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });
   }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 // Fullscreen preview for a single creative. Plays video ads using the direct
 // source URL resolved server-side from the creative's video_id when that's
@@ -15,7 +16,16 @@ import { useEffect, useState } from "react";
 // back further to a "Watch on Facebook" link (video only) and finally to the
 // small stored thumbnail, for the rare case even that fails.
 export default function CreativeLightbox({ item, onClose }) {
-  const [preview, setPreview] = useState({ loading: false, url: null, error: null });
+  const isMobile = useIsMobile();
+  const [preview, setPreview] = useState({ loading: false, url: null, error: null, width: null, height: null });
+  // Viewport width, to scale the preview frame down to fit a phone.
+  const [viewportW, setViewportW] = useState(() => (typeof window === "undefined" ? 1024 : window.innerWidth));
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    onResize();
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (!item) return;
@@ -39,16 +49,16 @@ export default function CreativeLightbox({ item, onClose }) {
     // Kicks off an async fetch (which itself sets loading/error/result
     // state) — intentional, not a derived-state anti-pattern.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPreview({ loading: true, url: null, error: null });
-    fetch(`/api/fb/ad-preview?adId=${encodeURIComponent(item.id)}`)
+    setPreview({ loading: true, url: null, error: null, width: null, height: null });
+    fetch(`/api/fb/ad-preview?adId=${encodeURIComponent(item.id)}&format=${isMobile ? "MOBILE_FEED_STANDARD" : "DESKTOP_FEED_STANDARD"}`)
       .then((res) => res.json())
       .then((json) => {
         if (cancelled) return;
-        setPreview({ loading: false, url: json.previewUrl || null, error: json.previewUrl ? null : json.error || json.warning });
+        setPreview({ loading: false, url: json.previewUrl || null, error: json.previewUrl ? null : json.error || json.warning, width: json.width || null, height: json.height || null });
       })
       .catch((err) => {
         if (cancelled) return;
-        setPreview({ loading: false, url: null, error: err.message });
+        setPreview({ loading: false, url: null, error: err.message, width: null, height: null });
       });
     return () => {
       cancelled = true;
@@ -57,7 +67,7 @@ export default function CreativeLightbox({ item, onClose }) {
     // this fetch — other fields on item (caption, name, …) change the
     // display but never need a fresh preview fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item?.id, hasNativeVideo]);
+  }, [item?.id, hasNativeVideo, isMobile]);
 
   if (!item) return null;
 
@@ -120,14 +130,28 @@ export default function CreativeLightbox({ item, onClose }) {
             style={{ maxWidth: "92vw", maxHeight: "78vh", borderRadius: 10, background: "#000" }}
           />
         ) : showLivePreview ? (
-          <iframe
-            src={preview.url}
-            width={500}
-            height={700}
-            allow="autoplay; encrypted-media"
-            sandbox="allow-scripts allow-same-origin allow-popups"
-            style={{ maxWidth: "92vw", maxHeight: "78vh", border: "none", borderRadius: 10, background: "#000" }}
-          />
+          (() => {
+            // Meta lays the ad out for the iframe's natural size; shrinking the
+            // iframe box with CSS only clips it (cut-off text, black bars). Keep
+            // the natural size and scale the whole frame down to fit instead.
+            const naturalW = preview.width || (isMobile ? 335 : 500);
+            const naturalH = preview.height || (isMobile ? 640 : 700);
+            const maxW = Math.max(240, viewportW - 48);
+            const maxH = (typeof window === "undefined" ? 800 : window.innerHeight) * 0.78;
+            const scale = Math.min(1, maxW / naturalW, maxH / naturalH);
+            return (
+              <div style={{ width: naturalW * scale, height: naturalH * scale, borderRadius: 10, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
+                <iframe
+                  src={preview.url}
+                  width={naturalW}
+                  height={naturalH}
+                  allow="autoplay; encrypted-media"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  style={{ border: "none", background: "#fff", transform: `scale(${scale})`, transformOrigin: "top left", display: "block" }}
+                />
+              </div>
+            );
+          })()
         ) : item.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
