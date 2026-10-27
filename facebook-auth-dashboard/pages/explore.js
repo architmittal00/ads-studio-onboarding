@@ -177,6 +177,16 @@ const METRIC_FILTER_OPERATORS = [
   { value: "neq", label: "≠" },
 ];
 
+// Plain-language operator names for the phone filter sheet ("Spend is at least 1,000").
+const METRIC_FILTER_OPERATOR_WORDS = {
+  gte: "is at least",
+  lte: "is at most",
+  gt: "is more than",
+  lt: "is less than",
+  eq: "is exactly",
+  neq: "is not",
+};
+
 function compareMetricValue(rowValue, operator, threshold) {
   if (typeof rowValue !== "number" || isNaN(rowValue) || typeof threshold !== "number" || isNaN(threshold)) return false;
   switch (operator) {
@@ -1630,6 +1640,150 @@ export default function Explore() {
   // (List/Chart, Filters, ⋯ more) instead of the desktop's wrapped button row.
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  // Phone filter sheet: statuses as tappable chips, each metric condition as a
+  // card that reads like a sentence ("Spend is at least 1,000"), a live
+  // "Show N rows" button that applies the drafts and closes, and Clear all.
+  function renderMobileFilterSheet() {
+    const numericKeys = (result?.meta.metricKeys || []).filter((k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text");
+    const statusSelected = (s) => !activeView.resultFilters.statusValues || activeView.resultFilters.statusValues.includes(s);
+    const hasAnyFilter = draftConditions.length > 0 || !!activeView.resultFilters.statusValues || activeView.resultFilters.metricConditions.length > 0;
+    // What the table would show if the drafts were applied right now.
+    const previewCount = applyResultFilters(
+      result.rows,
+      { ...activeView.resultFilters, metricConditions: draftConditions },
+      result.meta.metricKeys
+    ).length;
+    function clearAll() {
+      setDraftConditions([]);
+      updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: [], statusValues: null } }));
+    }
+    return (
+      <BottomSheet
+        open={mobileFiltersOpen}
+        title="Filter results"
+        onClose={() => setMobileFiltersOpen(false)}
+        footer={
+          <>
+            <button type="button" className={styles.btnSecondary} onClick={clearAll} disabled={!hasAnyFilter}>
+              Clear all
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              style={{ flex: 1 }}
+              onClick={() => {
+                applyMetricFilters();
+                setMobileFiltersOpen(false);
+              }}
+            >
+              Show {previewCount} {previewCount === 1 ? "row" : "rows"}
+            </button>
+          </>
+        }
+      >
+        {result.meta.statusAvailable && availableStatuses.length > 0 && (
+          <div className={styles.fsSection}>
+            <div className={styles.fsLabel}>Status</div>
+            <div className={styles.fsChips}>
+              {availableStatuses.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={statusSelected(s)}
+                  className={statusSelected(s) ? `${styles.fsChip} ${styles.fsChipOn}` : styles.fsChip}
+                  onClick={() => toggleStatus(s)}
+                >
+                  {humanizeStatus(s)}
+                </button>
+              ))}
+            </div>
+            <p className={styles.fsHint}>Tap to include or hide a status.</p>
+          </div>
+        )}
+
+        <div className={styles.fsSection}>
+          <div className={styles.fsLabel}>Metrics</div>
+          {draftConditions.length === 0 && (
+            <p className={styles.fsHint}>No metric filters yet. Add one to keep only rows above or below a number — for example Spend is at least 1,000.</p>
+          )}
+          {draftConditions.map((c) => {
+            const metric = effectiveCatalog.find((m) => m.key === c.metricKey);
+            const unit = c.basis === "change" ? "%" : metric?.format === "percent" ? "%" : "";
+            return (
+              <div key={c.id} className={styles.fsCond}>
+                <div className={styles.fsCondHead}>
+                  <select
+                    className={styles.select}
+                    aria-label="Metric"
+                    value={c.metricKey}
+                    onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}
+                  >
+                    {numericKeys.map((k) => (
+                      <option key={k} value={k}>
+                        {effectiveCatalog.find((m) => m.key === k)?.label || k}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove this filter">
+                    <CloseIcon size={12} />
+                  </button>
+                </div>
+                {result.meta.compareToPrevious && (
+                  <div className={styles.tabGroup} role="radiogroup" aria-label="Compare">
+                    {[
+                      ["value", "Value"],
+                      ["change", "% change vs. previous"],
+                    ].map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        role="radio"
+                        aria-checked={(c.basis || "value") === val}
+                        className={(c.basis || "value") === val ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                        onClick={() => updateDraftCondition(c.id, { basis: val })}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className={styles.fsCondRow}>
+                  <select
+                    className={styles.select}
+                    aria-label="Condition"
+                    value={c.operator}
+                    onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}
+                  >
+                    {METRIC_FILTER_OPERATORS.map((op) => (
+                      <option key={op.value} value={op.value}>
+                        {METRIC_FILTER_OPERATOR_WORDS[op.value]}
+                      </option>
+                    ))}
+                  </select>
+                  <div className={styles.fsValue}>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      aria-label="Value"
+                      className={styles.select}
+                      value={c.value}
+                      onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                    />
+                    {unit && <span className={styles.fsUnit}>{unit}</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <button type="button" className={styles.fsAddBtn} onClick={addDraftCondition} disabled={numericKeys.length === 0}>
+            + Add metric filter
+          </button>
+          {hasPendingMetricChanges && <p className={styles.fsHint}>Changes apply when you tap “Show rows”.</p>}
+        </div>
+      </BottomSheet>
+    );
+  }
+
   function renderMobileResultBar() {
     const filterCount =
       (activeView.resultFilters.metricConditions?.length || 0) + (activeView.resultFilters.statusValues ? 1 : 0);
@@ -1676,9 +1830,7 @@ export default function Explore() {
           {result.meta.filteredByNameCount > 0 && ` · ${result.meta.filteredByNameCount} hidden by name filter`}
           {activeView.resultFetchedAt && <MobileAge fetchedAt={activeView.resultFetchedAt} />}
         </div>
-        <BottomSheet open={mobileFiltersOpen} title="Filter results" onClose={() => setMobileFiltersOpen(false)}>
-          {renderFilterCard()}
-        </BottomSheet>
+        {renderMobileFilterSheet()}
         <BottomSheet open={mobileMoreOpen} title="More" onClose={() => setMobileMoreOpen(false)}>
           <div className={styles.sheetList}>
             <button
