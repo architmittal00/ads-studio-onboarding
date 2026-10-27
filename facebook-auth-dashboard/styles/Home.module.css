@@ -1897,6 +1897,37 @@ button.stat:hover {
 .mvResultSection {
   min-width: 0;
 }
+/* Refresh over existing results: a small sticky pill instead of a full scrim
+   (a tall list centres its loader off-screen); stale rows just fade. */
+.mvRerunning > :not(.mvRerunBar) {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.mvRerunBar {
+  position: sticky;
+  top: 60px;
+  z-index: 30;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-bottom: -8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid rgba(var(--surface-tint-rgb), 0.14);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+}
+.mvRerunText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .mvChartControls {
   flex-direction: column;
   align-items: stretch !important;

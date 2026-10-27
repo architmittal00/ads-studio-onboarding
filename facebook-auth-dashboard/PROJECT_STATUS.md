@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Mobile Custom Views: refresh state + 9-metric cards (2026-10-27)
+
+Refreshing existing results on a phone used a dark blurred scrim over the whole (tall) list with the loader centred off-screen. Now a sticky pill (`.mvRerunBar`) shows progress and stale rows fade. Cards show up to 9 metrics (was 6) before "+N more metrics". Verified by lint only; not exercised in a browser.
+
 ### Mobile web: Custom Views redesigned for phones — cards, sheets, sticky toolbar (2026-10-27)
 
 The first mobile pass (#342) only squeezed the desktop layout. This round re-thinks the presentation for phones: results are a **ranked card list** (`components/ExploreMobileList.js`) with a **KPI totals strip**, sticky search/sort/select toolbar, inline drill-down (View ad sets/ads, day-by-day), a sticky **bulk-action bar**, and **bottom sheets** (`components/BottomSheet.js`) for sort, filters, row actions (`RowActions variant="sheet"`) and a **view switcher** replacing the browser-style tab strip. Compact currency/number formatting (`formatMetricValue(..., {compact:true})`), compact date label. Desktop unchanged. Principles + code map in `DESIGN.md` → "Mobile web". **Verified only** in a 375px emulated viewport with mocked data (light mode); not on a real phone or real account — long names, many-metric views, breakdown/multi-account results, the detail drawer and bulk-duplicate modal on mobile still need a real-device pass.
