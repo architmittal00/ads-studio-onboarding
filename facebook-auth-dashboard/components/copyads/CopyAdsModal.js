@@ -92,7 +92,7 @@ function Section({ icon: Icon, title, children }) {
 // cousin of it. Kept as its own small copy rather than a shared import,
 // same reasoning those two files' own comments give: each caller wants
 // slightly different row content.
-function AdsetPickerList({ adsets, query, onQueryChange, onPick }) {
+function AdsetPickerList({ adsets, query, onQueryChange, selectedIds, onToggle }) {
   const filtered = query.trim() ? adsets.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase())) : adsets;
   return (
     <div>
@@ -112,10 +112,11 @@ function AdsetPickerList({ adsets, query, onQueryChange, onPick }) {
           {filtered.map((a) => (
             <div
               key={a.id}
-              onClick={() => onPick(a)}
-              style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}
+              onClick={() => onToggle(a)}
+              style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", background: selectedIds.has(a.id) ? "var(--card2)" : undefined }}
             >
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+              <input type="checkbox" checked={selectedIds.has(a.id)} readOnly style={{ flexShrink: 0, pointerEvents: "none" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
                 <span className={styles.muted}>{a.campaign?.name || "No campaign"}</span>
               </div>
@@ -398,7 +399,8 @@ export default function CopyAdsModal({
   const [adsetsLoading, setAdsetsLoading] = useState(false);
   const [adsetsError, setAdsetsError] = useState(null);
   const [adsets, setAdsets] = useState([]);
-  const [destAdset, setDestAdset] = useState(null);
+  // Ad level: one or several destination ad sets (full objects, kept for their names).
+  const [destAdsets, setDestAdsets] = useState([]);
   const [adsetQuery, setAdsetQuery] = useState("");
 
   const [names, setNames] = useState(() => Object.fromEntries(ads.map((a) => [a.id, `${a.name} - Copy`])));
@@ -677,7 +679,7 @@ export default function CopyAdsModal({
   function pickDestAccount(id) {
     setDestAccountId(id);
     if (level === "ad") {
-      setDestAdset(null);
+      setDestAdsets([]);
       setAdsetQuery("");
       loadAdsets(id);
       setStep("pick_adset");
@@ -700,9 +702,8 @@ export default function CopyAdsModal({
     }
   }
 
-  function pickDestAdset(adset) {
-    setDestAdset(adset);
-    setStep("review");
+  function toggleDestAdset(adset) {
+    setDestAdsets((prev) => (prev.some((a) => a.id === adset.id) ? prev.filter((a) => a.id !== adset.id) : [...prev, adset]));
   }
 
   function pickDestCampaign(campaign) {
@@ -782,19 +783,36 @@ export default function CopyAdsModal({
         body: JSON.stringify({
           sourceAccountId,
           destAccountId,
-          destAdsetId: destAdset.id,
+          destAdsetIds: destAdsets.map((a) => a.id),
           items: ads.map((a) => ({ adId: a.id, name: names[a.id] })),
           finalStatus: status,
         }),
       });
       let finalResult = null;
+      // With several destination ad sets each ad is copied once per ad set; its row
+      // shows "copying" until every ad set is done, then success only if all worked.
+      const totalDests = destAdsets.length;
+      const doneByAd = {};
       await readNdjson(res, (event) => {
         if (event.type === "ad_start") {
           setAdProgress((prev) => ({ ...prev, [event.adId]: { ...prev[event.adId], phase: "copying" } }));
         } else if (event.type === "ad_done") {
+          const agg = (doneByAd[event.adId] ||= { done: 0, failed: 0, skipped: 0, error: null, newAdId: null, warning: null });
+          agg.done += 1;
+          if (event.success) agg.newAdId = agg.newAdId || event.newAdId;
+          else if (event.skipped) agg.skipped += 1;
+          else agg.failed += 1;
+          if (!event.success && !agg.error) agg.error = event.error;
+          if (event.warning && !agg.warning) agg.warning = event.warning;
+          const finished = agg.done >= totalDests;
           setAdProgress((prev) => ({
             ...prev,
-            [event.adId]: { phase: event.success ? "success" : event.skipped ? "skipped" : "failed", error: event.error, warning: event.warning, newAdId: event.newAdId },
+            [event.adId]: {
+              phase: !finished ? "copying" : agg.failed > 0 ? "failed" : agg.skipped > 0 ? "skipped" : "success",
+              error: agg.error,
+              warning: agg.warning,
+              newAdId: agg.newAdId,
+            },
           }));
         } else if (event.type === "done") {
           finalResult = event;
@@ -1137,7 +1155,19 @@ export default function CopyAdsModal({
               </p>
               {adsetsLoading && <Loader label="Loading ad sets…" />}
               {adsetsError && <div className={styles.error}>{adsetsError}</div>}
-              {!adsetsLoading && !adsetsError && <AdsetPickerList adsets={adsets} query={adsetQuery} onQueryChange={setAdsetQuery} onPick={pickDestAdset} />}
+              {!adsetsLoading && !adsetsError && (
+                <>
+                  <p className={styles.muted} style={{ marginBottom: 8 }}>
+                    Pick one or more ad sets — every selected ad is copied into each of them.
+                  </p>
+                  <AdsetPickerList adsets={adsets} query={adsetQuery} onQueryChange={setAdsetQuery} selectedIds={new Set(destAdsets.map((a) => a.id))} onToggle={toggleDestAdset} />
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                    <button type="button" className={styles.btnPrimary} disabled={destAdsets.length === 0} onClick={() => setStep("review")}>
+                      Continue{destAdsets.length > 0 ? ` (${destAdsets.length} ad set${destAdsets.length === 1 ? "" : "s"})` : ""}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1145,7 +1175,7 @@ export default function CopyAdsModal({
             <div style={{ marginTop: 16 }}>
               {!submitting && <BackLink onClick={() => setStep("pick_adset")} />}
               <p className={styles.sub} style={{ marginBottom: 14 }}>
-                Into &quot;{destAdset.name}&quot; ({destAccountName})
+                Into {destAdsets.length === 1 ? `"${destAdsets[0].name}"` : `${destAdsets.length} ad sets`} ({destAccountName})
               </p>
 
               {!submitting && (
@@ -1567,12 +1597,15 @@ export default function CopyAdsModal({
             // row — confusing, since it isn't about any one ad. Split here so
             // the per-ad list stays scannable and activation gets its own
             // clearly-labeled line.
+            // One group per (ad, destination ad set) — the same ad lands once in each.
             const adStepsById = new Map();
             for (const s of result.steps) {
               if (!s.adId) continue;
-              if (!adStepsById.has(s.adId)) adStepsById.set(s.adId, []);
-              adStepsById.get(s.adId).push(s);
+              const key = `${s.adId}|${s.destAdsetId || ""}`;
+              if (!adStepsById.has(key)) adStepsById.set(key, []);
+              adStepsById.get(key).push(s);
             }
+            const multiDest = destAdsets.length > 1;
             const activationStep = result.steps.find((s) => s.type === "activation");
             const isActive = status === "ACTIVE" && activationStep?.success;
             return (
@@ -1581,24 +1614,34 @@ export default function CopyAdsModal({
                   <p style={{ marginBottom: 2 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
                   {result.error && <p style={{ fontWeight: 400, opacity: 0.85 }}>{result.error}</p>}
                   <p style={{ fontWeight: 400, opacity: 0.85 }}>
-                    {result.createdAdIds.length} of {ads.length} ad{ads.length === 1 ? "" : "s"} created {isActive ? "and activated" : "paused"} in &quot;
-                    {destAdset.name}&quot; ({destAccountName}){!isActive && " — check Ads Manager before activating"}.
+                    {result.createdAdIds.length} of {ads.length * destAdsets.length} ad{ads.length * destAdsets.length === 1 ? "" : "s"} created {isActive ? "and activated" : "paused"} in{" "}
+                    {multiDest ? `${destAdsets.length} ad sets` : `"${destAdsets[0]?.name}"`} ({destAccountName}){!isActive && " — check Ads Manager before activating"}.
                   </p>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {[...adStepsById.entries()].map(([adId, steps]) => (
-                    <CopiedAdGroup
-                      key={adId}
-                      steps={steps}
-                      sourceAd={ads.find((a) => a.id === adId)}
-                      newName={names[adId]}
-                      onPreview={() => {
-                        const a = ads.find((x) => x.id === adId);
-                        if (a) setLightboxItem({ id: a.id, name: a.name, thumbnailUrl: a.thumbnailUrl, isVideo: a.isVideo });
-                      }}
-                    />
-                  ))}
+                  {[...adStepsById.entries()].map(([key, steps]) => {
+                    const adId = steps[0].adId;
+                    const adsetName = destAdsets.find((a) => a.id === steps[0].destAdsetId)?.name;
+                    return (
+                      <div key={key}>
+                        {multiDest && adsetName && (
+                          <p className={styles.muted} style={{ fontSize: 11, margin: "2px 0 4px" }}>
+                            → {adsetName}
+                          </p>
+                        )}
+                        <CopiedAdGroup
+                          steps={steps}
+                          sourceAd={ads.find((a) => a.id === adId)}
+                          newName={names[adId]}
+                          onPreview={() => {
+                            const a = ads.find((x) => x.id === adId);
+                            if (a) setLightboxItem({ id: a.id, name: a.name, thumbnailUrl: a.thumbnailUrl, isVideo: a.isVideo });
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {activationStep && !activationStep.success && (

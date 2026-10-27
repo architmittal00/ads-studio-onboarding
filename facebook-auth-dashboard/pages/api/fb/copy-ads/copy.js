@@ -41,9 +41,14 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { sourceAccountId, destAccountId, destAdsetId, items, finalStatus: rawFinalStatus } = req.body || {};
-  if (!sourceAccountId || !destAccountId || !destAdsetId || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "sourceAccountId, destAccountId, destAdsetId, and a non-empty items array are required" });
+  const { sourceAccountId, destAccountId, destAdsetId, destAdsetIds: rawDestAdsetIds, items, finalStatus: rawFinalStatus } = req.body || {};
+  // One or several destination ad sets (destAdsetId kept for older callers).
+  const destAdsetIds = [...new Set((Array.isArray(rawDestAdsetIds) && rawDestAdsetIds.length > 0 ? rawDestAdsetIds : destAdsetId ? [destAdsetId] : []).map(String))];
+  if (!sourceAccountId || !destAccountId || destAdsetIds.length === 0 || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "sourceAccountId, destAccountId, destAdsetIds, and a non-empty items array are required" });
+  }
+  if (destAdsetIds.length > 20) {
+    return res.status(400).json({ error: "Pick at most 20 destination ad sets at a time." });
   }
   if (sourceAccountId === destAccountId) {
     return res.status(400).json({ error: "Source and destination ad accounts must be different." });
@@ -87,16 +92,28 @@ export default async function handler(req, res) {
   // than one that already existed. This route's own NDJSON writer functions
   // (adStart/adDone/progress, defined above) are passed straight through as
   // its callbacks.
-  const { createdAdIds, steps, overallSuccess: adsSucceeded } = await copyAdsIntoAdset(token, {
-    destAccountId,
-    destAdsetId,
-    items,
-    assets,
-    concurrency: COPY_CONCURRENCY,
-    onProgress: progress,
-    onAdStart: adStart,
-    onAdDone: adDone,
-  });
+  // One pass per destination ad set, one after another, sharing the asset
+  // coordinator above so each image/video is copied into the destination
+  // account only once however many ad sets it lands in. Events and steps carry
+  // `destAdsetId` so the client can tell the copies apart.
+  const createdAdIds = [];
+  const steps = [];
+  let adsSucceeded = true;
+  for (const adsetId of destAdsetIds) {
+    const r = await copyAdsIntoAdset(token, {
+      destAccountId,
+      destAdsetId: adsetId,
+      items,
+      assets,
+      concurrency: COPY_CONCURRENCY,
+      onProgress: progress,
+      onAdStart: (adId) => res.write(`${JSON.stringify({ type: "ad_start", adId, destAdsetId: adsetId })}\n`),
+      onAdDone: (adId, result) => res.write(`${JSON.stringify({ type: "ad_done", adId, destAdsetId: adsetId, ...result })}\n`),
+    });
+    createdAdIds.push(...r.createdAdIds);
+    steps.push(...r.steps.map((st) => ({ ...st, destAdsetId: adsetId })));
+    if (!r.overallSuccess) adsSucceeded = false;
+  }
   let overallSuccess = adsSucceeded;
 
   if (finalStatus === "ACTIVE" && overallSuccess && createdAdIds.length > 0) {
