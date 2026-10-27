@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Mobile ad preview no longer clipped (2026-10-27)
+
+`CreativeLightbox` rendered Meta's 500px-wide desktop-feed preview in an iframe whose box CSS shrank to the phone width, so the ad was cut off (text clipped, black bar). Phones now request `MOBILE_FEED_STANDARD` (`/api/fb/ad-preview?format=`), the API returns the iframe's natural `width`/`height`, and the lightbox keeps that size and scales the whole frame to fit the viewport (also capped to 78% of the screen height) on both desktop and phone. Checked the sizing/scale numbers with a stand-in frame at 375px; not seen with a real Meta preview.
+
 ### Custom Views: landing-page link no longer overflows its column (2026-10-27)
 
 The Landing Page column was 150px wide but its (single-line) link label is up to ~40 chars, so it ran under the Actions column on Windows. Column is now 320px and the link is `display:block` with an ellipsis (`LANDING_LINK_STYLE` in `pages/explore.js`), so it can never spill even if the column is dragged narrower. Not checked in a browser or on Windows.
