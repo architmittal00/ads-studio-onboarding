@@ -71,7 +71,8 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue, onLaunc
     return {
       id: `code_${item.content_id}`,
       source: "code",
-      contentId: item.content_id,
+      contentId: item.unverified ? null : item.content_id,
+      unverified: !!item.unverified,
       adCode: info.ad_code,
       name: name.trim(),
       mediaType: item.media_type,
@@ -103,13 +104,17 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue, onLaunc
     >
       <div onClick={(e) => e.stopPropagation()} className={`${styles.card} ${styles.pvModalCard}`} style={{ background: "var(--bg)", width: "min(640px, 100%)", display: "flex", gap: 0, overflow: "hidden", padding: 0 }}>
         <div className={styles.pvModalMedia} style={{ flexShrink: 0, width: 240, position: "relative" }}>
-          <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="detail" />
+          {item.unverified ? (
+            <div style={{ padding: 16, fontSize: 12.5, color: "var(--t3)" }}>No preview — this code isn&apos;t listed by Meta&apos;s content search.</div>
+          ) : (
+            <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="detail" />
+          )}
         </div>
         <div style={{ flex: 1, minWidth: 0, padding: 20, maxHeight: "80vh", overflowY: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
             <div>
               <span className={styles.badgeGood} style={{ marginBottom: 6, display: "inline-block" }}>
-                ✓ Launch Ready
+                {item.unverified ? "Not verified — launches directly" : "✓ Launch Ready"}
               </span>
               <h2 className={styles.h2} style={{ marginTop: 2 }}>
                 @{item.author?.display_name || "unknown"}
