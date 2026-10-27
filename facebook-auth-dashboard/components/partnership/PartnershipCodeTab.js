@@ -14,7 +14,7 @@ import styles from "@/styles/Home.module.css";
 // 3-step LaunchWizardModal the queue's own "Launch Selected Ads" uses,
 // passed just this one item — no need to round-trip through the queue
 // first if the user already knows exactly what they want to launch.
-export default function PartnershipCodeTab({ accountId, businessId, igUserId, pages, ready, onQueueChanged }) {
+export default function PartnershipCodeTab({ accountId, businessId, igUserId, pages, ready, onQueueChanged, igOptions, businessOptions, onSwitchContext }) {
   const [previewItem, setPreviewItem] = useState(null);
   const [launchItem, setLaunchItem] = useState(null);
   const [toast, setToast] = useState(null);
@@ -41,7 +41,14 @@ export default function PartnershipCodeTab({ accountId, businessId, igUserId, pa
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <CodeEntryCard businessId={businessId} igUserId={igUserId} onResolved={setPreviewItem} />
+      <CodeEntryCard
+        businessId={businessId}
+        igUserId={igUserId}
+        onResolved={setPreviewItem}
+        igOptions={igOptions}
+        businessOptions={businessOptions}
+        onSwitchContext={onSwitchContext}
+      />
       <CsvUploadCard businessId={businessId} igUserId={igUserId} onQueued={handleQueuedMany} />
 
       <FetchPreviewModal
