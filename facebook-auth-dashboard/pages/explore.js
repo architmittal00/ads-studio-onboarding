@@ -3121,7 +3121,7 @@ const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 1
 // bottom of the hierarchy.
 const CHILD_LEVEL = { campaign: "adset", adset: "ad" };
 const CHILD_ID_FILTER_FIELD = { adset: "campaignId", ad: "adsetId" };
-const CHILD_LEVEL_PLURAL = { adset: "ad sets", ad: "ads" };
+const CHILD_LEVEL_PLURAL = { campaign: "campaigns", adset: "ad sets", ad: "ads" };
 
 // A pivoted date row's own label (see `timePivotEnabled`) — each bucket's
 // `date` field is always the Meta API's `date_start` for that bucket
@@ -3209,7 +3209,21 @@ function ExploreResultsTable({
   // of re-finding each one by name. Local to this one render of the table —
   // resets whenever the query re-runs, same as SortableTable's own sort/
   // search state; there's no reason a selection should survive a new result.
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  // One kind of entity at a time: `level` is the level of whatever is selected
+  // (campaign OR ad set OR ad, never a mix) and `rows` holds the selected rows
+  // themselves, keyed by entity id — rows from an expanded drill-down are not
+  // in `rows` of the top-level result, so ids alone are not enough.
+  const [selection, setSelection] = useState({ level: null, rows: new Map() });
+  const selectedIds = useMemo(() => new Set(selection.rows.keys()), [selection]);
+  const selectedLevel = selection.level || meta.level;
+  const levelBlocked = (lvl) => !!selection.level && selection.level !== lvl;
+  const blockedTitle = (lvl) =>
+    levelBlocked(lvl)
+      ? `You've selected ${CHILD_LEVEL_PLURAL[selection.level] || selection.level + "s"}. Clear the selection to select ${CHILD_LEVEL_PLURAL[lvl] || lvl + "s"} instead.`
+      : undefined;
+  function clearSelection() {
+    setSelection({ level: null, rows: new Map() });
+  }
   // Opens BulkDuplicateAdsModal for the currently-selected ad rows — holds
   // just a boolean, same as RowActions' own single-row `duplicating` state;
   // the modal reads `selectedRows`/`accountId` directly off this component's
@@ -3240,17 +3254,25 @@ function ExploreResultsTable({
     return () => clearTimeout(timer);
   }, [resultFilters]);
 
-  function toggleSelected(id) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  function toggleSelected(id, rowArg, levelArg) {
+    setSelection((prev) => {
+      const level = levelArg || meta.level;
+      if (prev.level && prev.level !== level) return prev;
+      const rows = new Map(prev.rows);
+      if (rows.has(id)) rows.delete(id);
+      else {
+        const row = rowArg || selectableRows.find((r) => r.entityId === id);
+        if (!row) return prev;
+        rows.set(id, row);
+      }
+      return { level: rows.size ? level : null, rows };
     });
   }
 
   function toggleSelectAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
+    if (levelBlocked(meta.level)) return;
+    if (allSelected) clearSelection();
+    else setSelection({ level: meta.level, rows: new Map(selectableRows.map((r) => [r.entityId, r])) });
   }
 
   function copyText(text) {
@@ -3432,7 +3454,7 @@ function ExploreResultsTable({
   // single account to duplicate within — flagged the same "still visible,
   // explained in a tooltip" way as every other unavailable bulk action here,
   // rather than silently dropping the out-of-account ads from the batch.
-  const selectedRows = selectableRows.filter((r) => selectedIds.has(r.entityId));
+  const selectedRows = [...selection.rows.values()];
   const selectedAccountIds = [...new Set(selectedRows.map((r) => r.accountId))];
 
   function startFetch(row, childLevel) {
@@ -3606,7 +3628,9 @@ function ExploreResultsTable({
                 <input
                   type="checkbox"
                   checked={selectedIds.has(row.entityId)}
-                  onChange={() => toggleSelected(row.entityId)}
+                  disabled={levelBlocked(meta.level)}
+                  title={blockedTitle(meta.level)}
+                  onChange={() => toggleSelected(row.entityId, row, meta.level)}
                   aria-label="Select row"
                 />
               ) : null,
@@ -3721,7 +3745,22 @@ function ExploreResultsTable({
     return (
       <tr key={row.entityId}>
         {childOrderedColumns.map((col) => {
-          if (col.key === "__select") return <td key={col.key} style={frozenStyle(col)} />;
+          if (col.key === "__select") {
+            return (
+              <td key={col.key} style={frozenStyle(col)}>
+                {row.entityId && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(row.entityId)}
+                    disabled={levelBlocked(level)}
+                    title={blockedTitle(level)}
+                    onChange={() => toggleSelected(row.entityId, row, level)}
+                    aria-label="Select row"
+                  />
+                )}
+              </td>
+            );
+          }
           if (col.key === "__actions") {
             return (
               <td key={col.key} style={frozenStyle(col)}>
@@ -3985,12 +4024,12 @@ function ExploreResultsTable({
     const bulkButtons = selectedIds.size > 0 && (
       <div className={styles.mobileBulkBar}>
         <span className={styles.mobileBulkCount}>{selectedIds.size} selected</span>
-        {(CHILD_LEVEL[meta.level] || meta.level === "ad") && (
-          <button type="button" className={styles.btnPrimary} onClick={() => onOpenChildView(meta.level, [...selectedIds])}>
-            {CHILD_LEVEL[meta.level] ? "Open New" : "Open in New Tab"}
+        {(CHILD_LEVEL[selectedLevel] || selectedLevel === "ad") && (
+          <button type="button" className={styles.btnPrimary} onClick={() => onOpenChildView(selectedLevel, [...selectedIds])}>
+            {CHILD_LEVEL[selectedLevel] ? "Open New" : "Open in New Tab"}
           </button>
         )}
-        {meta.level === "ad" && (
+        {selectedLevel === "ad" && (
           <button type="button" className={styles.btnSecondary} disabled={selectedAccountIds.length !== 1} onClick={() => setBulkDuplicating(true)}>
             Duplicate
           </button>
@@ -3998,7 +4037,7 @@ function ExploreResultsTable({
         <button type="button" className={styles.btnSecondary} onClick={() => copyText([...selectedIds].join(", "))}>
           Copy IDs
         </button>
-        <button type="button" className={styles.btnSecondary} onClick={() => setSelectedIds(new Set())}>
+        <button type="button" className={styles.btnSecondary} onClick={() => clearSelection()}>
           Clear
         </button>
       </div>
@@ -4098,24 +4137,24 @@ function ExploreResultsTable({
                     people reach for after selecting a batch of rows, and it
                     used to blend into the row as just another secondary-
                     looking button. */}
-                {CHILD_LEVEL[meta.level] ? (
+                {CHILD_LEVEL[selectedLevel] ? (
                   <button
                     type="button"
                     className={`${styles.btnPrimary} ${styles.openNewCta}`}
-                    onClick={() => onOpenChildView(meta.level, [...selectedIds])}
-                    title={`Open a new tab showing the ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[meta.level]]} inside the selected ${
-                      selectedIds.size === 1 ? meta.level : `${meta.level}s`
+                    onClick={() => onOpenChildView(selectedLevel, [...selectedIds])}
+                    title={`Open a new tab showing the ${CHILD_LEVEL_PLURAL[CHILD_LEVEL[selectedLevel]]} inside the selected ${
+                      selectedIds.size === 1 ? selectedLevel : `${selectedLevel}s`
                     }, with the same date range, metrics, and other query settings as this view`}
                   >
                     <RocketIcon size={14} />
                     Open New
                   </button>
                 ) : (
-                  meta.level === "ad" && (
+                  selectedLevel === "ad" && (
                     <button
                       type="button"
                       className={`${styles.btnPrimary} ${styles.openNewCta}`}
-                      onClick={() => onOpenChildView(meta.level, [...selectedIds])}
+                      onClick={() => onOpenChildView(selectedLevel, [...selectedIds])}
                       title={`Open a new tab showing just the selected ad${
                         selectedIds.size === 1 ? "" : "s"
                       }, with the same date range, metrics, and other query settings as this view`}
@@ -4125,7 +4164,7 @@ function ExploreResultsTable({
                     </button>
                   )
                 )}
-                {meta.level === "ad" && (
+                {selectedLevel === "ad" && (
                   <button
                     type="button"
                     className={styles.btnSecondary}
@@ -4144,7 +4183,7 @@ function ExploreResultsTable({
                 <button type="button" className={styles.btnSecondary} onClick={() => copyText([...selectedIds].join(", "))}>
                   Copy {selectedIds.size} ID{selectedIds.size === 1 ? "" : "s"}
                 </button>
-                <button type="button" className={styles.btnSecondary} onClick={() => setSelectedIds(new Set())}>
+                <button type="button" className={styles.btnSecondary} onClick={() => clearSelection()}>
                   Clear selection
                 </button>
               </>
