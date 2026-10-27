@@ -15,6 +15,7 @@ import { RefreshIcon, SearchIcon, CalendarIcon, ChartIcon, SettingsIcon } from "
 import { getDefaultRangePreset, setDefaultRangePreset } from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry, DEFAULT_CACHE_TTL_MS } from "@/lib/clientCache";
 import { useAccounts } from "@/components/AccountProvider";
+import { todayUTC, addDaysUTC, isoDate } from "@/lib/dateRanges";
 import styles from "@/styles/Home.module.css";
 
 // How long a report payload for a given (account, range, section) stays
@@ -68,8 +69,10 @@ function clientCacheKey(groupKey, accountId, rangePreset, since, until) {
   return `report:v${CLIENT_CACHE_SCHEMA_VERSION}:${groupKey}:${accountId}:${rangePreset}:${since || ""}:${until || ""}`;
 }
 
-async function fetchReportSection(endpoint, accountId, { force, rangePreset, since, until } = {}) {
+async function fetchReportSection(endpoint, accountId, { force, rangePreset, since, until, timeZone } = {}) {
   const params = new URLSearchParams({ accountId, rangePreset: rangePreset || "last_30d" });
+  // The account's own time zone — "today" / "Last N Days" resolve in it server-side too.
+  if (timeZone) params.set("timeZone", timeZone);
   if (force) params.set("force", "true");
   if (rangePreset === "custom" && since && until) {
     params.set("since", since);
@@ -87,31 +90,23 @@ async function fetchReportSection(endpoint, accountId, { force, rangePreset, sin
 // state already available on the client, so the date-range heading can
 // render immediately — it doesn't need to wait on any one section's fetch
 // to resolve, unlike every other render-prop field below.
-function toDateStr(d) {
-  return d.toISOString().slice(0, 10);
-}
-
-function lastNDaysRangeUTC(n, today) {
-  const until = new Date(today);
-  until.setUTCDate(until.getUTCDate() - 1);
-  const since = new Date(until);
-  since.setUTCDate(since.getUTCDate() - (n - 1));
-  return { since: toDateStr(since), until: toDateStr(until) };
-}
-
-function resolveClientRange(rangePreset, customSince, customUntil) {
-  const today = new Date();
+function resolveClientRange(rangePreset, customSince, customUntil, timeZone) {
+  // "Today" is the ad account's calendar day (see lib/dateRanges.js).
+  const today = isoDate(todayUTC(timeZone));
+  const lastNDays = (n) => {
+    const until = addDaysUTC(today, -1);
+    return { since: addDaysUTC(until, -(n - 1)), until };
+  };
   if (rangePreset === "today") {
-    const d = toDateStr(today);
-    return { since: d, until: d, label: "Today" };
+    return { since: today, until: today, label: "Today" };
   }
   if (rangePreset === "last_7d") {
-    return { ...lastNDaysRangeUTC(7, today), label: "Last 7 Days" };
+    return { ...lastNDays(7), label: "Last 7 Days" };
   }
   if (rangePreset === "custom" && customSince && customUntil) {
     return { since: customSince, until: customUntil, label: `${customSince} → ${customUntil}` };
   }
-  return { ...lastNDaysRangeUTC(30, today), label: "Last 30 Days" };
+  return { ...lastNDays(30), label: "Last 30 Days" };
 }
 
 const NAME_COL_WIDTH = 240;
@@ -409,7 +404,7 @@ export default function Report() {
       }
 
       updateGroup(group.key, (prev) => ({ loading: true, error: null, data: force ? prev.data : null }));
-      fetchReportSection(group.endpoint, accountId, { force, rangePreset: preset, since, until })
+      fetchReportSection(group.endpoint, accountId, { force, rangePreset: preset, since, until, timeZone: accounts.find((a) => a.id === accountId)?.timezone_name })
         .then((json) => {
           if (generation !== fetchGenerationRef.current) return;
           if (json.error) {
@@ -638,8 +633,8 @@ export default function Report() {
   // Available the moment account+range are resolved — doesn't wait on any
   // one section's fetch, so the date-range heading can render immediately.
   const dateRange = useMemo(
-    () => resolveClientRange(rangePreset, appliedCustomRange?.since, appliedCustomRange?.until),
-    [rangePreset, appliedCustomRange]
+    () => resolveClientRange(rangePreset, appliedCustomRange?.since, appliedCustomRange?.until, accounts.find((a) => a.id === selectedAccountId)?.timezone_name),
+    [rangePreset, appliedCustomRange, accounts, selectedAccountId]
   );
 
   const canShowReport = !!selectedAccountId && !!rangePreset && (rangePreset !== "custom" || !!appliedCustomRange);

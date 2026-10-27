@@ -280,7 +280,8 @@ export default function CopyAdsPage() {
   const [rangePreset, setRangePreset] = useState("last_7d");
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
-  const range = computeRange(rangePreset, customSince, customUntil);
+  const sourceTimeZone = adAccounts.find((a) => a.id === selectedAccountId)?.timezone_name;
+  const range = computeRange(rangePreset, customSince, customUntil, sourceTimeZone);
 
   // Collapsed by default (per-device, like Explore's own query panel) so
   // the result table — not the source/metrics form that produced it — is
@@ -1060,6 +1061,7 @@ export default function CopyAdsPage() {
                         {level === "ad" ? "Only show ads with spend in" : `Show performance from`}
                       </p>
                       <DateRangeMenu
+                        timeZone={sourceTimeZone}
                         rangePreset={rangePreset}
                         customSince={customSince}
                         customUntil={customUntil}

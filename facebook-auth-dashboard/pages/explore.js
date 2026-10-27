@@ -36,7 +36,7 @@ import {
   humanizeStatus,
 } from "@/lib/insightsMetrics";
 import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_COLORS } from "@/lib/tabGroups";
-import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount } from "@/lib/dateRanges";
+import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount, formatTimeZoneLabel } from "@/lib/dateRanges";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import { useIsMobile, MOBILE_TOP_BAR_HEIGHT } from "@/lib/useIsMobile";
 import BottomSheet from "@/components/BottomSheet";
@@ -328,6 +328,16 @@ function createBlankView(seedAccountId = "") {
 // enforcement of this in pages/api/fb/explore-insights.js. Returns null
 // whenever there's no (valid) custom start date to compute from, so callers
 // can fall back to the default immediately-preceding-period behavior.
+// The IANA time zone a view's relative dates ("Last 7 Days", "Today") resolve
+// in: Meta reports each ad account in its own zone, so "today" is the account's
+// calendar day. A view can span several accounts but sends one since/until, so
+// it follows its FIRST account's zone (accounts in other zones may be a day
+// off at the edges). Unknown (accounts not loaded yet) = UTC.
+function viewTimeZone(view, adAccounts) {
+  const firstId = view.accountIds?.[0];
+  return (firstId && adAccounts?.find((a) => a.id === firstId)?.timezone_name) || undefined;
+}
+
 function customPreviousRangeFor(view, rangeDays) {
   if (!view.compareToPrevious || view.timeIncrement || !view.compareCustomSince || !rangeDays) return null;
   return { since: view.compareCustomSince, until: addDaysUTC(view.compareCustomSince, rangeDays - 1) };
@@ -343,8 +353,8 @@ function customPreviousRangeFor(view, rangeDays) {
 // viewing Account totals changes what the backend actually fetches and sums
 // (see pages/api/fb/explore-insights.js), not just what's displayed from an
 // already-fetched result.
-function buildQuerySpecFromView(view, customMetrics) {
-  const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
+function buildQuerySpecFromView(view, customMetrics, adAccounts) {
+  const range = computeRange(view.rangePreset, view.customSince, view.customUntil, viewTimeZone(view, adAccounts));
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const customPrevious = customPreviousRangeFor(view, rangeDays);
   // Unlike customMetrics (global, from localStorage, usable identically in
@@ -408,13 +418,14 @@ function buildQuerySpecFromView(view, customMetrics) {
   };
 }
 
-function isViewRunnable(view, catalog) {
-  const range = computeRange(view.rangePreset, view.customSince, view.customUntil);
+function isViewRunnable(view, catalog, adAccounts) {
+  const timeZone = viewTimeZone(view, adAccounts);
+  const range = computeRange(view.rangePreset, view.customSince, view.customUntil, timeZone);
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
   const metricsResolve = view.metricKeys.length > 0 && view.metricKeys.every((k) => catalog.some((m) => m.key === k));
   const customPrevious = customPreviousRangeFor(view, rangeDays);
-  const customPreviousValid = !customPrevious || customPrevious.until <= isoDate(todayUTC());
+  const customPreviousValid = !customPrevious || customPrevious.until <= isoDate(todayUTC(timeZone));
   return view.accountIds.length > 0 && rangeValid && metricsResolve && customPreviousValid;
 }
 
@@ -1047,7 +1058,7 @@ export default function Explore() {
       delete migrated.accountId;
       const cacheKey =
         accountIds.length > 0 && v.metricKeys?.length > 0
-          ? EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(migrated, customMetricsAtMount))
+          ? EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(migrated, customMetricsAtMount, adAccounts))
           : null;
       const cached = cacheKey ? getCachedEntry(cacheKey) : null;
       // Rare edge case: the tab was closed (or the browser reloaded) while
@@ -1126,7 +1137,7 @@ export default function Explore() {
   // pre-action data — this view's own "Hard Refresh" already exists for
   // anyone who wants a fully fresh fetch instead of trusting the patch.
   function applyEntityActionPatch(entityId, patch) {
-    clearCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(activeView, customMetrics)));
+    clearCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(activeView, customMetrics, adAccounts)));
     updateActive((v) => {
       if (!v.result) return {};
       return {
@@ -1136,8 +1147,8 @@ export default function Explore() {
   }
 
   function runQueryForView(view, force) {
-    if (!isViewRunnable(view, effectiveCatalog)) return;
-    const spec = buildQuerySpecFromView(view, customMetrics);
+    if (!isViewRunnable(view, effectiveCatalog, adAccounts)) return;
+    const spec = buildQuerySpecFromView(view, customMetrics, adAccounts);
     track("explore_query_run", { level: view.level, metric_count: view.metricKeys?.length, account_count: view.accountIds?.length, forced: !!force });
     const cacheKey = EXPLORE_CACHE_PREFIX + JSON.stringify(spec);
 
@@ -1317,14 +1328,15 @@ export default function Explore() {
     }));
   }
 
-  const range = computeRange(activeView.rangePreset, activeView.customSince, activeView.customUntil);
+  const activeTimeZone = viewTimeZone(activeView, adAccounts);
+  const range = computeRange(activeView.rangePreset, activeView.customSince, activeView.customUntil, activeTimeZone);
   const rangeDays = range ? inclusiveDayCount(range.since, range.until) : null;
   const rangeValid = !!range && rangeDays > 0 && rangeDays <= MAX_RANGE_DAYS;
   const metricsResolve =
     activeView.metricKeys.length > 0 && activeView.metricKeys.every((k) => effectiveCatalog.some((m) => m.key === k));
   const compareDisabled = activeView.timeIncrement !== "";
   const customPrevious = customPreviousRangeFor(activeView, rangeDays);
-  const customPreviousValid = !customPrevious || customPrevious.until <= isoDate(todayUTC());
+  const customPreviousValid = !customPrevious || customPrevious.until <= isoDate(todayUTC(activeTimeZone));
   const canRunQuery = activeView.accountIds.length > 0 && rangeValid && metricsResolve && customPreviousValid;
 
   // Whether running this exact view, as currently configured, would make the
@@ -2309,6 +2321,7 @@ export default function Explore() {
     return (
       <>
         <DateRangeMenu
+          timeZone={activeTimeZone}
           fullWidth={fullWidth}
           rangePreset={activeView.rangePreset}
           customSince={activeView.customSince}
@@ -2326,9 +2339,14 @@ export default function Explore() {
             // it should behave like Meta's own picker and refresh the table
             // immediately on "Update", not silently restage the query behind
             // a separate "Run Query" click elsewhere in the panel.
-            if (isViewRunnable(nextView, effectiveCatalog)) runQueryForView(nextView, false);
+            if (isViewRunnable(nextView, effectiveCatalog, adAccounts)) runQueryForView(nextView, false);
           }}
         />
+        {new Set(activeView.accountIds.map((id) => adAccounts.find((a) => a.id === id)?.timezone_name).filter(Boolean)).size > 1 && (
+          <span className={styles.sub}>
+            These accounts use different time zones; dates follow the first account’s ({formatTimeZoneLabel(activeTimeZone)}).
+          </span>
+        )}
         {range && !rangeValid && (
           <span className={styles.sub} style={{ color: "var(--red)" }}>
             Date range cannot exceed {MAX_RANGE_DAYS} days (currently {rangeDays}).

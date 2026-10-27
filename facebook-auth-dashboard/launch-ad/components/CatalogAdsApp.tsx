@@ -37,7 +37,9 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
   const isMobile = useIsMobile();
   const accounts = useAsync<AdAccount[]>('accounts', () => apiGet('adaccounts'));
   const [accountId, setAccountId] = useState('');
-  const [range, setRange] = useState<Range>(() => presetRange('last_30d'));
+  // The picked preset/custom window; a preset is re-resolved in the selected ad
+  // account's own time zone below (Meta's "today" is the account's, not ours).
+  const [rangeSel, setRange] = useState<Range>(() => presetRange('last_30d'));
   const [tick, setTick] = useState(0);
   const [tab, setTabState] = useState<Tab>('overview');
   // Overview waits for "Check Performance"; the other tabs load on their own (and count as checked).
@@ -63,6 +65,8 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
     window.scrollTo({ top: 0 });
   };
   const account = useMemo(() => accounts.data?.find((a) => a.id === accountId), [accounts.data, accountId]);
+  const timeZone = account?.timezone_name;
+  const range = useMemo(() => (rangeSel.preset === 'custom' ? rangeSel : presetRange(rangeSel.preset, timeZone)), [rangeSel, timeZone]);
   const sym = currencySymbol(account?.currency || 'INR');
   const money = (n: number) => `${sym}${n.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
@@ -102,6 +106,7 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
           onAccount={changeAccount}
           range={range}
           onRange={setRange}
+          timeZone={timeZone}
           onRefresh={() => { setChecked(true); setTick((n) => n + 1); }}
           showRange={tab !== 'create'}
           refreshing={perf.loading}
@@ -158,7 +163,7 @@ export default function CatalogAdsApp({ declined }: { declined: string[] }) {
         <AdAccountPill accounts={accounts} value={accountId} onChange={changeAccount} />
         {tab !== 'create' ? (
           <>
-            <RangePill range={range} onChange={setRange} />
+            <RangePill range={range} onChange={setRange} timeZone={timeZone} />
             <RefreshPill onClick={() => { setChecked(true); setTick((n) => n + 1); }} />
           </>
         ) : null}

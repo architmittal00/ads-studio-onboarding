@@ -11,7 +11,7 @@ import styles from '@/styles/Home.module.css';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const AccountSelectC = AccountSelect as any;
 const DateRangeMenuC = DateRangeMenu as any;
-const resolve = (preset: string, since: string, until: string): Range => ({ preset, ...((computeRange(preset, since, until) || { since: '', until: '' }) as { since: string; until: string }) });
+const resolve = (preset: string, since: string, until: string, timeZone?: string): Range => ({ preset, ...((computeRange(preset, since, until, timeZone) || { since: '', until: '' }) as { since: string; until: string }) });
 
 // Header built from this app's own shared pieces, mirroring pages/partnership-ads.js
 // exactly: .h1/.sub title block on the left, a .headerPillRow of labeled
@@ -20,8 +20,9 @@ const resolve = (preset: string, since: string, until: string): Range => ({ pres
 
 export interface Range { preset: string; since: string; until: string }
 
-export function presetRange(preset: string): Range {
-  return resolve(preset, '', '');
+/** Resolves a preset in the ad account's own time zone (Meta's "today" is the account's). */
+export function presetRange(preset: string, timeZone?: string): Range {
+  return resolve(preset, '', '', timeZone);
 }
 
 export default function PageHeader({ title, sub, children, action }: { title: string; sub: string; children?: ReactNode; action?: ReactNode }) {
@@ -84,9 +85,10 @@ export function AccountNotices({ accounts }: { accounts: { data?: AdAccount[]; l
   return null;
 }
 
-export function RangePill({ range, onChange, fullWidth }: { range: Range; onChange: (r: Range) => void; fullWidth?: boolean }) {
+export function RangePill({ range, onChange, fullWidth, timeZone }: { range: Range; onChange: (r: Range) => void; fullWidth?: boolean; timeZone?: string }) {
   return (
     <DateRangeMenuC
+      timeZone={timeZone}
       rangePreset={range.preset}
       customSince={range.since}
       customUntil={range.until}
@@ -99,7 +101,7 @@ export function RangePill({ range, onChange, fullWidth }: { range: Range; onChan
       triggerClassName={styles.headerPillBtn}
       fullWidth={fullWidth}
       onApply={(patch: { rangePreset: string; customSince: string; customUntil: string }) =>
-        onChange(resolve(patch.rangePreset, patch.customSince, patch.customUntil))
+        onChange(resolve(patch.rangePreset, patch.customSince, patch.customUntil, timeZone))
       }
     />
   );
