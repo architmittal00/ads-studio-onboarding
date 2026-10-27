@@ -1973,7 +1973,7 @@ export default function Explore() {
     <>
       {activeView.error && <div className={styles.error}>Error: {activeView.error}</div>}
       {activeView.loading && !result && <Loader label={activeView.progressMessage || "Running your query…"} />}
-      {!activeView.error && !activeView.loading && !result && (
+      {!isMobile && !activeView.error && !activeView.loading && !result && (
         <ExploreEmptyState canRunQuery={canRunQuery} loading={activeView.loading} onRun={() => runQueryForView(activeView, false)} />
       )}
 
@@ -2602,7 +2602,7 @@ export default function Explore() {
                   <div className={styles.exploreQueryHeader}>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13 }}>
                       <SettingsIcon size={15} />
-                      Query &amp; Filters
+                      {isMobile && !result ? "Build your view" : "Query & Filters"}
                     </span>
                     {/* No collapse control until there's a result to fall back to showing instead —
                         collapsing here would leave the page with nothing on it at all. */}
@@ -2618,7 +2618,12 @@ export default function Explore() {
                     )}
                   </div>
 
-                  <div className={styles.exploreQueryBody}>
+                  <div className={isMobile && !queryPanelIsSheet ? `${styles.exploreQueryBody} ${styles.exploreQueryBodyDock}` : styles.exploreQueryBody}>
+                  {isMobile && !result && (
+                    <p className={styles.sub} style={{ margin: 0 }}>
+                      Choose what to look at, then tap <strong>Show results</strong> below.
+                    </p>
+                  )}
                   <div>
                     <SectionHeading
                       hint={`Pick one or more accounts — results from all of them come back merged into this one view, tagged with which account each row came from (up to ${MAX_ACCOUNTS_PER_VIEW} at a time).`}
@@ -2890,24 +2895,34 @@ export default function Explore() {
 
                   </div>
 
-                  <div className={styles.exploreQueryFooter}>
+                  <div className={isMobile && !queryPanelIsSheet ? `${styles.exploreQueryFooter} ${styles.exploreQueryFooterDock}` : styles.exploreQueryFooter}>
+                    {isMobile && !canRunQuery && (
+                      <p className={styles.exploreDockHint}>
+                        {activeView.accountIds.length === 0
+                          ? "Pick an account to continue."
+                          : activeView.metricKeys.length === 0
+                            ? "Select at least one metric to continue."
+                            : `Date range can't exceed ${MAX_RANGE_DAYS} days.`}
+                      </p>
+                    )}
                     <button
                       type="button"
                       className={styles.btnPrimary}
+                      style={isMobile ? { flex: 1, minHeight: 46 } : undefined}
                       disabled={!canRunQuery || activeView.loading}
                       onClick={() => {
                         runQueryForView(activeView, false);
                         setMobileQueryOpen(false);
                       }}
                     >
-                      {activeView.loading ? "Updating…" : "Update This View"}
+                      {activeView.loading ? "Updating…" : isMobile ? (result ? "Update view" : "Show results") : "Update This View"}
                     </button>
-                    <button type="button" className={styles.btnSecondary} disabled={!canRunQuery} onClick={() => {
+                    <button type="button" className={styles.btnSecondary} style={isMobile ? { minHeight: 46 } : undefined} disabled={!canRunQuery} onClick={() => {
                         createNewViewFromActive();
                         setMobileQueryOpen(false);
                       }}
                     >
-                      + Create New View
+                      {isMobile ? "+ New view" : "+ Create New View"}
                     </button>
                   </div>
                 </div>

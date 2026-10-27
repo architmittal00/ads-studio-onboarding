@@ -2522,3 +2522,29 @@ button.stat:hover {
 .fsAddBtn:disabled {
   opacity: 0.5;
 }
+
+/* ── Phone Custom Views landing: Build your view + docked action bar ──
+   Before a view has ever run, the query form is the whole page; its Run
+   button is docked above the tab bar so it is always reachable. */
+.exploreQueryBodyDock {
+  padding-bottom: 96px;
+}
+.exploreQueryFooterDock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  z-index: 36;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.12);
+}
+.exploreDockHint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--amber);
+}

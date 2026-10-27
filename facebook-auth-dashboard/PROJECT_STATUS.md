@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Mobile Custom Views: landing screen has a docked Run button (2026-10-27)
+
+Before a view has run, the phone page is the query form (previously with its Run button far below and a desktop-worded empty state that talked about a panel "on the right"). Now: heading "Build your view" + one-line instruction, the empty-state card is hidden on phones, and the action bar (`Show results` / `+ New view`) is docked above the tab bar (`.exploreQueryFooterDock`) with a reason line when it's disabled (no account, no metric, range too long). With a result on screen the Edit sheet keeps its in-sheet footer, labelled `Update view`. Desktop unchanged. Checked at 375px with a mocked session; not checked on a real phone.
+
 ### Mobile Custom Views: redesigned Filters sheet (2026-10-27)
 
 The phone Filters sheet no longer reuses the desktop filter card. `renderMobileFilterSheet()` in `pages/explore.js` (`.fs*` classes in Home.module.css): Status as tappable chips (apply instantly), each metric condition as a card (full-width metric select, plain-language operator "is at least / at most / more than / less than / exactly / is not", number field with a % unit for percent metrics, optional Value vs % change toggle when comparing), dashed "+ Add metric filter", and a pinned footer with Clear all and a live "Show N rows" button that applies the metric drafts and closes. Desktop filter card unchanged. Checked at 375px with mocked results (status toggle, add condition, live count, apply → "3 of 8 rows").
