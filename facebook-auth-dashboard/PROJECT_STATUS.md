@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Custom Views: landing-page links shortened (2026-10-27)
+
+`landingPageLinkLabel` in `pages/explore.js` drops `www.`, and for anything over 40 chars keeps the start and end with `…` in the middle (`namakwali.com/products/…i-cow-ghee-500ml`); the link is single-line and the full URL is the hover title (table and phone cards). Checked the label logic in node; not looked at in the browser.
+
 ### "Request failed": retries + Facebook's exact message (2026-10-27)
 
 I could not pull production logs, so the root cause is inferred from code: a Graph error object with no `message`/`code` was silently returned as data (`extractErrorMessage` → "" → no throw), non-JSON gateway/timeout pages surfaced as bare "Request failed" in components that used `await res.json()`, and every transient Facebook failure (code 1/2, rate limits, 5xx, dropped connection) failed on the first try. Fixes: `lib/graphRetry.js` (policy + `describeGraphError`) used by both Graph clients (`lib/facebookGraph.js` → single `graphRequest`, `launch-ad/lib/graph.ts`): up to 3 retries with backoff for GETs on network errors, 5xx/non-JSON, `is_transient`, codes 1 (not "reduce the amount of data") / 2, rate limits (4, 17, 32, 341, 613, 80000–80014); writes retry ONLY on rate-limit rejections (never on ambiguous failures that may have been applied); permanent errors (100, 190, 200s…) are not retried. Final error = Facebook's exact message + user title/message + code/subcode/trace id (+ "[failed after N attempts]"), or `Facebook returned HTTP <status>: <body>` / the raw error JSON if it sent no message; each retry shows in /logs as "(retry n)". Client: `fetchWithTimeout` retries GETs (and `idempotent: true` read-only POSTs: explore-insights, thumbnails, landing pages) up to 3 times on network errors / 502 / 503 (never on timeouts); `readApiResponse` / `responseError` in `lib/fetchJson.js` replace `res.json()` + bare "Request failed" in 14 components. Verified with a stubbed-fetch script (retry/no-retry matrix); not seen against live Facebook.
