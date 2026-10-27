@@ -2876,13 +2876,18 @@ function formatPivotDateLabel(iso, timeIncrement) {
 // has no business in a page's client bundle). That helper derives a grouping
 // label (e.g. a Shopify product handle); this one just needs something
 // shorter than the full URL that still reads as "this is a real link."
-function landingPageLinkLabel(url) {
+function landingPageLinkLabel(url, maxLen = 40) {
   try {
     const parsed = new URL(url);
     const path = parsed.pathname.replace(/\/+$/, "");
-    return path ? `${parsed.hostname}${path}` : parsed.hostname;
+    const full = `${parsed.hostname.replace(/^www\./, "")}${path}`;
+    if (full.length <= maxLen) return full;
+    // Long paths: keep the start (which site) and the end (which page), drop
+    // the middle — it is almost always an unreadable product-slug prefix.
+    const tail = 16;
+    return `${full.slice(0, maxLen - tail - 1)}…${full.slice(-tail)}`;
   } catch {
-    return url;
+    return url.length > maxLen ? `${url.slice(0, maxLen - 17)}…${url.slice(-16)}` : url;
   }
 }
 
@@ -3357,7 +3362,7 @@ function ExploreResultsTable({
           if (key === "landing_page") {
             const url = row[key];
             return url ? (
-              <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ textDecoration: "underline" }}>
+              <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ textDecoration: "underline", whiteSpace: "nowrap" }}>
                 {landingPageLinkLabel(url)}
               </a>
             ) : (
@@ -3674,7 +3679,7 @@ function ExploreResultsTable({
       if (key === "landing_page") {
         const url = row[key];
         return url ? (
-          <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+          <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ textDecoration: "underline", whiteSpace: "nowrap" }}>
             {landingPageLinkLabel(url)}
           </a>
         ) : (
