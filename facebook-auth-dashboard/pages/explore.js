@@ -2119,6 +2119,7 @@ export default function Explore() {
                 </button>
               </>
             )}
+            {result.meta.zeroSpendFailure && ` · Could not list zero-spend entities (${result.meta.zeroSpendFailure})`}
             {result.meta.filteredByNameCount > 0 &&
               ` · ${result.meta.filteredByNameCount} filtered out by name filter`}
           </p>
@@ -3441,6 +3442,9 @@ function ExploreResultsTable({
       idFilter: { field: CHILD_ID_FILTER_FIELD[childLevel], value: id },
       // Only an ad has a creative to show a thumbnail for.
       includeCreative: childLevel === "ad",
+      // A drill-down must follow the parent view's spend setting, or the
+      // children of a zero-spend campaign/ad set come back as "No ad sets".
+      includeZeroSpend: meta.includeZeroSpendRequested ? true : undefined,
       since: meta.since,
       until: meta.until,
       // The exact window the parent report compared against (not
