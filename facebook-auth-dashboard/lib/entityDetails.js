@@ -2,6 +2,7 @@ import { graphGet } from "./facebookGraph";
 import { searchTargeting } from "./metaInterestSearch";
 import { titleCaseSnake } from "./reportShared";
 import { deriveLandingUrl } from "./adCreativeDetails";
+import { EDIT_AD_FIELDS, describeEditability } from "./adEdit";
 
 // Backs Explore's "View Details" row action (components/EntityDetailDrawer.js)
 // — a read-only look at how a campaign/ad set/ad is actually configured on
@@ -140,10 +141,9 @@ export async function fetchAdSetDetails(id, token) {
 }
 
 export async function fetchAdCopyDetails(id, token) {
-  const data = await graphGet(`/${id}`, token, {
-    fields:
-      "name,campaign{id,name},adset{id,name},creative{id,thumbnail_url,video_id,body,call_to_action,object_story_spec{link_data{name,message,description,link},video_data{title,message,call_to_action{type,value{link}}}},asset_feed_spec{titles{text},bodies{text},descriptions{text},link_urls{website_url}}}",
-  });
+  // Same field list the ad-edit flow reads (lib/adEdit.js), so what's shown
+  // here and what an edit rebuilds from are the same data.
+  const data = await graphGet(`/${id}`, token, { fields: EDIT_AD_FIELDS });
   const creative = data.creative || {};
   const asset = creative.asset_feed_spec || {};
   const linkData = creative.object_story_spec?.link_data;
@@ -162,17 +162,25 @@ export async function fetchAdCopyDetails(id, token) {
     : [linkData?.name || videoData?.title].filter(Boolean);
   const descriptions = asset.descriptions?.length
     ? asset.descriptions.map((d) => d.text).filter(Boolean)
-    : [linkData?.description].filter(Boolean);
-  const ctaType = creative.call_to_action?.type || videoData?.call_to_action?.type || null;
+    : [linkData?.description || videoData?.link_description].filter(Boolean);
+  const ctaType = creative.call_to_action?.type || linkData?.call_to_action?.type || videoData?.call_to_action?.type || asset.call_to_action_types?.[0] || null;
 
   return {
     name: data.name,
+    status: data.status || null,
+    effectiveStatus: data.effective_status || null,
+    accountId: data.account_id || null,
+    creativeId: creative.id || null,
+    thumbnailUrl: creative.thumbnail_url || null,
+    isVideo: !!(videoData?.video_id || creative.video_id),
     campaign: data.campaign ? { id: data.campaign.id, name: data.campaign.name } : null,
     adset: data.adset ? { id: data.adset.id, name: data.adset.name } : null,
     primaryTexts,
     headlines,
     descriptions,
+    ctaType,
     ctaLabel: ctaType ? titleCaseSnake(ctaType.toLowerCase()) : null,
     landingUrl: deriveLandingUrl(creative),
+    editable: describeEditability(data),
   };
 }

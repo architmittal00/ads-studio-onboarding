@@ -1473,7 +1473,7 @@ button.stat:hover {
 .sheetBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 700;
+  z-index: 900;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-end;
@@ -2563,4 +2563,235 @@ button.stat:hover {
   margin: 0;
   font-size: 12.5px;
   color: var(--amber);
+}
+
+/* ── View details drawer (components/EntityDetailDrawer.js, AdDetailsPanel.js) ── */
+.dtStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dtCard {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.dtCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.dtLabel {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--t3);
+}
+.dtMeta {
+  font-size: 12px;
+  color: var(--t3);
+}
+.dtEmpty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--t3);
+}
+.dtText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--t1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dtTextClamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dtLink {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--purple);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.dtUrl {
+  min-width: 0;
+  font-size: 13px;
+  color: var(--t1);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.dtRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.dtChips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dtChip {
+  min-width: 32px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 15px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--t3);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dtChipOn {
+  background: rgba(var(--purple-rgb), 0.14);
+  border-color: rgba(var(--purple-rgb), 0.5);
+  color: var(--purple);
+}
+.dtPreviewBox {
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.dtField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dtFieldHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dtField textarea,
+.dtField input,
+.dtField select {
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+}
+.dtVariantRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.dtVariantRow textarea {
+  flex: 1;
+  resize: vertical;
+  line-height: 1.45;
+}
+.dtWarn {
+  margin: 0;
+  font-size: 12px;
+  color: var(--amber);
+  line-height: 1.4;
+}
+.dtNotice {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(var(--green-rgb), 0.12);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dtConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--amber-rgb), 0.5);
+  background: rgba(var(--amber-rgb), 0.1);
+}
+.dtSaveBar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 0 4px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.dtCreativeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dtCreativeThumb {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--card2);
+}
+.dtCreativeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.dtCreative {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dtCreativeOn {
+  border-color: var(--purple);
+}
+.dtCreative img,
+.dtCreativeBlank {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--card2);
+}
+.dtCreativeName {
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Bottom sheets were phone-only; on desktop (the ad editor's creative picker)
+   they center as a dialog instead of spanning the viewport width. */
+@media (min-width: 769px) {
+  .sheetBackdrop {
+    align-items: center;
+    justify-content: center;
+  }
+  .sheet {
+    max-width: 560px;
+    border-radius: 18px;
+  }
 }

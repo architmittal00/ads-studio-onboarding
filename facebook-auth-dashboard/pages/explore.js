@@ -3997,7 +3997,13 @@ function ExploreResultsTable({
         />
         {bulkButtons}
         <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
-        <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} onNavigate={setDetailEntity} />
+        <EntityDetailDrawer
+          entity={detailEntity}
+          onClose={() => setDetailEntity(null)}
+          onNavigate={setDetailEntity}
+          // An ad edited from the drawer: patch its row so the table shows the new name/status.
+          onSaved={(entity, saved) => onActionApplied?.(entity.id, { ...(saved.status ? { status: saved.status } : {}), ...(saved.name ? { adName: saved.name } : {}) })}
+        />
         {bulkDuplicating && (
           <BulkDuplicateAdsModal
             ads={selectedRows.map((r) => ({ id: r.entityId, name: r.entityLabel || r.label || r.entityId }))}
@@ -4133,7 +4139,13 @@ function ExploreResultsTable({
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
-      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} onNavigate={setDetailEntity} />
+      <EntityDetailDrawer
+          entity={detailEntity}
+          onClose={() => setDetailEntity(null)}
+          onNavigate={setDetailEntity}
+          // An ad edited from the drawer: patch its row so the table shows the new name/status.
+          onSaved={(entity, saved) => onActionApplied?.(entity.id, { ...(saved.status ? { status: saved.status } : {}), ...(saved.name ? { adName: saved.name } : {}) })}
+        />
       {bulkDuplicating && (
         <BulkDuplicateAdsModal
           ads={selectedRows.map((r) => ({ id: r.entityId, name: r.entityLabel || r.label || r.entityId }))}
