@@ -4,6 +4,7 @@ import Loader from "./Loader";
 import { CloseIcon } from "./icons";
 import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
+import AdLaunchStatusPicker from "@/components/AdLaunchStatusPicker";
 import { track } from "@/lib/analytics";
 
 // Same formatMoney/budgetLabel shape as components/DuplicateEntityModal.js —
@@ -39,6 +40,7 @@ function budgetLabel(entity, currency) {
 const DUPLICATE_CONCURRENCY = 5;
 
 export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClose }) {
+  const [launchStatus, setLaunchStatus] = useState("PAUSED"); // "PAUSED" | "ACTIVE"
   const [step, setStep] = useState("loading"); // loading | error | pick | confirm | submitting | done
   const [loadError, setLoadError] = useState(null);
   const [adsetChoices, setAdsetChoices] = useState([]);
@@ -111,7 +113,7 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
           const res = await fetch("/api/fb/duplicate-ad", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ accountId, sourceAdId: ad.id, destinationAdsetId: adset.id, name: `${ad.name} - Copy` }),
+            body: JSON.stringify({ accountId, sourceAdId: ad.id, destinationAdsetId: adset.id, name: `${ad.name} - Copy`, status: launchStatus }),
           });
           const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
           collected[i] = { adName: ad.name, adsetName: adset.name, success: res.ok && !!json.success, error: res.ok ? null : json.error || `Request failed (${res.status})` };
@@ -230,8 +232,9 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
             <p className={styles.sub}>
               This creates <strong style={{ color: "var(--t1)" }}>{totalPairs}</strong> new ad{totalPairs === 1 ? "" : "s"} — each of the{" "}
               {ads.length} selected ad{ads.length === 1 ? "" : "s"}, duplicated (same creative, reused by id) into each of the {selectedAdsets.length}{" "}
-              selected ad set{selectedAdsets.length === 1 ? "" : "s"} below, created paused.
+              selected ad set{selectedAdsets.length === 1 ? "" : "s"} below.
             </p>
+            <AdLaunchStatusPicker value={launchStatus} onChange={setLaunchStatus} plural />
             <div style={{ display: "flex", gap: 16, marginTop: 14, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 180 }}>
                 <p className={styles.muted} style={{ marginBottom: 6 }}>
@@ -274,7 +277,11 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
                 ? `All ${results.length} duplicated successfully.`
                 : `${results.length - failedResults.length} of ${results.length} duplicated successfully.`}
             </p>
-            <p className={styles.sub}>Every new ad was created paused — review them in Ads Manager before activating.</p>
+            <p className={styles.sub}>
+              {launchStatus === "ACTIVE"
+                ? "Every new ad was created active and can start delivering once Meta approves it."
+                : "Every new ad was created paused — review them in Ads Manager before activating."}
+            </p>
             {failedResults.length > 0 && (
               <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
                 {failedResults.map((r, i) => (

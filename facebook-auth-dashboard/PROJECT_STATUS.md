@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Duplicate ad: choose Paused or Active (2026-10-27)
+
+Both ad-duplication flows (single ad in `DuplicateEntityModal`, multi-select in `BulkDuplicateAdsModal`) now have a "Launch as" Paused/Active toggle (`components/AdLaunchStatusPicker.js`, default Paused, amber warning for Active). `/api/fb/duplicate-ad` accepts `status` (`ACTIVE` or anything else = `PAUSED`). Ad set and campaign duplication are unchanged (always created paused). An active ad inside a paused ad set/campaign still won't deliver — the picker says so. Lint only; not exercised against Meta.
+
 ### Ad preview scrolls instead of being cut off (2026-10-27)
 
 Follow-up to the mobile preview fix: Meta's reported iframe height was only a hint (the ad's call-to-action area sat below it), and shrinking the frame to fit the screen height made it small and unscrollable. `CreativeLightbox` now scales the frame by WIDTH only, makes the frame as tall as the window allows (`innerHeight - 150`), and lets the ad scroll inside it. Not tried against a real Meta preview.

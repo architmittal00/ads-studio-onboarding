@@ -28,7 +28,9 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, sourceAdId, destinationAdsetId, name } = req.body || {};
+  const { accountId, sourceAdId, destinationAdsetId, name, status } = req.body || {};
+  // Paused unless the caller explicitly asks for ACTIVE (the UI's "Launch as" choice).
+  const adStatus = status === "ACTIVE" ? "ACTIVE" : "PAUSED";
 
   if (!accountId || !VALID_ID.test(String(sourceAdId)) || !VALID_ID.test(String(destinationAdsetId))) {
     return res.status(400).json({ error: "accountId, sourceAdId, and destinationAdsetId are required" });
@@ -41,16 +43,17 @@ export default async function handler(req, res) {
     if (!source.creative?.id) {
       return res.status(400).json({ error: "This ad has no creative to duplicate." });
     }
-    // Paused first, same safety pattern as every other object this app
+    // Paused by default, same safety pattern as every other object this app
     // creates (pages/api/fb/launch-campaign.js, pages/api/fb/launch-strategy.js)
-    // — a duplicate is reviewed in Ads Manager before it can spend anything.
+    // — a duplicate is reviewed in Ads Manager before it can spend anything —
+    // unless the user chose to launch it active.
     const json = await graphPost(`/${accountId}/ads`, token, {
       name: (name && name.trim()) || `${source.name} - Copy`,
       adset_id: destinationAdsetId,
       creative: { creative_id: source.creative.id },
-      status: "PAUSED",
+      status: adStatus,
     });
-    res.status(200).json({ success: true, id: json.id });
+    res.status(200).json({ success: true, id: json.id, status: adStatus });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message || "Request failed" });
   }

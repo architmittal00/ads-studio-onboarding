@@ -5,6 +5,7 @@ import Loader from "./Loader";
 import { CloseIcon, ChevronIcon } from "./icons";
 import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
+import AdLaunchStatusPicker from "@/components/AdLaunchStatusPicker";
 
 function formatMoney(amount, currency) {
   if (amount == null) return null;
@@ -131,6 +132,8 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
   const [editingAdName, setEditingAdName] = useState(false);
   const [destinationCampaign, setDestinationCampaign] = useState(null);
   const [adDestination, setAdDestination] = useState(null);
+  // Single-ad duplication only: "PAUSED" (default) or "ACTIVE".
+  const [adLaunchStatus, setAdLaunchStatus] = useState("PAUSED");
   const [adsetChoices, setAdsetChoices] = useState([]);
 
   // "adset" duplication
@@ -218,7 +221,7 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
     fetch("/api/fb/duplicate-ad", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accountId, sourceAdId: adSource.id, destinationAdsetId: adDestination.id, name: adName }),
+      body: JSON.stringify({ accountId, sourceAdId: adSource.id, destinationAdsetId: adDestination.id, name: adName, status: adLaunchStatus }),
     })
       .then((res) => parseJsonResponse(res).catch((e) => ({ error: e.message })).then((json) => ({ ok: res.ok, json })))
       .then(({ ok, json }) => {
@@ -412,8 +415,9 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
           <div style={{ marginTop: 16 }}>
             <p className={styles.sub}>
               This creates an exact copy of <strong style={{ color: "var(--t1)" }}>{adSource.name}</strong> — same creative, reused by
-              id (so a partnership/branded-content ad duplicates correctly too) — created paused.
+              id (so a partnership/branded-content ad duplicates correctly too).
             </p>
+            <AdLaunchStatusPicker value={adLaunchStatus} onChange={setAdLaunchStatus} disabled={submitting} />
             <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <div style={{ minWidth: 0 }}>
                 <p className={styles.sub} style={{ marginBottom: 2 }}>
@@ -539,7 +543,7 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
             <p style={{ fontWeight: 600, marginBottom: 4 }}>Duplicated successfully.</p>
             <p className={styles.sub}>
               {level === "ad"
-                ? `The new ad was created paused in "${adDestination.name}".`
+                ? `The new ad was created ${adLaunchStatus === "ACTIVE" ? "active" : "paused"} in "${adDestination.name}".`
                 : `The new ad set${adsetCount > 0 ? ` and its ${adsetCount} ad${adsetCount === 1 ? "" : "s"}` : ""} ${
                     adsetCount > 0 ? "were" : "was"
                   } created paused in "${selectedCampaign.name}".`}
