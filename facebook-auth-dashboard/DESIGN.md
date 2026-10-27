@@ -100,6 +100,7 @@ Only **Custom Views** (`/explore`) is adapted for phones so far. Mobile is **not
 
 **Principles**
 - One job per screen region; glanceable first (totals + ranked list), detail on demand (tap).
+- **Navigation = fixed bottom tab bar** (`components/MobileTabBar.js`: Views · Partners · Catalog, 56px + safe area). The top bar only carries the screen title, theme and sign-out. Every other fixed-bottom element (bulk bars) sits above it (`bottom: calc(56px + env(safe-area-inset-bottom))`); sheets (z 700) cover it. Screens with their own sub-tabs use a scrollable chip row, not a second bottom bar.
 - **Refreshing over existing results:** no full-section scrim (the loader would centre off-screen in a tall list). A sticky pill (`.mvRerunBar`) shows progress and stale rows fade to 45%.
 - **Cards, not tables.** A 10-column table can't be read at 375px. Each entity is a card: name (2-line clamp) + status, a 3-column metric grid (first 9 metrics, then "+N more metrics"), compact numbers (`formatMetricValue(..., {compact:true})` → ₹1.2L). The metric you sort by leads the card and is tinted.
 - **Sheets, not popovers/modals.** Every "pick one" or "edit settings" interaction is a bottom sheet (`components/BottomSheet.js`): sort, filters, row actions, view switcher, date range. Query & Filters is a full-screen sheet.

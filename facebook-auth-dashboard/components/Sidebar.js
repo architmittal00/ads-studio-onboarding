@@ -7,6 +7,7 @@ import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/
 import { clearCachedEntry } from "@/lib/clientCache";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { ACCOUNT_DATA_CACHE_KEY } from "./AccountProvider";
+import { mobileNavFor } from "./MobileTabBar";
 import {
   FileTextIcon,
   TargetIcon,
@@ -111,14 +112,14 @@ export default function Sidebar() {
     .join("") || "?";
 
   if (isMobile) {
-    // Phone layout: a slim top bar instead of the rail — only Custom Views is
-    // supported on mobile for now, so there's nothing to navigate between.
+    // Phone layout: a slim top bar (screen title, theme, sign out) instead of
+    // the rail; navigation between screens is the bottom tab bar.
     return (
       <nav className={styles.mobileTopBar}>
         <div className={styles.logoMark} style={{ width: 30, height: 30, fontSize: 12 }}>
           f
         </div>
-        <span className={styles.mobileTopBarTitle}>Custom Views</span>
+        <span className={styles.mobileTopBarTitle}>{mobileNavFor(router.pathname)?.title || "Ads Dashboard"}</span>
         <button
           type="button"
           className={styles.appSidebarIconBtn}
