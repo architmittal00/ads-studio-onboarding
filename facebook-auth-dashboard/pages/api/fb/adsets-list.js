@@ -15,7 +15,7 @@ import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
 // round trip to campaigns-list.js?campaignId= for the same data.
 const DETAIL_FIELDS =
   "name,campaign_id,campaign{objective,name,bid_strategy,daily_budget,lifetime_budget,special_ad_categories,smart_promotion_type}," +
-  "optimization_goal,bid_strategy,daily_budget,lifetime_budget,targeting,promoted_object,status,attribution_spec";
+  "optimization_goal,bid_strategy,bid_amount,bid_constraints,daily_budget,lifetime_budget,targeting,promoted_object,status,attribution_spec";
 
 const GENDERS_TO_FIELD = { "": "all", "1": "male", "2": "female" };
 
@@ -46,6 +46,9 @@ function toFormFields(adset) {
     pixelId: adset.promoted_object?.pixel_id || "",
     customEventType: adset.promoted_object?.custom_event_type || "PURCHASE",
     bidStrategy: adset.bid_strategy,
+    // Cost cap / bid cap / ROAS goal need these on the ad set or Meta rejects it (code 100, subcode 2490487).
+    bidAmount: adset.bid_amount || null,
+    bidConstraints: adset.bid_constraints || null,
     budgetType: adset.lifetime_budget ? "LIFETIME" : "DAILY",
     budgetAmount: adset.daily_budget ? String(adset.daily_budget / 100) : adset.lifetime_budget ? String(adset.lifetime_budget / 100) : "",
     audienceType,
