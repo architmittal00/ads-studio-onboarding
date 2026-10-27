@@ -7,10 +7,15 @@ import { MOBILE_MAX_WIDTH } from "./useIsMobile";
 // recording is off. Loaded only when NEXT_PUBLIC_POSTHOG_KEY is set, so local
 // dev and previews without it send nothing.
 //
-// The unique user is the Facebook user id (NextAuth's token.sub — see
-// pages/api/auth/[...nextauth].js): stable for a person across devices and
-// sessions, unlike email, which Facebook can omit or change. Email and name
-// ride along as person properties.
+// The unique user is Facebook user id + a per-browser device id
+// ("<fbId>:<deviceId>"). Many people share one Facebook login, so the Facebook
+// id alone would merge them into a single person; the device id (a random id
+// kept in this browser's localStorage, so it survives sign-out/in) tells them
+// apart. Consequences: the same person on two browsers/devices shows as two
+// users, and clearing site data or using a private window makes a new one.
+// fb_user_id and device_id are also person properties, so you can still group
+// all of one Facebook login's users in PostHog. NextAuth's token.sub is the
+// Facebook id (see pages/api/auth/[...nextauth].js). Email/name ride along too.
 //
 // What is NEVER sent: ad copy, creative text, spend/metric values, API
 // responses, access tokens. Events carry identifiers and counts only. Text
@@ -18,7 +23,22 @@ import { MOBILE_MAX_WIDTH } from "./useIsMobile";
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
+const DEVICE_KEY = "fb-dashboard:device-id";
 let started = false;
+
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  } catch {
+    // Storage blocked: fall back to a per-page-load id (still never merges people).
+    return (getDeviceId.fallback ||= crypto.randomUUID());
+  }
+}
 
 export function initAnalytics() {
   if (started || !KEY || typeof window === "undefined") return;
@@ -38,7 +58,13 @@ export function initAnalytics() {
 
 export function identifyUser({ id, email, name }) {
   if (!started || !id) return;
-  posthog.identify(String(id), { email: email || undefined, name: name || undefined });
+  const deviceId = getDeviceId();
+  posthog.identify(`${id}:${deviceId}`, {
+    fb_user_id: String(id),
+    device_id: deviceId,
+    email: email || undefined,
+    name: name || undefined,
+  });
 }
 
 export function resetAnalytics() {
