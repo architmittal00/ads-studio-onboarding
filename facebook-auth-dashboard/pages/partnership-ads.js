@@ -8,7 +8,7 @@ import Layout from "@/components/Layout";
 import AccountSelect from "@/components/AccountSelect";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import { useAccounts } from "@/components/AccountProvider";
-import { RefreshIcon } from "@/components/icons";
+import { RefreshIcon, HandshakeIcon } from "@/components/icons";
 import OverviewTab from "@/components/partnership/OverviewTab";
 import ExploreTab from "@/components/partnership/ExploreTab";
 import RequestsTab from "@/components/partnership/RequestsTab";
@@ -20,7 +20,7 @@ import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { computeRange, RANGE_PRESETS } from "@/lib/dateRanges";
 import { useIsMobile } from "@/lib/useIsMobile";
 import BottomSheet from "@/components/BottomSheet";
-import { MobileContextBar, MobileTabChips } from "@/components/partnership/PartnershipMobileChrome";
+import { MobileContextBar, MobileIconBtn, MobileChips, PickerField, PickerSheet, formatRangeLabel } from "@/components/mobile/MobileChrome";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
@@ -55,13 +55,6 @@ function LabeledPill({ label, children }) {
       {children}
     </div>
   );
-}
-
-// "2026-09-27" -> "Sep 27" (year only when it isn't the current one).
-function shortDay(iso) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  const sameYear = iso.startsWith(String(new Date().getUTCFullYear()));
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: sameYear ? undefined : "numeric", timeZone: "UTC" });
 }
 
 const TABS = [
@@ -287,8 +280,14 @@ export default function PartnershipAds() {
   const activeRangeKey = isPerformanceTab ? rangePreset : exploreRangePreset;
   const activeRange = isPerformanceTab ? performanceRange : exploreRange;
   const mobileRangeLabel = activeRange
-    ? `${RANGE_PRESETS.find((p) => p.key === activeRangeKey)?.label || "Custom"} · ${shortDay(activeRange.since)}${activeRange.since === activeRange.until ? "" : ` – ${shortDay(activeRange.until)}`}`
+    ? formatRangeLabel(RANGE_PRESETS.find((p) => p.key === activeRangeKey)?.label, activeRange.since, activeRange.until)
     : "";
+  const [picker, setPicker] = useState(null); // "account" | "business" | "ig"
+  const pickerOptions = { account: adAccounts.map((a) => ({ id: a.id, name: a.name || a.id, sub: a.account_id })), business: businessOptions, ig: igOptions };
+  const pickerValue = { account: selectedAccountId, business: selectedBusinessId, ig: selectedIgAccountId };
+  const pickerSetter = { account: setSelectedAccountId, business: setSelectedBusinessId, ig: setSelectedIgAccountId };
+  const pickerTitle = { account: "Ad account", business: "Business Manager", ig: "Instagram account" };
+  const labelOf = (list, id) => list.find((o) => o.id === id)?.name;
 
   return (
     <Layout>
@@ -298,15 +297,17 @@ export default function PartnershipAds() {
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1500, margin: "0 auto" }}>
           {isMobile && (
-            <MobileContextBar
-              accountLabel={selectedAccount?.name}
-              rangeLabel={mobileRangeLabel}
-              queueCount={queueCount}
-              onOpen={() => setContextOpen(true)}
-              onReload={isPerformanceTab ? checkPerformance : null}
-              reloading={perf.loading}
-              canReload={!!performanceReady && !!performanceRange}
-            />
+            <MobileContextBar title={selectedAccount?.name || "Select an ad account"} sub={mobileRangeLabel} onOpen={() => setContextOpen(true)}>
+              {isPerformanceTab && (
+                <MobileIconBtn label="Reload" onClick={checkPerformance} disabled={!performanceReady || !performanceRange || perf.loading} spinning={perf.loading}>
+                  <RefreshIcon size={16} />
+                </MobileIconBtn>
+              )}
+              <Link href="/partnership-ads/queue" className={styles.pvIconBtn} aria-label={`Ready to Launch, ${queueCount} queued`}>
+                <HandshakeIcon size={16} />
+                {queueCount > 0 && <span className={styles.pvBadge}>{queueCount}</span>}
+              </Link>
+            </MobileContextBar>
           )}
           <div className={isMobile ? styles.hideOnMobile : undefined} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
             <div>
@@ -421,7 +422,7 @@ export default function PartnershipAds() {
               the header's pill row above — no tab needs its own side panel
               anymore, so every tab gets this same full-width content area. */}
           <div className={styles.exploreContent}>
-            {isMobile && <MobileTabChips tabs={TABS} active={tab} onChange={setTab} />}
+            {isMobile && <MobileChips label="Partnership Ads" tabs={TABS} active={tab} onChange={setTab} />}
             <div className={isMobile ? styles.hideOnMobile : styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
               {TABS.map((t) => (
                 <button
@@ -511,21 +512,12 @@ export default function PartnershipAds() {
           {isMobile && (
             <BottomSheet open={contextOpen} title="Account & dates" onClose={() => setContextOpen(false)} footer={<button type="button" className={styles.btnPrimary} style={{ flex: 1 }} onClick={() => setContextOpen(false)}>Done</button>}>
               <div className={styles.pvSheetFields}>
-                <label className={styles.pvField}>
-                  <span>Ad account</span>
-                  <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" loading={accountsLoading} usePortal zIndex={900} />
-                </label>
+                <PickerField label="Ad account" value={selectedAccount?.name} placeholder={accountsLoading ? "Loading ad accounts…" : "Select an ad account…"} onClick={() => setPicker("account")} />
                 {!isPerformanceTab && (
-                  <label className={styles.pvField}>
-                    <span>Business Manager</span>
-                    <AccountSelect accounts={businessOptions} value={selectedBusinessId} onChange={setSelectedBusinessId} placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"} loading={accountsLoading} usePortal zIndex={900} />
-                  </label>
+                  <PickerField label="Business Manager" value={labelOf(businessOptions, selectedBusinessId)} placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"} onClick={() => setPicker("business")} />
                 )}
                 {!isPerformanceTab && (
-                  <label className={styles.pvField}>
-                    <span>Instagram account</span>
-                    <AccountSelect accounts={igOptions} value={selectedIgAccountId} onChange={setSelectedIgAccountId} placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"} loading={accountsLoading} usePortal zIndex={900} />
-                  </label>
+                  <PickerField label="Instagram account" value={labelOf(igOptions, selectedIgAccountId)} placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"} onClick={() => setPicker("ig")} />
                 )}
                 {(isPerformanceTab || tab === "explore") && (
                   <div className={styles.pvField}>
@@ -535,6 +527,17 @@ export default function PartnershipAds() {
                 )}
               </div>
             </BottomSheet>
+          )}
+          {isMobile && picker && (
+            <PickerSheet
+              open
+              title={pickerTitle[picker]}
+              options={pickerOptions[picker]}
+              value={pickerValue[picker]}
+              onPick={pickerSetter[picker]}
+              onClose={() => setPicker(null)}
+              searchPlaceholder={`Search ${pickerTitle[picker].toLowerCase()}s`}
+            />
           )}
         </main>
       </div>
