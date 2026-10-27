@@ -3,6 +3,7 @@ import { CloseIcon } from "./icons";
 import Loader from "./Loader";
 import { getPixelMapping, setPixelMapping } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
+import { track } from "@/lib/analytics";
 
 // Review & Launch panel for one strategy: picks the Page (and, the first
 // time for this account, the pixel — remembered after that via
@@ -90,6 +91,7 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, interest
   // slow step updates currentStep in real time ("Creating campaign 2 of
   // 3…"), then a `{type:"done"}` line carries the final per-object results.
   async function handleLaunch() {
+    track("campaign_launch_started");
     setLaunching(true);
     setLaunchError(null);
     setResult(null);

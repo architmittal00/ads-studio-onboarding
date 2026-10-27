@@ -9,6 +9,7 @@ import AdSetFields from "@/components/AdSetFields";
 import { CloseIcon, ChevronIcon, DatabaseIcon, ListIcon, CopyIcon, CheckIcon, PauseIcon, PlayIcon } from "@/components/icons";
 import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+import { track } from "@/lib/analytics";
 
 // Per-ad live-progress phase → badge styling/label, for the table shown
 // while `submitting` below. Added once pages/api/fb/copy-ads/copy.js started
@@ -758,6 +759,7 @@ export default function CopyAdsModal({
     setSubmitError(null);
     setAdProgress(Object.fromEntries(ads.map((a) => [a.id, { phase: "queued" }])));
     try {
+      track("copy_ads_started", { level: "ad" });
       const res = await fetch("/api/fb/copy-ads/copy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -823,6 +825,7 @@ export default function CopyAdsModal({
     setAdProgress(initialAdProgress);
     setObjectProgress(initialObjectProgress);
     try {
+      track("copy_ads_started", { level: "adset" });
       const res = await fetch("/api/fb/copy-ads/copy-adset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -873,6 +876,7 @@ export default function CopyAdsModal({
     setAdProgress(initialAdProgress);
     setObjectProgress(initialObjectProgress);
     try {
+      track("copy_ads_started", { level: "campaign" });
       const res = await fetch("/api/fb/copy-ads/copy-campaign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -7,6 +7,7 @@ import Loader from "../Loader";
 import { useAccounts } from "../AccountProvider";
 import { getPixelMapping, setPixelMapping, getPartnershipSettings, setPartnershipSettings } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
+import { track } from "@/lib/analytics";
 
 // Groups the launch result's flat step log (one row per item/video/creative/
 // ad — meaningful to whoever's debugging launch.js, not to someone who just
@@ -125,6 +126,7 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
   }
 
   async function handleConfirm() {
+    track("partnership_launch_started");
     setLaunching(true);
     setError(null);
     setProgressMsg("Starting…");

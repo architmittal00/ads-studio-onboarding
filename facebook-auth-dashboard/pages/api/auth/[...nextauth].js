@@ -45,6 +45,8 @@ export const authOptions = {
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken;
+      // Facebook user id (token.sub) — the stable unique-user key for analytics.
+      if (session.user) session.user.id = token.sub;
       return session;
     },
   },

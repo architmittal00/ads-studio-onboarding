@@ -23,6 +23,7 @@ import BottomSheet from "@/components/BottomSheet";
 import { MobileContextBar, MobileIconBtn, MobileChips, PickerField, PickerSheet, formatRangeLabel } from "@/components/mobile/MobileChrome";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+import { track } from "@/lib/analytics";
 
 // Same cap Copy Ads uses, same reasoning: Overview/My Partnership Ads/
 // Creator Hub's own data pulls are all bounded by an /insights-first ad-id
@@ -134,6 +135,7 @@ export default function PartnershipAds() {
 
   function setTab(next) {
     setTabState(next);
+    track("partnership_tab_opened", { tab: next });
     if (router.isReady) {
       router.replace({ pathname: router.pathname, query: { ...router.query, tab: next } }, undefined, { shallow: true });
     }
