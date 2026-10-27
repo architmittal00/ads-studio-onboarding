@@ -250,7 +250,10 @@ function applyResultFilters(rows, resultFilters, availableMetricKeys, statusAvai
   // then, so a leftover selection from an earlier level/breakdown would
   // silently hide every row ("0 of 1 rows (filtered)") with nothing to undo.
   if (resultFilters?.statusValues && statusAvailable) {
-    out = out.filter((row) => resultFilters.statusValues.includes(row.status));
+    // An ad set/ad under a paused parent reports CAMPAIGN_PAUSED / ADSET_PAUSED,
+    // which has no checkbox of its own — count it as Paused so a status filter
+    // doesn't hide every child of a paused campaign.
+    out = out.filter((row) => resultFilters.statusValues.includes(/_PAUSED$/.test(row.status || "") ? "PAUSED" : row.status));
   }
   return out;
 }
@@ -3847,7 +3850,17 @@ function ExploreResultsTable({
         <tr key={`${parentId}-no-matches`}>
           <td colSpan={columns.length}>
             <span className={styles.muted} style={{ paddingLeft: depth * 20 }}>
-              No {label} match the current filters.
+              No {label} match the current filters.{" "}
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={() => {
+                  setChildSearch("");
+                  onTableViewChange?.({ resultFilters: { metricConditions: [], statusValues: null } });
+                }}
+              >
+                Clear filters
+              </button>
             </span>
           </td>
         </tr>
