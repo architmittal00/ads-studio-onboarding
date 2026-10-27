@@ -1,5 +1,7 @@
 'use client';
-import { ArrowLeft, ArrowRight, Check, ImageIcon, LayoutGrid, Newspaper } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Eye, ImageIcon, LayoutGrid, Newspaper } from 'lucide-react';
+import BottomSheetJs from '@/components/BottomSheet';
+import { useIsMobile } from '@/lib/useIsMobile';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { apiGet } from '@/launch-ad/lib/client-api';
 import { CATALOG_AD_TEXT, buildContext, validateAd } from '@/launch-ad/lib/form';
@@ -17,6 +19,9 @@ import LaunchForm, { type ProductSet } from './LaunchForm';
 import { adsetFit, budgetText } from './Pickers';
 import { ReviewPanel } from './ReviewPanel';
 import StandardAdSection from './StandardAdSection';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const BottomSheet = BottomSheetJs as any;
 
 type Step = 'AD' | 'DEST' | 'SETTINGS' | 'REVIEW';
 type AdType = 'CATALOG' | 'UPLOAD' | 'POST';
@@ -42,6 +47,8 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
   /** Catalog Ads > Create ad: catalog ads only (no image/video or existing post) */
   catalogOnly?: boolean;
 }) {
+  const isMobile = useIsMobile();
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [step, setStep] = useState<Step>(repeatOf ? 'DEST' : 'AD');
   // An ad that arrives with content (repeat, or kept across an ad account switch) keeps its type.
   const [type, setType] = useState<AdType | null>(catalogOnly ? 'CATALOG' : repeatOf || form.ad.name ? (form.ad.kind === 'CATALOG' || form.ad.kind === 'POST' ? form.ad.kind : 'UPLOAD') : null);
@@ -183,6 +190,31 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
   // Continue never dead-ends: with something missing it takes you to the first missing field.
   const proceed = () => { if (!next) return; if (blocking.length) { jumpTo(blocking[0]); return; } go(next); };
 
+  const sideContent = (
+        <div className="ws-side-inner" ref={sideInner}>
+        {type ? <AdPreview form={form} total={isCatalog ? setCount : undefined} /> : <div className="preview"><div className="preview-empty">Pick an ad type to see a preview.</div></div>}
+        {dest ? (() => {
+          const campaignName = dest.kind === 'NEW_CAMPAIGN' ? form.campaign.name || 'New campaign' : dest.kind === 'NEW_ADSET' ? dest.campaign.name : dest.adset.campaign?.name || '–';
+          const adsetName = dest.kind === 'ADSET' ? dest.adset.name : form.adset.name || 'New ad set';
+          const budget = dest.kind === 'ADSET'
+            ? (dest.adset.daily_budget || dest.adset.lifetime_budget ? `${adsetBudget(dest.adset, account.currency)} ad set budget` : dest.adset.campaign ? `${budgetText(dest.adset.campaign, account.currency)} campaign budget` : '')
+            : form.budget.amount ? `${currencySymbol(account.currency)}${Number(form.budget.amount).toLocaleString('en-IN')}${form.budget.type === 'DAILY' ? '/day' : ' lifetime'} ${form.budget.level === 'ADSET' ? 'ad set' : 'campaign'} budget` : '';
+          return (
+            <div className="card ws-dest">
+              <div className="label" style={{ marginBottom: 8 }}>Runs in</div>
+              <dl className="runs-in">
+                <dt>Campaign</dt><dd>{campaignName}{dest.kind === 'NEW_CAMPAIGN' ? <span className="tag">New</span> : null}</dd>
+                <dt>Ad set</dt><dd>{adsetName}{dest.kind !== 'ADSET' ? <span className="tag">New</span> : null}</dd>
+                <dt>Ad</dt><dd>{form.ad.name || '–'}<span className="tag">New</span></dd>
+              </dl>
+              {budget ? <div className="hint budget-line">{budget}</div> : null}
+              {step !== 'DEST' ? <button type="button" className="btn-link" style={{ marginTop: 8 }} onClick={() => go('DEST')}>Change</button> : null}
+            </div>
+          );
+        })() : null}
+        </div>
+  );
+
   return (
     <div className="ws">
       {/* Step bar: back, the four steps, continue */}
@@ -206,6 +238,9 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
             );
           })}
         </ol>
+        {isMobile ? (
+          <button type="button" className="ws-preview" onClick={() => setPreviewOpen(true)} aria-label="Preview ad"><Eye size={16} /><span>Preview</span></button>
+        ) : null}
         {next ? (
           <button type="button" className={`btn-primary ws-next ${blocking.length ? 'blocked' : ''}`} onClick={proceed} title={blocking.length ? `Still needed: ${blocking.map((m) => m.label).join(', ')}` : undefined}>
             {nextLabel} <ArrowRight size={14} />
@@ -223,7 +258,7 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
           <>
             <StepHead
               title={catalogOnly ? 'Create your catalog ad' : 'Create your ad'}
-              sub={catalogOnly ? 'Pick the catalog and product set, then add the ad\u2019s text. The preview on the right shows real products.' : 'Pick the kind of ad, then add its creative and text. The preview on the right updates as you type.'}
+              sub={catalogOnly ? 'Pick the catalog and product set, then add the ad\u2019s text. ' + (isMobile ? 'Tap the eye to preview it with real products.' : 'The preview on the right shows real products.') : 'Pick the kind of ad, then add its creative and text. ' + (isMobile ? 'Tap the eye to preview it.' : 'The preview on the right updates as you type.')}
             />
             {!catalogOnly ? <div className="type-cards" role="radiogroup" aria-label="Ad type">
               {AD_TYPES.map((t) => (
@@ -324,7 +359,9 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
         {step !== 'REVIEW' ? (
           <div className="sticky-bar ws-foot">
             <span className="sticky-text">
-              {blocking.length ? <>Still needed: {blocking.map((m) => <button type="button" key={m.key} className="need" onClick={() => jumpTo(m)} title="Go to this field">{m.label}</button>)}</> : <span className="ready">Ready to continue</span>}
+              {blocking.length ? (isMobile
+                ? <>Still needed: <button type="button" className="need" onClick={() => jumpTo(blocking[0])}>{blocking[0].label}</button>{blocking.length > 1 ? <span className="more">+{blocking.length - 1} more</span> : null}</>
+                : <>Still needed: {blocking.map((m) => <button type="button" key={m.key} className="need" onClick={() => jumpTo(m)} title="Go to this field">{m.label}</button>)}</>) : <span className="ready">Ready to continue</span>}
             </span>
             {next ? (
               <button type="button" className={`btn-primary ${blocking.length ? 'blocked' : ''}`} onClick={proceed}>
@@ -336,31 +373,17 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
       </div>
 
       {/* Live preview and destination summary */}
+      {isMobile ? null : (
       <aside className="ws-side" aria-label="Preview" ref={sideRef}>
-        <div className="ws-side-inner" ref={sideInner}>
-        {type ? <AdPreview form={form} total={isCatalog ? setCount : undefined} /> : <div className="preview"><div className="preview-empty">Pick an ad type to see a preview.</div></div>}
-        {dest ? (() => {
-          const campaignName = dest.kind === 'NEW_CAMPAIGN' ? form.campaign.name || 'New campaign' : dest.kind === 'NEW_ADSET' ? dest.campaign.name : dest.adset.campaign?.name || '–';
-          const adsetName = dest.kind === 'ADSET' ? dest.adset.name : form.adset.name || 'New ad set';
-          const budget = dest.kind === 'ADSET'
-            ? (dest.adset.daily_budget || dest.adset.lifetime_budget ? `${adsetBudget(dest.adset, account.currency)} ad set budget` : dest.adset.campaign ? `${budgetText(dest.adset.campaign, account.currency)} campaign budget` : '')
-            : form.budget.amount ? `${currencySymbol(account.currency)}${Number(form.budget.amount).toLocaleString('en-IN')}${form.budget.type === 'DAILY' ? '/day' : ' lifetime'} ${form.budget.level === 'ADSET' ? 'ad set' : 'campaign'} budget` : '';
-          return (
-            <div className="card ws-dest">
-              <div className="label" style={{ marginBottom: 8 }}>Runs in</div>
-              <dl className="runs-in">
-                <dt>Campaign</dt><dd>{campaignName}{dest.kind === 'NEW_CAMPAIGN' ? <span className="tag">New</span> : null}</dd>
-                <dt>Ad set</dt><dd>{adsetName}{dest.kind !== 'ADSET' ? <span className="tag">New</span> : null}</dd>
-                <dt>Ad</dt><dd>{form.ad.name || '–'}<span className="tag">New</span></dd>
-              </dl>
-              {budget ? <div className="hint budget-line">{budget}</div> : null}
-              {step !== 'DEST' ? <button type="button" className="btn-link" style={{ marginTop: 8 }} onClick={() => go('DEST')}>Change</button> : null}
-            </div>
-          );
-        })() : null}
-        </div>
+        {sideContent}
       </aside>
+      )}
       </div>
+      {isMobile ? (
+        <BottomSheet open={previewOpen} title="Ad preview" onClose={() => setPreviewOpen(false)}>
+          <div className="la-root">{sideContent}</div>
+        </BottomSheet>
+      ) : null}
     </div>
   );
 }

@@ -80,7 +80,7 @@ export function AccountNotices({ accounts }: { accounts: { data?: AdAccount[]; l
   return null;
 }
 
-export function RangePill({ range, onChange }: { range: Range; onChange: (r: Range) => void }) {
+export function RangePill({ range, onChange, fullWidth }: { range: Range; onChange: (r: Range) => void; fullWidth?: boolean }) {
   return (
     <DateRangeMenuC
       rangePreset={range.preset}
@@ -93,6 +93,7 @@ export function RangePill({ range, onChange }: { range: Range; onChange: (r: Ran
       compareDisabled
       compareDisabledReason="Not available here — this shows one window at a time."
       triggerClassName={styles.headerPillBtn}
+      fullWidth={fullWidth}
       onApply={(patch: { rangePreset: string; customSince: string; customUntil: string }) =>
         onChange(resolve(patch.rangePreset, patch.customSince, patch.customUntil))
       }
