@@ -309,6 +309,8 @@ function createBlankView(seedAccountId = "") {
     // nameFilters has), and `statusValues` is `null` for "no filter" (every
     // status shown) or an explicit array of statuses to keep.
     resultFilters: { metricConditions: [], statusValues: null },
+    // Off = only entities that spent (the default). On = also list entities with zero spend.
+    includeZeroSpend: false,
     result: null,
     resultFetchedAt: null,
     loading: false,
@@ -421,6 +423,8 @@ function buildQuerySpecFromView(view, customMetrics, adAccounts) {
     // `undefined` one) when nothing's pasted, so a view that's never touched
     // this feature produces the exact same cache key / request body as
     // before it existed, same reasoning as previousSince/previousUntil below.
+    // Omitted when off so existing views keep their cache key.
+    includeZeroSpend: view.includeZeroSpend ? true : undefined,
     idFilter: view.idFilter?.value?.trim() ? { field: view.idFilter.field, value: view.idFilter.value.trim() } : undefined,
     since: range?.since,
     until: range?.until,
@@ -1094,6 +1098,7 @@ export default function Explore() {
         resultFilters: v.resultFilters || { metricConditions: [], statusValues: null },
         tableSortKey: v.tableSortKey ?? null,
         tableSortDir: v.tableSortDir || "desc",
+        includeZeroSpend: !!v.includeZeroSpend,
         tableSearch: v.tableSearch || "",
         tableColOrder: v.tableColOrder || null,
         tableFirstColFrozen: v.tableFirstColFrozen !== false,
@@ -2738,6 +2743,27 @@ export default function Explore() {
                       ))}
                     </select>
                   </div>
+
+                  {activeView.level !== "account" && (
+                    <div>
+                      <SectionHeading hint="By default only entities that spent in the date range are listed. Turn this on to also see campaigns, ad sets or ads with zero spend (paused, out of budget, or not yet delivering). Not available with a breakdown or daily/weekly/monthly grouping. Takes effect next time you run the query.">
+                        Spend
+                      </SectionHeading>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={!activeView.includeZeroSpend}
+                          onChange={(e) => updateActive({ includeZeroSpend: !e.target.checked })}
+                        />
+                        <span>Only show entities with spend greater than 0</span>
+                      </label>
+                      {activeView.includeZeroSpend && (activeView.breakdownGroup !== "none" || activeView.timeIncrement) && (
+                        <p className={styles.muted} style={{ marginTop: 6 }}>
+                          Zero-spend rows are only added for plain views — not with a breakdown or time grouping.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <SectionHeading hint="Include or exclude any campaign, ad set, or ad whose name contains the text below — works at any Level above, not just the matching one: e.g. exclude a campaign by name while still viewing Account-level totals, and that campaign's numbers come out of the total, not just off the screen. Add as many as you like, mixing include and exclude; takes effect next time you run the query.">

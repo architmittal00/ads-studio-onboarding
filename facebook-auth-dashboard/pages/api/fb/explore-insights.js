@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet, graphGetInsights } from "@/lib/facebookGraph";
+import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { chunk, fetchAdDetails } from "@/lib/adCreativeDetails";
 import { toMajorUnits } from "@/lib/reportShared";
 import {
@@ -324,6 +324,36 @@ function rollupRows(rows, level, breakdownGroupValue, customFields) {
 // HTTP/CDN-cacheable the way /api/fb/report.js is — caching for this one is
 // handled entirely client-side (lib/clientCache.js). Same precedent as
 // /api/fb/interest-recommendations.js.
+// Every non-deleted campaign/ad set/ad of an account as an all-zero raw
+// insights row (same field names Facebook's insights rows use), so entities
+// with no delivery in the range can sit alongside the ones that have data.
+const ZERO_ROW_EDGE = { campaign: "campaigns", adset: "adsets", ad: "ads" };
+const ZERO_ROW_FIELDS = {
+  campaign: "id,name",
+  adset: "id,name,campaign_id,campaign{name}",
+  ad: "id,name,adset_id,adset{name},campaign_id,campaign{name}",
+};
+const ZERO_ROW_MAX = 5000;
+async function fetchZeroSpendEntities(accountId, level, token) {
+  const json = await graphGetAllPages(`/${accountId}/${ZERO_ROW_EDGE[level]}`, token, {
+    fields: ZERO_ROW_FIELDS[level],
+    limit: 500,
+    effective_status: ["ACTIVE", "PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "PENDING_REVIEW", "DISAPPROVED", "WITH_ISSUES", "IN_PROCESS"],
+  });
+  return (json.data || []).slice(0, ZERO_ROW_MAX).map((e) => {
+    const row = { spend: "0", impressions: "0" };
+    row[`${level}_id`] = e.id;
+    row[`${level}_name`] = e.name;
+    if (level !== "campaign") row.campaign_id = e.campaign_id;
+    if (level !== "campaign") row.campaign_name = e.campaign?.name;
+    if (level === "ad") {
+      row.adset_id = e.adset_id;
+      row.adset_name = e.adset?.name;
+    }
+    return row;
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -345,6 +375,7 @@ export default async function handler(req, res) {
     nameFilters,
     idFilter,
     includeCreative,
+    includeZeroSpend,
     since,
     until,
     timeIncrement,
@@ -511,7 +542,12 @@ export default async function handler(req, res) {
   const cleanCustomFields = Array.isArray(customFields) ? customFields.map((f) => String(f).trim()).filter(Boolean) : [];
   const outputCustomFields = needsRollup ? [] : cleanCustomFields;
   const group = getBreakdownGroup(breakdownGroup);
-  const fields = resolveGraphFields(metricKeys, cleanCustomFields, fetchLevel, cleanCustomMetrics, cleanCustomEvents).join(",");
+  const fieldList = resolveGraphFields(metricKeys, cleanCustomFields, fetchLevel, cleanCustomMetrics, cleanCustomEvents);
+  // `spend` is always fetched below the account level — the default "only
+  // entities that spent" filter (see includeZeroSpend) needs it even when the
+  // view does not show a Spend column.
+  if (fetchLevel !== "account" && !fieldList.includes("spend")) fieldList.push("spend");
+  const fields = fieldList.join(",");
   const token = session.accessToken;
 
   const baseParams = {
@@ -603,6 +639,17 @@ export default async function handler(req, res) {
   // query that was still going to succeed a few seconds later.
   const insightsTimeoutMs = fetchLevel === "ad" && validTimeIncrement ? 45000 : undefined;
 
+  // Default: only entities that actually spent. With `includeZeroSpend` the
+  // view also lists entities with no delivery in the range — Meta's insights
+  // endpoint never returns those, so they are listed separately and added as
+  // all-zero rows. Only for plain campaign/ad set/ad views (no breakdown or
+  // time grouping, where a "zero row" has no clear meaning).
+  const wantZeroSpend = includeZeroSpend === true;
+  const canAddZeroRows = wantZeroSpend && fetchLevel !== "account" && group.breakdowns.length === 0 && !validTimeIncrement;
+  const zeroRowsPromise = canAddZeroRows
+    ? Promise.all(accountIds.map((accountId) => fetchZeroSpendEntities(accountId, fetchLevel, token).catch(() => [])))
+    : null;
+
   const callPlan = [];
   const rawCalls = [];
   for (const accountId of accountIds) {
@@ -655,6 +702,7 @@ export default async function handler(req, res) {
 
   const settled = await Promise.allSettled(calls);
 
+  const zeroRowsByAccount = zeroRowsPromise ? await zeroRowsPromise : [];
   const byAccount = new Map(accountIds.map((id) => [id, { current: [], previous: [] }]));
   const accountErrors = [];
   let firstFailure = null;
@@ -715,6 +763,13 @@ export default async function handler(req, res) {
   for (const accountId of accountIds) {
     let { current, previous } = byAccount.get(accountId);
 
+    if (canAddZeroRows) {
+      const idField = LEVEL_ID_FIELD[fetchLevel];
+      const have = new Set(current.map((r) => r[idField]));
+      const extra = (zeroRowsByAccount[accountIds.indexOf(accountId)] || []).filter((r) => !have.has(r[idField]));
+      current = [...current, ...extra];
+    }
+
     // Only this account's own custom conversions apply to its rows — a
     // custom conversion's action_type is meaningless outside the Facebook
     // account that owns it, so a metric key for account X's custom
@@ -754,6 +809,10 @@ export default async function handler(req, res) {
     if (needsRollup) {
       current = rollupRows(current, level, breakdownGroup, cleanCustomFields);
       previous = rollupRows(previous, level, breakdownGroup, cleanCustomFields);
+    }
+
+    if (!wantZeroSpend && level !== "account" && !validTimeIncrement) {
+      current = current.filter((r) => parseFloat(r.spend || 0) > 0);
     }
 
     for (const row of current) allCurrentEntries.push({ row, customEvents: accountCustomEvents });
@@ -990,6 +1049,7 @@ export default async function handler(req, res) {
     previousSince: previousRange?.since || null,
     previousUntil: previousRange?.until || null,
     rowCount: rows.length,
+    zeroSpendIncluded: canAddZeroRows,
     // Lets the UI explain itself: whether a name filter forced fetching at
     // a finer level than requested and rolling the result back up (and, if
     // so, which requested metrics got dropped because they can't be
