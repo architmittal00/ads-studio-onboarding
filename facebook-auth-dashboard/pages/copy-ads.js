@@ -23,6 +23,17 @@ import { fetchWithTimeout, parseJsonResponse, responseError } from "@/lib/fetchJ
 import { getCopyAdsQueryPanelCollapsed, setCopyAdsQueryPanelCollapsed } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 
+// Shortened landing-page link text: keeps the site and the end of the path.
+function landingLabel(url, maxLen = 40) {
+  try {
+    const parsed = new URL(url);
+    const full = `${parsed.hostname.replace(/^www\./, "")}${parsed.pathname.replace(/\/+$/, "")}`;
+    return full.length <= maxLen ? full : `${full.slice(0, maxLen - 17)}…${full.slice(-16)}`;
+  } catch {
+    return url.length > maxLen ? `${url.slice(0, maxLen - 17)}…${url.slice(-16)}` : url;
+  }
+}
+
 // Reads /api/fb/copy-ads/source-ads' newline-delimited JSON response (same
 // streaming convention as pages/explore.js's fetchExploreInsights) —
 // `onBatch` fires once per `ads_batch` event, as each 50-id batch on the
@@ -538,9 +549,28 @@ export default function CopyAdsPage() {
       until: range.until,
       metrics: metricKeys.join(","),
     });
+    const loadedIds = [];
     fetchSourceAdsStream(`/api/fb/copy-ads/source-ads?${params.toString()}`, (batchAds) => {
       setAds((prev) => [...prev, ...batchAds]);
+      for (const a of batchAds) if (a.id) loadedIds.push(a.id);
     })
+      .then(() => {
+        // "Landing Page" has no value in the insights data itself — it lives on each
+        // ad's creative — so it is resolved afterwards, in the background, like Explore.
+        if (!metricKeys.includes("landing_page") || loadedIds.length === 0) return;
+        return fetchWithTimeout("/api/fb/ad-landing-pages", {
+          idempotent: true,
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adIds: loadedIds }),
+        })
+          .then(parseJsonResponse)
+          .then((json) => {
+            const urls = json.landingPages || {};
+            setAds((prev) => prev.map((a) => ({ ...a, landing_page: urls[a.id] ?? null })));
+          })
+          .catch(() => {});
+      })
       .catch((err) => setAdsError(err.message))
       .finally(() => {
         setAdsLoading(false);
@@ -647,10 +677,24 @@ export default function CopyAdsPage() {
       .map((metric) => ({
         key: metric.key,
         label: metric.label,
-        align: "right",
-        maxWidth: METRIC_COLUMN_WIDTH[metric.format] || METRIC_COLUMN_WIDTH.number,
+        align: metric.key === "landing_page" ? "left" : "right",
+        maxWidth: metric.key === "landing_page" ? 320 : METRIC_COLUMN_WIDTH[metric.format] || METRIC_COLUMN_WIDTH.number,
         sortValue: (row) => (typeof row[metric.key] === "number" ? row[metric.key] : -Infinity),
-        render: (row) => formatMetricValue(row[metric.key], metric.format, sourceCurrency),
+        render: (row) => {
+          if (metric.key === "landing_page") {
+            const url = row.landing_page;
+            return url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ display: "block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "underline" }}>
+                {landingLabel(url)}
+              </a>
+            ) : adsLoading ? (
+              ""
+            ) : (
+              "—"
+            );
+          }
+          return formatMetricValue(row[metric.key], metric.format, sourceCurrency);
+        },
       })),
     {
       key: "status",
