@@ -453,12 +453,12 @@ export async function copyImageAcrossAccounts(token, destAccountId, { sourceAcco
 
 export async function fetchVideoSourceUrl(token, videoId) {
   const json = await graphGet(`/${videoId}`, token, { fields: "source" });
-  if (!json.source) throw new Error("Source video has no downloadable source URL.");
+  if (!json.source) throw new Error("Source video has no downloadable source URL (Meta does not expose the file, e.g. a partner/branded-content or very old video) — re-upload it to the destination account and attach it manually.");
   return json.source;
 }
 
-const VIDEO_POLL_INTERVAL_MS = 2000;
-const VIDEO_POLL_TIMEOUT_MS = 20000;
+const VIDEO_POLL_INTERVAL_MS = 3000;
+const VIDEO_POLL_TIMEOUT_MS = 150000; // many videos process at once on bigger copies; 20s was too short
 
 // A freshly re-ingested video processes asynchronously in the destination
 // account — referencing it in a creative too early can fail outright. Polls
@@ -556,6 +556,24 @@ export function rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) {
   for (const vid of rebuilt.videos || []) {
     if (vid.video_id) vid.video_id = videoIdMap.get(vid.video_id) || vid.video_id;
   }
+  // Meta rejects repeated asset values (code 100, subcode 1815629), and two
+  // source assets can resolve to one destination asset — keep the first.
+  const uniqBy = (arr, keyOf) => {
+    const seen = new Set();
+    return arr.filter((x) => {
+      const k = keyOf(x);
+      if (k == null) return true;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
+  if (rebuilt.images) rebuilt.images = uniqBy(rebuilt.images, (i) => i.hash);
+  if (rebuilt.videos) rebuilt.videos = uniqBy(rebuilt.videos, (v) => v.video_id);
+  for (const key of ["bodies", "titles", "descriptions"]) {
+    if (rebuilt[key]) rebuilt[key] = uniqBy(rebuilt[key], (t) => t.text);
+  }
+  if (rebuilt.link_urls) rebuilt.link_urls = uniqBy(rebuilt.link_urls, (l) => l.website_url);
   return rebuilt;
 }
 
@@ -649,14 +667,28 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       const hashMap = new Map(hashEntries);
       const videoIdMap = new Map(videoEntries);
 
-      const creativeId =
+      const rebuiltSpec = kind === "existing_post" ? null : rebuildObjectStorySpec(spec, hashMap, videoIdMap);
+      const rebuiltFeed = hasAssetFeed && kind !== "existing_post" ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
+      const makeCreative = (feed) =>
         kind === "existing_post"
-          ? await createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id })
-          : await createCopiedCreative(token, destAccountId, {
-              objectStorySpec: rebuildObjectStorySpec(spec, hashMap, videoIdMap),
-              assetFeedSpec: hasAssetFeed ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null,
+          ? createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id })
+          : createCopiedCreative(token, destAccountId, {
+              objectStorySpec: rebuiltSpec,
+              assetFeedSpec: feed,
               productSetId: kind === "catalog" ? ad.creative.product_set_id : null,
             });
+      let creativeId;
+      try {
+        creativeId = await makeCreative(rebuiltFeed);
+      } catch (err) {
+        // Still "duplicate asset values" after de-duping the feed: the feed's
+        // image/video pool repeats the asset the story spec already carries.
+        // Retry once with the pool's media dropped (text options stay).
+        if (err.subcode !== 1815629 && !/Duplicates of ad asset values/.test(err.message || "")) throw err;
+        if (!rebuiltFeed || (!rebuiltFeed.images && !rebuiltFeed.videos)) throw err;
+        const { images, videos, ...textOnly } = rebuiltFeed;
+        creativeId = await makeCreative(hasAssetFeedContent(textOnly) ? textOnly : null);
+      }
 
       const newAdId = await createCopiedAd(token, destAccountId, {
         name: (customName && customName.trim()) || `${ad.name} - Copy`,
