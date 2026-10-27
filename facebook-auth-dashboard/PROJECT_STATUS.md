@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Custom Views: landing-page link no longer overflows its column (2026-10-27)
+
+The Landing Page column was 150px wide but its (single-line) link label is up to ~40 chars, so it ran under the Actions column on Windows. Column is now 320px and the link is `display:block` with an ellipsis (`LANDING_LINK_STYLE` in `pages/explore.js`), so it can never spill even if the column is dragged narrower. Not checked in a browser or on Windows.
+
 ### Custom Views: landing-page links shortened (2026-10-27)
 
 `landingPageLinkLabel` in `pages/explore.js` drops `www.`, and for anything over 40 chars keeps the start and end with `…` in the middle (`namakwali.com/products/…i-cow-ghee-500ml`); the link is single-line and the full URL is the hover title (table and phone cards). Checked the label logic in node; not looked at in the browser.

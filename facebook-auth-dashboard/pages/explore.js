@@ -2846,6 +2846,9 @@ function DeltaBadge({ mode, deltaPct, absoluteDiff, format, currency }) {
 // in this map (shouldn't happen — every catalog/custom-metric entry sets
 // one) falls back to the "number" width. Per-row values still wrap/ellipsize
 // via SortableTable's own clamp if a particular value runs long regardless.
+// One line, clipped with an ellipsis at the cell edge — never spills into the next column.
+const LANDING_LINK_STYLE = { display: "block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "underline" };
+
 const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 100, text: 150 };
 
 // Campaign → Ad Set → Ad drill-down (mirrors components/EntityDrillDown.js's
@@ -3353,7 +3356,10 @@ function ExploreResultsTable({
         key,
         label,
         align: key === "landing_page" ? "left" : "right",
-        maxWidth: METRIC_COLUMN_WIDTH[format] || METRIC_COLUMN_WIDTH.number,
+        // The landing-page link label is up to ~40 chars on one line: its column
+        // needs room for that (wider on Windows, where text renders larger), and
+        // the link itself ellipsizes if the column is dragged narrower.
+        maxWidth: key === "landing_page" ? 320 : METRIC_COLUMN_WIDTH[format] || METRIC_COLUMN_WIDTH.number,
         sortValue: (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
         render: (row) => {
           // A link, not plain formatted text — formatMetricValue has no
@@ -3362,7 +3368,7 @@ function ExploreResultsTable({
           if (key === "landing_page") {
             const url = row[key];
             return url ? (
-              <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ textDecoration: "underline", whiteSpace: "nowrap" }}>
+              <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ ...LANDING_LINK_STYLE }}>
                 {landingPageLinkLabel(url)}
               </a>
             ) : (
@@ -3679,7 +3685,7 @@ function ExploreResultsTable({
       if (key === "landing_page") {
         const url = row[key];
         return url ? (
-          <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ textDecoration: "underline", whiteSpace: "nowrap" }}>
+          <a href={url} target="_blank" rel="noopener noreferrer" title={url} style={{ ...LANDING_LINK_STYLE }}>
             {landingPageLinkLabel(url)}
           </a>
         ) : (
