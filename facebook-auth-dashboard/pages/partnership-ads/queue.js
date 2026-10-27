@@ -142,7 +142,7 @@ export default function PartnershipAdsQueue() {
             <>
               <QueueList items={items} checkedIds={checkedIds} onToggleCheck={toggleCheck} onChangeItem={changeItem} onRemoveItem={removeItem} />
 
-              <div style={{ position: "sticky", bottom: 0, background: "var(--bg)", padding: "14px 0", marginTop: 16, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className={styles.pvQueueFooter} style={{ position: "sticky", bottom: 0, background: "var(--bg)", padding: "14px 0", marginTop: 16, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <p className={styles.sub} style={{ margin: 0 }}>
                   {checkedIds.size === 0
                     ? "Select ads above to launch"

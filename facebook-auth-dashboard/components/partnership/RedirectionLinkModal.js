@@ -39,6 +39,7 @@ export default function RedirectionLinkModal({ items, onSkip, onSave }) {
   return (
     <div
       onClick={onSkip}
+      className={styles.pvModalOverlay}
       style={{
         position: "fixed",
         inset: 0,
@@ -51,7 +52,7 @@ export default function RedirectionLinkModal({ items, onSkip, onSave }) {
         padding: 24,
       }}
     >
-      <div onClick={(e) => e.stopPropagation()} className={styles.card} style={{ background: "var(--bg)", width: "min(520px, 100%)", padding: 22 }}>
+      <div onClick={(e) => e.stopPropagation()} className={`${styles.card} ${styles.pvModalCard}`} style={{ background: "var(--bg)", width: "min(520px, 100%)", padding: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div>
             <h2 className={styles.h2} style={{ marginBottom: 2 }}>

@@ -4,6 +4,7 @@ import CreatorAdsDrawer from "./CreatorAdsDrawer";
 import { getPermissionRequestLog } from "@/lib/clientStorage";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import { groupByCreator } from "@/lib/partnershipCreatorStats";
+import { useIsMobile } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
 
 // Status pill for one of Meta's own permission_status values. AUTHORIZED is
@@ -40,6 +41,7 @@ function formatDate(iso) {
 // request doesn't appear right away.
 export default function RequestsTab({ igUserId, ready, ads, currency, perfLoading, perfHasLoaded, onCheckPerformance, canCheckPerformance }) {
   const [state, setState] = useState({ loading: false, error: null, permissions: [] });
+  const isMobile = useIsMobile();
   const [openCreator, setOpenCreator] = useState(null);
 
   // Lets a row open the same per-creator ads drawer Creator Hub uses —
@@ -127,38 +129,58 @@ export default function RequestsTab({ igUserId, ready, ads, currency, perfLoadin
           </button>
         </div>
       )}
-      <div className={styles.tableScroll}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Creator</th>
-              <th>Requested On</th>
-              <th>Status</th>
-              <th>Ads</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const matched = r.creatorUsername ? creatorsByUsername.get(r.creatorUsername.toLowerCase()) : null;
-              return (
-                <tr
-                  key={r.key}
-                  onClick={() => matched && setOpenCreator(matched)}
-                  style={matched ? { cursor: "pointer" } : undefined}
-                  title={matched ? "View this creator's ads" : perfHasLoaded ? "No ads found for this creator in the current window" : undefined}
-                >
-                  <td style={{ fontWeight: 600 }}>@{r.creatorUsername || r.key}</td>
-                  <td>{formatDate(r.requestedAt)}</td>
-                  <td>
-                    <StatusPill status={r.status} />
-                  </td>
-                  <td className={styles.muted}>{matched ? `${matched.adCount} ad${matched.adCount === 1 ? "" : "s"}` : "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {isMobile ? (
+        <div className={styles.cardList}>
+          {rows.map((r) => {
+            const matched = r.creatorUsername ? creatorsByUsername.get(r.creatorUsername.toLowerCase()) : null;
+            return (
+              <button key={r.key} type="button" className={`${styles.rowCard} ${styles.pvRequestCard}`} disabled={!matched} onClick={() => matched && setOpenCreator(matched)}>
+                <span className={styles.pvRequestMain}>
+                  <span className={styles.rowCardTitle}>@{r.creatorUsername || r.key}</span>
+                  <span className={styles.rowCardSub}>
+                    {r.requestedAt ? `Requested ${formatDate(r.requestedAt)}` : "Request date unknown"}
+                    {matched ? ` · ${matched.adCount} ad${matched.adCount === 1 ? "" : "s"}` : ""}
+                  </span>
+                </span>
+                <StatusPill status={r.status} />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className={styles.tableScroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Creator</th>
+                <th>Requested On</th>
+                <th>Status</th>
+                <th>Ads</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const matched = r.creatorUsername ? creatorsByUsername.get(r.creatorUsername.toLowerCase()) : null;
+                return (
+                  <tr
+                    key={r.key}
+                    onClick={() => matched && setOpenCreator(matched)}
+                    style={matched ? { cursor: "pointer" } : undefined}
+                    title={matched ? "View this creator's ads" : perfHasLoaded ? "No ads found for this creator in the current window" : undefined}
+                  >
+                    <td style={{ fontWeight: 600 }}>@{r.creatorUsername || r.key}</td>
+                    <td>{formatDate(r.requestedAt)}</td>
+                    <td>
+                      <StatusPill status={r.status} />
+                    </td>
+                    <td className={styles.muted}>{matched ? `${matched.adCount} ad${matched.adCount === 1 ? "" : "s"}` : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
       <CreatorAdsDrawer creator={openCreator} currency={currency} onClose={() => setOpenCreator(null)} />
     </div>
   );

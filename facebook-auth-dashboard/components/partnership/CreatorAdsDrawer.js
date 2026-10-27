@@ -4,6 +4,8 @@ import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import CreatorAvatar from "./CreatorAvatar";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
+import BottomSheet from "@/components/BottomSheet";
+import { useIsMobile } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
 
 // Same 7 metrics, same formatting, as My Partnership Ads' own table
@@ -47,7 +49,66 @@ function MiniStat({ label, value }) {
 // out there is reused here verbatim, not reinvented as a smaller summary.
 export default function CreatorAdsDrawer({ creator, currency, onClose }) {
   const [lightboxItem, setLightboxItem] = useState(null);
+  const isMobile = useIsMobile();
   if (!creator) return null;
+
+  const adsBody = (
+    <>
+      <p className={styles.sub} style={{ margin: isMobile ? "0" : "16px 0 0" }}>
+        {creator.adCount} ad{creator.adCount === 1 ? "" : "s"}
+        {creator.creativeCount != null && ` · ${creator.creativeCount} creative${creator.creativeCount === 1 ? "" : "s"}`}
+      </p>
+
+      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+        {creator.ads.map((ad) => (
+          <div key={ad.adId} className={styles.card} style={{ padding: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Thumb src={ad.thumbnailUrl} size={40} onClick={() => setLightboxItem(ad)} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {ad.name}
+                  </p>
+                  <span className={ad.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo} style={{ flexShrink: 0 }}>
+                    {humanizeStatus(ad.status)}
+                  </span>
+                </div>
+                <p
+                  className={styles.muted}
+                  style={{ margin: "2px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {ad.campaignName} · {ad.adsetName}
+                </p>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))", gap: 10, marginTop: 12 }}>
+              {METRICS.map((m) => (
+                <MiniStat key={m.key} label={m.label} value={formatMetricValue(ad[m.key], m.format, currency)} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <BottomSheet
+          open
+          title={`@${creator.creatorUsername || creator.key}`}
+          onClose={onClose}
+        >
+          {adsBody}
+        </BottomSheet>
+        <CreativeLightbox
+          item={lightboxItem ? { id: lightboxItem.adId, name: lightboxItem.name, thumbnailUrl: lightboxItem.thumbnailUrl } : null}
+          onClose={() => setLightboxItem(null)}
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -75,41 +136,7 @@ export default function CreatorAdsDrawer({ creator, currency, onClose }) {
             </button>
           </div>
 
-          <p className={styles.sub} style={{ margin: "16px 0 0" }}>
-            {creator.adCount} ad{creator.adCount === 1 ? "" : "s"}
-            {creator.creativeCount != null && ` · ${creator.creativeCount} creative${creator.creativeCount === 1 ? "" : "s"}`}
-          </p>
-
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-            {creator.ads.map((ad) => (
-              <div key={ad.adId} className={styles.card} style={{ padding: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Thumb src={ad.thumbnailUrl} size={40} onClick={() => setLightboxItem(ad)} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {ad.name}
-                      </p>
-                      <span className={ad.status === "ACTIVE" ? styles.badgeGood : styles.badgeInfo} style={{ flexShrink: 0 }}>
-                        {humanizeStatus(ad.status)}
-                      </span>
-                    </div>
-                    <p
-                      className={styles.muted}
-                      style={{ margin: "2px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                    >
-                      {ad.campaignName} · {ad.adsetName}
-                    </p>
-                  </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))", gap: 10, marginTop: 12 }}>
-                  {METRICS.map((m) => (
-                    <MiniStat key={m.key} label={m.label} value={formatMetricValue(ad[m.key], m.format, currency)} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          {adsBody}
         </div>
       </div>
 

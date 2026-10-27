@@ -98,10 +98,11 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue, onLaunc
   return (
     <div
       onClick={onClose}
+      className={styles.pvModalOverlay}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}
     >
-      <div onClick={(e) => e.stopPropagation()} className={styles.card} style={{ background: "var(--bg)", width: "min(640px, 100%)", display: "flex", gap: 0, overflow: "hidden", padding: 0 }}>
-        <div style={{ flexShrink: 0, width: 240, position: "relative" }}>
+      <div onClick={(e) => e.stopPropagation()} className={`${styles.card} ${styles.pvModalCard}`} style={{ background: "var(--bg)", width: "min(640px, 100%)", display: "flex", gap: 0, overflow: "hidden", padding: 0 }}>
+        <div className={styles.pvModalMedia} style={{ flexShrink: 0, width: 240, position: "relative" }}>
           <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="detail" />
         </div>
         <div style={{ flex: 1, minWidth: 0, padding: 20, maxHeight: "80vh", overflowY: "auto" }}>

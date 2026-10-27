@@ -123,6 +123,18 @@ Only **Custom Views** (`/explore`) is adapted for phones so far. Mobile is **not
 
 **Not yet verified on a real device** — checked in a 375px emulated viewport with mocked data only.
 
+### Partnership Ads on phones
+
+Same rules as Custom Views, applied to a six-tab screen (`pages/partnership-ads.js`, `components/partnership/*`):
+
+- **One context button, not a pill row.** "Ad account · Last 30 days ▾" opens a bottom sheet with Ad Account (+ Business / Instagram on the tabs that need them) and the date range (`PartnershipMobileChrome.js`). Reload and the Ready-to-Launch queue are 44px icon buttons beside it (queue shows a count badge). The h1/intro are hidden.
+- **Sub-tabs = sticky scrollable chip row** (`MobileTabChips`, short labels, active chip scrolled into view, still synced to `?tab=`). List toolbars pin *below* it (`top: 96px` via `.pvChipRow ~ …`).
+- **Overview = hero ROAS + head-to-head table** (Partnership vs Normal per metric, green/red delta pill, CPA inverted) instead of two stat cards plus six delta cards.
+- **My Ads / Creators reuse `ExploreMobileList`** (new props: `selectable`, `kpiKeys`, `toolbarExtra`, `renderLead`); filters live in a sheet; the creator's ads open in a `BottomSheet` (the desktop drawer can't sit above the tab bar from inside `.main`).
+- **Explore Ads** = search + Filters sheet and a two-up card grid; the selection bar sits above the tab bar. **Requests** = cards.
+- **Modals become bottom sheets** with `pvModalOverlay` / `pvModalCard` / `pvModalMedia` classes (they are inline-styled, so the mobile CSS overrides with `!important`). `.main { z-index: auto }` on phones — its `z-index: 1` stacking context otherwise keeps inline `z-index: 800` modals under the top and tab bars.
+- Empty states drop the numbered steps (`.pvEmpty`): the point plus one full-width action.
+
 ## Adding or changing a component
 
 1. Check the list above and `components/` for something reusable.

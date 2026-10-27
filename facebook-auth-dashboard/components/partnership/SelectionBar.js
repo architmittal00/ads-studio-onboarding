@@ -11,6 +11,7 @@ export default function SelectionBar({ count, needPermissionCount, readyCount, o
   if (count === 0) return null;
   return (
     <div
+      className={styles.pvSelBar}
       style={{
         position: "fixed",
         bottom: 24,

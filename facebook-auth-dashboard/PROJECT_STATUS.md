@@ -88,6 +88,10 @@ No open PRs. Everything described below is merged and live.
 
 `/catalog-ads` now has a phone presentation (desktop untouched): context button + sticky chip row, KPI/head-to-head Overview, card lists for catalog ads and product sets (products in a sheet), and the Create Ad wizard with a compact step bar, preview sheet and pinned action bar above the bottom tab bar. New: `launch-ad/components/CatalogAdsMobile.tsx`, `launch-ad/lib/catalog-perf.ts` (shared totals/types). Verified at 375px with mocked Meta responses (Overview, Ads, Sets, products sheet, wizard step 1 + preview sheet, destination tree, result screen); NOT verified: wizard steps 2–4 end to end, real data, dark mode, real phone. `launch-ad/` is ignored by ESLint, so only `tsc --noEmit` was run.
 
+### Mobile web: Partnership Ads (2026-10-27)
+
+Phone layout for `/partnership-ads` (+ `/partnership-ads/queue`, now allowed via `isMobileSupportedPath`): context button + sheet instead of the pill row, sticky chip sub-nav, head-to-head Overview, card lists for My Ads / Creator Hub (reusing `ExploreMobileList`), filter sheet, two-up Explore grid with the selection bar above the tab bar, modals as bottom sheets, creator ads in a `BottomSheet`. Desktop untouched. Verified at 375px with mocked endpoints (Overview, My Ads, Creators, Explore, selection bar, Details sheet); not verified on a real phone/account, in dark mode, or the Launch wizard / permission / redirection-link modals and the queue page on a phone (CSS-only conversion). See DESIGN.md → "Partnership Ads on phones".
+
 ### Mobile Custom Views: refresh state + 9-metric cards (2026-10-27)
 
 Refreshing existing results on a phone used a dark blurred scrim over the whole (tall) list with the loader centred off-screen. Now a sticky pill (`.mvRerunBar`) shows progress and stale rows fade. Cards show up to 9 metrics (was 6) before "+N more metrics". Verified by lint only; not exercised in a browser.

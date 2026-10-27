@@ -2,6 +2,7 @@ import Loader from "../Loader";
 import PartnershipEmptyState from "./PartnershipEmptyState";
 import { ChartIcon } from "@/components/icons";
 import { formatMetricValue } from "@/lib/insightsMetrics";
+import { useIsMobile } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
 
 // One rollup's own stat grid — used for both the Partnership and Normal
@@ -134,7 +135,89 @@ export default function OverviewTab({ ready, currency, range, loading, error, da
   );
 }
 
+// Phone version: one head-to-head table — a row per metric, Partnership vs
+// Normal side by side with a better/worse pill — instead of two stat cards
+// plus six delta cards that you'd have to scroll between to compare.
+const HEAD_TO_HEAD = [
+  { key: "roas", label: "ROAS", format: "decimal" },
+  { key: "cpa", label: "New CPA", format: "currency", lowerIsBetter: true },
+  { key: "ctr", label: "CTR", format: "percent" },
+  { key: "spend", label: "Spend", format: "currency" },
+  { key: "purchases", label: "Purchases", format: "number" },
+  { key: "reach", label: "Reach", format: "number" },
+  { key: "frequency", label: "Frequency", format: "decimal" },
+];
+
+function deltaOf(a, b, lowerIsBetter) {
+  if (typeof a !== "number" || typeof b !== "number" || b === 0) return null;
+  const pct = ((a - b) / Math.abs(b)) * 100;
+  const better = lowerIsBetter ? pct < 0 : pct > 0;
+  return { pct, better, flat: Math.abs(pct) < 0.5 };
+}
+
+function DeltaPill({ delta }) {
+  if (!delta) return <span className={styles.pvDelta}>n/a</span>;
+  const cls = delta.flat ? styles.pvDelta : delta.better ? `${styles.pvDelta} ${styles.pvDeltaGood}` : `${styles.pvDelta} ${styles.pvDeltaBad}`;
+  return (
+    <span className={cls}>
+      {delta.pct > 0 ? "+" : ""}
+      {delta.pct.toFixed(0)}%
+    </span>
+  );
+}
+
+function OverviewResultMobile({ data, currency }) {
+  const { partnership, normal } = data;
+  const fmt = (v, format) => formatMetricValue(v, format, currency, { compact: true });
+  const hero = deltaOf(partnership.roas, normal.roas);
+  return (
+    <>
+      <section className={styles.pvHero}>
+        <p className={styles.pvHeroLabel}>ROAS</p>
+        <div className={styles.pvHeroRow}>
+          <div>
+            <p className={styles.pvHeroValue} style={{ color: "var(--purple)" }}>{fmt(partnership.roas, "decimal")}</p>
+            <p className={styles.pvHeroCaption}>Partnership</p>
+          </div>
+          <DeltaPill delta={hero} />
+          <div style={{ textAlign: "right" }}>
+            <p className={styles.pvHeroValue}>{fmt(normal.roas, "decimal")}</p>
+            <p className={styles.pvHeroCaption}>Normal</p>
+          </div>
+        </div>
+      </section>
+      <section className={styles.pvH2H}>
+        <div className={styles.pvH2HHead}>
+          <span />
+          <span><i style={{ background: "var(--purple)" }} />Partnership</span>
+          <span><i style={{ background: "var(--t3)" }} />Normal</span>
+          <span />
+        </div>
+        <div className={styles.pvH2HRow}>
+          <span className={styles.pvH2HLabel}>Ads</span>
+          <span className={styles.pvH2HVal}>{partnership.allAds ?? "—"}{partnership.activeAds != null && <small> {partnership.activeAds} live</small>}</span>
+          <span className={styles.pvH2HVal}>{normal.allAds ?? "—"}{normal.activeAds != null && <small> {normal.activeAds} live</small>}</span>
+          <span />
+        </div>
+        {HEAD_TO_HEAD.map((m) => (
+          <div key={m.key} className={styles.pvH2HRow}>
+            <span className={styles.pvH2HLabel}>{m.label}</span>
+            <span className={styles.pvH2HVal}>{fmt(partnership[m.key], m.format)}</span>
+            <span className={styles.pvH2HVal}>{fmt(normal[m.key], m.format)}</span>
+            <DeltaPill delta={deltaOf(partnership[m.key], normal[m.key], m.lowerIsBetter)} />
+          </div>
+        ))}
+      </section>
+      <p className={styles.muted} style={{ fontSize: 11, margin: 0 }}>
+        Pills compare Partnership to Normal: green = better, red = worse (for CPA, lower is better).
+      </p>
+    </>
+  );
+}
+
 function OverviewResult({ data, currency, range }) {
+  const isMobile = useIsMobile();
+  if (isMobile) return <OverviewResultMobile data={data} currency={currency} />;
   const { partnership, normal } = data;
   return (
     <>

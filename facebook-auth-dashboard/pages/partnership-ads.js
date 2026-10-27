@@ -17,7 +17,10 @@ import CreatorHubTab from "@/components/partnership/CreatorHubTab";
 import PartnershipCodeTab from "@/components/partnership/PartnershipCodeTab";
 import { getPartnershipQueue } from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { computeRange } from "@/lib/dateRanges";
+import { computeRange, RANGE_PRESETS } from "@/lib/dateRanges";
+import { useIsMobile } from "@/lib/useIsMobile";
+import BottomSheet from "@/components/BottomSheet";
+import { MobileContextBar, MobileTabChips } from "@/components/partnership/PartnershipMobileChrome";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
@@ -54,13 +57,20 @@ function LabeledPill({ label, children }) {
   );
 }
 
+// "2026-09-27" -> "Sep 27" (year only when it isn't the current one).
+function shortDay(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const sameYear = iso.startsWith(String(new Date().getUTCFullYear()));
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: sameYear ? undefined : "numeric", timeZone: "UTC" });
+}
+
 const TABS = [
   { key: "overview", label: "Overview" },
-  { key: "mine", label: "My Partnership Ads" },
-  { key: "creators", label: "Creator Hub" },
-  { key: "explore", label: "Explore Ads" },
-  { key: "requests", label: "My Requests" },
-  { key: "code", label: "Partnership Code" },
+  { key: "mine", label: "My Partnership Ads", short: "My Ads" },
+  { key: "creators", label: "Creator Hub", short: "Creators" },
+  { key: "explore", label: "Explore Ads", short: "Explore" },
+  { key: "requests", label: "My Requests", short: "Requests" },
+  { key: "code", label: "Partnership Code", short: "Code" },
 ];
 
 // Partnership Ads (branded content ads): browse a Business's partner-
@@ -109,6 +119,8 @@ export default function PartnershipAds() {
     setSelectedBusinessId,
   } = useAccounts();
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [contextOpen, setContextOpen] = useState(false);
   const [tab, setTabState] = useState("overview");
   const isPerformanceTab = PERFORMANCE_TABS.includes(tab);
 
@@ -239,6 +251,45 @@ export default function PartnershipAds() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshQueueCount is stable in intent, re-created each render only incidentally
   }, [selectedAccountId]);
 
+  function renderDateMenu(fullWidth) {
+    return (
+      <DateRangeMenu
+        rangePreset={isPerformanceTab ? rangePreset : exploreRangePreset}
+        customSince={isPerformanceTab ? customSince : exploreCustomSince}
+        customUntil={isPerformanceTab ? customUntil : exploreCustomUntil}
+        maxRangeDays={isPerformanceTab ? MAX_RANGE_DAYS : 365}
+        compareToPrevious={false}
+        compareCustomSince=""
+        compareDisplay="change"
+        compareDisabled
+        compareDisabledReason={
+          isPerformanceTab
+            ? "Not available here — each of these tabs shows one window at a time, not a comparison view."
+            : "Not available here — this filters which content shows up, not a performance comparison."
+        }
+        triggerClassName={fullWidth ? undefined : styles.headerPillBtn}
+        fullWidth={fullWidth}
+        onApply={(patch) => {
+          if (isPerformanceTab) {
+            setRangePreset(patch.rangePreset);
+            setCustomSince(patch.customSince);
+            setCustomUntil(patch.customUntil);
+          } else {
+            setExploreRangePreset(patch.rangePreset);
+            setExploreCustomSince(patch.customSince);
+            setExploreCustomUntil(patch.customUntil);
+          }
+        }}
+      />
+    );
+  }
+
+  const activeRangeKey = isPerformanceTab ? rangePreset : exploreRangePreset;
+  const activeRange = isPerformanceTab ? performanceRange : exploreRange;
+  const mobileRangeLabel = activeRange
+    ? `${RANGE_PRESETS.find((p) => p.key === activeRangeKey)?.label || "Custom"} · ${shortDay(activeRange.since)}${activeRange.since === activeRange.until ? "" : ` – ${shortDay(activeRange.until)}`}`
+    : "";
+
   return (
     <Layout>
       <Head>
@@ -246,7 +297,18 @@ export default function PartnershipAds() {
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1500, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          {isMobile && (
+            <MobileContextBar
+              accountLabel={selectedAccount?.name}
+              rangeLabel={mobileRangeLabel}
+              queueCount={queueCount}
+              onOpen={() => setContextOpen(true)}
+              onReload={isPerformanceTab ? checkPerformance : null}
+              reloading={perf.loading}
+              canReload={!!performanceReady && !!performanceRange}
+            />
+          )}
+          <div className={isMobile ? styles.hideOnMobile : undefined} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
             <div>
               {/* h1/.sub both carry zero margin of their own (see
                   styles/Home.module.css) — the title's visible bottom
@@ -314,35 +376,7 @@ export default function PartnershipAds() {
                     />
                   </LabeledPill>
                 )}
-                {(isPerformanceTab || tab === "explore") && (
-                  <DateRangeMenu
-                    rangePreset={isPerformanceTab ? rangePreset : exploreRangePreset}
-                    customSince={isPerformanceTab ? customSince : exploreCustomSince}
-                    customUntil={isPerformanceTab ? customUntil : exploreCustomUntil}
-                    maxRangeDays={isPerformanceTab ? MAX_RANGE_DAYS : 365}
-                    compareToPrevious={false}
-                    compareCustomSince=""
-                    compareDisplay="change"
-                    compareDisabled
-                    compareDisabledReason={
-                      isPerformanceTab
-                        ? "Not available here — each of these tabs shows one window at a time, not a comparison view."
-                        : "Not available here — this filters which content shows up, not a performance comparison."
-                    }
-                    triggerClassName={styles.headerPillBtn}
-                    onApply={(patch) => {
-                      if (isPerformanceTab) {
-                        setRangePreset(patch.rangePreset);
-                        setCustomSince(patch.customSince);
-                        setCustomUntil(patch.customUntil);
-                      } else {
-                        setExploreRangePreset(patch.rangePreset);
-                        setExploreCustomSince(patch.customSince);
-                        setExploreCustomUntil(patch.customUntil);
-                      }
-                    }}
-                  />
-                )}
+                {(isPerformanceTab || tab === "explore") && renderDateMenu(false)}
                 {isPerformanceTab && (
                   <button
                     type="button"
@@ -387,7 +421,8 @@ export default function PartnershipAds() {
               the header's pill row above — no tab needs its own side panel
               anymore, so every tab gets this same full-width content area. */}
           <div className={styles.exploreContent}>
-            <div className={styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
+            {isMobile && <MobileTabChips tabs={TABS} active={tab} onChange={setTab} />}
+            <div className={isMobile ? styles.hideOnMobile : styles.tabGroup} style={{ marginBottom: 16, flexWrap: "wrap" }}>
               {TABS.map((t) => (
                 <button
                   key={t.key}
@@ -472,6 +507,35 @@ export default function PartnershipAds() {
               />
             )}
           </div>
+
+          {isMobile && (
+            <BottomSheet open={contextOpen} title="Account & dates" onClose={() => setContextOpen(false)} footer={<button type="button" className={styles.btnPrimary} style={{ flex: 1 }} onClick={() => setContextOpen(false)}>Done</button>}>
+              <div className={styles.pvSheetFields}>
+                <label className={styles.pvField}>
+                  <span>Ad account</span>
+                  <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} placeholder="Select an ad account…" loading={accountsLoading} usePortal zIndex={900} />
+                </label>
+                {!isPerformanceTab && (
+                  <label className={styles.pvField}>
+                    <span>Business Manager</span>
+                    <AccountSelect accounts={businessOptions} value={selectedBusinessId} onChange={setSelectedBusinessId} placeholder={businessOptions.length === 0 ? "No Business Manager found" : "Select a Business…"} loading={accountsLoading} usePortal zIndex={900} />
+                  </label>
+                )}
+                {!isPerformanceTab && (
+                  <label className={styles.pvField}>
+                    <span>Instagram account</span>
+                    <AccountSelect accounts={igOptions} value={selectedIgAccountId} onChange={setSelectedIgAccountId} placeholder={igOptions.length === 0 ? "No Instagram account" : "Select an Instagram account…"} loading={accountsLoading} usePortal zIndex={900} />
+                  </label>
+                )}
+                {(isPerformanceTab || tab === "explore") && (
+                  <div className={styles.pvField}>
+                    <span>{isPerformanceTab ? "Date range" : "Content posted"}</span>
+                    {renderDateMenu(true)}
+                  </div>
+                )}
+              </div>
+            </BottomSheet>
+          )}
         </main>
       </div>
     </Layout>

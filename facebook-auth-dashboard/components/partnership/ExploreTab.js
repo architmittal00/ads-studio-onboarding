@@ -9,6 +9,8 @@ import RedirectionLinkModal from "./RedirectionLinkModal";
 import { permissionState, firstPartnershipInfo } from "@/lib/partnershipContent";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import { addPermissionRequestLogEntry, addToPartnershipQueue } from "@/lib/clientStorage";
+import BottomSheet from "../BottomSheet";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { SearchIcon } from "../icons";
 import styles from "@/styles/Home.module.css";
 
@@ -55,6 +57,8 @@ function engagementScore(item) {
 // living locally here.
 export default function ExploreTab({ accountId, businessId, igUserId, ready, dateRange, onQueueChanged }) {
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [media, setMedia] = useState("all");
   const [usage, setUsage] = useState("all");
   const [eligibility, setEligibility] = useState("all");
@@ -316,58 +320,115 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
     }
   }
 
+  const activeFilterCount = [media, usage, eligibility].filter((v) => v !== "all").length + (sort !== "recent" ? 1 : 0);
+
   if (!ready) {
     return <p className={styles.sub}>Pick an ad account and Instagram Business Account above to browse content.</p>;
   }
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-        <select className={styles.select} value={media} onChange={(e) => setMedia(e.target.value)}>
-          {MEDIA_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select className={styles.select} value={usage} onChange={(e) => setUsage(e.target.value)}>
-          {USAGE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select className={styles.select} value={eligibility} onChange={(e) => setEligibility(e.target.value)}>
-          {ELIGIBILITY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select className={styles.select} value={sort} onChange={(e) => setSort(e.target.value)}>
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <div style={{ position: "relative", width: 220 }}>
-          <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--t3)", pointerEvents: "none" }}>
-            <SearchIcon size={13} />
+      {isMobile ? (
+        <>
+          <div className={styles.pvExploreBar}>
+            <div className={styles.mobileSearch}>
+              <SearchIcon size={15} />
+              <input type="search" placeholder="Search caption, handle…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search content" />
+            </div>
+            <button type="button" className={activeFilterCount ? `${styles.mobileToolBtn} ${styles.mobileToolBtnOn}` : styles.mobileToolBtn} onClick={() => setFiltersOpen(true)}>
+              Filters{activeFilterCount ? ` · ${activeFilterCount}` : ""}
+            </button>
+          </div>
+          <p className={styles.muted} style={{ fontSize: 12, margin: "0 0 10px" }}>
+            {visibleItems.length} ad{visibleItems.length === 1 ? "" : "s"} · tap a card to select
+          </p>
+          <BottomSheet
+            open={filtersOpen}
+            title="Filter content"
+            onClose={() => setFiltersOpen(false)}
+            footer={
+              <>
+                <button type="button" className={styles.btnSecondary} onClick={() => { setMedia("all"); setUsage("all"); setEligibility("all"); setSort("recent"); }}>
+                  Reset
+                </button>
+                <button type="button" className={styles.btnPrimary} style={{ flex: 1 }} onClick={() => setFiltersOpen(false)}>
+                  Show {visibleItems.length}
+                </button>
+              </>
+            }
+          >
+            <div className={styles.pvSheetFields}>
+              <label className={styles.pvField}><span>Media</span>
+                <select className={styles.select} value={media} onChange={(e) => setMedia(e.target.value)}>
+                  {MEDIA_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                </select>
+              </label>
+              <label className={styles.pvField}><span>Usage</span>
+                <select className={styles.select} value={usage} onChange={(e) => setUsage(e.target.value)}>
+                  {USAGE_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                </select>
+              </label>
+              <label className={styles.pvField}><span>Eligibility</span>
+                <select className={styles.select} value={eligibility} onChange={(e) => setEligibility(e.target.value)}>
+                  {ELIGIBILITY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                </select>
+              </label>
+              <label className={styles.pvField}><span>Sort by</span>
+                <select className={styles.select} value={sort} onChange={(e) => setSort(e.target.value)}>
+                  {SORT_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                </select>
+              </label>
+            </div>
+          </BottomSheet>
+        </>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          <select className={styles.select} value={media} onChange={(e) => setMedia(e.target.value)}>
+            {MEDIA_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select className={styles.select} value={usage} onChange={(e) => setUsage(e.target.value)}>
+            {USAGE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select className={styles.select} value={eligibility} onChange={(e) => setEligibility(e.target.value)}>
+            {ELIGIBILITY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select className={styles.select} value={sort} onChange={(e) => setSort(e.target.value)}>
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <div style={{ position: "relative", width: 220 }}>
+            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--t3)", pointerEvents: "none" }}>
+              <SearchIcon size={13} />
+            </span>
+            <input
+              type="text"
+              className={styles.select}
+              placeholder="Search caption, handle…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: "100%", paddingLeft: 30 }}
+            />
+          </div>
+          <span className={styles.muted} style={{ fontSize: 12, marginLeft: "auto" }}>
+            {visibleItems.length} ad{visibleItems.length === 1 ? "" : "s"}
           </span>
-          <input
-            type="text"
-            className={styles.select}
-            placeholder="Search caption, handle…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", paddingLeft: 30 }}
-          />
         </div>
-        <span className={styles.muted} style={{ fontSize: 12, marginLeft: "auto" }}>
-          {visibleItems.length} ad{visibleItems.length === 1 ? "" : "s"}
-        </span>
-      </div>
+      )}
 
       {loading && <Loader label="Loading eligible content…" />}
       {!loading && error && <div className={styles.error}>{error}</div>}

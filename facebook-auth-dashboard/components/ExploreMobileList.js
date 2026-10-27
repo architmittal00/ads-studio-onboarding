@@ -45,6 +45,10 @@ export default function ExploreMobileList({
   renderActions,
   onViewDetails,
   onOpenThumb,
+  selectable = true,
+  kpiKeys,
+  toolbarExtra,
+  renderLead,
 }) {
   const [sortOpen, setSortOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -138,7 +142,8 @@ export default function ExploreMobileList({
                 {selected && <CheckIcon size={13} />}
               </button>
             )}
-            {rowLevel === "ad" && (
+            {renderLead && renderLead(row)}
+            {!renderLead && rowLevel === "ad" && (
               <Thumb
                 src={row.thumbnailUrl}
                 isVideo={row.isVideo}
@@ -240,7 +245,8 @@ export default function ExploreMobileList({
                 {selected && <CheckIcon size={13} />}
               </button>
             )}
-            {level === "ad" && (
+            {renderLead && renderLead(row)}
+            {!renderLead && level === "ad" && (
               <Thumb src={row.thumbnailUrl} isVideo={row.isVideo} loading={row.thumbnailUrl === undefined} size={48} onClick={id ? () => onOpenThumb(row, title) : undefined} />
             )}
             <button
@@ -303,7 +309,8 @@ export default function ExploreMobileList({
           <span className={styles.mobileToolBtnLabel}>{sortLabel}</span>
           <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span>
         </button>
-        {rows.some((r) => r.entityId) && (
+        {toolbarExtra}
+        {selectable && rows.some((r) => r.entityId) && (
           <button
             type="button"
             className={selectMode ? `${styles.mobileToolBtn} ${styles.mobileToolBtnOn}` : styles.mobileToolBtn}
@@ -324,7 +331,7 @@ export default function ExploreMobileList({
 
       {totalsRow && (
         <div className={styles.kpiStrip} aria-label="Totals">
-          {metricColumns.map((m) => (
+          {metricColumns.filter((m) => !kpiKeys || kpiKeys.includes(m.key)).map((m) => (
             <div key={m.key} className={styles.kpiTile}>
               <div className={styles.kpiLabel}>{m.label}</div>
               <div className={styles.kpiValue}>{renderMetric(totalsRow, m.key)}</div>

@@ -53,7 +53,7 @@ function QueueRow({ item, checked, onToggleCheck, onChange, onRemove }) {
       </div>
 
       {expanded && (
-        <div style={{ padding: "0 14px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className={styles.pvQueueForm} style={{ padding: "0 14px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div>
             <label className={styles.muted} style={{ fontSize: 11 }}>
               Primary Text <span style={{ color: "var(--red)" }}>*</span>
