@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import Sidebar from "./Sidebar";
+import MobileTabBar from "./MobileTabBar";
 import styles from "@/styles/Home.module.css";
 import { useIsMobile, MOBILE_SUPPORTED_PATHS } from "@/lib/useIsMobile";
 
@@ -25,7 +26,7 @@ export default function Layout({ children }) {
           <div className={styles.mobileUnsupported}>
             <h1 className={styles.h2}>Best on a larger screen</h1>
             <p className={styles.sub}>
-              This screen isn&apos;t available on mobile yet. Custom Views is — everything else works on desktop.
+              This screen isn&apos;t available on mobile yet. Custom Views, Partnership Ads and Catalog Ads are — everything else works on desktop.
             </p>
             <Link href="/explore" className={styles.btnPrimary}>
               Open Custom Views
@@ -35,6 +36,7 @@ export default function Layout({ children }) {
           children
         )}
       </div>
+      {isMobile && <MobileTabBar />}
     </div>
   );
 }
