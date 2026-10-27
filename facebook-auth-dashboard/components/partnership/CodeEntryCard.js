@@ -132,8 +132,8 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved, igOpti
       {unlisted && (
         <div className={styles.card} style={{ marginTop: 10, padding: 12 }}>
           <p style={{ marginBottom: 8 }}>
-            Meta&apos;s content search doesn&apos;t list this code, so it can&apos;t be previewed here. It can still be launched directly with the code
-            (the ad will use your Page and Instagram account as the partner identity).
+            Meta&apos;s content search doesn&apos;t list this code, but it can still be previewed (rendered by Meta from the code) and launched directly.
+            The ad will use your Page and Instagram account as the partner identity.
           </p>
           <button
             type="button"
@@ -152,7 +152,7 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved, igOpti
               setValue("");
             }}
           >
-            Continue without preview
+            Preview &amp; continue
           </button>
         </div>
       )}
