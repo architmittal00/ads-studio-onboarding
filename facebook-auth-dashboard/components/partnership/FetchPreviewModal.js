@@ -25,7 +25,47 @@ const CTA_OPTIONS = [
 // AI-copy fields. "AI-Powered Ad Copies" is a visible, disabled "Coming
 // soon" affordance for the same reason — no real backing copy-generation
 // service exists anywhere in the reference material this was built from.
-export default function FetchPreviewModal({ item, onClose, onAddToQueue, onLaunchNow }) {
+// Preview for a code Content Discovery doesn't list: Meta's own preview generator,
+// fed the same creative the launch would create. Scaled to the panel, scrolls inside.
+function CodePreview({ adCode, accountId, pageId, igUserId }) {
+  const [state, setState] = useState({ loading: true, url: null, width: 500, height: 700, error: null });
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ accountId, pageId, adCode });
+    if (igUserId) params.set("igUserId", igUserId);
+    fetch(`/api/fb/partnership/code-preview?${params.toString()}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        setState({ loading: false, url: json.previewUrl || null, width: json.width || 500, height: json.height || 700, error: json.previewUrl ? null : json.error || json.warning });
+      })
+      .catch((e) => !cancelled && setState({ loading: false, url: null, width: 500, height: 700, error: e.message }));
+    return () => {
+      cancelled = true;
+    };
+  }, [adCode, accountId, pageId, igUserId]);
+  if (state.loading) return <div style={{ padding: 16, fontSize: 12.5, color: "var(--t3)" }}>Loading preview…</div>;
+  if (!state.url) {
+    return <div style={{ padding: 16, fontSize: 12.5, color: "var(--t3)" }}>No preview available{state.error ? `: ${state.error}` : "."}</div>;
+  }
+  const boxW = 300;
+  const scale = Math.min(1, boxW / state.width);
+  return (
+    <div style={{ width: boxW, height: 460, overflow: "hidden", background: "#fff" }}>
+      <iframe
+        src={state.url}
+        width={state.width}
+        height={460 / scale}
+        scrolling="yes"
+        allow="autoplay; encrypted-media"
+        sandbox="allow-scripts allow-same-origin allow-popups"
+        style={{ border: "none", transform: `scale(${scale})`, transformOrigin: "top left", display: "block" }}
+      />
+    </div>
+  );
+}
+
+export default function FetchPreviewModal({ item, onClose, onAddToQueue, onLaunchNow, previewContext }) {
   const [name, setName] = useState("");
   const [primaryText, setPrimaryText] = useState("");
   const [headline, setHeadline] = useState("");
@@ -103,9 +143,9 @@ export default function FetchPreviewModal({ item, onClose, onAddToQueue, onLaunc
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}
     >
       <div onClick={(e) => e.stopPropagation()} className={`${styles.card} ${styles.pvModalCard}`} style={{ background: "var(--bg)", width: "min(640px, 100%)", display: "flex", gap: 0, overflow: "hidden", padding: 0 }}>
-        <div className={styles.pvModalMedia} style={{ flexShrink: 0, width: 240, position: "relative" }}>
+        <div className={styles.pvModalMedia} style={{ flexShrink: 0, width: item.unverified ? 300 : 240, position: "relative" }}>
           {item.unverified ? (
-            <div style={{ padding: 16, fontSize: 12.5, color: "var(--t3)" }}>No preview — this code isn&apos;t listed by Meta&apos;s content search.</div>
+            <CodePreview adCode={firstPartnershipInfo(item).ad_code} {...previewContext} />
           ) : (
             <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="detail" />
           )}

@@ -53,6 +53,11 @@ export default function PartnershipCodeTab({ accountId, businessId, igUserId, pa
 
       <FetchPreviewModal
         item={previewItem}
+        previewContext={{
+          accountId,
+          igUserId,
+          pageId: (pages || []).find((p) => p.instagram_business_account?.id === igUserId)?.id || pages?.[0]?.id,
+        }}
         onClose={() => setPreviewItem(null)}
         onAddToQueue={(item) => {
           handleQueuedOne(item);
