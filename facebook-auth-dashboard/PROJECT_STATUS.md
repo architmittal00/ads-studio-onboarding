@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Ad preview scrolls instead of being cut off (2026-10-27)
+
+Follow-up to the mobile preview fix: Meta's reported iframe height was only a hint (the ad's call-to-action area sat below it), and shrinking the frame to fit the screen height made it small and unscrollable. `CreativeLightbox` now scales the frame by WIDTH only, makes the frame as tall as the window allows (`innerHeight - 150`), and lets the ad scroll inside it. Not tried against a real Meta preview.
+
 ### Mobile ad preview no longer clipped (2026-10-27)
 
 `CreativeLightbox` rendered Meta's 500px-wide desktop-feed preview in an iframe whose box CSS shrank to the phone width, so the ad was cut off (text clipped, black bar). Phones now request `MOBILE_FEED_STANDARD` (`/api/fb/ad-preview?format=`), the API returns the iframe's natural `width`/`height`, and the lightbox keeps that size and scales the whole frame to fit the viewport (also capped to 78% of the screen height) on both desktop and phone. Checked the sizing/scale numbers with a stand-in frame at 375px; not seen with a real Meta preview.

@@ -131,22 +131,24 @@ export default function CreativeLightbox({ item, onClose }) {
           />
         ) : showLivePreview ? (
           (() => {
-            // Meta lays the ad out for the iframe's natural size; shrinking the
-            // iframe box with CSS only clips it (cut-off text, black bars). Keep
-            // the natural size and scale the whole frame down to fit instead.
+            // Meta lays the ad out for the iframe's natural width; shrinking the
+            // iframe box with CSS only clips it. Keep the natural width and scale
+            // the frame to the screen WIDTH. The reported height is only a hint —
+            // the ad (video + caption + call-to-action) is often taller — so the
+            // frame is as tall as the window allows and scrolls inside itself.
             const naturalW = preview.width || (isMobile ? 335 : 500);
-            const naturalH = preview.height || (isMobile ? 640 : 700);
-            const maxW = Math.max(240, viewportW - 48);
-            const maxH = (typeof window === "undefined" ? 800 : window.innerHeight) * 0.78;
-            const scale = Math.min(1, maxW / naturalW, maxH / naturalH);
+            const scale = Math.min(1, Math.max(240, viewportW - 48) / naturalW);
+            const availH = (typeof window === "undefined" ? 800 : window.innerHeight) - 150;
+            const frameH = availH / scale; // exactly fills the window; the ad scrolls inside it
             return (
-              <div style={{ width: naturalW * scale, height: naturalH * scale, borderRadius: 10, overflow: "hidden", background: "#fff", flexShrink: 0 }}>
+              <div style={{ width: naturalW * scale, height: availH, overflow: "hidden", borderRadius: 10, background: "#fff", flexShrink: 0 }}>
                 <iframe
                   src={preview.url}
                   width={naturalW}
-                  height={naturalH}
+                  height={frameH}
                   allow="autoplay; encrypted-media"
                   sandbox="allow-scripts allow-same-origin allow-popups"
+                  scrolling="yes"
                   style={{ border: "none", background: "#fff", transform: `scale(${scale})`, transformOrigin: "top left", display: "block" }}
                 />
               </div>
