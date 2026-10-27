@@ -353,6 +353,10 @@ export function buildGenericAdsetPayload(fields) {
   if (fields.attributionSetting && ATTRIBUTION_SPECS[fields.attributionSetting]) {
     payload.attribution_spec = ATTRIBUTION_SPECS[fields.attributionSetting];
   }
+  // Bid cap / cost cap need bid_amount; a ROAS goal needs
+  // bid_constraints.roas_average_floor. Copied from the source ad set.
+  if (fields.bidAmount) payload.bid_amount = fields.bidAmount;
+  if (fields.bidConstraints && Object.keys(fields.bidConstraints).length) payload.bid_constraints = fields.bidConstraints;
   // Only set on ABO (ad-set-level budget) — a CBO campaign carries the
   // budget itself and rejects daily_budget/lifetime_budget on its ad sets.
   if (fields.budgetStrategy === "ABO" && fields.budgetAmountMinorUnits) {
