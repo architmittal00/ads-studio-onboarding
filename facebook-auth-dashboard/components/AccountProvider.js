@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
@@ -136,6 +137,7 @@ export function AccountProvider({ children }) {
   }, [adAccounts]);
 
   function setSelectedAccountId(id) {
+    if (id) track("account_switched", { account: id });
     setSelectedAccountIdState(id);
     if (id) setLastAccountId(id);
   }

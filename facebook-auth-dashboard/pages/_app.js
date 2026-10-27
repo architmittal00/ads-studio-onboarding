@@ -10,7 +10,7 @@ import ApiLogsFab from "@/components/ApiLogsFab";
 import { getThemePreference } from "@/lib/clientStorage";
 import { sweepAllKnownCaches } from "@/lib/clientCache";
 import { CLARITY_PROJECT_ID, identifyClarityUser } from "@/lib/clarity";
-import { initAnalytics, identifyUser, resetAnalytics, trackPageview } from "@/lib/analytics";
+import { initAnalytics, installAutoTracking, identifyUser, resetAnalytics, trackPageview } from "@/lib/analytics";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -105,6 +105,7 @@ function Analytics() {
   const name = session?.user?.name;
   useEffect(() => {
     initAnalytics();
+    installAutoTracking();
   }, []);
   useEffect(() => {
     if (userId) identifyUser({ id: userId, email, name });
