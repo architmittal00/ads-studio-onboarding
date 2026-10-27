@@ -508,6 +508,12 @@ export default function PartnershipAds() {
                 pages={pages}
                 ready={ready}
                 onQueueChanged={refreshQueueCount}
+                igOptions={igOptions}
+                businessOptions={businessOptions}
+                onSwitchContext={(bizId, igId) => {
+                  setSelectedBusinessId(bizId);
+                  setSelectedIgAccountId(igId);
+                }}
               />
             )}
           </div>

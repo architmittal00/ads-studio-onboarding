@@ -17,20 +17,57 @@ const MODES = [
 // parent to open FetchPreviewModal; on a miss, shows Graph's own error
 // message inline rather than a separate error modal like the mockup's
 // `.ferr-modal`.
-export default function CodeEntryCard({ businessId, igUserId, onResolved }) {
+const MAX_FALLBACK_LOOKUPS = 24;
+
+async function lookupOnce(biz, ig, mode, value) {
+  const params = new URLSearchParams({ businessId: biz, igUserId: ig, [mode]: value });
+  const res = await fetch(`/api/fb/partnership/content-lookup?${params.toString()}`);
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  return json?.item || null;
+}
+
+export default function CodeEntryCard({ businessId, igUserId, onResolved, igOptions = [], businessOptions = [], onSwitchContext }) {
   const [mode, setMode] = useState("adCode");
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Set when the code was not found under the selected Business/Instagram account but IS under another one.
+  const [foundElsewhere, setFoundElsewhere] = useState(null);
   const activeMode = MODES.find((m) => m.value === mode);
 
   async function handleFetch() {
     if (!value.trim() || loading) return;
     setLoading(true);
     setError(null);
+    setFoundElsewhere(null);
     try {
       const params = new URLSearchParams({ businessId, igUserId, [mode]: value.trim() });
       const res = await fetch(`/api/fb/partnership/content-lookup?${params.toString()}`);
+      if (res.status === 404 && onSwitchContext) {
+        // A Partnership Code only resolves under the Instagram account/Business it
+        // was shared with. Try the user's other combinations before giving up.
+        const combos = [];
+        for (const b of [businessId, ...businessOptions.map((o) => o.id).filter((id) => id !== businessId)]) {
+          for (const ig of igOptions) {
+            if (b === businessId && ig.id === igUserId) continue;
+            combos.push({ biz: b, ig });
+          }
+        }
+        const results = await Promise.all(
+          combos.slice(0, MAX_FALLBACK_LOOKUPS).map(async (c) => ({ c, item: await lookupOnce(c.biz, c.ig.id, mode, value.trim()).catch(() => null) }))
+        );
+        const hit = results.find((r) => r.item);
+        if (hit) {
+          setFoundElsewhere({
+            item: hit.item,
+            bizId: hit.c.biz,
+            bizName: businessOptions.find((o) => o.id === hit.c.biz)?.name,
+            ig: hit.c.ig,
+          });
+          return;
+        }
+      }
       const json = await readApiResponse(res);
       onResolved(json.item);
       setValue("");
@@ -81,6 +118,26 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved }) {
       {error && (
         <div className={styles.error} style={{ marginTop: 10 }}>
           {error}
+        </div>
+      )}
+      {foundElsewhere && (
+        <div className={styles.card} style={{ marginTop: 10, padding: 12 }}>
+          <p style={{ marginBottom: 8 }}>
+            This code isn&apos;t available for the selected Instagram account, but it works with <strong>{foundElsewhere.ig.name}</strong>
+            {foundElsewhere.bizName ? ` (Business: ${foundElsewhere.bizName})` : ""}. Launching must use that account.
+          </p>
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={() => {
+              onSwitchContext(foundElsewhere.bizId, foundElsewhere.ig.id);
+              onResolved(foundElsewhere.item);
+              setFoundElsewhere(null);
+              setValue("");
+            }}
+          >
+            Switch to {foundElsewhere.ig.name} and continue
+          </button>
         </div>
       )}
     </section>
