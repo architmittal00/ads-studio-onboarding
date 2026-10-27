@@ -33,3 +33,8 @@ export const MOBILE_SUPPORTED_PATHS = ["/explore", "/partnership-ads", "/catalog
 // Height of the fixed bottom tab bar (components/MobileTabBar.js), excluding
 // the device safe-area inset. Fixed bottom bars of other components sit above it.
 export const MOBILE_TAB_BAR_HEIGHT = 56;
+
+// Sub-pages count too (e.g. /partnership-ads/queue under /partnership-ads).
+export function isMobileSupportedPath(pathname) {
+  return MOBILE_SUPPORTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}

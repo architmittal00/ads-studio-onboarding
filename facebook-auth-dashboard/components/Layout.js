@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Sidebar from "./Sidebar";
 import MobileTabBar from "./MobileTabBar";
 import styles from "@/styles/Home.module.css";
-import { useIsMobile, MOBILE_SUPPORTED_PATHS } from "@/lib/useIsMobile";
+import { useIsMobile, isMobileSupportedPath } from "@/lib/useIsMobile";
 
 // Persistent app shell: a fixed sidebar (nav + sign out) and a scrollable
 // content area. Each page keeps rendering its own existing .page/.main
@@ -16,7 +16,7 @@ import { useIsMobile, MOBILE_SUPPORTED_PATHS } from "@/lib/useIsMobile";
 export default function Layout({ children }) {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const unsupported = isMobile && !MOBILE_SUPPORTED_PATHS.includes(router.pathname);
+  const unsupported = isMobile && !isMobileSupportedPath(router.pathname);
 
   return (
     <div className={styles.appShell}>

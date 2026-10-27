@@ -69,6 +69,7 @@ export default function PartnershipCodeTab({ accountId, businessId, igUserId, pa
 
       {toast && (
         <div
+          className={styles.pvToast}
           style={{
             position: "fixed",
             bottom: 24,

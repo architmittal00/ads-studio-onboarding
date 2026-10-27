@@ -124,6 +124,7 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
   return (
     <div
       onClick={onClose}
+      className={styles.pvModalOverlay}
       style={{
         position: "fixed",
         inset: 0,
@@ -138,10 +139,10 @@ export default function ExpandedCardModal({ item, accountId, igUserId, onClose, 
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={styles.card}
+        className={`${styles.card} ${styles.pvModalCard}`}
         style={{ background: "var(--bg)", width: "min(720px, 100%)", display: "flex", gap: 0, overflow: "hidden", padding: 0 }}
       >
-        <div style={{ flexShrink: 0, width: 240, position: "relative" }}>
+        <div className={styles.pvModalMedia} style={{ flexShrink: 0, width: 240, position: "relative" }}>
           <ContentPreviewMedia contentId={item.content_id} permalink={item.permalink} mediaType={item.media_type} variant="detail" />
         </div>
         <div style={{ flex: 1, minWidth: 0, padding: 22, maxHeight: "80vh", overflowY: "auto" }}>

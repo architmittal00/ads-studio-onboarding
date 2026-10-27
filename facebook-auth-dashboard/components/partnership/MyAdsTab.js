@@ -8,7 +8,35 @@ import CreatorAvatar from "./CreatorAvatar";
 import { HandshakeIcon, CloseIcon } from "@/components/icons";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import { METRIC_FILTER_OPERATORS, applyResultFilters } from "@/lib/copyAdsFilters";
+import ExploreMobileList from "@/components/ExploreMobileList";
+import BottomSheet from "@/components/BottomSheet";
+import { useIsMobile } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
+
+// Phone list config: the same metrics as the desktop table, as cards.
+const MOBILE_METRICS = [
+  { key: "spend", label: "Spend", format: "currency" },
+  { key: "roas", label: "ROAS", format: "decimal" },
+  { key: "cpr", label: "CPR", format: "currency" },
+  { key: "cpm", label: "CPM", format: "currency" },
+  { key: "ctr", label: "CTR", format: "percent" },
+  { key: "purchases", label: "Purchases", format: "number" },
+  { key: "purchaseValue", label: "Purchase Value", format: "currency" },
+];
+const MOBILE_SORT_COLUMNS = [...MOBILE_METRICS, { key: "name", label: "Ad name", isName: true, sortValue: (r) => r.name || "" }];
+const EMPTY_SET = new Set();
+const noop = () => {};
+const MOBILE_NO_DRILL = {
+  enabled: false,
+  pivotEnabled: false,
+  expansions: {},
+  plural: () => "",
+  childLevel: () => null,
+  orderChildren: (rows) => rows,
+};
+function mobileSubtitle(row) {
+  return [row.creatorUsername && `@${row.creatorUsername}`, row.campaignName].filter(Boolean).join(" · ");
+}
 
 // The numeric columns a "Filter results" condition can threshold on — same
 // metric set the table itself renders (see columns() below), ported from
@@ -120,7 +148,12 @@ function describeCreatorSummary(summary) {
 }
 
 export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoaded, range, creatorSummary, onCheck, canCheck }) {
+  const isMobile = useIsMobile();
   const [lightboxItem, setLightboxItem] = useState(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mSortKey, setMSortKey] = useState("spend");
+  const [mSortDir, setMSortDir] = useState("desc");
+  const [mSearch, setMSearch] = useState("");
   const creatorSummaryText = describeCreatorSummary(creatorSummary);
 
   // "Filter results" — same post-query, client-side pivot pattern as Copy
@@ -164,6 +197,77 @@ export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoad
     [metricFiltered, statusValues]
   );
 
+  const filterCount = appliedConditions.length + (statusValues ? 1 : 0);
+  const mobileRows = useMemo(() => (filteredAds || []).map((r) => ({ ...r, entityId: r.adId })), [filteredAds]);
+  const mobileTotals = useMemo(() => {
+    const t = (filteredAds || []).reduce((a, r) => ({ spend: a.spend + (r.spend || 0), purchases: a.purchases + (r.purchases || 0), purchaseValue: a.purchaseValue + (r.purchaseValue || 0) }), { spend: 0, purchases: 0, purchaseValue: 0 });
+    return { ...t, roas: t.spend ? t.purchaseValue / t.spend : null, cpr: t.purchases ? t.spend / t.purchases : null };
+  }, [filteredAds]);
+
+  const filterCard = (
+    <div className={isMobile ? undefined : styles.card} style={isMobile ? undefined : { padding: 12, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span className={styles.muted} style={{ fontWeight: 600 }}>
+          Filter results
+        </span>
+        <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
+          + Metric filter
+        </button>
+        {(draftConditions.length > 0 || hasPendingFilterChanges) && (
+          <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
+            Apply Filters
+          </button>
+        )}
+      </div>
+
+      {draftConditions.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          {draftConditions.map((c) => (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
+                {FILTER_METRICS.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
+                {METRIC_FILTER_OPERATORS.map((op) => (
+                  <option key={op.value} value={op.value}>
+                    {op.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                className={styles.select}
+                style={{ width: 110 }}
+                value={c.value}
+                onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
+                onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
+              />
+              <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
+                <CloseIcon size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {availableStatuses.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
+          <span className={styles.muted}>Status</span>
+          {availableStatuses.map((s) => (
+            <label key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+              <input type="checkbox" checked={!statusValues || statusValues.includes(s)} onChange={() => toggleStatus(s)} />
+              {humanizeStatus(s)}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   if (!ready) {
     return (
       <PartnershipEmptyState
@@ -203,85 +307,67 @@ export default function MyAdsTab({ ready, currency, ads, loading, error, hasLoad
             {filteredAds.length === ads.length
               ? `${ads.length} partnership ad${ads.length === 1 ? "" : "s"}`
               : `${filteredAds.length} of ${ads.length} partnership ads`}{" "}
-            · {range.since} to {range.until}
+            {!isMobile && `· ${range.since} to ${range.until}`}
           </p>
           {creatorSummaryText && (
             <p className={styles.muted} style={{ fontSize: 11, marginTop: 0, marginBottom: 10 }}>
               {creatorSummaryText}
             </p>
           )}
-          <div className={styles.card} style={{ padding: 12, marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span className={styles.muted} style={{ fontWeight: 600 }}>
-                Filter results
-              </span>
-              <button type="button" className={styles.btnSecondary} onClick={addDraftCondition}>
-                + Metric filter
-              </button>
-              {(draftConditions.length > 0 || hasPendingFilterChanges) && (
-                <button type="button" className={styles.btnPrimary} disabled={!hasPendingFilterChanges} onClick={applyMetricFilters}>
-                  Apply Filters
+          {!isMobile && filterCard}
+          {isMobile ? (
+            <ExploreMobileList
+              rows={mobileRows}
+              level="ad"
+              metricColumns={MOBILE_METRICS}
+              sortColumns={MOBILE_SORT_COLUMNS}
+              statusAvailable
+              totalsRow={mobileTotals}
+              kpiKeys={["spend", "roas", "cpr", "purchases", "purchaseValue"]}
+              renderMetric={(row, key) => formatMetricValue(row[key], MOBILE_METRICS.find((m) => m.key === key)?.format, currency, { compact: true })}
+              getTitle={(r) => r.name}
+              getSubtitle={mobileSubtitle}
+              sortKey={mSortKey}
+              sortDir={mSortDir}
+              onSortChange={(k, d) => {
+                setMSortKey(k);
+                setMSortDir(d);
+              }}
+              search={mSearch}
+              onSearchChange={setMSearch}
+              selectedIds={EMPTY_SET}
+              onToggleSelected={noop}
+              onSelectAll={noop}
+              allSelected={false}
+              selectable={false}
+              drill={MOBILE_NO_DRILL}
+              renderActions={() => null}
+              onViewDetails={(d) => setLightboxItem(mobileRows.find((r) => r.entityId === d.id) || null)}
+              onOpenThumb={(row) => setLightboxItem(row)}
+              toolbarExtra={
+                <button type="button" className={filterCount ? `${styles.mobileToolBtn} ${styles.mobileToolBtnOn}` : styles.mobileToolBtn} onClick={() => setFiltersOpen(true)}>
+                  Filters{filterCount ? ` · ${filterCount}` : ""}
                 </button>
-              )}
-            </div>
-
-            {draftConditions.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                {draftConditions.map((c) => (
-                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <select className={styles.select} value={c.metricKey} onChange={(e) => updateDraftCondition(c.id, { metricKey: e.target.value })}>
-                      {FILTER_METRICS.map((m) => (
-                        <option key={m.key} value={m.key}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select className={styles.select} value={c.operator} onChange={(e) => updateDraftCondition(c.id, { operator: e.target.value })}>
-                      {METRIC_FILTER_OPERATORS.map((op) => (
-                        <option key={op.value} value={op.value}>
-                          {op.label}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      className={styles.select}
-                      style={{ width: 110 }}
-                      value={c.value}
-                      onChange={(e) => updateDraftCondition(c.id, { value: e.target.value === "" ? "" : Number(e.target.value) })}
-                      onKeyDown={(e) => e.key === "Enter" && applyMetricFilters()}
-                    />
-                    <button type="button" className={styles.btnSecondary} onClick={() => removeDraftCondition(c.id)} aria-label="Remove filter">
-                      <CloseIcon size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {availableStatuses.length > 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
-                <span className={styles.muted}>Status</span>
-                {availableStatuses.map((s) => (
-                  <label key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-                    <input type="checkbox" checked={!statusValues || statusValues.includes(s)} onChange={() => toggleStatus(s)} />
-                    {humanizeStatus(s)}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          <SortableTable
-            columns={columns(currency, setLightboxItem)}
-            rows={filteredAds}
-            defaultSortKey="spend"
-            defaultSortDir="desc"
-            searchable
-            searchKeys={["name", "campaignName", "adsetName"]}
-            emptyMessage={appliedConditions.length > 0 || statusValues ? "No ads match the current filters." : "No ads found."}
-            maxHeight={520}
-          />
+              }
+            />
+          ) : (
+            <SortableTable
+              columns={columns(currency, setLightboxItem)}
+              rows={filteredAds}
+              defaultSortKey="spend"
+              defaultSortDir="desc"
+              searchable
+              searchKeys={["name", "campaignName", "adsetName"]}
+              emptyMessage={appliedConditions.length > 0 || statusValues ? "No ads match the current filters." : "No ads found."}
+              maxHeight={520}
+            />
+          )}
         </>
+      )}
+      {isMobile && (
+        <BottomSheet open={filtersOpen} title="Filter ads" onClose={() => setFiltersOpen(false)}>
+          {filterCard}
+        </BottomSheet>
       )}
       <CreativeLightbox
         item={lightboxItem ? { id: lightboxItem.adId, name: lightboxItem.name, thumbnailUrl: lightboxItem.thumbnailUrl } : null}

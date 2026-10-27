@@ -7,7 +7,22 @@ import CreatorAvatar from "./CreatorAvatar";
 import { TargetIcon } from "@/components/icons";
 import { groupByCreator } from "@/lib/partnershipCreatorStats";
 import { formatMetricValue } from "@/lib/insightsMetrics";
+import ExploreMobileList from "@/components/ExploreMobileList";
+import { useIsMobile } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
+
+const MOBILE_METRICS = [
+  { key: "spend", label: "Spend", format: "currency" },
+  { key: "roas", label: "Avg ROAS", format: "decimal" },
+  { key: "cpr", label: "Avg CPR", format: "currency" },
+  { key: "purchases", label: "Purchases", format: "number" },
+  { key: "adCount", label: "Ads", format: "number" },
+  { key: "creativeCount", label: "Creatives", format: "number" },
+];
+const MOBILE_SORT_COLUMNS = [...MOBILE_METRICS, { key: "name", label: "Creator", isName: true, sortValue: (r) => (r.creatorUsername || r.key || "").toLowerCase() }];
+const EMPTY_SET = new Set();
+const noop = () => {};
+const NO_DRILL = { enabled: false, pivotEnabled: false, expansions: {}, plural: () => "", childLevel: () => null, orderChildren: (rows) => rows };
 
 function buildCsv(rows, currency) {
   const header = ["Creator", "Ads", "Creatives", "Spend", "Purchases", "Purchase Value", "ROAS", "CPR"];
@@ -55,9 +70,14 @@ function downloadCsv(csv, filename) {
 // (and My Partnership Ads) now share one fetch+cache with Overview instead
 // of each independently calling /api/fb/partnership/mine.
 export default function CreatorHubTab({ ready, currency, ads, loading, error, hasLoaded, range, onCheck, canCheck }) {
+  const isMobile = useIsMobile();
   const [openCreator, setOpenCreator] = useState(null);
+  const [mSortKey, setMSortKey] = useState("spend");
+  const [mSortDir, setMSortDir] = useState("desc");
+  const [mSearch, setMSearch] = useState("");
 
   const creators = useMemo(() => groupByCreator(ads || []), [ads]);
+  const mobileRows = useMemo(() => creators.map((c) => ({ ...c, entityId: c.key, name: `@${c.creatorUsername || c.key}` })), [creators]);
 
   const columns = [
     {
@@ -127,22 +147,54 @@ export default function CreatorHubTab({ ready, currency, ads, loading, error, ha
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <p className={styles.sub} style={{ margin: 0 }}>
-              {creators.length} creator{creators.length === 1 ? "" : "s"} · {range.since} to {range.until}
+              {creators.length} creator{creators.length === 1 ? "" : "s"}{!isMobile && ` · ${range.since} to ${range.until}`}
             </p>
             <button type="button" className={styles.btnSecondary} onClick={() => downloadCsv(buildCsv(creators, currency), "creator-hub.csv")}>
               Export CSV
             </button>
           </div>
-          <SortableTable
-            columns={columns}
-            rows={creators}
-            defaultSortKey="spend"
-            defaultSortDir="desc"
-            searchable
-            searchKeys={["creatorUsername"]}
-            onRowClick={setOpenCreator}
-            maxHeight={520}
-          />
+          {isMobile ? (
+            <ExploreMobileList
+              rows={mobileRows}
+              level="creator"
+              metricColumns={MOBILE_METRICS}
+              sortColumns={MOBILE_SORT_COLUMNS}
+              statusAvailable={false}
+              totalsRow={null}
+              renderMetric={(row, key) => formatMetricValue(row[key], MOBILE_METRICS.find((m) => m.key === key)?.format, currency, { compact: true })}
+              getTitle={(r) => r.name}
+              getSubtitle={(r) => (r.creatorFollowersCount != null ? `${formatMetricValue(r.creatorFollowersCount, "number", undefined, { compact: true })} followers` : "")}
+              sortKey={mSortKey}
+              sortDir={mSortDir}
+              onSortChange={(k, d) => {
+                setMSortKey(k);
+                setMSortDir(d);
+              }}
+              search={mSearch}
+              onSearchChange={setMSearch}
+              selectedIds={EMPTY_SET}
+              onToggleSelected={noop}
+              onSelectAll={noop}
+              allSelected={false}
+              selectable={false}
+              drill={NO_DRILL}
+              renderActions={() => null}
+              renderLead={(r) => <CreatorAvatar src={r.creatorProfilePictureUrl} username={r.creatorUsername || r.key} size={40} />}
+              onViewDetails={(d) => setOpenCreator(creators.find((c) => c.key === d.id) || null)}
+              onOpenThumb={noop}
+            />
+          ) : (
+            <SortableTable
+              columns={columns}
+              rows={creators}
+              defaultSortKey="spend"
+              defaultSortDir="desc"
+              searchable
+              searchKeys={["creatorUsername"]}
+              onRowClick={setOpenCreator}
+              maxHeight={520}
+            />
+          )}
           <CreatorAdsDrawer creator={openCreator} currency={currency} onClose={() => setOpenCreator(null)} />
         </>
       )}

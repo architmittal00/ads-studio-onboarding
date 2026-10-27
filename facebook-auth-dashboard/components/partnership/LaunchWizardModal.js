@@ -206,9 +206,10 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
   return (
     <div
       onClick={launching ? undefined : onClose}
+      className={styles.pvModalOverlay}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}
     >
-      <div onClick={(e) => e.stopPropagation()} className={styles.card} style={{ background: "var(--bg)", width: "min(520px, 100%)", maxHeight: "86vh", display: "flex", flexDirection: "column" }}>
+      <div onClick={(e) => e.stopPropagation()} className={`${styles.card} ${styles.pvModalCard}`} style={{ background: "var(--bg)", width: "min(520px, 100%)", maxHeight: "86vh", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div>
             <h2 className={styles.h2} style={{ marginBottom: 2 }}>
