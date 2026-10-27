@@ -84,6 +84,10 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Mobile filter sheet: app type scale (2026-10-27)
+
+The global phone rule forces every `input`/`select` to 16px (iOS zooms on focus below that), which made native selects in the Filters sheet look oversized next to the app's 13px chips/buttons. Metric and condition are now button-style pickers (13px, weight 600) that open a bottom list (`filterPick` in `pages/explore.js`); chips 13px, labels 11px, hints 12px. Only the number field stays 16px. Checked at 375px with mocked data; not on an iPhone.
+
 ### Mobile Custom Views: landing screen has a docked Run button (2026-10-27)
 
 Before a view has run, the phone page is the query form (previously with its Run button far below and a desktop-worded empty state that talked about a panel "on the right"). Now: heading "Build your view" + one-line instruction, the empty-state card is hidden on phones, and the action bar (`Show results` / `+ New view`) is docked above the tab bar (`.exploreQueryFooterDock`) with a reason line when it's disabled (no account, no metric, range too long). With a result on screen the Edit sheet keeps its in-sheet footer, labelled `Update view`. Desktop unchanged. Checked at 375px with a mocked session; not checked on a real phone.
