@@ -61,7 +61,13 @@
       "maxDuration": 60
     },
     "pages/api/fb/copy-ads/copy.js": {
-      "maxDuration": 60
+      "maxDuration": 300
+    },
+    "pages/api/fb/copy-ads/copy-campaign.js": {
+      "maxDuration": 300
+    },
+    "pages/api/fb/copy-ads/copy-adset.js": {
+      "maxDuration": 300
     }
   }
 }
