@@ -337,7 +337,7 @@ const ZERO_ROW_MAX = 5000;
 async function fetchZeroSpendEntities(accountId, level, token) {
   const json = await graphGetAllPages(`/${accountId}/${ZERO_ROW_EDGE[level]}`, token, {
     fields: ZERO_ROW_FIELDS[level],
-    limit: 500,
+    limit: 200, // smaller pages: nested fields on big ad lists can trip Meta's "reduce the amount of data"
     effective_status: ["ACTIVE", "PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "PENDING_REVIEW", "DISAPPROVED", "WITH_ISSUES", "IN_PROCESS"],
   });
   return (json.data || []).slice(0, ZERO_ROW_MAX).map((e) => {
@@ -644,10 +644,18 @@ export default async function handler(req, res) {
   // endpoint never returns those, so they are listed separately and added as
   // all-zero rows. Only for plain campaign/ad set/ad views (no breakdown or
   // time grouping, where a "zero row" has no clear meaning).
+  let zeroSpendFailure = null;
   const wantZeroSpend = includeZeroSpend === true;
   const canAddZeroRows = wantZeroSpend && fetchLevel !== "account" && group.breakdowns.length === 0 && !validTimeIncrement;
   const zeroRowsPromise = canAddZeroRows
-    ? Promise.all(accountIds.map((accountId) => fetchZeroSpendEntities(accountId, fetchLevel, token).catch(() => [])))
+    ? Promise.all(
+        accountIds.map((accountId) =>
+          fetchZeroSpendEntities(accountId, fetchLevel, token).catch((err) => {
+            zeroSpendFailure = err?.message || "Request failed";
+            return [];
+          })
+        )
+      )
     : null;
 
   const callPlan = [];
@@ -1050,6 +1058,9 @@ export default async function handler(req, res) {
     previousUntil: previousRange?.until || null,
     rowCount: rows.length,
     zeroSpendIncluded: canAddZeroRows,
+    // What the caller asked for (drill-down children reuse it), and why the zero-spend listing came back empty if it failed.
+    includeZeroSpendRequested: wantZeroSpend,
+    zeroSpendFailure,
     // Lets the UI explain itself: whether a name filter forced fetching at
     // a finer level than requested and rolling the result back up (and, if
     // so, which requested metrics got dropped because they can't be
