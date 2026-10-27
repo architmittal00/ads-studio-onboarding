@@ -137,8 +137,16 @@ export default function CreativeLightbox({ item, onClose }) {
             // the ad (video + caption + call-to-action) is often taller — so the
             // frame is as tall as the window allows and scrolls inside itself.
             const naturalW = preview.width || (isMobile ? 335 : 500);
-            const scale = Math.min(1, Math.max(240, viewportW - 48) / naturalW);
             const availH = (typeof window === "undefined" ? 800 : window.innerHeight) - 150;
+            let scale = Math.min(1, Math.max(240, viewportW - 48) / naturalW);
+            // Desktop: the ad (header, caption, video, call-to-action) is taller than
+            // the window on most laptops, and a mac's hidden scrollbar made it look
+            // cut off. Shrink it to fit the height as well (never below 60%); the
+            // reported height is only a hint, so leave 25% headroom. It still scrolls.
+            if (!isMobile) {
+              const hintH = (preview.height || 700) * 1.25;
+              scale = Math.min(scale, Math.max(0.6, availH / hintH));
+            }
             const frameH = availH / scale; // exactly fills the window; the ad scrolls inside it
             return (
               <div style={{ width: naturalW * scale, height: availH, overflow: "hidden", borderRadius: 10, background: "#fff", flexShrink: 0 }}>
