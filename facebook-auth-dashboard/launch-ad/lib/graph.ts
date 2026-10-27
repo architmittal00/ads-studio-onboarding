@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { createHmac, randomUUID } from 'crypto';
 import { GRAPH_URL } from './config';
 import type { GraphCall, MetaError } from './types';
+import { MAX_GRAPH_RETRIES, shouldRetryGraph, graphRetryDelayMs, sleep, describeGraphError, describeHttpFailure } from '@/lib/graphRetry';
 
 /** Collects the Graph calls made while handling one app request (see api/meta route). */
 export const graphLog = new AsyncLocalStorage<GraphCall[]>();
@@ -40,10 +41,15 @@ function record(entry: Omit<GraphCall, 'id' | 'response' | 'truncated'>, json: u
 export class GraphError extends Error {
   meta: MetaError;
   status: number;
-  constructor(meta: MetaError, status = 400) {
+  /** Set by the Graph client: this failure is worth repeating (see lib/graphRetry.js). */
+  retryable: boolean;
+  rateLimited: boolean;
+  constructor(meta: MetaError, status = 400, retryable = false, rateLimited = false) {
     super(meta.message);
     this.meta = meta;
     this.status = status;
+    this.retryable = retryable;
+    this.rateLimited = rateLimited;
   }
 }
 
@@ -66,7 +72,25 @@ function proof(token: string): string | undefined {
 
 type FilePart = { field: string; data: Blob; name: string };
 
+/** One request, retried up to MAX_GRAPH_RETRIES times for transient failures; otherwise Facebook's exact message passes through. */
 async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, token: string, params: Params = {}, file?: FilePart): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await callOnce<T>(method, path, token, params, file);
+    } catch (e) {
+      if (!(e instanceof GraphError)) throw e;
+      if (e.retryable && attempt < MAX_GRAPH_RETRIES) {
+        await sleep(graphRetryDelayMs(attempt, { rateLimited: e.rateLimited }));
+        continue;
+      }
+      if (attempt > 0) e.message = e.meta.message = `${e.meta.message} [failed after ${attempt + 1} attempts]`;
+      throw e;
+    }
+  }
+}
+
+async function callOnce<T>(method: 'GET' | 'POST' | 'DELETE', path: string, token: string, params: Params = {}, file?: FilePart): Promise<T> {
+  const isWrite = method !== 'GET';
   const auth: Params = { access_token: token, appsecret_proof: proof(token) };
   const url = path.startsWith('http') ? new URL(path) : new URL(`${GRAPH_URL}/${path.replace(/^\//, '')}`);
   const started = Date.now();
@@ -99,25 +123,33 @@ async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, token: s
     // Network-level failure (timeout, DNS): log it, then surface a readable error.
     const message = `Couldn't reach Facebook: ${(e as Error).message}`;
     record({ at: started, method, path: logPath, params: readable(asked), status: 0, ms: Date.now() - started, ok: false }, { error: { message } });
-    throw new GraphError({ message }, 502);
+    throw new GraphError({ message }, 502, shouldRetryGraph({ kind: 'network', status: 0, error: undefined, isWrite }));
   }
   const text = await res.text();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let json: any;
-  try { json = JSON.parse(text); } catch { json = { error: { message: text || res.statusText } }; }
+  let nonJson = false;
+  try { json = JSON.parse(text); } catch { nonJson = true; json = { error: { message: describeHttpFailure(res.status, text || res.statusText) } }; }
   record({ at: started, method, path: logPath, params: readable(asked), status: res.status, ms: Date.now() - started, ok: res.ok && !json?.error }, json);
   if (!res.ok || json?.error) {
     const e = json?.error || {};
-    throw new GraphError(
-      {
-        message: e.message || `Facebook returned ${res.status}`,
-        title: e.error_user_title,
-        userMessage: e.error_user_msg,
-        code: e.code,
-        subcode: e.error_subcode,
-        fbtraceId: e.fbtrace_id,
-      },
-      e.code === 190 ? 401 : res.status >= 400 ? res.status : 400,
+    const kind = nonJson || !json?.error ? 'http' : 'graph';
+    const retryable = shouldRetryGraph({ kind, status: res.status, error: e, isWrite });
+    throw (
+      new GraphError(
+        {
+          // Facebook's own text, or (when it sent none) the HTTP status / raw error — never a generic stand-in.
+          message: nonJson ? e.message : e.message || (json?.error ? describeGraphError(e) : describeHttpFailure(res.status, text)),
+          title: e.error_user_title,
+          userMessage: e.error_user_msg,
+          code: e.code,
+          subcode: e.error_subcode,
+          fbtraceId: e.fbtrace_id,
+        },
+        e.code === 190 ? 401 : res.status >= 400 ? res.status : 400,
+        retryable,
+        kind === 'graph' && e.code != null && e.code !== 1 && e.code !== 2,
+      )
     );
   }
   return json as T;

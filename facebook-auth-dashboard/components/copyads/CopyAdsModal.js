@@ -7,7 +7,7 @@ import CopyIdButton from "@/components/CopyIdButton";
 import CampaignFields from "@/components/CampaignFields";
 import AdSetFields from "@/components/AdSetFields";
 import { CloseIcon, ChevronIcon, DatabaseIcon, ListIcon, CopyIcon, CheckIcon, PauseIcon, PlayIcon } from "@/components/icons";
-import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
+import { parseJsonResponse, fetchWithTimeout, responseError } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 import { track } from "@/lib/analytics";
 
@@ -259,8 +259,7 @@ function CopiedAdGroup({ steps, sourceAd, newName, onPreview }) {
 // for similar reasons (see AdsetPickerList's comment).
 async function readNdjson(res, onEvent) {
   if (!res.ok || !res.body) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error(json.error || `Request failed (${res.status})`);
+    throw await responseError(res);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

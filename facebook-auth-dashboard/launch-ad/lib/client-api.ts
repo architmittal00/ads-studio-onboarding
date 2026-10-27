@@ -1,6 +1,7 @@
 'use client';
 import { addLogGroup } from './api-log';
 import type { MetaError } from './types';
+import { fetchWithTimeout } from '@/lib/fetchJson';
 
 export class ApiError extends Error {
   meta: MetaError;
@@ -8,7 +9,9 @@ export class ApiError extends Error {
 }
 
 async function handle<T>(res: Response, entry: { method: 'GET' | 'POST'; action: string; input: unknown; started: number }): Promise<T> {
-  const json = await res.json().catch(() => ({ error: { message: `Request failed (${res.status})` } }));
+  const raw = await res.text();
+  // Non-JSON body (gateway / timeout page): say what came back instead of a bare status.
+  const json = (() => { try { return JSON.parse(raw); } catch { const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 200); return { error: { message: `Request failed (${res.status})${snippet ? `: ${snippet}` : ''}` } }; } })();
   addLogGroup({
     at: entry.started,
     method: entry.method,
@@ -32,7 +35,8 @@ export async function apiGet<T>(action: string, params: Record<string, string | 
   const qs = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v); });
   const started = Date.now();
-  const res = await fetch(`/api/launch-ad/meta/${action}?${qs.toString()}`, { cache: 'no-store' });
+  // Reads are safe to repeat: retry a dropped connection or 502/503 up to 3 times.
+  const res = await fetchWithTimeout(`/api/launch-ad/meta/${action}?${qs.toString()}`, { cache: 'no-store' }, 120000);
   return handle<T>(res, { method: 'GET', action, input: Object.fromEntries(qs.entries()), started });
 }
 

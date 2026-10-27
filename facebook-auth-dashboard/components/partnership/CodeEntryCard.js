@@ -1,3 +1,4 @@
+import { readApiResponse } from "@/lib/fetchJson";
 import { useState } from "react";
 import styles from "@/styles/Home.module.css";
 
@@ -30,8 +31,7 @@ export default function CodeEntryCard({ businessId, igUserId, onResolved }) {
     try {
       const params = new URLSearchParams({ businessId, igUserId, [mode]: value.trim() });
       const res = await fetch(`/api/fb/partnership/content-lookup?${params.toString()}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Lookup failed");
+      const json = await readApiResponse(res);
       onResolved(json.item);
       setValue("");
     } catch (err) {

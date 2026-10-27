@@ -1,3 +1,4 @@
+import { readApiResponse } from "@/lib/fetchJson";
 import { useEffect, useRef, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { formatMetricValue, LEVEL_OPTIONS } from "@/lib/insightsMetrics";
@@ -248,8 +249,7 @@ function ActionConfirmModal({ row, level, action, currency, onClose, onApplied }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Request failed");
+      await readApiResponse(res);
       onApplied(
         action.kind === "status"
           ? { status: action.nextStatus }

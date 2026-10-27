@@ -1,3 +1,4 @@
+import { responseError } from "@/lib/fetchJson";
 import { useRef, useState } from "react";
 import { firstPartnershipInfo } from "@/lib/partnershipContent";
 import styles from "@/styles/Home.module.css";
@@ -69,8 +70,7 @@ export default function CsvUploadCard({ businessId, igUserId, onQueued }) {
         body: JSON.stringify({ businessId, igUserId, items }),
       });
       if (!res.ok || !res.body) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status})`);
+        throw await responseError(res);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

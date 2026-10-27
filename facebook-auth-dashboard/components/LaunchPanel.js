@@ -1,3 +1,4 @@
+import { responseError } from "@/lib/fetchJson";
 import { useEffect, useState } from "react";
 import { CloseIcon } from "./icons";
 import Loader from "./Loader";
@@ -117,8 +118,7 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, interest
       });
 
       if (!res.ok || !res.body) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status})`);
+        throw await responseError(res);
       }
 
       const reader = res.body.getReader();

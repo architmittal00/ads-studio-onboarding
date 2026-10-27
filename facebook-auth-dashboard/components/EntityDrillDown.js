@@ -9,7 +9,7 @@ import { ChevronIcon } from "./icons";
 import WindowComparisonTable from "./WindowComparisonTable";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { parseJsonResponse, fetchWithTimeout } from "@/lib/fetchJson";
+import { parseJsonResponse, fetchWithTimeout, responseError } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 const DRILLDOWN_CACHE_PREFIX = "recent-changes-drilldown-investigate:";
@@ -98,8 +98,7 @@ function sinceChangeRange(eventTime) {
 // enough not to need a progress indicator of its own.
 async function readExploreInsightsStream(res) {
   if (!res.ok || !res.body) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error(json.error || `Request failed (${res.status})`);
+    throw await responseError(res);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

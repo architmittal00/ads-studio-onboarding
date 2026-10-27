@@ -1,3 +1,5 @@
+import { parseJsonResponse } from "@/lib/fetchJson";
+import { responseError } from "@/lib/fetchJson";
 import { useEffect, useState } from "react";
 import Loader from "./Loader";
 import { CloseIcon, ChevronIcon } from "./icons";
@@ -218,10 +220,10 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accountId, sourceAdId: adSource.id, destinationAdsetId: adDestination.id, name: adName }),
     })
-      .then((res) => res.json().then((json) => ({ ok: res.ok, json })))
+      .then((res) => parseJsonResponse(res).catch((e) => ({ error: e.message })).then((json) => ({ ok: res.ok, json })))
       .then(({ ok, json }) => {
         if (!ok) {
-          setSubmitError(json.error || "Request failed");
+          setSubmitError(json.error || "Request failed — no details were returned");
           return;
         }
         setResult(json);
@@ -252,8 +254,7 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
         }),
       });
       if (!res.ok || !res.body) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status})`);
+        throw await responseError(res);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

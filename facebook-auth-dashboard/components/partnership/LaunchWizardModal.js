@@ -1,3 +1,4 @@
+import { responseError } from "@/lib/fetchJson";
 import { useState } from "react";
 import { CloseIcon, ChevronIcon } from "../icons";
 import AdSetMultiSelect from "./AdSetMultiSelect";
@@ -145,8 +146,7 @@ export default function LaunchWizardModal({ accountId, businessId, igUserId, pag
         }),
       });
       if (!res.ok || !res.body) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status})`);
+        throw await responseError(res);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

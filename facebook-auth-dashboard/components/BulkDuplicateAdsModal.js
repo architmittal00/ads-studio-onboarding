@@ -1,3 +1,4 @@
+import { parseJsonResponse } from "@/lib/fetchJson";
 import { useEffect, useMemo, useState } from "react";
 import Loader from "./Loader";
 import { CloseIcon } from "./icons";
@@ -112,8 +113,8 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ accountId, sourceAdId: ad.id, destinationAdsetId: adset.id, name: `${ad.name} - Copy` }),
           });
-          const json = await res.json();
-          collected[i] = { adName: ad.name, adsetName: adset.name, success: res.ok && !!json.success, error: res.ok ? null : json.error || "Request failed" };
+          const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
+          collected[i] = { adName: ad.name, adsetName: adset.name, success: res.ok && !!json.success, error: res.ok ? null : json.error || `Request failed (${res.status})` };
         } catch (err) {
           collected[i] = { adName: ad.name, adsetName: adset.name, success: false, error: err.message };
         }

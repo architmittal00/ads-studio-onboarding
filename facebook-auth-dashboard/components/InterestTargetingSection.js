@@ -1,3 +1,4 @@
+import { readApiResponse } from "@/lib/fetchJson";
 import { useEffect, useRef, useState } from "react";
 import InterestPicker from "./InterestPicker";
 import Loader from "./Loader";
@@ -85,8 +86,7 @@ export default function InterestTargetingSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+      const json = await readApiResponse(res);
 
       setRecommended(json.matched || []);
       // Only fill ad sets that are still empty — don't clobber a choice the
