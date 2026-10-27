@@ -793,10 +793,24 @@ export async function copyAdsetsIntoCampaign(
     });
     onAdsetStart?.(sourceAdsetId, adsetPayload.name);
     let adsetId;
+    let adsetWarning = null;
     try {
-      const json = await graphPost(`/${destAccountId}/adsets`, token, adsetPayload);
+      let json;
+      try {
+        json = await graphPost(`/${destAccountId}/adsets`, token, adsetPayload);
+      } catch (firstErr) {
+        // Custom/lookalike audiences from the source account are often not shared
+        // with the destination account (code 100, subcode 1359207). Rather than
+        // lose the whole ad set (and its ads), create it without those audiences
+        // and say so — it is created paused, so targeting can be fixed before it runs.
+        const hasAudiences = adsetPayload.targeting?.custom_audiences?.length > 0;
+        if (!hasAudiences || !/Custom audience not available|subcode 1359207/.test(firstErr.message || "")) throw firstErr;
+        const { custom_audiences, ...targetingWithout } = adsetPayload.targeting;
+        json = await graphPost(`/${destAccountId}/adsets`, token, { ...adsetPayload, targeting: targetingWithout });
+        adsetWarning = `Created WITHOUT its custom/lookalike audience${custom_audiences.length === 1 ? "" : "s"} (not available in the destination account) — add targeting before activating.`;
+      }
       adsetId = json.id;
-      onAdsetDone?.(sourceAdsetId, { success: true, id: adsetId });
+      onAdsetDone?.(sourceAdsetId, { success: true, id: adsetId, warning: adsetWarning });
     } catch (err) {
       onAdsetDone?.(sourceAdsetId, { success: false, error: err.message });
       return {
@@ -823,7 +837,7 @@ export async function copyAdsetsIntoCampaign(
     });
 
     return {
-      adsetStep: { type: "adset", label: "Ad set", name: adsetPayload.name, sourceAdsetId, success: true, id: adsetId },
+      adsetStep: { type: "adset", label: "Ad set", name: adsetPayload.name, sourceAdsetId, success: true, id: adsetId, warning: adsetWarning },
       adSteps: adSteps.map((s) => ({ ...s, sourceAdsetId })),
       createdAdIds,
       success: adsSucceeded,

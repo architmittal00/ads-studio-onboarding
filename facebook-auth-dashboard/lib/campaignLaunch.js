@@ -308,7 +308,15 @@ export function buildTargeting(fields) {
   if (fields.placementType === "MANUAL") {
     targeting.publisher_platforms = fields.publisherPlatforms?.length ? fields.publisherPlatforms : ["facebook", "instagram"];
     if (fields.facebookPositions?.length) targeting.facebook_positions = fields.facebookPositions;
-    if (fields.instagramPositions?.length) targeting.instagram_positions = fields.instagramPositions;
+    if (fields.instagramPositions?.length) {
+      targeting.instagram_positions = [...fields.instagramPositions];
+      // Meta: "To place ads in Instagram Explore home, please also select Instagram
+      // Explore" (code 100, subcode 2490392). A source ad set can carry only the
+      // former, so add the latter when copying it.
+      if (targeting.instagram_positions.includes("explore_home") && !targeting.instagram_positions.includes("explore")) {
+        targeting.instagram_positions.push("explore");
+      }
+    }
   }
   // Omitting publisher_platforms/positions entirely (the Advantage+/
   // automatic-placements default) is itself how Meta enables Advantage+
