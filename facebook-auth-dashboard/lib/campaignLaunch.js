@@ -191,10 +191,13 @@ export function buildGenericCampaignPayload(fields) {
     objective: fields.objective,
     status: "PAUSED", // always created paused — flipped after, see launch-campaign.js
     special_ad_categories: [],
-    bid_strategy: fields.bidStrategy || BID_STRATEGY,
   };
   if (fields.advantagePlus) payload.smart_promotion_type = "AUTOMATED_SHOPPING_ADS";
   if (fields.budgetStrategy === "CBO" && fields.budgetAmountMinorUnits) {
+    // A campaign-level bid strategy only exists with a campaign budget; on an
+    // ABO campaign Meta rejects it ("No budget for campaign", subcode 1885737) —
+    // there the strategy lives on each ad set instead.
+    payload.bid_strategy = fields.bidStrategy || BID_STRATEGY;
     if (fields.budgetType === "LIFETIME") payload.lifetime_budget = fields.budgetAmountMinorUnits;
     else payload.daily_budget = fields.budgetAmountMinorUnits;
   } else {
