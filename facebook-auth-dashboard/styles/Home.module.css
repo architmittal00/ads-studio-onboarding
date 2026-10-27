@@ -2795,3 +2795,13 @@ button.stat:hover {
     border-radius: 18px;
   }
 }
+
+.linkButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent, #e8604c);
+  text-decoration: underline;
+  cursor: pointer;
+}

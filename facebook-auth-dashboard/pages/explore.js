@@ -227,7 +227,7 @@ function compareMetricValue(rowValue, operator, threshold) {
 // on a row with no comparable previous value, which compareMetricValue
 // already treats as "doesn't match," the same honest non-match as a missing
 // metric value.
-function applyResultFilters(rows, resultFilters, availableMetricKeys) {
+function applyResultFilters(rows, resultFilters, availableMetricKeys, statusAvailable = true) {
   if (!rows) return rows;
   let out = rows;
   const conditions = (resultFilters?.metricConditions || []).filter(
@@ -246,7 +246,10 @@ function applyResultFilters(rows, resultFilters, availableMetricKeys) {
   // `.length > 0` here used to treat that as indistinguishable from `null`,
   // so unchecking every box silently brought every row back instead of
   // showing none.
-  if (resultFilters?.statusValues) {
+  // Skipped when the result has no Status column: its checkboxes are hidden
+  // then, so a leftover selection from an earlier level/breakdown would
+  // silently hide every row ("0 of 1 rows (filtered)") with nothing to undo.
+  if (resultFilters?.statusValues && statusAvailable) {
     out = out.filter((row) => resultFilters.statusValues.includes(row.status));
   }
   return out;
@@ -1473,7 +1476,7 @@ export default function Explore() {
   // `result.rows` directly, so filtering stays consistent everywhere the
   // result set is consumed.
   const filteredRows = useMemo(
-    () => (result ? applyResultFilters(result.rows, activeView.resultFilters, result.meta.metricKeys) : []),
+    () => (result ? applyResultFilters(result.rows, activeView.resultFilters, result.meta.metricKeys, !!result.meta.statusAvailable) : []),
     [result, activeView.resultFilters]
   );
 
@@ -1493,6 +1496,10 @@ export default function Explore() {
   // changes, so switching to another view shows *that* view's own committed
   // filters as the starting draft rather than carrying over in-progress,
   // never-applied edits from the previous tab.
+  // Keyed too on the committed conditions so the list always shows what is
+  // actually filtering (a stale draft hid active conditions). In-progress edits
+  // only change the draft, so typing is not wiped.
+  const committedConditionsKey = JSON.stringify(activeView.resultFilters.metricConditions);
   const [draftConditions, setDraftConditions] = useState(() => activeView.resultFilters.metricConditions);
   useEffect(() => {
     // Resets the draft to match the newly-active tab's own committed
@@ -1503,7 +1510,7 @@ export default function Explore() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraftConditions(activeView.resultFilters.metricConditions);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately keyed only on the tab switching, not on every resultFilters change, which would wipe out in-progress edits made since the last Apply
-  }, [activeViewId]);
+  }, [activeViewId, committedConditionsKey]);
 
   const hasPendingMetricChanges = JSON.stringify(draftConditions) !== JSON.stringify(activeView.resultFilters.metricConditions);
 
@@ -1682,7 +1689,8 @@ export default function Explore() {
     const previewCount = applyResultFilters(
       result.rows,
       { ...activeView.resultFilters, metricConditions: draftConditions },
-      result.meta.metricKeys
+      result.meta.metricKeys,
+      !!result.meta.statusAvailable
     ).length;
     const pickingCond = filterPick ? draftConditions.find((c) => c.id === filterPick.id) : null;
     function clearAll() {
@@ -2091,6 +2099,21 @@ export default function Explore() {
             {filteredRows.length === result.meta.rowCount
               ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
               : `${filteredRows.length} of ${result.meta.rowCount} rows (filtered)`}
+            {filteredRows.length !== result.meta.rowCount && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  onClick={() => {
+                    setDraftConditions([]);
+                    updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: [], statusValues: null } }));
+                  }}
+                >
+                  Clear filters
+                </button>
+              </>
+            )}
             {result.meta.filteredByNameCount > 0 &&
               ` · ${result.meta.filteredByNameCount} filtered out by name filter`}
           </p>
@@ -3290,7 +3313,7 @@ function ExploreResultsTable({
   const [childColOrder, setChildColOrder] = useState(tableColOrder);
 
   function applyChildRowOrdering(childRows) {
-    let out = applyResultFilters(childRows, resultFilters, meta.metricKeys);
+    let out = applyResultFilters(childRows, resultFilters, meta.metricKeys, !!meta.statusAvailable);
     const term = childSearch.trim().toLowerCase();
     if (term) {
       const keys = leadingColumns.map((c) => c.key);
