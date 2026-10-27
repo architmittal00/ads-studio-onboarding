@@ -3364,10 +3364,30 @@ function ExploreResultsTable({
   // immediately, before any drag happens in this session.
   const [childColOrder, setChildColOrder] = useState(tableColOrder);
 
-  function applyChildRowOrdering(childRows) {
+  // Hierarchical search over everything already loaded (campaign > ad set >
+  // ad). A row is shown when it matches, or when something loaded beneath it
+  // does; and once a row matches, ALL of its children are shown whether or
+  // not their own names match. Unloaded (never expanded) children can't be
+  // searched — they haven't been fetched.
+  function selfMatches(row, term) {
+    return leadingColumns.some((c) => String(row[c.key] ?? "").toLowerCase().includes(term));
+  }
+  function subtreeMatches(row, term) {
+    if (selfMatches(row, term)) return true;
+    const exp = row.entityId ? expansions[row.entityId] : null;
+    return !!exp && exp.status === "loaded" && exp.rows.some((child) => subtreeMatches(child, term));
+  }
+  const searchTerm = childSearch.trim().toLowerCase();
+
+  // `opts.showAll`: an ancestor (or the parent itself) matched the search, so
+  // every child stays visible. Without `opts` (pivot date rows, mobile list)
+  // the older own-name matching applies.
+  function applyChildRowOrdering(childRows, opts) {
     let out = applyResultFilters(childRows, resultFilters, meta.metricKeys, !!meta.statusAvailable);
-    const term = childSearch.trim().toLowerCase();
-    if (term) {
+    const term = searchTerm;
+    if (term && opts) {
+      if (!opts.showAll) out = out.filter((row) => subtreeMatches(row, term));
+    } else if (term) {
       // Also matches the child's parent names (campaign/ad set): the top-level
       // row was found by this same search, so its children must not vanish
       // just because their own name lacks the term.
@@ -3842,7 +3862,7 @@ function ExploreResultsTable({
   // each followed immediately by ITS OWN expansion block (recursing one more
   // level for an ad set's ads), all flattened into one array so they can sit
   // directly inside SortableTable's `<tbody>` via `renderRowExtra`.
-  function renderChildBlock(parentId, depth) {
+  function renderChildBlock(parentId, depth, showAll = false) {
     const exp = expansions[parentId];
     if (!exp) return null;
     const label = CHILD_LEVEL_PLURAL[exp.childLevel] || "children";
@@ -3883,7 +3903,7 @@ function ExploreResultsTable({
         </tr>
       );
     }
-    const orderedRows = applyChildRowOrdering(exp.rows);
+    const orderedRows = applyChildRowOrdering(exp.rows, { showAll });
     if (orderedRows.length === 0) {
       return (
         <tr key={`${parentId}-no-matches`}>
@@ -3908,7 +3928,7 @@ function ExploreResultsTable({
     return orderedRows.map((childRow) => (
       <Fragment key={childRow.entityId}>
         {renderDataRow(childRow, exp.childLevel, depth)}
-        {renderChildBlock(childRow.entityId, depth + 1)}
+        {renderChildBlock(childRow.entityId, depth + 1, showAll || (!!searchTerm && selfMatches(childRow, searchTerm)))}
       </Fragment>
     ));
   }
@@ -3972,7 +3992,7 @@ function ExploreResultsTable({
       return ordered.map((dateRow) => renderPivotDateRow(dateRow, 1));
     }
     if (!drillDownEnabled || !row.entityId) return null;
-    return renderChildBlock(row.entityId, 1);
+    return renderChildBlock(row.entityId, 1, !!searchTerm && selfMatches(row, searchTerm));
   }
 
   // ── Phone layout: cards instead of the table ──
@@ -4225,6 +4245,7 @@ function ExploreResultsTable({
           maxHeight={480}
           searchable
           searchKeys={leadingColumns.map((c) => c.key)}
+          searchMatch={drillDownEnabled ? subtreeMatches : undefined}
           searchPlaceholder="Search rows…"
           resizableColumns
           renderRowExtra={drillDownEnabled || timePivotEnabled ? renderRowExtra : undefined}

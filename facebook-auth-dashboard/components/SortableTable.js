@@ -137,6 +137,9 @@ export default function SortableTable({
   highlightRow,
   searchable = false,
   searchKeys = ["name"],
+  // Optional (row, lowercasedTerm) => boolean replacing the default per-key
+  // match, for callers whose rows have nested content the search should reach.
+  searchMatch,
   searchPlaceholder = "Search…",
   resizableColumns = false,
   fixedColumnWidths = false,
@@ -255,8 +258,9 @@ export default function SortableTable({
   const filtered = useMemo(() => {
     if (!searchable || !search.trim()) return rows;
     const term = search.trim().toLowerCase();
+    if (searchMatch) return rows.filter((row) => searchMatch(row, term));
     return rows.filter((row) => searchKeys.some((key) => String(row[key] ?? "").toLowerCase().includes(term)));
-  }, [rows, search, searchable, searchKeys]);
+  }, [rows, search, searchable, searchKeys, searchMatch]);
 
   const sorted = useMemo(() => {
     const col = columns.find((c) => c.key === sortKey);
