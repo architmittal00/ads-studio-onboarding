@@ -30,16 +30,15 @@
   --la-overlay: rgba(0, 0, 0, 0.45);
   --la-shadow: var(--shadow-md);
   color: var(--t1);
-  font-size: 13px;
+  /* font-size inherits the app's base so Catalog/Launch Ad match the other screens */
   box-sizing: border-box;
 }
 .la-root *, .la-root *::before, .la-root *::after { box-sizing: border-box; }
-.la-root button, .la-root input, .la-root select, .la-root textarea { font: inherit; color: inherit; }
-.la-root button { cursor: pointer; }
+/* :where() keeps these resets at zero specificity so this app's shared CSS-module components (buttons, chips, links) rendered inside .la-root keep their own font and colour instead of being flattened to inherit. */
+:where(.la-root) :is(button, input, select, textarea) { font: inherit; color: inherit; }
+:where(.la-root) button { cursor: pointer; }
 .la-root :focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
-.la-root button, .la-root input, .la-root select, .la-root textarea { font: inherit; color: inherit; }
-.la-root button { cursor: pointer; }
-.la-root a { color: inherit; }
+:where(.la-root) a { color: inherit; }
 .la-root .main {
   flex: 1;
   min-width: 0;
