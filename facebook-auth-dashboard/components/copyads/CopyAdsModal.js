@@ -290,6 +290,23 @@ function newCampaignBudgetFromSource(sourceFields) {
 // ads instead of a whole account. Every copyable ad starts checked; a
 // non-copyable one is shown disabled with its reason, same treatment as the
 // ad-level picker.
+const STREAM_CUT_MESSAGE =
+  "The copy stopped before it finished (the connection closed or timed out). Anything already created is in Ads Manager, paused — check there before retrying.";
+
+// Every copy route ends its stream with one "done" event. If the connection
+// drops first (timeout, network), or the event carries only an `error`, the
+// screens below would read missing arrays and crash. Always hand them a full shape.
+function normalizeCopyResult(r) {
+  return {
+    ...(r || {}),
+    success: !!r?.success && !r?.error,
+    createdAdIds: r?.createdAdIds || [],
+    createdAdsetIds: r?.createdAdsetIds || [],
+    steps: r?.steps || [],
+    error: r?.error || (r ? null : STREAM_CUT_MESSAGE),
+  };
+}
+
 function AdChecklist({ ads, selectedIds, onToggle, onPreview }) {
   if (ads.length === 0) return <p className={styles.sub}>No ads in this ad set.</p>;
   return (
@@ -783,6 +800,7 @@ export default function CopyAdsModal({
           finalResult = event;
         }
       });
+      finalResult = normalizeCopyResult(finalResult);
       setResult(finalResult);
       setStep("done");
       onDone?.(finalResult);
@@ -852,6 +870,7 @@ export default function CopyAdsModal({
           setAdProgress((prev) => ({ ...prev, [event.adId]: { phase: event.success ? "success" : event.skipped ? "skipped" : "failed", error: event.error, warning: event.warning, newAdId: event.newAdId } }));
         else if (event.type === "done") finalResult = event;
       });
+      finalResult = normalizeCopyResult(finalResult);
       setResult(finalResult);
       setStep("done");
       onDone?.(finalResult);
@@ -915,8 +934,8 @@ export default function CopyAdsModal({
       const completedEntry = {
         sourceCampaignId: currentSourceCampaign.id,
         sourceCampaignName: currentSourceCampaign.name,
-        result: finalResult,
-        adSourceById: new Map(campaignAdsetOrder.flatMap((id) => campaignAdsets[id].ads.map((a) => [a.id, a]))),
+        result: normalizeCopyResult(finalResult),
+        adSourceById: new Map(campaignAdsetOrder.flatMap((id) => (campaignAdsets[id]?.ads || []).map((a) => [a.id, a]))),
         names: { ...names },
       };
       const updatedResults = [...campaignResults, completedEntry];
@@ -1560,6 +1579,7 @@ export default function CopyAdsModal({
               <div style={{ marginTop: 16 }}>
                 <div className={result.success ? styles.success : styles.error} style={{ marginBottom: 14 }}>
                   <p style={{ marginBottom: 2 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
+                  {result.error && <p style={{ fontWeight: 400, opacity: 0.85 }}>{result.error}</p>}
                   <p style={{ fontWeight: 400, opacity: 0.85 }}>
                     {result.createdAdIds.length} of {ads.length} ad{ads.length === 1 ? "" : "s"} created {isActive ? "and activated" : "paused"} in &quot;
                     {destAdset.name}&quot; ({destAccountName}){!isActive && " — check Ads Manager before activating"}.
@@ -1612,6 +1632,7 @@ export default function CopyAdsModal({
               <div style={{ marginTop: 16 }}>
                 <div className={result.success ? styles.success : styles.error} style={{ marginBottom: 14 }}>
                   <p style={{ marginBottom: 2 }}>{result.success ? "Copied successfully." : "Finished with some errors."}</p>
+                  {result.error && <p style={{ fontWeight: 400, opacity: 0.85 }}>{result.error}</p>}
                   <p style={{ fontWeight: 400, opacity: 0.85 }}>
                     {result.createdAdIds.length} ad{result.createdAdIds.length === 1 ? "" : "s"} created {status === "ACTIVE" && activationStep?.success ? "and activated" : "paused"} in {destAccountName}
                     {!(status === "ACTIVE" && activationStep?.success) && " — check Ads Manager before activating"}.
@@ -1682,6 +1703,7 @@ export default function CopyAdsModal({
                           <p style={{ marginBottom: 2 }}>
                             {sourceCampaignName} — {r.success ? "copied successfully" : "finished with some errors"}
                           </p>
+                          {r.error && <p style={{ fontWeight: 400, opacity: 0.85 }}>{r.error}</p>}
                           <p style={{ fontWeight: 400, opacity: 0.85 }}>
                             {r.createdAdIds.length} ad{r.createdAdIds.length === 1 ? "" : "s"} created {status === "ACTIVE" && activationStep?.success ? "and activated" : "paused"}
                             {!(status === "ACTIVE" && activationStep?.success) && " — check Ads Manager before activating"}.
