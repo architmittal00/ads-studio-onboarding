@@ -3343,7 +3343,10 @@ function ExploreResultsTable({
     let out = applyResultFilters(childRows, resultFilters, meta.metricKeys, !!meta.statusAvailable);
     const term = childSearch.trim().toLowerCase();
     if (term) {
-      const keys = leadingColumns.map((c) => c.key);
+      // Also matches the child's parent names (campaign/ad set): the top-level
+      // row was found by this same search, so its children must not vanish
+      // just because their own name lacks the term.
+      const keys = [...leadingColumns.map((c) => c.key), "campaignName", "adsetName"];
       out = out.filter((row) => keys.some((key) => String(row[key] ?? "").toLowerCase().includes(term)));
     }
     const col = columns.find((c) => c.key === childSort.key);
