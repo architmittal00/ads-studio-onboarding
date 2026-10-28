@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '@/launch-ad/lib/client-api';
 import { adFirstForm, clearAccountBound, repeatForm } from '@/launch-ad/lib/form';
-import { useAsync } from '@/launch-ad/lib/hooks';
+import { useAsync, useLaunchAccounts } from '@/launch-ad/lib/hooks';
 import type { AdAccount, FormState, LaunchResult } from '@/launch-ad/lib/types';
 import PageHeader, { AccountNotices, AdAccountPill } from './PageHeader';
 import styles from '@/styles/Home.module.css';
@@ -14,7 +14,7 @@ type View = { kind: 'ad' } | { kind: 'done'; result: LaunchResult };
 
 /** The Launch page: "Start with an Ad" (create the ad, choose where it runs, launch), then the result. */
 export default function LaunchApp({ declined }: { declined: string[] }) {
-  const accounts = useAsync<AdAccount[]>('accounts', () => apiGet('adaccounts'));
+  const accounts = useLaunchAccounts();
   const [accountId, setAccountId] = useState('');
   const [view, setView] = useState<View>({ kind: 'ad' });
   const [form, setForm] = useState<FormState>(() => adFirstForm());

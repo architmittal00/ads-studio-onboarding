@@ -4,6 +4,7 @@ import Loader from "../Loader";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+import { cachedGet } from "@/lib/cachedGet";
 
 // Multi-select ad-set picker for the launch wizard's Step 2 — chip + combo
 // dropdown interaction pattern copied from components/CustomAudiencePicker.js
@@ -44,8 +45,7 @@ export default function AdSetMultiSelect({ accountId, currency, values, onChange
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount reset, same pattern as CustomAudiencePicker.js
     setLoading(true);
     setError(null);
-    fetchWithTimeout(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
-      .then(parseJsonResponse)
+    cachedGet(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
       .then((json) => {
         if (ignore) return;
         if (json.error) setError(json.error);

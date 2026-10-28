@@ -10,6 +10,28 @@ import {
   setLastBusinessId,
 } from "@/lib/clientStorage";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
+import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
+
+// The account list almost never changes, so it is shown from the cache for up to a
+// day and silently refreshed in the background once it is older than the fresh window
+// (stale-while-revalidate) — instead of blocking the page on a Facebook round trip
+// every 30 minutes.
+const ACCOUNT_FRESH_MS = 30 * 60 * 1000;
+const ACCOUNT_MAX_STALE_MS = 24 * 60 * 60 * 1000;
+
+// One request at a time: a refresh clicked while the first load is still running (or
+// two mounts racing) shares it instead of firing /api/fb/data twice.
+let inflightAccountData = null;
+function fetchAccountData() {
+  if (!inflightAccountData) {
+    inflightAccountData = fetchWithTimeout("/api/fb/data")
+      .then(parseJsonResponse)
+      .finally(() => {
+        inflightAccountData = null;
+      });
+  }
+  return inflightAccountData;
+}
 
 // Exported so components/Sidebar.js can clear it on sign-out — see that
 // file's own comment for why signing out needs to do that.
@@ -28,7 +50,8 @@ const AccountContext = createContext(null);
 // (via getLastAccountId/setLastAccountId) additionally gives cross-session
 // continuity, same as before.
 export function AccountProvider({ children }) {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
 
   const [profile, setProfile] = useState(null);
   const [pages, setPages] = useState([]);
@@ -60,48 +83,63 @@ export function AccountProvider({ children }) {
   const [selectedAccountId, setSelectedAccountIdState] = useState("");
   const [selectedIgAccountId, setSelectedIgAccountIdState] = useState("");
 
-  const load = useCallback((force) => {
-    if (!force) {
-      const cached = getCachedEntry(ACCOUNT_DATA_CACHE_KEY);
-      // Entries cached before accounts carried `timezone_name` (no `tzv`) are stale: date
-      // presets need it to resolve "today" in each account's own time zone.
-      if (cached && cached.data.tzv === 1) {
-        setProfile(cached.data.profile);
-        setPages(cached.data.pages || []);
-        setAdAccounts(cached.data.adAccounts || []);
-        setPagesError(cached.data.pagesError || null);
-        setAdAccountsError(cached.data.adAccountsError || null);
-        setBusinesses(cached.data.businesses || []);
-        setBusinessesError(cached.data.businessesError || null);
-        setAccountsFetchedAt(cached.fetchedAt);
-        setAccountsError(null);
-        setAccountsLoading(false);
-        return;
-      }
-    }
-
-    setAccountsLoading(true);
+  // Applies an account-data payload (from the network or the cache) in one go, including
+  // the default selection, so the page does not need extra render passes to settle.
+  const applyAccountData = useCallback((data, fetchedAt) => {
+    const accounts = data.adAccounts || [];
+    setProfile(data.profile || null);
+    setPages(data.pages || []);
+    setAdAccounts(accounts);
+    setPagesError(data.pagesError || null);
+    setAdAccountsError(data.adAccountsError || null);
+    setBusinesses(data.businesses || []);
+    setBusinessesError(data.businessesError || null);
+    setAccountsFetchedAt(fetchedAt);
     setAccountsError(null);
-    fetch("/api/fb/data")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.error) {
-          setAccountsError(json.error);
-          return;
-        }
-        setProfile(json.profile || null);
-        setPages(json.pages || []);
-        setAdAccounts(json.adAccounts || []);
-        setPagesError(json.pagesError || null);
-        setAdAccountsError(json.adAccountsError || null);
-        setBusinesses(json.businesses || []);
-        setBusinessesError(json.businessesError || null);
-        setAccountsFetchedAt(Date.now());
-        setCachedEntry(ACCOUNT_DATA_CACHE_KEY, { ...json, tzv: 1 });
-      })
-      .catch((err) => setAccountsError(err.message))
-      .finally(() => setAccountsLoading(false));
+    if (accounts.length > 0) {
+      const lastId = getLastAccountId();
+      const pick = accounts.some((a) => a.id === lastId) ? lastId : accounts[0].id;
+      setSelectedAccountIdState((prev) => prev || pick);
+    }
   }, []);
+
+  const load = useCallback(
+    (force) => {
+      let showedCache = false;
+      if (!force) {
+        const cached = getCachedEntry(ACCOUNT_DATA_CACHE_KEY, ACCOUNT_MAX_STALE_MS);
+        // Entries cached before accounts carried `timezone_name` (no `tzv`) are stale: date
+        // presets need it to resolve "today" in each account's own time zone. An entry that
+        // belongs to a different Facebook user (or predates user tagging) is never shown.
+        const sameUser = !userId || cached?.data?.userId === userId;
+        if (cached && cached.data.tzv === 1 && sameUser) {
+          applyAccountData(cached.data, cached.fetchedAt);
+          setAccountsLoading(false);
+          if (Date.now() - cached.fetchedAt < ACCOUNT_FRESH_MS) return;
+          showedCache = true; // stale: keep showing it and refresh quietly below
+        }
+      }
+
+      if (!showedCache) {
+        setAccountsLoading(true);
+        setAccountsError(null);
+      }
+      fetchAccountData()
+        .then((json) => {
+          if (json.error) {
+            if (!showedCache) setAccountsError(json.error);
+            return;
+          }
+          applyAccountData(json, Date.now());
+          setCachedEntry(ACCOUNT_DATA_CACHE_KEY, { ...json, tzv: 1, userId });
+        })
+        .catch((err) => {
+          if (!showedCache) setAccountsError(err.message);
+        })
+        .finally(() => setAccountsLoading(false));
+    },
+    [applyAccountData, userId]
+  );
 
   useEffect(() => {
     // The login page ("/") also renders through pages/_app.js, so without
@@ -138,11 +176,11 @@ export function AccountProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedAccountId intentionally excluded, see guard above
   }, [adAccounts]);
 
-  function setSelectedAccountId(id) {
+  const setSelectedAccountId = useCallback((id) => {
     if (id) track("account_switched", { account: id });
     setSelectedAccountIdState(id);
     if (id) setLastAccountId(id);
-  }
+  }, []);
 
   // Pages that actually have a linked Instagram Business Account — most
   // won't (a Page needs to have been explicitly connected to an IG Business
@@ -174,10 +212,10 @@ export function AccountProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedIgAccountId intentionally excluded, see guard above
   }, [igAccounts]);
 
-  function setSelectedIgAccountId(id) {
+  const setSelectedIgAccountId = useCallback((id) => {
     setSelectedIgAccountIdState(id);
     if (id) setLastIgAccountId(id);
-  }
+  }, []);
 
   // Every Business the user is actually a member of, per `/me/businesses`
   // (see pages/api/fb/data.js's fetchBusinesses — needs no extra Graph call
@@ -219,12 +257,15 @@ export function AccountProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedBusinessId intentionally excluded, see guard above; re-runs once selectedAccountId is itself seeded
   }, [businessOptions, adAccounts, selectedAccountId]);
 
-  function setSelectedBusinessId(id) {
+  const setSelectedBusinessId = useCallback((id) => {
     setSelectedBusinessIdState(id);
     if (id) setLastBusinessId(id);
-  }
+  }, []);
 
-  const value = {
+  const refreshAccounts = useCallback(() => load(true), [load]);
+  // Memoized so pages only re-render when something they read actually changed.
+  const value = useMemo(
+    () => ({
     profile,
     pages,
     adAccounts,
@@ -242,8 +283,29 @@ export function AccountProvider({ children }) {
     businessOptions,
     selectedBusinessId,
     setSelectedBusinessId,
-    refreshAccounts: () => load(true),
-  };
+    refreshAccounts,
+  }),
+    [
+      profile,
+      pages,
+      adAccounts,
+      accountsLoading,
+      accountsError,
+      pagesError,
+      adAccountsError,
+      businessesError,
+      accountsFetchedAt,
+      selectedAccountId,
+      setSelectedAccountId,
+      igAccounts,
+      selectedIgAccountId,
+      setSelectedIgAccountId,
+      businessOptions,
+      selectedBusinessId,
+      setSelectedBusinessId,
+      refreshAccounts,
+    ]
+  );
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }

@@ -6,6 +6,7 @@ import { CloseIcon, ChevronIcon } from "./icons";
 import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
 import AdLaunchStatusPicker from "@/components/AdLaunchStatusPicker";
+import { cachedGet, invalidateCachedGets } from "@/lib/cachedGet";
 
 function formatMoney(amount, currency) {
   if (amount == null) return null;
@@ -26,7 +27,7 @@ function budgetLabel(entity, currency) {
 // escape hatch — a smaller, modal-sized cousin of pages/launch.js's own
 // PickerList (kept separate rather than shared, same reasoning that file's
 // own comment gives: each caller wants slightly different row content).
-function PickerList({ items, query, onQueryChange, emptyLabel, renderRow }) {
+function PickerList({ items, query, onQueryChange, emptyLabel, renderRow, loading = false, loadError = null }) {
   const filtered = query.trim() ? items.filter((i) => i.name.toLowerCase().includes(query.trim().toLowerCase())) : items;
   return (
     <div>
@@ -40,7 +41,7 @@ function PickerList({ items, query, onQueryChange, emptyLabel, renderRow }) {
         onChange={(e) => onQueryChange(e.target.value)}
       />
       {filtered.length === 0 ? (
-        <p className={styles.sub}>{emptyLabel}</p>
+        <p className={loadError ? styles.error : styles.sub}>{loading ? "Loading…" : loadError || emptyLabel}</p>
       ) : (
         <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", maxHeight: 280, overflowY: "auto" }}>
           {filtered.map((item) => renderRow(item))}
@@ -139,6 +140,10 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
   // "adset" duplication
   const [adsetSource, setAdsetSource] = useState(null);
   const [campaignChoices, setCampaignChoices] = useState([]);
+  // The destination lists load in the background after the source entity — the confirm
+  // screen no longer waits for whole-account lists that are only needed on "Change".
+  const [choicesLoading, setChoicesLoading] = useState(true);
+  const [choicesError, setChoicesError] = useState(null);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [budgetAmount, setBudgetAmount] = useState("");
 
@@ -160,13 +165,26 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
   // either immediately for the default or later if "Change" is clicked —
   // fetched up front either way since it's one cheap list call).
   useEffect(() => {
+    // Candidate destinations: started at once, in parallel with the source, but the
+    // confirm step is shown as soon as the source itself is here.
+    const adsetsP = level === "ad" ? cachedGet(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`) : Promise.resolve(null);
+    const campaignsP = cachedGet(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`);
+    Promise.all([adsetsP, campaignsP])
+      .then(([adsetsJson, campaignsJson]) => {
+        if (adsetsJson?.error || campaignsJson?.error) {
+          setChoicesError(adsetsJson?.error || campaignsJson?.error);
+          return;
+        }
+        if (adsetsJson) setAdsetChoices(adsetsJson.adsets || []);
+        setCampaignChoices(campaignsJson.campaigns || []);
+      })
+      .catch((err) => setChoicesError(err.message))
+      .finally(() => setChoicesLoading(false));
+
     if (level === "ad") {
-      Promise.all([
-        fetch(`/api/fb/ads-list?adId=${encodeURIComponent(row.entityId)}`).then((res) => res.json()),
-        fetch(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`).then((res) => res.json()),
-        fetch(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`).then((res) => res.json()),
-      ])
-        .then(([adJson, adsetsJson, campaignsJson]) => {
+      fetch(`/api/fb/ads-list?adId=${encodeURIComponent(row.entityId)}`)
+        .then((res) => res.json())
+        .then((adJson) => {
           if (adJson.error) {
             setLoadError(adJson.error);
             setStep("error");
@@ -174,8 +192,6 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
           }
           setAdSource(adJson);
           setAdName(`${adJson.name} - Copy`);
-          setAdsetChoices(adsetsJson.adsets || []);
-          setCampaignChoices(campaignsJson.campaigns || []);
           setStep("confirm");
         })
         .catch((err) => {
@@ -183,18 +199,15 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
           setStep("error");
         });
     } else {
-      Promise.all([
-        fetch(`/api/fb/adsets-list?adsetId=${encodeURIComponent(row.entityId)}`).then((res) => res.json()),
-        fetch(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`).then((res) => res.json()),
-      ])
-        .then(([adsetJson, campaignsJson]) => {
+      fetch(`/api/fb/adsets-list?adsetId=${encodeURIComponent(row.entityId)}`)
+        .then((res) => res.json())
+        .then((adsetJson) => {
           if (adsetJson.error) {
             setLoadError(adsetJson.error);
             setStep("error");
             return;
           }
           setAdsetSource(adsetJson);
-          setCampaignChoices(campaignsJson.campaigns || []);
           setBudgetAmount(adsetJson.fields.budgetAmount || "");
           setStep("confirm");
         })
@@ -230,7 +243,8 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
           return;
         }
         setResult(json);
-        setStep("done");
+        invalidateCachedGets();
+      setStep("done");
       })
       .catch((err) => setSubmitError(err.message))
       .finally(() => setSubmitting(false));
@@ -277,6 +291,7 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
         }
       }
       setResult(finalResult);
+      invalidateCachedGets();
       setStep("done");
     } catch (err) {
       setSubmitError(err.message);
@@ -353,6 +368,8 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
                 items={destinationCampaign ? adsetChoices.filter((a) => a.campaign?.id === destinationCampaign.id) : adsetChoices}
                 query={pickerQuery}
                 onQueryChange={setPickerQuery}
+                loading={choicesLoading}
+                loadError={choicesError}
                 emptyLabel={destinationCampaign ? "No ad sets found in this campaign." : "No ad sets found on this account."}
                 renderRow={(a) => (
                   <PickerRow
@@ -382,6 +399,8 @@ export default function DuplicateEntityModal({ level, row, currency, onClose }) 
                 items={campaignChoices}
                 query={pickerQuery}
                 onQueryChange={setPickerQuery}
+                loading={choicesLoading}
+                loadError={choicesError}
                 emptyLabel="No campaigns found on this account."
                 renderRow={(c) => (
                   <PickerRow
