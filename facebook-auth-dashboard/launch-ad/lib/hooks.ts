@@ -37,7 +37,8 @@ export function useAsync<T>(key: string | null, loader: () => Promise<T>) {
  * shared list came back empty.
  */
 export function useLaunchAccounts() {
-  const shared = useAccounts();
+  // useAccounts is plain JS (context created with null), so TypeScript infers `never` for it.
+  const shared = useAccounts() as unknown as { adAccounts: any[]; accountsLoading: boolean };
   const hasShared = shared.adAccounts.length > 0;
   const fallback = useAsync<AdAccount[]>(!hasShared && !shared.accountsLoading ? 'accounts' : null, () => apiGet<AdAccount[]>('adaccounts'));
   const mapped = useMemo<AdAccount[] | undefined>(
