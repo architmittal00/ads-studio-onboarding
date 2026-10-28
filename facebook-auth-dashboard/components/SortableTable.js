@@ -9,6 +9,17 @@ import styles from "@/styles/Home.module.css";
 // `var(--bg)` every other frozen cell uses.
 const HIGHLIGHT_BG = "color-mix(in srgb, var(--purple) 10%, var(--bg))";
 
+// One collator for every string comparison (String#localeCompare builds a new one each call,
+// which dominates the cost of sorting thousands of rows by a text column).
+const COLLATOR = new Intl.Collator();
+
+// Past this many rows only the first batch is put in the DOM, with a "Show more" row at the
+// bottom — a 3,000-row table is tens of thousands of cells to create, lay out and keep.
+const ROW_BATCH = 200;
+const ROW_CAP_THRESHOLD = 250;
+// How long typing in the search box waits before the table is re-filtered.
+const SEARCH_DEBOUNCE_MS = 200;
+
 // Shared by every real row and the optional pinned row below — a standalone
 // function (not a method closing over component state) since the pinned row
 // needs to render identically, just from a different row array.
@@ -140,6 +151,11 @@ export default function SortableTable({
   // Optional (row, lowercasedTerm) => boolean replacing the default per-key
   // match, for callers whose rows have nested content the search should reach.
   searchMatch,
+  // Changes whenever data `searchMatch` reads beyond the row itself changes (e.g. loaded drill-down
+  // children), so a cached filter result is recomputed; the callback itself is read through a ref.
+  searchVersion,
+  // Optional (row, index) => string identifying a row across re-sorts; defaults to row.id, then position.
+  rowKey,
   searchPlaceholder = "Search…",
   resizableColumns = false,
   fixedColumnWidths = false,
@@ -156,7 +172,21 @@ export default function SortableTable({
 }) {
   const [sortKey, setSortKey] = useState(defaultSortKey || columns[0]?.key);
   const [sortDir, setSortDir] = useState(defaultSortDir);
+  // `searchInput` is what the box shows; `search` (what filters and is reported upwards) follows
+  // it after a short pause, so each keystroke does not re-filter and re-render the whole table.
+  const [searchInput, setSearchInput] = useState(initialSearch || "");
   const [search, setSearch] = useState(initialSearch || "");
+  useEffect(() => {
+    if (searchInput === search) return;
+    const t = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchInput, search]);
+  // The caller rebuilds `columns`, `searchKeys` and `searchMatch` on every render, so using
+  // them as memo dependencies recomputed the filter and sort on every render. They are read
+  // inside the memos instead, keyed on what actually matters: the rows, the search text,
+  // `searchVersion` and the set of column keys.
+  const columnsSignature = columns.map((c) => c.key).join("|");
+  const [limitState, setLimitState] = useState({ forKey: "", limit: ROW_BATCH });
 
   useEffect(() => {
     onSortChange?.(sortKey, sortDir);
@@ -260,36 +290,38 @@ export default function SortableTable({
     const term = search.trim().toLowerCase();
     if (searchMatch) return rows.filter((row) => searchMatch(row, term));
     return rows.filter((row) => searchKeys.some((key) => String(row[key] ?? "").toLowerCase().includes(term)));
-  }, [rows, search, searchable, searchKeys, searchMatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- searchKeys/searchMatch deliberately left out (see above); searchVersion covers outside data they read
+  }, [rows, search, searchable, searchVersion, columnsSignature]);
 
   const sorted = useMemo(() => {
     const col = columns.find((c) => c.key === sortKey);
     if (!col) return filtered;
     const getValue = col.sortValue || ((row) => row[col.key]);
-    const copy = [...filtered];
-    copy.sort((a, b) => {
-      const av = getValue(a);
-      const bv = getValue(b);
+    // Each row's sort value is read once (not twice per comparison).
+    const decorated = filtered.map((row) => ({ row, v: getValue(row) }));
+    const dir = sortDir === "asc" ? 1 : -1;
+    decorated.sort((a, b) => {
+      const av = a.v;
+      const bv = b.v;
       if (av == null) return 1;
       if (bv == null) return -1;
       // A column can have a genuinely mixed-type value across rows (e.g. a
       // metric that's usually a number but falls back to a placeholder
-      // string for some rows) — checking only `av`'s type and then calling
-      // `.localeCompare` on whichever of av/bv the sort direction happens to
-      // put first crashed the whole page the moment a row with the other
-      // type sorted after one of this type (`bv.localeCompare is not a
-      // function` when av is a string but bv isn't, or vice versa). Coercing
-      // both sides to strings whenever either one is a string avoids that
-      // regardless of sort direction or which row holds which type.
-      if (typeof av === "string" || typeof bv === "string") {
-        const as = String(av);
-        const bs = String(bv);
-        return sortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
-      }
-      return sortDir === "asc" ? av - bv : bv - av;
+      // string for some rows) — comparing as strings whenever either side is
+      // a string avoids a crash regardless of sort direction or which row
+      // holds which type.
+      if (typeof av === "string" || typeof bv === "string") return dir * COLLATOR.compare(String(av), String(bv));
+      return dir * (av - bv);
     });
-    return copy;
-  }, [filtered, sortKey, sortDir, columns]);
+    return decorated.map((d) => d.row);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `columns` deliberately left out (see above); columnsSignature covers the set of columns changing
+  }, [filtered, sortKey, sortDir, columnsSignature]);
+
+  // Big results render in batches (see ROW_BATCH); a new sort/search/data set starts over at one batch.
+  const listKey = `${sortKey}|${sortDir}|${search}|${sorted.length}`;
+  const limit = limitState.forKey === listKey ? limitState.limit : ROW_BATCH;
+  const capped = sorted.length > ROW_CAP_THRESHOLD && limit < sorted.length;
+  const visibleRows = capped ? sorted.slice(0, limit) : sorted;
 
   function toggleSort(key) {
     if (key === sortKey) {
@@ -320,11 +352,22 @@ export default function SortableTable({
     const startX = e.clientX;
     const startWidth = columnWidth(col);
     dragRef.current = { key: col.key };
+    let frame = 0;
+    let lastX = startX;
     function onMove(ev) {
-      const next = Math.max(MIN_COLUMN_WIDTH, Math.round(startWidth + (ev.clientX - startX)));
-      setColWidths((prev) => ({ ...prev, [col.key]: next }));
+      // At most one re-render per frame while dragging, not one per mouse event.
+      lastX = ev.clientX;
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const next = Math.max(MIN_COLUMN_WIDTH, Math.round(startWidth + (lastX - startX)));
+        setColWidths((prev) => (prev[col.key] === next ? prev : { ...prev, [col.key]: next }));
+      });
     }
     function onUp() {
+      if (frame) cancelAnimationFrame(frame);
+      const final = Math.max(MIN_COLUMN_WIDTH, Math.round(startWidth + (lastX - startX)));
+      setColWidths((prev) => (prev[col.key] === final ? prev : { ...prev, [col.key]: final }));
       dragRef.current = null;
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
@@ -359,8 +402,8 @@ export default function SortableTable({
                 type="text"
                 className={styles.select}
                 placeholder={searchPlaceholder}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 style={{ width: "100%", paddingLeft: 30 }}
               />
             </div>
@@ -519,22 +562,44 @@ export default function SortableTable({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row, i) => {
-                const highlighted = highlightRow ? highlightRow(row) : false;
-                const classes = [rowClassName ? rowClassName(row) : null, highlighted ? styles.highlightedRow : null].filter(Boolean).join(" ");
-                return (
-                  <Fragment key={row.id ?? i}>
-                    <tr
-                      onClick={onRowClick ? () => onRowClick(row) : undefined}
-                      className={classes || undefined}
-                      style={onRowClick ? { cursor: "pointer" } : undefined}
-                    >
-                      {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted }))}
-                    </tr>
-                    {renderRowExtra ? renderRowExtra(row) : null}
-                  </Fragment>
-                );
-              })}
+              {(() => {
+                const usedKeys = new Set();
+                return visibleRows.map((row, i) => {
+                  const highlighted = highlightRow ? highlightRow(row) : false;
+                  const classes = [rowClassName ? rowClassName(row) : null, highlighted ? styles.highlightedRow : null].filter(Boolean).join(" ");
+                  // A stable identity (not the position) so re-sorting moves rows instead of rewriting every cell.
+                  let key = rowKey ? rowKey(row, i) : row.id ?? i;
+                  if (usedKeys.has(key)) key = `${key}#${i}`;
+                  usedKeys.add(key);
+                  return (
+                    <Fragment key={key}>
+                      <tr
+                        onClick={onRowClick ? () => onRowClick(row) : undefined}
+                        className={classes || undefined}
+                        style={onRowClick ? { cursor: "pointer" } : undefined}
+                      >
+                        {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted }))}
+                      </tr>
+                      {renderRowExtra ? renderRowExtra(row) : null}
+                    </Fragment>
+                  );
+                });
+              })()}
+              {capped && (
+                <tr>
+                  <td colSpan={orderedColumns.length} style={{ textAlign: "center", padding: "12px 0" }}>
+                    <span className={styles.muted} style={{ marginRight: 12 }}>
+                      Showing {limit.toLocaleString()} of {sorted.length.toLocaleString()} rows
+                    </span>
+                    <button type="button" className={styles.btnSecondary} onClick={() => setLimitState({ forKey: listKey, limit: limit + ROW_BATCH })}>
+                      Show {Math.min(ROW_BATCH, sorted.length - limit)} more
+                    </button>{" "}
+                    <button type="button" className={styles.btnSecondary} onClick={() => setLimitState({ forKey: listKey, limit: sorted.length })}>
+                      Show all
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -15,7 +15,14 @@ import { useIsMobile } from "@/lib/useIsMobile";
 // restrictions and shows the ad exactly as it would really appear. Falls
 // back further to a "Watch on Facebook" link (video only) and finally to the
 // small stored thumbnail, for the rare case even that fails.
+// Mounted all the time by the pages, so the outer component renders nothing (and attaches
+// no listeners) until there is an item to show.
 export default function CreativeLightbox({ item, onClose }) {
+  if (!item) return null;
+  return <CreativeLightboxInner item={item} onClose={onClose} />;
+}
+
+function CreativeLightboxInner({ item, onClose }) {
   const isMobile = useIsMobile();
   const [preview, setPreview] = useState({ loading: false, url: null, error: null, width: null, height: null });
   // Viewport width, to scale the preview frame down to fit a phone.
@@ -80,8 +87,7 @@ export default function CreativeLightbox({ item, onClose }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,.75)",
-        backdropFilter: "blur(6px)",
+        background: "rgba(0,0,0,.8)", // solid scrim: a blur re-paints the whole page behind it
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

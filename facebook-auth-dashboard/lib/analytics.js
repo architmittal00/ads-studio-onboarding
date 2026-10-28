@@ -116,6 +116,9 @@ const NAME_CONTAINERS = "table, tr, td, [class*=rowCard], [class*=sheetListItem]
 
 function safeText(el, raw) {
   if (!el || (el.closest && el.closest(NAME_CONTAINERS))) return undefined;
+  // A label comes from a small element (a button, a tab) — never read the full text of a big
+  // container (a table section, a list), which can be thousands of characters of DOM walking.
+  if (raw == null && !el.getAttribute?.("aria-label") && (el.childElementCount || 0) > 8) return undefined;
   const t = (raw ?? (el.getAttribute?.("aria-label") || el.textContent || "")).replace(/\s+/g, " ").trim();
   if (!t || t.length > 32 || /[_@]/.test(t) || /\d{4,}/.test(t)) return undefined;
   return t;
@@ -227,9 +230,14 @@ function looksLikeDialog(node) {
   if (/(modal|drawer|lightbox|sheetBackdrop|overlay)/i.test(cls)) return true;
   return node.style?.position === "fixed" && node.style?.inset === "0px";
 }
+// A modal/drawer is one or a few nodes. A record that adds dozens at once is a table or list
+// rendering its rows, and inspecting every one of those nodes was pure overhead on heavy pages.
+const MAX_NODES_PER_RECORD = 12;
 function onMutations(records) {
   for (const r of records) {
+    if (r.addedNodes.length > MAX_NODES_PER_RECORD) continue;
     for (const node of r.addedNodes) {
+      if (node.nodeType !== 1 || node.tagName === "TR" || node.tagName === "TD" || node.tagName === "TBODY") continue;
       if (!looksLikeDialog(node) || seenDialogs.has(node)) continue;
       seenDialogs.add(node);
       const dlg = node.getAttribute("role") === "dialog" ? node : node.querySelector("[role=dialog]") || node;
