@@ -2,6 +2,7 @@ import { responseError } from "@/lib/fetchJson";
 import { useState } from "react";
 import Loader from "./Loader";
 import styles from "@/styles/Home.module.css";
+import { invalidateCachedGets } from "@/lib/cachedGet";
 
 // Review & Launch step for the Launch tab — same NDJSON-streaming /
 // per-object result rendering as components/LaunchPanel.js (copied rather
@@ -72,6 +73,8 @@ export default function LaunchReview({
     } catch (err) {
       setLaunchError(err.message);
     } finally {
+      // New campaigns / ad sets / audiences now exist — drop remembered lists.
+      invalidateCachedGets();
       setLaunching(false);
       setCurrentStep(null);
     }

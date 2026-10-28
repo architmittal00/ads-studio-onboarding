@@ -10,6 +10,7 @@ import { CloseIcon, ChevronIcon, DatabaseIcon, ListIcon, CopyIcon, CheckIcon, Pa
 import { parseJsonResponse, fetchWithTimeout, responseError } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 import { track } from "@/lib/analytics";
+import { cachedGet, invalidateCachedGets } from "@/lib/cachedGet";
 
 // Per-ad live-progress phase → badge styling/label, for the table shown
 // while `submitting` below. Added once pages/api/fb/copy-ads/copy.js started
@@ -646,8 +647,7 @@ export default function CopyAdsModal({
   function loadAdsets(accountId) {
     setAdsetsLoading(true);
     setAdsetsError(null);
-    fetchWithTimeout(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
-      .then(parseJsonResponse)
+    cachedGet(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
       .then((json) => {
         if (json.error) setAdsetsError(json.error);
         else setAdsets(json.adsets || []);
@@ -657,8 +657,7 @@ export default function CopyAdsModal({
   }
 
   function loadDestPixels(accountId) {
-    fetchWithTimeout(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`)
-      .then(parseJsonResponse)
+    cachedGet(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`)
       .then((json) => setDestPixels(json.pixels || []))
       .catch(() => setDestPixels([]));
   }
@@ -666,8 +665,7 @@ export default function CopyAdsModal({
   function loadDestCampaigns(accountId) {
     setDestCampaignsLoading(true);
     setDestCampaignsError(null);
-    fetchWithTimeout(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`)
-      .then(parseJsonResponse)
+    cachedGet(`/api/fb/campaigns-list?accountId=${encodeURIComponent(accountId)}`)
       .then((json) => {
         if (json.error) setDestCampaignsError(json.error);
         else setDestCampaigns(json.campaigns || []);
@@ -820,6 +818,7 @@ export default function CopyAdsModal({
       });
       finalResult = normalizeCopyResult(finalResult);
       setResult(finalResult);
+      invalidateCachedGets();
       setStep("done");
       onDone?.(finalResult);
     } catch (err) {
@@ -890,6 +889,7 @@ export default function CopyAdsModal({
       });
       finalResult = normalizeCopyResult(finalResult);
       setResult(finalResult);
+      invalidateCachedGets();
       setStep("done");
       onDone?.(finalResult);
     } catch (err) {
@@ -969,7 +969,8 @@ export default function CopyAdsModal({
         setObjectProgress({});
         setStep("loading_source");
       } else {
-        setStep("done");
+        invalidateCachedGets();
+      setStep("done");
         onDone?.({ success: updatedResults.every((r) => r.result?.success), results: updatedResults });
       }
     } catch (err) {

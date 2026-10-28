@@ -13,6 +13,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { RocketIcon, ChevronIcon } from "@/components/icons";
 import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
+import { cachedGet } from "@/lib/cachedGet";
 
 // Flattened once for a bare optimization_goal -> human label lookup (the
 // campaign/ad-set pickers show an existing object's goal without already
@@ -174,8 +175,7 @@ export default function Launch() {
 
   useEffect(() => {
     if (!selectedAccountId) return;
-    fetch(`/api/fb/targeting-data?accountId=${encodeURIComponent(selectedAccountId)}`)
-      .then((res) => res.json())
+    cachedGet(`/api/fb/targeting-data?accountId=${encodeURIComponent(selectedAccountId)}`)
       .then((json) => {
         setPixels(json.pixels || []);
         if (json.pixels?.length === 1) setAdsetFields((prev) => ({ ...prev, pixelId: json.pixels[0].id }));
@@ -186,8 +186,7 @@ export default function Launch() {
   function loadCampaigns() {
     setCampaignsLoading(true);
     setCampaignsError(null);
-    fetch(`/api/fb/campaigns-list?accountId=${encodeURIComponent(selectedAccountId)}`)
-      .then((res) => res.json())
+    cachedGet(`/api/fb/campaigns-list?accountId=${encodeURIComponent(selectedAccountId)}`)
       .then((json) => {
         if (json.error) setCampaignsError(json.error);
         else setCampaigns(json.campaigns || []);
@@ -199,8 +198,7 @@ export default function Launch() {
   function loadAdsets() {
     setAdsetsLoading(true);
     setAdsetsError(null);
-    fetch(`/api/fb/adsets-list?accountId=${encodeURIComponent(selectedAccountId)}`)
-      .then((res) => res.json())
+    cachedGet(`/api/fb/adsets-list?accountId=${encodeURIComponent(selectedAccountId)}`)
       .then((json) => {
         if (json.error) setAdsetsError(json.error);
         else setAdsets(json.adsets || []);

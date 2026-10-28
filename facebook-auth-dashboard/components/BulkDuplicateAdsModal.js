@@ -6,6 +6,7 @@ import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
 import AdLaunchStatusPicker from "@/components/AdLaunchStatusPicker";
 import { track } from "@/lib/analytics";
+import { cachedGet, invalidateCachedGets } from "@/lib/cachedGet";
 
 // Same formatMoney/budgetLabel shape as components/DuplicateEntityModal.js —
 // duplicated rather than imported, since neither of those is exported from
@@ -58,8 +59,7 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
   }, [step, onClose]);
 
   useEffect(() => {
-    fetch(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
-      .then((res) => res.json())
+    cachedGet(`/api/fb/adsets-list?accountId=${encodeURIComponent(accountId)}`)
       .then((json) => {
         if (json.error) {
           setLoadError(json.error);
@@ -125,7 +125,8 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
     }
     await Promise.all(Array.from({ length: Math.min(DUPLICATE_CONCURRENCY, pairs.length) }, worker));
     setResults(collected);
-    setStep("done");
+    invalidateCachedGets();
+      setStep("done");
   }
 
   const failedResults = results.filter((r) => !r.success);

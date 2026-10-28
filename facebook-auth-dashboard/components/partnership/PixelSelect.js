@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
+import { cachedGet } from "@/lib/cachedGet";
 
 // Searchable Facebook Pixel picker for the launch wizard's Step 1 — reported
 // by the user as a plain free-text ID field before this, with nothing to
@@ -33,8 +34,7 @@ export default function PixelSelect({ accountId, value, onChange }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount reset, same pattern as AdSetMultiSelect.js
     setLoading(true);
     setError(null);
-    fetchWithTimeout(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`)
-      .then(parseJsonResponse)
+    cachedGet(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`)
       .then((json) => {
         if (ignore) return;
         if (json.error) setError(json.error);

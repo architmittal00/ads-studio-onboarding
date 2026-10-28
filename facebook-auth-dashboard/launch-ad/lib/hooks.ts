@@ -1,6 +1,8 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { errorText } from './client-api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { errorText, apiGet, clearApiGetCache } from './client-api';
+import { useAccounts } from '@/components/AccountProvider';
+import type { AdAccount } from './types';
 
 /** Run an async loader when `key` changes. A null key skips loading. */
 export function useAsync<T>(key: string | null, loader: () => Promise<T>) {
@@ -23,6 +25,30 @@ export function useAsync<T>(key: string | null, loader: () => Promise<T>) {
     return () => { alive = false; };
   }, [key, tick]);
 
-  const reload = useCallback(() => setTick((t) => t + 1), []);
+  // A manual reload means "fetch it again" — never answer it from the read cache.
+  const reload = useCallback(() => { clearApiGetCache(); setTick((t) => t + 1); }, []);
   return { data, loading, error, reload };
+}
+
+/**
+ * The user's ad accounts for the Launch / Catalog Ads screens. The app already loads them
+ * once for every page (AccountProvider), so use that — no second Facebook round trip before
+ * anything else on the screen can start. Falls back to this app's own endpoint only if the
+ * shared list came back empty.
+ */
+export function useLaunchAccounts() {
+  // useAccounts is plain JS (context created with null), so TypeScript infers `never` for it.
+  const shared = useAccounts() as unknown as { adAccounts: any[]; accountsLoading: boolean };
+  const hasShared = shared.adAccounts.length > 0;
+  const fallback = useAsync<AdAccount[]>(!hasShared && !shared.accountsLoading ? 'accounts' : null, () => apiGet<AdAccount[]>('adaccounts'));
+  const mapped = useMemo<AdAccount[] | undefined>(
+    () => (hasShared ? shared.adAccounts.map((a: any) => ({ ...a, account_id: a.account_id || String(a.id).replace(/^act_/, '') })) : undefined),
+    [hasShared, shared.adAccounts],
+  );
+  return {
+    data: mapped ?? fallback.data,
+    loading: hasShared ? false : shared.accountsLoading || fallback.loading,
+    error: hasShared ? '' : fallback.error || '',
+    reload: fallback.reload,
+  };
 }

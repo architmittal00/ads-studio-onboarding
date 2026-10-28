@@ -5,6 +5,7 @@ import Loader from "./Loader";
 import { getPixelMapping, setPixelMapping } from "@/lib/clientStorage";
 import styles from "@/styles/Home.module.css";
 import { track } from "@/lib/analytics";
+import { cachedGet, invalidateCachedGets } from "@/lib/cachedGet";
 
 // Review & Launch panel for one strategy: picks the Page (and, the first
 // time for this account, the pixel — remembered after that via
@@ -50,8 +51,7 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, interest
     setLoadingData(true);
     setDataError(null);
 
-    fetch(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`)
-      .then((res) => res.json())
+    cachedGet(`/api/fb/targeting-data?accountId=${encodeURIComponent(accountId)}`)
       .then((json) => {
         if (ignore) return;
         if (json.error) {
@@ -140,6 +140,8 @@ export default function LaunchPanel({ strategy, accountId, dailyBudget, interest
     } catch (err) {
       setLaunchError(err.message);
     } finally {
+      // New campaigns / ad sets / audiences now exist — drop remembered lists.
+      invalidateCachedGets();
       setLaunching(false);
       setCurrentStep(null);
     }

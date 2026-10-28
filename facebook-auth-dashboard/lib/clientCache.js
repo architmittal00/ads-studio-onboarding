@@ -65,6 +65,15 @@ export function clearCachedEntry(key) {
 // aborting the whole prune.
 function pruneCachePrefix(prefix, maxEntries) {
   const fullPrefix = CACHE_PREFIX + prefix;
+  // Cheap first pass: just count the keys. Most writes are under the cap, and the full
+  // pass below parses every stored entry (megabytes of JSON for big results) only to
+  // read a timestamp — never pay that when there is nothing to evict.
+  let count = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(fullPrefix) && ++count > maxEntries) break;
+  }
+  if (count <= maxEntries) return;
   const entries = [];
   for (let i = 0; i < localStorage.length; i++) {
     const storageKey = localStorage.key(i);

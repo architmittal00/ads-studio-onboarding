@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '@/launch-ad/lib/client-api';
 import { currencySymbol } from '@/launch-ad/lib/constants';
 import { adFirstForm, clearAccountBound, repeatForm } from '@/launch-ad/lib/form';
-import { useAsync } from '@/launch-ad/lib/hooks';
+import { useAsync, useLaunchAccounts } from '@/launch-ad/lib/hooks';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { totals, rowMetrics, STATUS_TONE, type Row, type Catalog } from '@/launch-ad/lib/catalog-perf';
 import type { AdAccount, FormState, LaunchResult } from '@/launch-ad/lib/types';
@@ -35,7 +35,7 @@ const TABS: { key: Tab; label: string }[] = [
 /** Catalog Ads: compare catalog ads with other ads, see each catalog ad, browse product sets, and create catalog ads. */
 export default function CatalogAdsApp({ declined }: { declined: string[] }) {
   const isMobile = useIsMobile();
-  const accounts = useAsync<AdAccount[]>('accounts', () => apiGet('adaccounts'));
+  const accounts = useLaunchAccounts();
   const [accountId, setAccountId] = useState('');
   // The picked preset/custom window; a preset is re-resolved in the selected ad
   // account's own time zone below (Meta's "today" is the account's, not ours).
