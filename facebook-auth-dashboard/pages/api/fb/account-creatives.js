@@ -14,6 +14,8 @@ export default async function handler(req, res) {
       fields: "id,name,thumbnail_url,object_type,video_id",
       limit: 60,
     });
+    // Per-user data that rarely changes: let the browser reuse it briefly (private, never shared).
+    res.setHeader("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
     res.status(200).json({
       creatives: (json.data || []).map((c) => ({ id: c.id, name: c.name || null, thumbnailUrl: c.thumbnail_url || null, isVideo: !!c.video_id || c.object_type === "VIDEO" })),
     });

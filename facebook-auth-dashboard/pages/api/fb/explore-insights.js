@@ -918,36 +918,28 @@ export default async function handler(req, res) {
   // One lookup across every account/row together (not per-account), so an
   // id used by several rows (e.g. the same campaign appearing once per
   // breakdown value) is only ever fetched once.
+  // Status, budgets and (optionally) creative details are independent lookups
+  // over the same entity ids — fired together instead of one after another.
+  // Each one soft-fails on its own (see the per-block notes below).
+  const lookupIds = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
+  const softFail = (promise, fallback) => promise.catch(() => fallback);
+  const [statusById, budgetById, detailsByAdId] = await Promise.all([
+    canHaveStatus ? softFail(fetchEntityStatuses(lookupIds, token), {}) : {},
+    canHaveBudget ? softFail(fetchEntityBudgets(lookupIds, token), {}) : {},
+    includeCreative && level === "ad" ? softFail(fetchAdDetails(lookupIds, token), {}) : {},
+  ]);
+
+  // Status only powers an optional filter, so a failed lookup just means no status on any row.
   if (canHaveStatus) {
-    const idsNeeded = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
-    let statusById = {};
-    try {
-      statusById = await fetchEntityStatuses(idsNeeded, token);
-    } catch {
-      // Soft-fail — status only powers an optional filter, not core report
-      // data, so a failed lookup just means no status on any row (the
-      // client's Status filter won't offer any options) rather than failing
-      // the whole query.
-    }
     for (const row of rows) {
       row.status = statusById[row.entityId] || null;
     }
   }
 
-  // Same one-lookup-for-everything shape as the status block above, powering
-  // the Explore row-actions "Change Budget" option — a row only gets it when
+  // Powers the Explore row-actions "Change Budget" option — a row only gets it when
   // the entity it points at actually owns a budget (see canHaveBudget and
   // fetchEntityBudgets' own comment for the CBO/ABO reasoning).
   if (canHaveBudget) {
-    const idsNeeded = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
-    let budgetById = {};
-    try {
-      budgetById = await fetchEntityBudgets(idsNeeded, token);
-    } catch {
-      // Soft-fail — same reasoning as the status lookup: a failed budget
-      // lookup just means no "Change Budget" action is offered, not a
-      // failed query.
-    }
     for (const row of rows) {
       const budget = budgetById[row.entityId];
       row.dailyBudget = budget?.dailyBudget ?? null;
@@ -959,28 +951,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // Same one-lookup-for-everything shape as the status/budget blocks above —
-  // opt-in via `includeCreative`, since it's an extra, much slower (one
-  // Graph call per 50 ads) round trip that most Explore queries never need.
-  // Only meaningful at the ad level — campaigns/ad sets have no creative of
-  // their own. A *top-level* Ad-level Explore query deliberately sends
-  // `includeCreative: false` and fetches thumbnails separately, in the
-  // background, via /api/fb/ad-thumbnails — see pages/explore.js's
-  // loadThumbnailsForView() — so the table can render the moment Insights
-  // data itself is back instead of also waiting on this. Every other
-  // `includeCreative` caller (the campaign/ad-set drill-down expand,
-  // components/EntityDrillDown.js's per-ad RCA list) still asks for it here
-  // synchronously — their id lists are small enough that the wait was never
-  // the problem.
+  // Opt-in via `includeCreative` (the drill-down/RCA paths); a top-level Ad-level query
+  // fetches thumbnails separately in the background — see pages/explore.js.
   if (includeCreative && level === "ad") {
-    const idsNeeded = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
-    let detailsByAdId = {};
-    try {
-      detailsByAdId = await fetchAdDetails(idsNeeded, token);
-    } catch {
-      // Soft-fail — same reasoning as status/budget: a failed creative lookup
-      // just means no thumbnail/preview data on any row, not a failed query.
-    }
     for (const row of rows) {
       const details = detailsByAdId[row.entityId];
       row.thumbnailUrl = details?.thumbnailUrl ?? null;

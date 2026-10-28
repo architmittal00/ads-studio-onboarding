@@ -458,6 +458,8 @@ export async function fetchVideoSourceUrl(token, videoId) {
 }
 
 const VIDEO_POLL_INTERVAL_MS = 3000;
+// Check soon, then ease out to the steady interval: most videos are ready within a few seconds.
+const VIDEO_POLL_RAMP_MS = [1000, 1500, 2000];
 const VIDEO_POLL_TIMEOUT_MS = 150000; // many videos process at once on bigger copies; 20s was too short
 
 // A freshly re-ingested video processes asynchronously in the destination
@@ -471,12 +473,13 @@ export async function copyVideoAcrossAccounts(token, destAccountId, { sourceUrl,
   const created = await graphPost(`/${destAccountId}/advideos`, token, { file_url: sourceUrl, title });
   const videoId = created.id;
   const deadline = Date.now() + VIDEO_POLL_TIMEOUT_MS;
+  let pollCount = 0;
   while (Date.now() < deadline) {
     const statusJson = await graphGet(`/${videoId}`, token, { fields: "status" });
     const state = statusJson.status?.video_status;
     if (state === "ready") return videoId;
     if (state === "error") throw new Error("Video failed to process in the destination account.");
-    await new Promise((resolve) => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
+    await new Promise((resolve) => setTimeout(resolve, VIDEO_POLL_RAMP_MS[pollCount++] ?? VIDEO_POLL_INTERVAL_MS));
   }
   throw new Error("Video is still processing in the destination account — try copying this ad again shortly.");
 }
@@ -624,7 +627,7 @@ export async function createCopiedAd(token, destAccountId, { name, adsetId, crea
 // across two ad sets is still only ever copied once. `onProgress`/`onAdStart`/
 // `onAdDone` are the caller's own NDJSON-writing callbacks (all optional, so
 // this can be called without a live response stream, e.g. from a test).
-export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, items, assets, concurrency = COPY_CONCURRENCY, onProgress, onAdStart, onAdDone }) {
+export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, items, assets, adCache, concurrency = COPY_CONCURRENCY, onProgress, onAdStart, onAdDone }) {
   const createdAdIds = [];
   let overallSuccess = true;
 
@@ -639,7 +642,14 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
     let ad;
     let instagramOmitted = false;
     try {
-      ({ ad, instagramOmitted } = await fetchAdForCopy(token, adId));
+      // `adCache` (shared across a whole request) makes the same source ad be fetched
+      // once even when it is copied into several ad sets.
+      let pending = adCache?.get(adId);
+      if (!pending) {
+        pending = fetchAdForCopy(token, adId);
+        adCache?.set(adId, pending);
+      }
+      ({ ad, instagramOmitted } = await pending);
     } catch (err) {
       overallSuccess = false;
       const error = `Could not re-fetch ad: ${err.message}`;
@@ -658,12 +668,11 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
     const assetFeedSpec = ad.creative.asset_feed_spec;
     const hasAssetFeed = hasAssetFeedContent(assetFeedSpec);
     try {
-      const hashEntries = await Promise.all(
-        collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])
-      );
-      const videoEntries = await Promise.all(
-        collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name)])
-      );
+      // Images and videos are independent — copied together (video processing is the long pole).
+      const [hashEntries, videoEntries] = await Promise.all([
+        Promise.all(collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])),
+        Promise.all(collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name)])),
+      ]);
       const hashMap = new Map(hashEntries);
       const videoIdMap = new Map(videoEntries);
 
@@ -753,6 +762,7 @@ export async function copyAdsetsIntoCampaign(
   }
 ) {
   const assets = createAssetCopyCoordinator(token, destAccountId, sourceAccountId, onProgress);
+  const adCache = new Map();
 
   const createdAdsetIds = [];
   const allCreatedAdIds = [];
@@ -830,6 +840,7 @@ export async function copyAdsetsIntoCampaign(
       destAdsetId: adsetId,
       items,
       assets,
+      adCache,
       concurrency: adConcurrency,
       onProgress,
       onAdStart,

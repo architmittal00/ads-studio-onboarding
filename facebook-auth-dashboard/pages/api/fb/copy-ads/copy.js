@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
 import { createAssetCopyCoordinator, copyAdsIntoAdset, COPY_CONCURRENCY } from "@/lib/adCopy";
+import { mapWithConcurrency } from "@/lib/metaInterestSearch";
 
 // Clones a batch of ads from one ad account's creative into an existing ad
 // set in a different ad account — the first place this app builds a
@@ -96,24 +97,31 @@ export default async function handler(req, res) {
   // coordinator above so each image/video is copied into the destination
   // account only once however many ad sets it lands in. Events and steps carry
   // `destAdsetId` so the client can tell the copies apart.
-  const createdAdIds = [];
-  const steps = [];
-  let adsSucceeded = true;
-  for (const adsetId of destAdsetIds) {
-    const r = await copyAdsIntoAdset(token, {
+  // Two destination ad sets at a time (each already copies up to COPY_CONCURRENCY ads
+  // at once). Source ads are fetched once per request however many ad sets they land
+  // in, and results are merged in ad-set order so the steps read the same.
+  const adCache = new Map();
+  const perAdset = await mapWithConcurrency(destAdsetIds, 2, (adsetId) =>
+    copyAdsIntoAdset(token, {
       destAccountId,
       destAdsetId: adsetId,
       items,
       assets,
+      adCache,
       concurrency: COPY_CONCURRENCY,
       onProgress: progress,
       onAdStart: (adId) => res.write(`${JSON.stringify({ type: "ad_start", adId, destAdsetId: adsetId })}\n`),
       onAdDone: (adId, result) => res.write(`${JSON.stringify({ type: "ad_done", adId, destAdsetId: adsetId, ...result })}\n`),
-    });
+    })
+  );
+  const createdAdIds = [];
+  const steps = [];
+  let adsSucceeded = true;
+  perAdset.forEach((r, k) => {
     createdAdIds.push(...r.createdAdIds);
-    steps.push(...r.steps.map((st) => ({ ...st, destAdsetId: adsetId })));
+    steps.push(...r.steps.map((st) => ({ ...st, destAdsetId: destAdsetIds[k] })));
     if (!r.overallSuccess) adsSucceeded = false;
-  }
+  });
   let overallSuccess = adsSucceeded;
 
   if (finalStatus === "ACTIVE" && overallSuccess && createdAdIds.length > 0) {

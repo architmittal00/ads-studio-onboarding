@@ -115,6 +115,19 @@ export default async function handler(req, res) {
   // future caller that doesn't care to pick a window.
   const range = since && until ? { since, until } : lastNDaysRange(30, new Date());
   try {
+    // The live ACTIVE count does not depend on discovery/classification, so it starts
+    // now and overlaps them instead of waiting its turn. `summary=true` returns just a
+    // count, cheaper than listing every active ad. It is the account's CURRENT status,
+    // independent of the chosen window.
+    const activeCountPromise =
+    graphGet(`/${accountId}/ads`, token, {
+        fields: "id",
+        filtering: [{ field: "effective_status", operator: "IN", value: ["ACTIVE"] }],
+        summary: true,
+        limit: 1,
+      })
+        .then((json) => json.summary?.total_count ?? null)
+        .catch(() => null);
     const allAdIds = await discoverDeliveringAdIds(token, accountId, range);
     const partnershipAds = await classifyPartnershipAds(token, allAdIds);
     const partnershipAdIds = partnershipAds.map((a) => a.adId);
@@ -125,20 +138,7 @@ export default async function handler(req, res) {
     const [partnership, normal, totalActiveCount] = await Promise.all([
       rollupForAdIds(token, accountId, partnershipAdIds, range),
       rollupForAdIds(token, accountId, normalAdIds, range),
-      // `summary=true` on a connection returns a count without paginating
-      // every row — cheaper than listing every active ad just to count them.
-      // This is the account's CURRENT live status, independent of the
-      // chosen window (an ad can have delivery in the window but be paused
-      // now, or vice versa) — shown alongside, not instead of, the
-      // window-bound "all ads" count below.
-      graphGet(`/${accountId}/ads`, token, {
-        fields: "id",
-        filtering: [{ field: "effective_status", operator: "IN", value: ["ACTIVE"] }],
-        summary: true,
-        limit: 1,
-      })
-        .then((json) => json.summary?.total_count ?? null)
-        .catch(() => null),
+      activeCountPromise,
     ]);
 
     const partnershipActiveAds = activeCount(partnershipAds.map((a) => a.status));

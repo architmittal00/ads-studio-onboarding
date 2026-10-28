@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import type { GetServerSidePropsContext } from "next";
 import { authOptions } from "./api/auth/[...nextauth]";
+import { publicSession } from "@/lib/publicSession";
 import CatalogAdsApp from "@/launch-ad/components/CatalogAdsApp";
 import PageShell from "@/launch-ad/components/PageShell";
 
@@ -16,5 +17,5 @@ export default function CatalogAds() {
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const session = await getServerSession(context.req, context.res, authOptions);
   if (!session) return { redirect: { destination: "/", permanent: false } };
-  return { props: {} };
+  return { props: { session: publicSession(session) } };
 }

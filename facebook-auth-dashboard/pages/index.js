@@ -1,5 +1,7 @@
 import Head from "next/head";
-import { getSession, signIn, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./api/auth/[...nextauth]";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 import styles from "@/styles/Home.module.css";
@@ -40,7 +42,7 @@ export default function Home() {
 }
 
 export async function getServerSideProps(context) {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
   if (session) {
     return { redirect: { destination: "/report", permanent: false } };
   }

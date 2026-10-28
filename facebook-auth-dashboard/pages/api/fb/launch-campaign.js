@@ -125,22 +125,32 @@ export default async function handler(req, res) {
   // real ad set id, so skipped entirely if the ad set itself failed above.
   const createdAdIds = [];
   if (adsetId && adsToCreate.length > 0) {
-    for (let i = 0; i < adsToCreate.length; i++) {
-      const ad = adsToCreate[i];
-      progress(`Creating ad ${i + 1} of ${adsToCreate.length}: ${ad.name}…`);
-      try {
-        const json = await graphPost(`/${accountId}/ads`, token, {
-          name: ad.name,
-          adset_id: adsetId,
-          creative: { creative_id: ad.creativeId },
-          status: "PAUSED",
-        });
-        createdAdIds.push(json.id);
-        steps.push({ type: "ad", label: "Ad", name: ad.name, success: true, id: json.id });
-      } catch (err) {
-        overallSuccess = false;
-        steps.push({ type: "ad", label: "Ad", name: ad.name, success: false, error: err.message });
-      }
+    // A few at a time instead of strictly one after another — ads are independent of each
+    // other. Results are applied in the original order so the steps list reads the same.
+    const AD_CREATE_CONCURRENCY = 5;
+    progress(`Creating ${adsToCreate.length} ad${adsToCreate.length === 1 ? "" : "s"}…`);
+    for (let start = 0; start < adsToCreate.length; start += AD_CREATE_CONCURRENCY) {
+      const batch = adsToCreate.slice(start, start + AD_CREATE_CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map((ad) =>
+          graphPost(`/${accountId}/ads`, token, {
+            name: ad.name,
+            adset_id: adsetId,
+            creative: { creative_id: ad.creativeId },
+            status: "PAUSED",
+          })
+        )
+      );
+      results.forEach((r, k) => {
+        const ad = batch[k];
+        if (r.status === "fulfilled") {
+          createdAdIds.push(r.value.id);
+          steps.push({ type: "ad", label: "Ad", name: ad.name, success: true, id: r.value.id });
+        } else {
+          overallSuccess = false;
+          steps.push({ type: "ad", label: "Ad", name: ad.name, success: false, error: r.reason?.message || "Request failed" });
+        }
+      });
     }
   }
 

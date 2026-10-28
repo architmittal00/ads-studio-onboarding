@@ -3,6 +3,7 @@ import { authOptions } from "../../auth/[...nextauth]";
 import { lookupContent, extractInstagramShortcode } from "@/lib/partnershipAds";
 import { firstPartnershipInfo } from "@/lib/partnershipContent";
 import { chunk } from "@/lib/adCreativeDetails";
+import { mapWithConcurrency } from "@/lib/metaInterestSearch";
 
 // The Partnership Code tab's bulk CSV upload — resolves every pasted row in
 // as few Graph calls as possible (one per chunk of 50 per type, the API's own
@@ -66,7 +67,9 @@ export default async function handler(req, res) {
 
   const token = session.accessToken;
   const chunks = chunk(items, CHUNK_SIZE);
-  for (const batch of chunks) {
+  // Chunks run a few at a time; within a chunk the ad-code and permalink lookups run
+  // together. The client matches rows by `value`, so arrival order does not matter.
+  await mapWithConcurrency(chunks, 3, async (batch) => {
     const adCodeRows = batch.filter((row) => row.type !== "permalink");
     // Pre-extracted once per row so a Stories link (or anything else
     // extractInstagramShortcode rejects) is excluded from the actual Graph
@@ -78,7 +81,8 @@ export default async function handler(req, res) {
 
     const byAdCode = new Map();
     let adCodeError = null;
-    if (adCodeRows.length > 0) {
+    const adCodeTask = async () => {
+      if (adCodeRows.length === 0) return;
       try {
         const results = await lookupContent(token, businessId, { igUserId, adCodes: adCodeRows.map((row) => row.value) });
         // A real piece of content can carry more than one tagged partner —
@@ -102,12 +106,13 @@ export default async function handler(req, res) {
         // the actual reason attached.
         adCodeError = err.message;
       }
-    }
+    };
 
     const byShortcode = new Map();
     let permalinkError = null;
     const resolvablePermalinks = permalinkRows.filter((row) => row.shortcode);
-    if (resolvablePermalinks.length > 0) {
+    const permalinkTask = async () => {
+      if (resolvablePermalinks.length === 0) return;
       try {
         const results = await lookupContent(token, businessId, { igUserId, permalinks: resolvablePermalinks.map((row) => row.value) });
         for (const item of results) {
@@ -118,7 +123,8 @@ export default async function handler(req, res) {
         // Same reasoning as the ad-code batch above.
         permalinkError = err.message;
       }
-    }
+    };
+    await Promise.all([adCodeTask(), permalinkTask()]);
 
     for (const row of adCodeRows) {
       const item = byAdCode.get(normalizeAdCode(row.value));
@@ -133,7 +139,7 @@ export default async function handler(req, res) {
           : permalinkError;
       res.write(`${JSON.stringify({ type: "row", value: row.value, found: !!item, item: item || null, error })}\n`);
     }
-  }
+  });
 
   res.write(`${JSON.stringify({ type: "done" })}\n`);
   res.end();

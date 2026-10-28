@@ -250,6 +250,12 @@ export default async function handler(req, res) {
 
   const adIds = adRowsBase.map((r) => r.id);
 
+  // Topping up truncated ad-set lists only needs the structure result, which is
+  // already here — start it now so it overlaps the ad-details/video/landing-page
+  // work below instead of running after all of it (awaited where it is used).
+  const fillStructurePromise =
+    structureResult.status === "fulfilled" && structureResult.value?.data ? fillTruncatedAdsets(structureResult.value.data, token) : Promise.resolve();
+
   // Independent of each other — run concurrently rather than one after the
   // other.
   const [adDetailsResult, accurateFrequencyResult] = await Promise.allSettled([
@@ -274,9 +280,18 @@ export default async function handler(req, res) {
   }
 
   const videoIds = [...new Set(Object.values(adDetailsById).map((d) => d.videoId).filter(Boolean))];
+  const postIdsNeedingLink = [
+    ...new Set(Object.values(adDetailsById).map((d) => d.postId).filter(Boolean)),
+  ];
+  // Video sources and post-based landing URLs both depend only on adDetailsById, not on
+  // each other — fired together (each still handles its own failure below).
+  const videoSourcesPromise = fetchVideoSources(videoIds, token);
+  const postLandingPromise = fetchPostLandingUrls(postIdsNeedingLink, token);
+  videoSourcesPromise.catch(() => {});
+  postLandingPromise.catch(() => {});
   let videoSourceByVideoId = {};
   try {
-    const { byVideoId, errorSamples } = await fetchVideoSources(videoIds, token);
+    const { byVideoId, errorSamples } = await videoSourcesPromise;
     videoSourceByVideoId = byVideoId;
     // A per-video permission error comes back inside an otherwise-successful
     // batch response (see fetchVideoSources' own comment), so it wouldn't
@@ -294,12 +309,9 @@ export default async function handler(req, res) {
     warnings.push(`Video playback URLs unavailable: ${err.message}`);
   }
 
-  const postIdsNeedingLink = [
-    ...new Set(Object.values(adDetailsById).map((d) => d.postId).filter(Boolean)),
-  ];
   let postLandingUrlByPostId = {};
   try {
-    postLandingUrlByPostId = await fetchPostLandingUrls(postIdsNeedingLink, token);
+    postLandingUrlByPostId = await postLandingPromise;
   } catch (err) {
     warnings.push(`Some ad landing pages (linked via an existing Page post) could not be resolved: ${err.message}`);
   }
@@ -374,7 +386,7 @@ export default async function handler(req, res) {
   // Per-campaign fetch failures are swallowed inside (allSettled) rather
   // than thrown — a campaign that can't be topped up just keeps its
   // already-fetched first page of ad sets instead of failing the report.
-  await fillTruncatedAdsets(campaignsRaw, token);
+  await fillStructurePromise;
 
   const campaigns = campaignsRaw.map((c) => {
     const adsetsRaw = c.adsets?.data || [];

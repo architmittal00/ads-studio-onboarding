@@ -77,7 +77,15 @@ function useBodyFontClass() {
 // touches.
 function useSweepStaleCaches() {
   useEffect(() => {
-    sweepAllKnownCaches();
+    // Housekeeping — not needed for the first paint, so it waits for the browser to be
+    // idle (it parses every stored cache entry, which is noticeable on a heavy browser).
+    const run = () => sweepAllKnownCaches();
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(run, { timeout: 5000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const t = setTimeout(run, 3000);
+    return () => clearTimeout(t);
   }, []);
 }
 
@@ -128,7 +136,7 @@ export default function App({
   useSweepStaleCaches();
   useBodyFontClass();
   return (
-    <SessionProvider session={session}>
+    <SessionProvider session={session} refetchOnWindowFocus={false}>
       {CLARITY_PROJECT_ID && (
         <Script
           id="clarity-init"

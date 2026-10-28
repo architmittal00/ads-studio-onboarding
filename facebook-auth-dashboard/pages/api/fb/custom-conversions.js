@@ -75,5 +75,8 @@ export default async function handler(req, res) {
     return res.status(firstFailure?.graphResponse ? 400 : 500).json({ error: firstFailure?.message || "Request failed" });
   }
 
+  // Per-user data that rarely changes: let the browser reuse it briefly (private, never shared).
+  if (!errors?.length) res.setHeader("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
+
   res.status(200).json({ customEvents, errors });
 }

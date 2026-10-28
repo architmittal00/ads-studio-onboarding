@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
+import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import CacheStatus from "@/components/CacheStatus";
 import AccountSelect from "@/components/AccountSelect";
@@ -303,5 +304,5 @@ export async function getServerSideProps(context) {
     return { redirect: { destination: "/", permanent: false } };
   }
 
-  return { props: { user: session.user || null } };
+  return { props: { user: session.user || null, session: publicSession(session) } };
 }

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { requestPermission } from "@/lib/partnershipAds";
+import { mapWithConcurrency } from "@/lib/metaInterestSearch";
 
 // Bulk "Request Permission (n)" from the Explore grid's floating selection
 // bar — one request per unique CREATOR, not per selected card (several
@@ -41,18 +42,19 @@ export default async function handler(req, res) {
   }
 
   const token = session.accessToken;
-  const results = [];
-  for (let i = 0; i < uniqueCreators.length; i++) {
-    const c = uniqueCreators[i];
+  // A few requests at a time (these are writes, so kept modest); results stay in the
+  // original creator order.
+  let requested = 0;
+  const results = await mapWithConcurrency(uniqueCreators, 4, async (c) => {
     const label = c.creatorUsername ? `@${c.creatorUsername}` : c.creatorIgId;
-    progress(`Requesting permission from ${label} (${i + 1} of ${uniqueCreators.length})…`);
+    progress(`Requesting permission from ${label} (${++requested} of ${uniqueCreators.length})…`);
     try {
       await requestPermission(token, igUserId, { creatorInstagramAccount: c.creatorIgId, creatorInstagramUsername: c.creatorIgId ? undefined : c.creatorUsername });
-      results.push({ ...c, success: true });
+      return { ...c, success: true };
     } catch (err) {
-      results.push({ ...c, success: false, error: err.message });
+      return { ...c, success: false, error: err.message };
     }
-  }
+  });
 
   finish({ success: results.every((r) => r.success), results });
 }

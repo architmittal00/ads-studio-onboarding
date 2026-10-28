@@ -68,11 +68,16 @@ function countryName(code) {
 // Soft-fails to `Locale <id>` if this lookup doesn't come back, same
 // reasoning as every other secondary-enrichment lookup in this app (status,
 // budget, creative thumbnails).
+// The full locale list is the same for everyone and almost never changes: kept for the
+// life of the warm instance instead of re-downloading ~1000 entries on every ad set.
+let localeNamesCache = null;
 async function resolveLocaleNames(token, localeIds) {
   if (!localeIds?.length) return {};
+  if (localeNamesCache) return localeNamesCache;
   try {
     const all = await searchTargeting(token, "adlocale", "", { limit: 1000 });
-    return Object.fromEntries(all.map((l) => [String(l.key), l.name]));
+    localeNamesCache = Object.fromEntries(all.map((l) => [String(l.key), l.name]));
+    return localeNamesCache;
   } catch {
     return {};
   }
