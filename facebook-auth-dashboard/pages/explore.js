@@ -482,19 +482,23 @@ async function fetchExploreInsights(body, onProgress) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let scanFrom = 0; // the big final line arrives in many chunks; never re-scan what was already searched
   let finalResult = null;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop();
-    for (const line of lines) {
+    let nl;
+    while ((nl = buffer.indexOf("\n", scanFrom)) !== -1) {
+      const line = buffer.slice(0, nl);
+      buffer = buffer.slice(nl + 1);
+      scanFrom = 0;
       if (!line.trim()) continue;
       const event = JSON.parse(line);
       if (event.type === "progress") onProgress?.(event.message);
       else if (event.type === "done") finalResult = event;
     }
+    scanFrom = buffer.length;
   }
   if (!finalResult) throw new Error("Request ended unexpectedly");
   if (finalResult.error) throw new Error(finalResult.error);
@@ -1109,6 +1113,13 @@ export default function Explore() {
         groupId: v.groupId ?? null,
       };
       delete migrated.accountId;
+      // Only the tab being shown gets its cached result read (parsed) now; every other restored
+      // tab is filled in the first time it is opened (see the `needsHydrate` effect below) —
+      // with several tabs open, parsing all of their results at startup blocked the page.
+      const isShownTab = v.id === persisted.activeViewId || (!persisted.views.some((x) => x.id === persisted.activeViewId) && v === persisted.views[0]);
+      if (!isShownTab) {
+        return { ...migrated, result: null, resultFetchedAt: null, loading: false, error: null, needsHydrate: true };
+      }
       const cacheKey =
         accountIds.length > 0 && v.metricKeys?.length > 0
           ? EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(migrated, customMetricsAtMount, adAccounts))
@@ -1148,6 +1159,23 @@ export default function Explore() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- genuinely a one-time mount restore; loadThumbnailsForView has no meaningful "staleness" here, it's only ever called above with the exact cached.data it closes over
   }, []);
 
+  // Fills in a restored tab's cached result the first time it is opened (cache only — no
+  // network query is started, same as before when every tab was restored up front).
+  useEffect(() => {
+    const v = views.find((x) => x.id === activeViewId);
+    if (!v?.needsHydrate || adAccounts.length === 0) return;
+    const cacheKey =
+      v.accountIds.length > 0 && v.metricKeys?.length > 0 ? EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(v, customMetrics, adAccounts)) : null;
+    const cached = cacheKey ? getCachedEntry(cacheKey) : null;
+    // One-time fill from the local cache when a tab is first shown, not derived state.
+    updateView(v.id, { needsHydrate: false, ...(cached?.data ? { result: cached.data, resultFetchedAt: cached.fetchedAt } : {}) });
+    if (cached?.data?.meta.level === "ad") {
+      if (!cached.data.meta.thumbnailsFetched) loadThumbnailsForView(v.id, cached.data, cacheKey);
+      if (!cached.data.meta.landingPagesFetched) loadLandingPagesForView(v.id, cached.data, cacheKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the shown tab changes or its flag/accounts arrive; the helpers read current state
+  }, [activeViewId, views, adAccounts]);
+
   // Seeds only the very first tab's account from the shared selector, once
   // it resolves (AccountProvider's own fetch may still be in flight when
   // this page first mounts) — a no-op if the restore effect above already
@@ -1170,14 +1198,36 @@ export default function Explore() {
   // Persists the open tabs' query specs (never their fetched results, which
   // are ephemeral and re-derived from the cache on restore) and the tab
   // groups whenever either changes — a plain sync-to-external-system effect,
-  // not a state update.
+  // not a state update. Debounced: loading flags, progress messages, search and
+  // sort all change `views` many times a second, and each write used to
+  // stringify every tab synchronously. The last pending write is flushed when
+  // the page is hidden or this screen unmounts.
+  const pendingPersistRef = useRef(null);
+  const persistTimerRef = useRef(null);
   useEffect(() => {
-    setExploreViews({
+    pendingPersistRef.current = {
       activeViewId,
-      views: views.map(({ result, resultFetchedAt, loading, error, progressMessage, ...spec }) => spec),
+      views: views.map(({ result, resultFetchedAt, loading, error, progressMessage, needsHydrate, ...spec }) => spec),
       groups: liveGroups,
-    });
+    };
+    clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      if (pendingPersistRef.current) setExploreViews(pendingPersistRef.current);
+      pendingPersistRef.current = null;
+    }, 400);
   }, [views, activeViewId, liveGroups]);
+  useEffect(() => {
+    const flush = () => {
+      clearTimeout(persistTimerRef.current);
+      if (pendingPersistRef.current) setExploreViews(pendingPersistRef.current);
+      pendingPersistRef.current = null;
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
 
   // Applied after a row action (pause/activate/change budget, see
   // components/RowActions.js) succeeds on Facebook's side — patches every
@@ -1439,9 +1489,11 @@ export default function Explore() {
   // the panel's *current* on-screen top — whether stuck or not — keeps its
   // bottom edge pinned just above the viewport bottom at every scroll
   // position instead, so the footer never needs scrolling the page to reach.
-  const [queryPanelMaxHeight, setQueryPanelMaxHeight] = useState(null);
+  // The cap is written straight onto the element, not kept in React state: it changes on every
+  // scroll frame, and a state update re-rendered this whole 4,000-line page each time.
   useLayoutEffect(() => {
-    if (!queryPanelExpanded) return;
+    if (!queryPanelExpanded || isMobile) return;
+    const panelEl = queryPanelRef.current;
     const PANEL_BOTTOM_MARGIN = 20;
     const PANEL_MIN_HEIGHT = 240;
     let frame = null;
@@ -1450,7 +1502,7 @@ export default function Explore() {
       const el = queryPanelRef.current;
       if (!el) return;
       const top = el.getBoundingClientRect().top;
-      setQueryPanelMaxHeight(Math.max(PANEL_MIN_HEIGHT, window.innerHeight - top - PANEL_BOTTOM_MARGIN));
+      el.style.maxHeight = `${Math.max(PANEL_MIN_HEIGHT, window.innerHeight - top - PANEL_BOTTOM_MARGIN)}px`;
     }
     // Cancel-and-reschedule, not "skip while one's already pending" — the
     // latter leaves `frame` permanently non-null (so every later scroll/
@@ -1476,8 +1528,9 @@ export default function Explore() {
       window.removeEventListener("scroll", onScrollOrResize, { capture: true });
       window.removeEventListener("resize", onScrollOrResize);
       if (frame) cancelAnimationFrame(frame);
+      if (panelEl) panelEl.style.maxHeight = "";
     };
-  }, [queryPanelExpanded]);
+  }, [queryPanelExpanded, isMobile]);
 
   // Post-query pivot filters applied instantly, client-side, to whatever's
   // already in `result` — never a re-fetch. Everything downstream (table,
@@ -2671,7 +2724,6 @@ export default function Explore() {
                 className={
                   queryPanelIsSheet ? `${styles.exploreQueryPanel} ${styles.exploreQueryPanelSheet}` : styles.exploreQueryPanel
                 }
-                style={queryPanelMaxHeight && !isMobile ? { maxHeight: queryPanelMaxHeight } : undefined}
               >
                 <div className={`${styles.card} ${styles.exploreQueryCard}`}>
                   <div className={styles.exploreQueryHeader}>
@@ -3237,24 +3289,6 @@ function ExploreResultsTable({
   // resets with a fresh query, it isn't meant to be a saved setting.
   const [showTotalsRow, setShowTotalsRow] = useState(true);
 
-  // A brief, purely perceptual loading flash whenever a filter is applied —
-  // the actual filtering (see applyResultFilters/filteredRows in the parent)
-  // is instant, synchronous, client-side, which read as "did that even do
-  // anything?" with literally nothing changing on screen for an eye-blink
-  // and then just... different rows. Skips the very first render — mounting
-  // with a result already in hand isn't "a filter just got applied."
-  const [filterPulse, setFilterPulse] = useState(false);
-  const hasMountedRef = useRef(false);
-  useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      return;
-    }
-    setFilterPulse(true);
-    const timer = setTimeout(() => setFilterPulse(false), 200);
-    return () => clearTimeout(timer);
-  }, [resultFilters]);
-
   function toggleSelected(id, rowArg, levelArg) {
     setSelection((prev) => {
       const level = levelArg || meta.level;
@@ -3553,7 +3587,9 @@ function ExploreResultsTable({
     });
   }
 
-  const accountName = (row) => adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId;
+  // Looked up per row (and per comparison when sorting by account) — a Map, not a scan of every account each time.
+  const accountNameById = new Map(adAccounts.map((a) => [a.id, a.name]));
+  const accountName = (row) => accountNameById.get(row.accountId) || row.accountId;
   // Narrower name columns on a phone — the first column is frozen by
   // default, and a 240px one would leave almost no room for metrics beside it.
   const LEADING_MAX_WIDTH = isMobile
@@ -4219,22 +4255,6 @@ function ExploreResultsTable({
         </div>
       )}
       <div style={{ overflowX: "auto", position: "relative" }}>
-        {filterPulse && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(var(--bg-rgb), 0.5)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 30,
-              borderRadius: 10,
-            }}
-          >
-            <span className={styles.spinner} />
-          </div>
-        )}
         <SortableTable
           rows={topLevelRows}
           columns={columns}
@@ -4247,6 +4267,8 @@ function ExploreResultsTable({
           searchable
           searchKeys={leadingColumns.map((c) => c.key)}
           searchMatch={drillDownEnabled ? subtreeMatches : undefined}
+          searchVersion={expansions}
+          rowKey={(row) => `${row.accountId ?? ""}|${row.entityId ?? row.label ?? ""}|${row.breakdownLabel ?? ""}|${row.date ?? ""}`}
           searchPlaceholder="Search rows…"
           resizableColumns
           renderRowExtra={drillDownEnabled || timePivotEnabled ? renderRowExtra : undefined}

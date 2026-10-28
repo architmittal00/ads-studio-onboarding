@@ -38,7 +38,7 @@ export default function Thumb({ src, size = 28, isVideo = false, loading = false
   ) : (
     <span style={{ position: "relative", display: "inline-flex", width: size, height: size }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" width={size} height={size} style={{ borderRadius: 4, objectFit: "cover" }} />
+      <img src={src} alt="" width={size} height={size} loading="lazy" decoding="async" style={{ borderRadius: 4, objectFit: "cover" }} />
       {isVideo && (
         <span
           style={{

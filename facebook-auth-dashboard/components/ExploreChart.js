@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   LineChart,
   Line,
@@ -112,8 +113,12 @@ function buildChartSpec({
   if (hasTime && multiEntity) {
     const byDateAndLabel = new Map();
     const labels = [];
+    const labelSet = new Set();
     for (const r of rows) {
-      if (!labels.includes(r.label)) labels.push(r.label);
+      if (!labelSet.has(r.label)) {
+        labelSet.add(r.label);
+        labels.push(r.label);
+      }
       if (!byDateAndLabel.has(r.date)) byDateAndLabel.set(r.date, {});
       byDateAndLabel.get(r.date)[r.label] = r[chartMetricKey];
     }
@@ -171,7 +176,7 @@ function buildChartSpec({
 // buildEffectiveCatalog) — passed in rather than imported directly so a
 // custom metric's label/format resolve here the same way a built-in one's
 // does.
-export default function ExploreChart({ rows, meta, chartMetricKey, secondaryMetricKey, xAxisKey, currency, effectiveCatalog }) {
+function ExploreChart({ rows, meta, chartMetricKey, secondaryMetricKey, xAxisKey, currency, effectiveCatalog }) {
   const metric = effectiveCatalog.find((m) => m.key === chartMetricKey);
   if (!rows || rows.length === 0 || !metric) {
     return <p className={styles.sub}>No data to chart.</p>;
@@ -263,6 +268,7 @@ export default function ExploreChart({ rows, meta, chartMetricKey, secondaryMetr
               />
             )}
             <Tooltip
+              isAnimationActive={false}
               contentStyle={{ background: "var(--bg)", border: "1px solid rgba(var(--surface-tint-rgb),.12)", borderRadius: 8 }}
               labelStyle={{ color: "var(--t1)" }}
               itemStyle={{ color: "var(--t1)" }}
@@ -276,6 +282,7 @@ export default function ExploreChart({ rows, meta, chartMetricKey, secondaryMetr
               return spec.type === "line" ? (
                 <Line
                   key={key}
+                  isAnimationActive={false}
                   yAxisId={yAxisId}
                   type="monotone"
                   dataKey={key}
@@ -290,7 +297,7 @@ export default function ExploreChart({ rows, meta, chartMetricKey, secondaryMetr
                   // exactly as continuous as it did before filtering.
                 />
               ) : (
-                <Bar key={key} yAxisId={yAxisId} dataKey={key} name={name} fill={SERIES_COLORS[i % SERIES_COLORS.length]} />
+                <Bar key={key} isAnimationActive={false} yAxisId={yAxisId} dataKey={key} name={name} fill={SERIES_COLORS[i % SERIES_COLORS.length]} />
               );
             })}
           </ChartComponent>
@@ -299,3 +306,6 @@ export default function ExploreChart({ rows, meta, chartMetricKey, secondaryMetr
     </div>
   );
 }
+
+// The chart only needs to re-render when its own inputs change, not on every parent render.
+export default memo(ExploreChart);
