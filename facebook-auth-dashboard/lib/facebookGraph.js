@@ -23,10 +23,18 @@ function redactToken(url) {
 // so this is additive — sent whenever FACEBOOK_APP_SECRET is configured
 // (always, in this app) rather than gated to only the new catalog calls, to
 // keep one request-building code path instead of two.
+// The proof for a given token never changes — computed once per token per instance.
+const proofCache = new Map();
 function appSecretProof(accessToken) {
   const secret = process.env.FACEBOOK_APP_SECRET;
   if (!secret) return null;
-  return createHmac("sha256", secret).update(accessToken).digest("hex");
+  let proof = proofCache.get(accessToken);
+  if (!proof) {
+    if (proofCache.size > 200) proofCache.clear();
+    proof = createHmac("sha256", secret).update(accessToken).digest("hex");
+    proofCache.set(accessToken, proof);
+  }
+  return proof;
 }
 
 // One Graph request with up to MAX_GRAPH_RETRIES retries (see lib/graphRetry.js
@@ -42,12 +50,14 @@ async function graphRequest({ method, path, url, redactedUrl, init, isWrite }) {
     let json = null;
     let errorMessage = null;
     let kind = null; // "network" | "http" | "graph"
+    let rawText = ""; // kept for the log preview — re-serialising a big parsed body just to keep 2 KB was pure CPU
     let fbError = null;
 
     try {
       const res = await fetch(url, init);
       status = res.status;
       const text = await res.text();
+      rawText = text;
       try {
         json = JSON.parse(text);
       } catch {
@@ -73,7 +83,7 @@ async function graphRequest({ method, path, url, redactedUrl, init, isWrite }) {
       status,
       durationMs: Date.now() - start,
       error: errorMessage,
-      responsePreview: json ? JSON.stringify(json).slice(0, 2000) : null,
+      responsePreview: json ? rawText.slice(0, 2000) : null,
     });
 
     if (!errorMessage) return json;
@@ -239,8 +249,11 @@ export async function graphGetInsights(path, accessToken, params = {}, { timeout
 
   const jobId = json.report_run_id;
   const deadline = Date.now() + (timeoutMs ?? ASYNC_POLL_TIMEOUT_MS);
+  // Most async jobs finish in well under a second: check early, then ease out to 1s.
+  const pollDelays = [400, 600, 800];
+  let pollIndex = 0;
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, ASYNC_POLL_INTERVAL_MS));
+    await new Promise((resolve) => setTimeout(resolve, pollDelays[pollIndex++] ?? ASYNC_POLL_INTERVAL_MS));
     const status = await graphGet(`/${jobId}`, accessToken, {});
     if (status.async_status === "Job Completed") {
       const firstPage = await graphGet(`/${jobId}/insights`, accessToken, { limit: params.limit || 500 });

@@ -20,6 +20,8 @@ export default async function handler(req, res) {
     const results = await searchAdInterests(session.accessToken, q.trim(), {
       limit: limit ? parseInt(limit, 10) : 10,
     });
+    // Per-user data that rarely changes: let the browser reuse it briefly (private, never shared).
+    res.setHeader("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
     res.status(200).json({
       results: results.map((r) => ({
         id: r.id,

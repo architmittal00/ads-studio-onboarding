@@ -27,6 +27,8 @@ export default async function handler(req, res) {
       fields: "id,name,subtype,approximate_count_lower_bound,approximate_count_upper_bound",
       limit: 200,
     });
+    // Per-user data that rarely changes: let the browser reuse it briefly (private, never shared).
+    res.setHeader("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
     res.status(200).json({ audiences: json.data || [] });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });

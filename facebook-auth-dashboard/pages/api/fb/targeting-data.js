@@ -22,6 +22,8 @@ export default async function handler(req, res) {
       graphGetAllPages("/me/accounts", session.accessToken, { fields: "id,name" }),
       graphGetAllPages(`/${accountId}/adspixels`, session.accessToken, { fields: "id,name" }),
     ]);
+    // Per-user data that rarely changes: let the browser reuse it briefly (private, never shared).
+    res.setHeader("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
     res.status(200).json({ pages: pagesJson.data || [], pixels: pixelsJson.data || [] });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message });

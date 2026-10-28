@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { getServerSession } from "next-auth/next";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
+import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import CacheStatus from "@/components/CacheStatus";
@@ -4356,5 +4357,5 @@ export async function getServerSideProps(context) {
     return { redirect: { destination: "/", permanent: false } };
   }
 
-  return { props: {} };
+  return { props: { session: publicSession(session) } };
 }

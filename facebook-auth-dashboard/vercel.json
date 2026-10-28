@@ -1,4 +1,7 @@
 {
+  "regions": [
+    "bom1"
+  ],
   "functions": {
     "pages/api/fb/report/core.js": {
       "maxDuration": 60

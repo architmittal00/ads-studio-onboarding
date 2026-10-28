@@ -6,7 +6,7 @@ import { searchAdInterests, pickBestMatch, mapWithConcurrency } from "@/lib/meta
 
 // `/search?type=adinterest` is one query per call — bounds how many of the
 // ~50-80 AI suggestions get resolved at once (see lib/metaInterestSearch.js).
-const SEARCH_CONCURRENCY = 6;
+const SEARCH_CONCURRENCY = 12;
 // Real matched Meta interests shown to the user, not the raw AI string list —
 // capped only as a sanity ceiling (well above what ~50-80 AI suggestions
 // typically dedupe down to), not to artificially hide real suggestions the

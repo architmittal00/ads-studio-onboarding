@@ -14,12 +14,20 @@ const LOOKALIKE_COUNTRY = "IN"; // matches the hardcoded India geo-targeting
 // Paginates to completion — an account with more than one page of custom
 // audiences (200+) would otherwise risk this not finding an
 // already-created one on later pages and creating a duplicate.
-async function findAudienceByName(accountId, token, name) {
+//
+// Pass an already-fetched list (see listAudiences) to skip the lookup entirely — a
+// strategy that needs several audiences used to re-download the whole list for each.
+export async function listAudiences(accountId, token) {
   const json = await graphGetAllPages(`/${accountId}/customaudiences`, token, {
     fields: "id,name,subtype",
     limit: 200,
   });
-  return (json.data || []).find((a) => a.name === name) || null;
+  return json.data || [];
+}
+
+async function findAudienceByName(accountId, token, name, audiences) {
+  const list = audiences || (await listAudiences(accountId, token));
+  return list.find((a) => a.name === name) || null;
 }
 
 // A rule-based audience definition shared by website-pixel audiences (e.g.
@@ -63,8 +71,8 @@ async function createRuleAudience(accountId, token, { name, rule }) {
 
 // Finds (or creates) the "website visitors, last 180 days" Custom Audience
 // used by retargeting ad sets.
-export async function getOrCreateVisitorsAudience(accountId, token, pixelId) {
-  const existing = await findAudienceByName(accountId, token, VISITORS_AUDIENCE_NAME);
+export async function getOrCreateVisitorsAudience(accountId, token, pixelId, audiences) {
+  const existing = await findAudienceByName(accountId, token, VISITORS_AUDIENCE_NAME, audiences);
   if (existing) return { id: existing.id, created: false };
   const id = await createRuleAudience(accountId, token, {
     name: VISITORS_AUDIENCE_NAME,
@@ -82,8 +90,8 @@ export async function getOrCreateVisitorsAudience(accountId, token, pixelId) {
 // a second custom_audiences entry on the ad set, not merged into one
 // audience, since they're different Meta audience objects (WEBSITE vs
 // Page-engagement) under the hood.
-export async function getOrCreateEngagersAudience(accountId, token, pageId) {
-  const existing = await findAudienceByName(accountId, token, ENGAGERS_AUDIENCE_NAME);
+export async function getOrCreateEngagersAudience(accountId, token, pageId, audiences) {
+  const existing = await findAudienceByName(accountId, token, ENGAGERS_AUDIENCE_NAME, audiences);
   if (existing) return { id: existing.id, created: false };
   const id = await createRuleAudience(accountId, token, {
     name: ENGAGERS_AUDIENCE_NAME,
@@ -95,8 +103,8 @@ export async function getOrCreateEngagersAudience(accountId, token, pageId) {
 // Finds (or creates) the 1% India Lookalike of purchasers, creating the
 // purchasers seed audience first if that's also missing. Returns both IDs
 // since the seed is itself a real audience the account may want to reuse.
-export async function getOrCreateBuyerLookalike(accountId, token, pixelId) {
-  let seed = await findAudienceByName(accountId, token, PURCHASERS_SEED_NAME);
+export async function getOrCreateBuyerLookalike(accountId, token, pixelId, audiences) {
+  let seed = await findAudienceByName(accountId, token, PURCHASERS_SEED_NAME, audiences);
   let seedCreated = false;
   if (!seed) {
     const seedId = await createRuleAudience(accountId, token, {
@@ -107,7 +115,7 @@ export async function getOrCreateBuyerLookalike(accountId, token, pixelId) {
     seedCreated = true;
   }
 
-  const existingLookalike = await findAudienceByName(accountId, token, LOOKALIKE_NAME);
+  const existingLookalike = await findAudienceByName(accountId, token, LOOKALIKE_NAME, audiences);
   if (existingLookalike) {
     return { id: existingLookalike.id, seedId: seed.id, created: false, seedCreated };
   }
