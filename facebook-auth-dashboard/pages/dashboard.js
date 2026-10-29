@@ -34,20 +34,7 @@ const ACCOUNT_STATUS = {
   202: ["Any closed", "badgeDanger"],
 };
 
-// The balance cell: a prepaid account's remaining funds ("Available balance (₹1,234.00 INR)"
-// in Meta's own funding text), else what's owed on a postpaid / invoiced account.
-function balanceCell(b, currency) {
-  if (!b) return { text: "—", tone: "muted" };
-  const m = /available balance\s*\(([^)]+)\)/i.exec(b.fundingText || "");
-  if (m) {
-    const zero = /^\D*0(\.0+)?\b/.test(m[1].trim());
-    return { text: m[1].replace(/\s*INR$/, ""), label: "Available", tone: zero ? "warn" : "ok" };
-  }
-  if (b.owed != null) return { text: formatMoney(b.owed, b.currency || currency), label: "Owed", tone: "muted" };
-  return { text: "—", tone: "muted" };
-}
-
-const GRID = { display: "grid", gridTemplateColumns: "minmax(220px, 2.2fr) 110px minmax(150px, 1.2fr) minmax(130px, 1fr) minmax(130px, 1fr)", gap: 12, alignItems: "center", minWidth: 780 };
+const GRID = { display: "grid", gridTemplateColumns: "minmax(220px, 2.2fr) 110px minmax(150px, 1.2fr) minmax(170px, 1.4fr)", gap: 12, alignItems: "center", minWidth: 640 };
 
 function insightsCacheKey(accountId) {
   return `insights:${accountId}`;
@@ -277,14 +264,12 @@ export default function Dashboard({ user }) {
                       <span className={styles.muted}>Account</span>
                       <span className={styles.muted}>Status</span>
                       <span className={styles.muted}>Payment</span>
-                      <span className={styles.muted} style={{ textAlign: "right" }}>Balance</span>
                       <span className={styles.muted} style={{ textAlign: "right" }}>Spend cap left</span>
                     </div>
                     {data.adAccounts
                       .filter((acc) => !accountQuery.trim() || `${acc.name} ${acc.id}`.toLowerCase().includes(accountQuery.trim().toLowerCase()))
                       .map((acc) => {
                         const b = balances?.[acc.id];
-                        const bal = balanceCell(b, acc.currency);
                         const [statusLabel, statusClass] = ACCOUNT_STATUS[acc.account_status] || [`Status ${acc.account_status}`, "badgeInfo"];
                         const payment = (b?.fundingText || "").replace(/\s*\([^)]*\)\s*$/, "") || (balances ? "—" : "");
                         return (
@@ -302,24 +287,19 @@ export default function Dashboard({ user }) {
                             <div style={{ textAlign: "right" }}>
                               {!balances ? (
                                 <span className={styles.muted}>{balancesError ? "Unavailable" : "Loading…"}</span>
-                              ) : (
+                              ) : b?.spendCapRemaining != null ? (
                                 <>
-                                  <div
-                                    style={{
-                                      fontWeight: 700,
-                                      fontSize: 14,
-                                      color: bal.tone === "warn" ? "var(--amber)" : bal.tone === "ok" ? "var(--green)" : "var(--t1)",
-                                    }}
-                                  >
-                                    {bal.text}
+                                  <div style={{ fontWeight: 700, fontSize: 14, color: b.spendCapRemaining === 0 ? "var(--red)" : "var(--t1)" }}>
+                                    {formatMoney(b.spendCapRemaining, b.currency || acc.currency)}
                                   </div>
-                                  {bal.label && <span className={styles.muted} style={{ fontSize: 11 }}>{bal.label}</span>}
+                                  <span className={styles.muted} style={{ fontSize: 11 }}>
+                                    of {formatMoney(b.spendCap, b.currency || acc.currency)} cap
+                                  </span>
                                 </>
+                              ) : (
+                                <span className={styles.muted}>No spend cap</span>
                               )}
                             </div>
-                            <span className={styles.sub} style={{ textAlign: "right" }}>
-                              {b?.spendCapRemaining != null ? formatMoney(b.spendCapRemaining, b.currency || acc.currency) : "—"}
-                            </span>
                           </div>
                         );
                       })}
