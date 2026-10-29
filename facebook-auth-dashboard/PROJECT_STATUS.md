@@ -90,6 +90,9 @@ No open PRs. Everything described below is merged and live.
 ### Custom Views: low-balance badge (2026-10-29)
 `/api/fb/low-balance` + `components/LowBalanceBadge.js` beside the query summary. Low = spent > 0 in the last 3 full days AND spend cap left < yesterday's spend AND < 3-day daily average; accounts with no spend cap are never flagged. Click shows balance, 3-day average, yesterday. Not tested against a live account.
 
+### "In Process" counts as Active everywhere (2026-10-29)
+Meta's IN_PROCESS effective status is mapped to ACTIVE (`lib/statusNormalize.js`) wherever the server reads it (Custom Views rows, report, recent changes, copy-ads source ads, campaign lists, entity details, partnership detection/overview active count) and in the Launch Ad pickers' labels/ranking.
+
 ### Explore Ads: shorter timeout, one retry, retry button (2026-10-29)
 Meta's Content Discovery call sometimes hangs (FUNCTION_INVOCATION_TIMEOUT / 504). `ExploreTab` now gives each page 20s plus one automatic retry, shows "Meta is taking too long to respond right now" with a Try again button, and a failed "load more" no longer blanks the grid already on screen. Not tested against a live account.
 

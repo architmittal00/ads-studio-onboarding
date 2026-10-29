@@ -4,6 +4,7 @@ import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGrap
 import { lastNDaysRange } from "@/lib/adCreativeDetails";
 import { resolveGraphFields, deriveRowMetrics } from "@/lib/insightsMetrics";
 import { DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
+import { normalizeStatus } from "@/lib/statusNormalize";
 import { campaignFormFieldsFromSource } from "@/lib/campaignLaunch";
 
 // Full Graph fields needed to clone a source campaign's own settings — see
@@ -75,6 +76,7 @@ export default async function handler(req, res) {
 
     let campaigns = (listResult.value.data || []).map((c) => ({
       ...c,
+      effective_status: normalizeStatus(c.effective_status),
       performance: performanceByCampaignId.get(c.id) || null,
     }));
     // Opt-in, same reasoning as adsets-list.js's identical filter — never

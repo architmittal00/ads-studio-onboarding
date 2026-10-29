@@ -122,7 +122,7 @@ export default async function handler(req, res) {
     const activeCountPromise =
     graphGet(`/${accountId}/ads`, token, {
         fields: "id",
-        filtering: [{ field: "effective_status", operator: "IN", value: ["ACTIVE"] }],
+        filtering: [{ field: "effective_status", operator: "IN", value: ["ACTIVE", "IN_PROCESS"] }],
         summary: true,
         limit: 1,
       })

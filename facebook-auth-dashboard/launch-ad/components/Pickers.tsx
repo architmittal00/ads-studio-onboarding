@@ -10,7 +10,7 @@ function budgetText(c: { daily_budget?: string; lifetime_budget?: string }, curr
   return 'Ad set budgets';
 }
 
-const statusLabel = (s?: string) => (s || '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+const statusLabel = (s?: string) => (s === 'IN_PROCESS' ? 'ACTIVE' : s || '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
 /** What the ad built first needs from its destination. */
 export interface AdFit { isCatalog: boolean; catalogId: string }

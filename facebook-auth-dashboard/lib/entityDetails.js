@@ -2,6 +2,7 @@ import { graphGet } from "./facebookGraph";
 import { searchTargeting } from "./metaInterestSearch";
 import { titleCaseSnake } from "./reportShared";
 import { deriveLandingUrl } from "./adCreativeDetails";
+import { normalizeStatus } from "./statusNormalize";
 import { EDIT_AD_FIELDS, describeEditability } from "./adEdit";
 
 // Backs Explore's "View Details" row action (components/EntityDetailDrawer.js)
@@ -173,7 +174,7 @@ export async function fetchAdCopyDetails(id, token) {
   return {
     name: data.name,
     status: data.status || null,
-    effectiveStatus: data.effective_status || null,
+    effectiveStatus: normalizeStatus(data.effective_status) || null,
     accountId: data.account_id || null,
     creativeId: creative.id || null,
     thumbnailUrl: creative.thumbnail_url || null,

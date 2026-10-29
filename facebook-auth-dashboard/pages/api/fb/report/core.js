@@ -2,6 +2,7 @@ import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGrap
 import { pickPurchaseCount, roasFromRow } from "@/lib/metrics";
 import { getCachedReport, setCachedReport } from "@/lib/reportCache";
 import { lastNDaysRange, chunk, fetchAdDetails, fetchPostLandingUrls, extractLandingPageLabel } from "@/lib/adCreativeDetails";
+import { normalizeStatus } from "@/lib/statusNormalize";
 import { requireReportRequest, settled, groupAndPareto, toMajorUnits } from "@/lib/reportShared";
 
 // The Handover Report (pages/report.js) used to be one single endpoint
@@ -434,7 +435,7 @@ export default async function handler(req, res) {
       return {
         id: a.id,
         name: a.name,
-        status: a.effective_status,
+        status: normalizeStatus(a.effective_status),
         dailyBudget: adsetDailyBudget,
         lifetimeBudget: adsetLifetimeBudget,
         spendInRange: adsetAgg.spend,
@@ -455,7 +456,7 @@ export default async function handler(req, res) {
     return {
       id: c.id,
       name: c.name,
-      status: c.effective_status,
+      status: normalizeStatus(c.effective_status),
       objective: c.objective,
       budgetType,
       dailyBudget: campaignDailyBudget,

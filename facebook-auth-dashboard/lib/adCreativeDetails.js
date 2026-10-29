@@ -1,4 +1,5 @@
 import { graphGet } from "./facebookGraph";
+import { normalizeStatus } from "./statusNormalize";
 import { titleCaseSnake } from "./reportShared";
 
 function toDateStr(d) {
@@ -98,7 +99,7 @@ export async function fetchAdDetails(adIds, token) {
         null;
       const ctaType = creative.call_to_action?.type || creative.object_story_spec?.video_data?.call_to_action?.type || null;
       detailsByAdId[id] = {
-        status: obj.effective_status || null,
+        status: normalizeStatus(obj.effective_status) || null,
         thumbnailUrl: creative.thumbnail_url || creative.image_url || null,
         videoId,
         creativeId: creative.id || null,

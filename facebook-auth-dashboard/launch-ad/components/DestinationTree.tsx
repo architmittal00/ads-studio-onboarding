@@ -50,7 +50,7 @@ export function perfText(p: { spend: number; purchases: number; roas: number }, 
 }
 
 // Running first, then by last-7-day spend, then most recently edited.
-const STATUS_RANK: Record<string, number> = { ACTIVE: 0, WITH_ISSUES: 1, IN_PROCESS: 1, CAMPAIGN_PAUSED: 2, ADSET_PAUSED: 2, PAUSED: 3 };
+const STATUS_RANK: Record<string, number> = { ACTIVE: 0, WITH_ISSUES: 1, IN_PROCESS: 0, CAMPAIGN_PAUSED: 2, ADSET_PAUSED: 2, PAUSED: 3 };
 function byActivity(x: { effective_status?: string; status?: string; updated_time?: string; insights?: { data?: Insight[] } }, y: typeof x) {
   const rx = STATUS_RANK[x.effective_status || x.status || ''] ?? 4;
   const ry = STATUS_RANK[y.effective_status || y.status || ''] ?? 4;
