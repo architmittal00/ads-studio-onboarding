@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages } from "@/lib/facebookGraph";
 import { chunk } from "@/lib/adCreativeDetails";
+import { normalizeStatus } from "@/lib/statusNormalize";
 import { MAX_IMPACT_CHANGES, impactWindowFor } from "@/lib/recentChangesImpact";
 
 // Backs pages/recent-changes.js — one account at a time, a strict allowlist
@@ -364,7 +365,7 @@ export default async function handler(req, res) {
     "effective_status"
   );
   for (const e of entities) {
-    e.status = statusById[e.entityId]?.effective_status || null;
+    e.status = normalizeStatus(statusById[e.entityId]?.effective_status) || null;
   }
 
   // Performance-impact eligibility (Spend/Purchases/ROAS, one day before vs.

@@ -3,6 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { chunk, fetchAdDetails } from "@/lib/adCreativeDetails";
 import { toMajorUnits } from "@/lib/reportShared";
+import { normalizeStatus } from "@/lib/statusNormalize";
 import {
   LEVEL_OPTIONS,
   LEVEL_ID_FIELD,
@@ -160,7 +161,7 @@ async function fetchEntityStatuses(ids, token) {
   for (const result of results) {
     if (result.status !== "fulfilled") continue;
     for (const [id, obj] of Object.entries(result.value || {})) {
-      if (obj.effective_status) statusById[id] = obj.effective_status;
+      if (obj.effective_status) statusById[id] = normalizeStatus(obj.effective_status);
     }
   }
 

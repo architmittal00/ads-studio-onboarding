@@ -1,4 +1,5 @@
 import { graphGet, graphGetInsights } from "./facebookGraph";
+import { normalizeStatus } from "./statusNormalize";
 import { lastNDaysRange, chunk } from "./adCreativeDetails";
 
 // `effective_instagram_media_id`/`source_instagram_media_id` are what
@@ -70,7 +71,7 @@ export async function classifyPartnershipAds(token, adIds) {
     .map((ad) => ({
       adId: ad.id,
       name: ad.name,
-      status: ad.effective_status || ad.status,
+      status: normalizeStatus(ad.effective_status) || ad.status,
       campaignId: ad.campaign?.id || null,
       campaignName: ad.campaign?.name || null,
       adsetId: ad.adset?.id || null,

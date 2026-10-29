@@ -713,6 +713,7 @@ export function formatMetricValue(value, format, currency, { compact = false } =
 // campaign/adset/ad level; pages/api/fb/recent-changes.js does the same for
 // its own entities via a lighter-weight batched lookup).
 export function humanizeStatus(status) {
+  status = status === "IN_PROCESS" ? "ACTIVE" : status;
   return status
     ? status
         .toLowerCase()

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { fetchCopyableAds, classifyAd, DEFAULT_COPY_METRIC_KEYS } from "@/lib/adCopy";
+import { normalizeStatus } from "@/lib/statusNormalize";
 import { deriveRowMetrics } from "@/lib/insightsMetrics";
 
 // Account-wide ad browser for the Copy Ads feature. There's no other
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
       id: ad.id,
       name: ad.name,
       status: ad.status,
-      effectiveStatus: ad.effective_status,
+      effectiveStatus: normalizeStatus(ad.effective_status),
       adsetName: ad.adset?.name || null,
       campaignName: ad.campaign?.name || null,
       thumbnailUrl: ad.creative?.thumbnail_url || null,
