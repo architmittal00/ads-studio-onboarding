@@ -49,6 +49,9 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
   const [query, setQuery] = useState("");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState([]);
+  // Per-ad name for the copies, keyed by source ad id. Unset = "<original> - Copy".
+  const [nameEdits, setNameEdits] = useState({});
+  const copyName = (ad) => nameEdits[ad.id] ?? `${ad.name} - Copy`;
 
   useEffect(() => {
     function handleKey(e) {
@@ -113,7 +116,7 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
           const res = await fetch("/api/fb/duplicate-ad", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ accountId, sourceAdId: ad.id, destinationAdsetId: adset.id, name: `${ad.name} - Copy`, status: launchStatus }),
+            body: JSON.stringify({ accountId, sourceAdId: ad.id, destinationAdsetId: adset.id, name: copyName(ad).trim() || `${ad.name} - Copy`, status: launchStatus }),
           });
           const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
           collected[i] = { adName: ad.name, adsetName: adset.name, success: res.ok && !!json.success, error: res.ok ? null : json.error || `Request failed (${res.status})` };
@@ -154,10 +157,10 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
             <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-              {step === "pick" ? "Choose destination ad sets" : `Duplicate ${ads.length} ad${ads.length === 1 ? "" : "s"}`}
+              {step === "pick" ? "Choose destination ad sets" : `Duplicate ${ads.length === 1 ? "ad" : `${ads.length} ads`}`}
             </h2>
             <p className={styles.sub}>
-              {ads.length} ad{ads.length === 1 ? "" : "s"} selected
+              {ads.length === 1 ? ads[0].name : `${ads.length} ads selected`}
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={step === "submitting"} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
@@ -231,21 +234,26 @@ export default function BulkDuplicateAdsModal({ ads, accountId, currency, onClos
         {step === "confirm" && (
           <div style={{ marginTop: 16 }}>
             <p className={styles.sub}>
-              This creates <strong style={{ color: "var(--t1)" }}>{totalPairs}</strong> new ad{totalPairs === 1 ? "" : "s"} — each of the{" "}
-              {ads.length} selected ad{ads.length === 1 ? "" : "s"}, duplicated (same creative, reused by id) into each of the {selectedAdsets.length}{" "}
-              selected ad set{selectedAdsets.length === 1 ? "" : "s"} below.
+              This creates <strong style={{ color: "var(--t1)" }}>{totalPairs}</strong> new ad{totalPairs === 1 ? "" : "s"} — {ads.length === 1 ? "the selected ad" : `each of the ${ads.length} selected ads`}, duplicated (same creative, reused by id, so partnership ads copy correctly too) into {selectedAdsets.length === 1 ? "the selected ad set" : `each of the ${selectedAdsets.length} selected ad sets`} below.
+              {selectedAdsets.length > 1 && " Every copy of an ad gets the same name."}
             </p>
             <AdLaunchStatusPicker value={launchStatus} onChange={setLaunchStatus} plural />
             <div style={{ display: "flex", gap: 16, marginTop: 14, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 180 }}>
                 <p className={styles.muted} style={{ marginBottom: 6 }}>
-                  Ads
+                  Name of the new {ads.length === 1 ? "ad" : "ads"}
                 </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
                   {ads.map((ad) => (
-                    <span key={ad.id} className={styles.sub} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {ad.name}
-                    </span>
+                    <input
+                      key={ad.id}
+                      type="text"
+                      className={styles.select}
+                      style={{ width: "100%" }}
+                      title={`Copy of: ${ad.name}`}
+                      value={copyName(ad)}
+                      onChange={(e) => setNameEdits((prev) => ({ ...prev, [ad.id]: e.target.value }))}
+                    />
                   ))}
                 </div>
               </div>
