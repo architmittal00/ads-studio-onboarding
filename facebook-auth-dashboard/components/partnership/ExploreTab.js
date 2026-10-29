@@ -55,6 +55,27 @@ function engagementScore(item) {
 // shared range (filtering *content posted* in a window is an unrelated
 // concept from ad *performance*), just lifted to the same parent instead of
 // living locally here.
+// Meta's Content Discovery call sometimes hangs or times out and then works on
+// the next try, so each page gets a short first attempt and one retry before
+// the user sees an error.
+const PAGE_TIMEOUT_MS = 20000;
+function isSlowFailure(err) {
+  return err?.name === "AbortError" || /\b(504|FUNCTION_INVOCATION_TIMEOUT)\b|timed out/i.test(err?.message || "");
+}
+function friendlyError(err) {
+  return isSlowFailure(err) ? "Meta is taking too long to respond right now." : err.message;
+}
+async function fetchContentPage(query) {
+  const url = `/api/fb/partnership/content?${query}`;
+  const attempt = () => fetchWithTimeout(url, {}, PAGE_TIMEOUT_MS).then(parseJsonResponse);
+  try {
+    return await attempt();
+  } catch (err) {
+    if (!isSlowFailure(err)) throw err;
+    return attempt();
+  }
+}
+
 export default function ExploreTab({ accountId, businessId, igUserId, ready, dateRange, onQueueChanged }) {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -70,6 +91,9 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  // A failed "load more" must not blank the grid that's already on screen.
+  const [loadMoreError, setLoadMoreError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [expandedItem, setExpandedItem] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -145,8 +169,8 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
     // eslint-disable-next-line react-hooks/set-state-in-effect -- kicks off an async fetch that itself sets loading/error/result state, not a derived-state anti-pattern
     setLoading(true);
     setError(null);
-    fetchWithTimeout(`/api/fb/partnership/content?${buildQuery()}`)
-      .then(parseJsonResponse)
+    setLoadMoreError(null);
+    fetchContentPage(buildQuery())
       .then((json) => {
         if (cancelled) return;
         if (json.error) {
@@ -158,7 +182,7 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
         setNextCursor(json.nextCursor || null);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        if (!cancelled) setError(friendlyError(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -167,22 +191,22 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- buildQuery closes over the same filter state already listed below
-  }, [ready, businessId, igUserId, usage, eligibility, search, dateRange?.since, dateRange?.until]);
+  }, [ready, businessId, igUserId, usage, eligibility, search, dateRange?.since, dateRange?.until, reloadKey]);
 
   function loadMore() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
-    fetchWithTimeout(`/api/fb/partnership/content?${buildQuery(nextCursor)}`)
-      .then(parseJsonResponse)
+    setLoadMoreError(null);
+    fetchContentPage(buildQuery(nextCursor))
       .then((json) => {
         if (json.error) {
-          setError(json.error);
+          setLoadMoreError(json.error);
           return;
         }
         setItems((prev) => [...prev, ...(json.items || [])]);
         setNextCursor(json.nextCursor || null);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setLoadMoreError(friendlyError(err)))
       .finally(() => setLoadingMore(false));
   }
 
@@ -198,7 +222,7 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
   // observer callback would still race, since that callback's own closure
   // would keep seeing whatever `loadingMore` was at observer-creation time).
   useEffect(() => {
-    if (!nextCursor || loadingMore) return;
+    if (!nextCursor || loadingMore || loadMoreError) return;
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -210,7 +234,7 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
     observer.observe(el);
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMore is recreated every render but reads nextCursor/loadingMore fresh each call; re-subscribing whenever either of those actually changes is what matters, not loadMore's own identity
-  }, [nextCursor, loadingMore]);
+  }, [nextCursor, loadingMore, loadMoreError]);
 
   // Media type and best-match "which permission bucket is this really in"
   // (the API's ad_eligibilities filter is coarser than the mockup's own
@@ -431,7 +455,14 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
       )}
 
       {loading && <Loader label="Loading eligible content…" />}
-      {!loading && error && <div className={styles.error}>{error}</div>}
+      {!loading && error && (
+        <div className={styles.error} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span>{error}</span>
+          <button type="button" className={styles.btnSecondary} onClick={() => setReloadKey((k) => k + 1)}>
+            Try again
+          </button>
+        </div>
+      )}
       {!loading && !error && visibleItems.length === 0 && (
         <p className={styles.sub}>No eligible content found for this filter combination.</p>
       )}
@@ -453,6 +484,14 @@ export default function ExploreTab({ accountId, businessId, igUserId, ready, dat
           {nextCursor && (
             <div ref={sentinelRef} style={{ textAlign: "center", marginTop: 8, padding: 8, minHeight: 1 }}>
               {loadingMore && <span className={styles.muted} style={{ fontSize: 12 }}>Loading more…</span>}
+              {loadMoreError && !loadingMore && (
+                <span className={styles.error} style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                  {loadMoreError}
+                  <button type="button" className={styles.btnSecondary} onClick={loadMore}>
+                    Try again
+                  </button>
+                </span>
+              )}
             </div>
           )}
         </>
