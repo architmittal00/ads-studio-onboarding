@@ -397,6 +397,8 @@ export default function DateRangeMenu({
                   display: "flex",
                   padding: 0,
                   overflow: "hidden",
+                  // Never taller than the space below it — the right pane scrolls and keeps Update in view.
+                  maxHeight: `calc(100vh - ${pos.top}px - 16px)`,
                 }
           }
         >
@@ -464,7 +466,7 @@ export default function DateRangeMenu({
             ))}
           </div>
 
-          <div style={{ flex: 1, minWidth: 0, padding: 16, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, minWidth: 0, padding: 16, display: "flex", flexDirection: "column", ...(isMobile ? null : { overflowY: "auto" }) }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
               <button type="button" className={styles.btnSecondary} style={{ padding: 6 }} onClick={() => setLeftMonth((m) => shiftMonth(m, -1))} aria-label="Previous month">
                 <ChevronIcon direction="left" size={13} />
@@ -594,7 +596,7 @@ export default function DateRangeMenu({
               )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 16, position: "sticky", bottom: -16, background: "var(--bg)", padding: "10px 0 12px", borderTop: "1px solid var(--border)", zIndex: 1 }}>
               <span className={styles.muted} style={isMobile ? { fontSize: 12 } : undefined}>{timeZone ? `Dates follow the ad account’s time zone: ${formatTimeZoneLabel(timeZone)}.` : "Dates are in UTC."}</span>
               <div style={{ display: "flex", gap: 10, ...(isMobile ? { width: "100%", justifyContent: "flex-end" } : null) }}>
                 <button type="button" className={styles.btnSecondary} onClick={close}>
