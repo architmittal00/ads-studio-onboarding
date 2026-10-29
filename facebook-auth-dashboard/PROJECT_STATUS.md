@@ -84,6 +84,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Explore Ads: shorter timeout, one retry, retry button (2026-10-29)
+Meta's Content Discovery call sometimes hangs (FUNCTION_INVOCATION_TIMEOUT / 504). `ExploreTab` now gives each page 20s plus one automatic retry, shows "Meta is taking too long to respond right now" with a Try again button, and a failed "load more" no longer blanks the grid already on screen. Not tested against a live account.
+
 ### Duplicate ad: one flow, several ad sets, editable name (2026-10-29)
 The row "Take Action → Duplicate" for an ad and the bulk "Duplicate N Ads" button used to be two different popups. Both now open `BulkDuplicateAdsModal` (pick one or more destination ad sets, edit the name of each new ad, choose Paused/Active). `DuplicateEntityModal` is now ad-set-only (its ad branch was removed). Not tested against a live account.
 
