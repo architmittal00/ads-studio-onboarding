@@ -21,16 +21,33 @@ function formatMoney(amount, currency) {
   }
 }
 
-// One line for an account's money state: Meta's own funding text first (that is where a
-// prepaid account's remaining funds are), else what's owed, plus any spend-cap headroom.
-function balanceLabel(b, currency) {
-  if (!b) return null;
-  const parts = [];
-  if (b.fundingText) parts.push(b.fundingText);
-  else if (b.owed != null) parts.push(`Outstanding ${formatMoney(b.owed, b.currency || currency)}`);
-  if (b.spendCapRemaining != null) parts.push(`Spend cap left ${formatMoney(b.spendCapRemaining, b.currency || currency)}`);
-  return parts.length ? parts.join(" · ") : null;
+const ACCOUNT_STATUS = {
+  1: ["Active", "badgeGood"],
+  2: ["Disabled", "badgeDanger"],
+  3: ["Unsettled", "badgeWarn"],
+  7: ["In review", "badgeWarn"],
+  8: ["Settling", "badgeWarn"],
+  9: ["Grace period", "badgeWarn"],
+  100: ["Closing", "badgeDanger"],
+  101: ["Closed", "badgeDanger"],
+  201: ["Any active", "badgeInfo"],
+  202: ["Any closed", "badgeDanger"],
+};
+
+// The balance cell: a prepaid account's remaining funds ("Available balance (₹1,234.00 INR)"
+// in Meta's own funding text), else what's owed on a postpaid / invoiced account.
+function balanceCell(b, currency) {
+  if (!b) return { text: "—", tone: "muted" };
+  const m = /available balance\s*\(([^)]+)\)/i.exec(b.fundingText || "");
+  if (m) {
+    const zero = /^\D*0(\.0+)?\b/.test(m[1].trim());
+    return { text: m[1].replace(/\s*INR$/, ""), label: "Available", tone: zero ? "warn" : "ok" };
+  }
+  if (b.owed != null) return { text: formatMoney(b.owed, b.currency || currency), label: "Owed", tone: "muted" };
+  return { text: "—", tone: "muted" };
 }
+
+const GRID = { display: "grid", gridTemplateColumns: "minmax(220px, 2.2fr) 110px minmax(150px, 1.2fr) minmax(130px, 1fr) minmax(130px, 1fr)", gap: 12, alignItems: "center", minWidth: 780 };
 
 function insightsCacheKey(accountId) {
   return `insights:${accountId}`;
@@ -55,6 +72,7 @@ export default function Dashboard({ user }) {
   // Balances load after the list so a slow or refused balance call never holds the accounts back.
   const [balances, setBalances] = useState(null);
   const [balancesError, setBalancesError] = useState(null);
+  const [accountQuery, setAccountQuery] = useState("");
   const hasAccounts = adAccounts.length > 0;
   useEffect(() => {
     if (!hasAccounts) return;
@@ -246,22 +264,66 @@ export default function Dashboard({ user }) {
                     <p className={styles.sub}>No Ad Accounts found, or permission not granted.</p>
                   )
                 ) : (
-                  <ul className={styles.list}>
-                    {data.adAccounts.map((acc) => (
-                      <li key={acc.id} className={styles.listItem}>
-                        {acc.name}
-                        <span className={styles.muted}>
-                          {acc.currency} · status {acc.account_status}
-                          {" · "}
-                          {balances
-                            ? balanceLabel(balances[acc.id], acc.currency) || "Balance not available"
-                            : balancesError
-                              ? "Balance unavailable"
-                              : "Balance loading…"}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div style={{ overflowX: "auto" }}>
+                    <input
+                      type="text"
+                      className={styles.select}
+                      style={{ width: "100%", maxWidth: 320, marginBottom: 12 }}
+                      placeholder="Search accounts…"
+                      value={accountQuery}
+                      onChange={(e) => setAccountQuery(e.target.value)}
+                    />
+                    <div style={{ ...GRID, padding: "0 14px 8px", borderBottom: "1px solid var(--border)" }}>
+                      <span className={styles.muted}>Account</span>
+                      <span className={styles.muted}>Status</span>
+                      <span className={styles.muted}>Payment</span>
+                      <span className={styles.muted} style={{ textAlign: "right" }}>Balance</span>
+                      <span className={styles.muted} style={{ textAlign: "right" }}>Spend cap left</span>
+                    </div>
+                    {data.adAccounts
+                      .filter((acc) => !accountQuery.trim() || `${acc.name} ${acc.id}`.toLowerCase().includes(accountQuery.trim().toLowerCase()))
+                      .map((acc) => {
+                        const b = balances?.[acc.id];
+                        const bal = balanceCell(b, acc.currency);
+                        const [statusLabel, statusClass] = ACCOUNT_STATUS[acc.account_status] || [`Status ${acc.account_status}`, "badgeInfo"];
+                        const payment = (b?.fundingText || "").replace(/\s*\([^)]*\)\s*$/, "") || (balances ? "—" : "");
+                        return (
+                          <div key={acc.id} style={{ ...GRID, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{acc.name}</div>
+                              <span className={styles.muted} style={{ fontSize: 11 }}>
+                                {acc.id.replace(/^act_/, "")} · {acc.currency}
+                              </span>
+                            </div>
+                            <span>
+                              <span className={styles[statusClass]}>{statusLabel}</span>
+                            </span>
+                            <span className={styles.sub} style={{ textTransform: "capitalize" }}>{payment}</span>
+                            <div style={{ textAlign: "right" }}>
+                              {!balances ? (
+                                <span className={styles.muted}>{balancesError ? "Unavailable" : "Loading…"}</span>
+                              ) : (
+                                <>
+                                  <div
+                                    style={{
+                                      fontWeight: 700,
+                                      fontSize: 14,
+                                      color: bal.tone === "warn" ? "var(--amber)" : bal.tone === "ok" ? "var(--green)" : "var(--t1)",
+                                    }}
+                                  >
+                                    {bal.text}
+                                  </div>
+                                  {bal.label && <span className={styles.muted} style={{ fontSize: 11 }}>{bal.label}</span>}
+                                </>
+                              )}
+                            </div>
+                            <span className={styles.sub} style={{ textAlign: "right" }}>
+                              {b?.spendCapRemaining != null ? formatMoney(b.spendCapRemaining, b.currency || acc.currency) : "—"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
                 )}
               </div>
 
