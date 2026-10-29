@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
@@ -9,8 +9,28 @@ import CacheStatus from "@/components/CacheStatus";
 import AccountSelect from "@/components/AccountSelect";
 import { CopyIcon, CheckIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
+import { cachedGet } from "@/lib/cachedGet";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
+
+function formatMoney(amount, currency) {
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: currency || "INR", maximumFractionDigits: 2 }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency || ""}`;
+  }
+}
+
+// One line for an account's money state: Meta's own funding text first (that is where a
+// prepaid account's remaining funds are), else what's owed, plus any spend-cap headroom.
+function balanceLabel(b, currency) {
+  if (!b) return null;
+  const parts = [];
+  if (b.fundingText) parts.push(b.fundingText);
+  else if (b.owed != null) parts.push(`Outstanding ${formatMoney(b.owed, b.currency || currency)}`);
+  if (b.spendCapRemaining != null) parts.push(`Spend cap left ${formatMoney(b.spendCapRemaining, b.currency || currency)}`);
+  return parts.length ? parts.join(" · ") : null;
+}
 
 function insightsCacheKey(accountId) {
   return `insights:${accountId}`;
@@ -31,6 +51,25 @@ export default function Dashboard({ user }) {
     setSelectedAccountId,
   } = useAccounts();
   const data = profile ? { profile, pages, adAccounts } : null;
+
+  // Balances load after the list so a slow or refused balance call never holds the accounts back.
+  const [balances, setBalances] = useState(null);
+  const [balancesError, setBalancesError] = useState(null);
+  const hasAccounts = adAccounts.length > 0;
+  useEffect(() => {
+    if (!hasAccounts) return;
+    let cancelled = false;
+    cachedGet("/api/fb/account-balances", { ttlMs: 60000 })
+      .then((json) => {
+        if (cancelled) return;
+        if (json.error) setBalancesError(json.error);
+        else setBalances(json.balances || {});
+      })
+      .catch((err) => !cancelled && setBalancesError(err.message));
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAccounts]);
 
   // Client-visible copy of the token every API route is using server-side
   // for Graph calls (pages/api/auth/[...nextauth].js's own `session`
@@ -213,6 +252,12 @@ export default function Dashboard({ user }) {
                         {acc.name}
                         <span className={styles.muted}>
                           {acc.currency} · status {acc.account_status}
+                          {" · "}
+                          {balances
+                            ? balanceLabel(balances[acc.id], acc.currency) || "Balance not available"
+                            : balancesError
+                              ? "Balance unavailable"
+                              : "Balance loading…"}
                         </span>
                       </li>
                     ))}
