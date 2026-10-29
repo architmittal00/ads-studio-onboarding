@@ -18,6 +18,7 @@ import CopyIdButton from "@/components/CopyIdButton";
 import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import BulkDuplicateAdsModal from "@/components/BulkDuplicateAdsModal";
+import LowBalanceBadge from "@/components/LowBalanceBadge";
 import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon, RefreshIcon, MoreIcon, FilterIcon, PlusIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry, formatAge } from "@/lib/clientCache";
@@ -1677,6 +1678,9 @@ export default function Explore() {
             </button>
           )}
         </div>
+        <div>
+          <LowBalanceBadge accountIds={activeView.accountIds} />
+        </div>
         <BottomSheet
           open={viewSheetOpen}
           title="Your views"
@@ -3100,6 +3104,7 @@ export default function Explore() {
                   <p className={styles.sub} style={{ margin: 0 }}>
                     {summarizeQuery(activeView, adAccounts)}
                   </p>
+                  <LowBalanceBadge accountIds={activeView.accountIds} />
                 </div>
                 <button
                   type="button"
