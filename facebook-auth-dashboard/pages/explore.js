@@ -1678,9 +1678,6 @@ export default function Explore() {
             </button>
           )}
         </div>
-        <div>
-          <LowBalanceBadge accountIds={activeView.accountIds} />
-        </div>
         <BottomSheet
           open={viewSheetOpen}
           title="Your views"
@@ -2643,6 +2640,7 @@ export default function Explore() {
             Comparison period can&apos;t extend into the future.
           </span>
         )}
+        <LowBalanceBadge accountIds={activeView.accountIds} />
       </>
     );
   }
@@ -3104,7 +3102,6 @@ export default function Explore() {
                   <p className={styles.sub} style={{ margin: 0 }}>
                     {summarizeQuery(activeView, adAccounts)}
                   </p>
-                  <LowBalanceBadge accountIds={activeView.accountIds} />
                 </div>
                 <button
                   type="button"
