@@ -37,6 +37,8 @@ export default async function handler(req, res) {
         owed: a.balance != null ? parseFloat(a.balance) / 100 : null,
         fundingText: a.funding_source_details?.display_string || null,
         fundingType: a.funding_source_details?.type ?? null,
+        spendCap,
+        amountSpent: spent,
         spendCapRemaining: spendCap != null ? Math.max(spendCap - spent, 0) : null,
       };
     }
