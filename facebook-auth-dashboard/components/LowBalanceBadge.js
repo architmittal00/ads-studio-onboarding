@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { cachedGet } from "@/lib/cachedGet";
+import BottomSheet from "@/components/BottomSheet";
 import styles from "@/styles/Home.module.css";
 
 function money(amount, currency) {
@@ -13,7 +14,7 @@ function money(amount, currency) {
 // Amber "Low balance" chip next to a Custom View's query summary. Renders nothing unless one of
 // the view's accounts is low (see pages/api/fb/low-balance.js for the rule); clicking opens the
 // numbers behind it.
-export default function LowBalanceBadge({ accountIds }) {
+export default function LowBalanceBadge({ accountIds, mobile = false }) {
   const [accounts, setAccounts] = useState([]);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
@@ -46,6 +47,48 @@ export default function LowBalanceBadge({ accountIds }) {
 
   if (accounts.length === 0) return null;
   const first = accounts[0];
+  const label = accounts.length > 1 ? `Low balance · ${accounts.length} accounts` : `Low balance · ${money(first.remaining, first.currency)} left`;
+  if (mobile) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            width: "100%",
+            marginTop: 10,
+            padding: "11px 14px",
+            borderRadius: 12,
+            border: "1px solid var(--red)",
+            background: "rgba(var(--red-rgb), 0.1)",
+            color: "var(--red)",
+            font: "inherit",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--red)" }} />
+            {label}
+          </span>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>Details ›</span>
+        </button>
+        <BottomSheet open={open} title="Low balance" onClose={() => setOpen(false)}>
+          {accounts.map((a) => (
+            <AccountDetail key={a.id} a={a} />
+          ))}
+          <div className={styles.muted} style={{ fontSize: 11.5, paddingTop: 10 }}>
+            Balance is the account&apos;s spend cap left. Flagged when it is below both yesterday&apos;s spend and the 3-day daily average.
+          </div>
+        </BottomSheet>
+      </>
+    );
+  }
   return (
     <span ref={wrapRef} style={{ position: "relative", display: "inline-block" }}>
       <button
@@ -70,7 +113,7 @@ export default function LowBalanceBadge({ accountIds }) {
         }}
       >
         <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--red)" }} />
-        {accounts.length > 1 ? `Low balance · ${accounts.length} accounts` : `Low balance · ${money(first.remaining, first.currency)} left`}
+        {label}
       </button>
       {open && (
         <div
