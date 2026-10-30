@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pasa Phenko – Diwali Game Night</title>
+<style>
+  :root { --bg1: #2b0a3d; --bg2: #6a1b4d; --gold: #ffc83d; --orange: #ff7a18; --card: #fff8ea; --ink: #2b0a3d; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; color: #fff; text-align: center; overflow: hidden;
+    background: radial-gradient(circle at 50% 0%, var(--bg2), var(--bg1) 70%); display: flex; flex-direction: column;
+  }
+  .sparkles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .sparkles i { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 12px 4px rgba(255,200,61,.6); animation: tw 3s infinite ease-in-out; }
+  @keyframes tw { 0%,100% { opacity: .1; transform: scale(.6);} 50% { opacity: 1; transform: scale(1.2);} }
+  header { z-index: 1; padding: 14px 16px 0; flex: none; }
+  h1 { margin: 0; font-size: clamp(22px, 3.2vw, 40px); color: var(--gold); text-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .turn { opacity: .85; font-size: clamp(15px, 1.8vw, 22px); margin-top: 4px; font-weight: 700; }
+  main { z-index: 1; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 16px; gap: clamp(12px, 3vh, 30px); }
+  .die {
+    --s: clamp(140px, min(52vh, 70vw), 560px);
+    width: var(--s); height: var(--s); border-radius: 22%; background: var(--card); color: var(--ink);
+    border: 6px solid var(--gold); display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--s) * .62); font-weight: 900; flex: none; cursor: pointer; user-select: none;
+    box-shadow: 0 12px 50px rgba(0,0,0,.55), 0 0 40px rgba(255,200,61,.35);
+  }
+  .die.rolling { animation: tumble .35s linear infinite; }
+  .die.land { animation: land .5s ease-out; }
+  @keyframes tumble { 0% { transform: rotate(0) scale(1); } 25% { transform: rotate(-14deg) scale(1.06) translateY(-8px); }
+    50% { transform: rotate(0) scale(1); } 75% { transform: rotate(14deg) scale(1.06) translateY(-8px); } 100% { transform: rotate(0) scale(1); } }
+  @keyframes land { 0% { transform: scale(1.35) rotate(-8deg); } 60% { transform: scale(.94); } 100% { transform: none; } }
+  .event {
+    width: min(92vw, 1000px); min-height: 3.6em; font-size: clamp(22px, min(3.6vw, 5.5vh), 46px); font-weight: 800; line-height: 1.2;
+    color: var(--gold); text-shadow: 0 3px 16px rgba(0,0,0,.5);
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: .3em;
+    opacity: 0; transform: translateY(10px);
+  }
+  .event.show { opacity: 1; transform: none; transition: opacity .3s, transform .3s; }
+  .event .emoji { font-size: 1.3em; }
+  .idle { opacity: .75; font-size: clamp(16px, 2vw, 24px); }
+  footer { z-index: 1; padding: 10px 16px 18px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; flex: none; }
+  button { font: inherit; font-weight: 800; font-size: clamp(18px, 2vw, 26px); cursor: pointer; border: 0; border-radius: 999px;
+    padding: 14px 44px; color: var(--ink); background: linear-gradient(180deg, var(--gold), var(--orange));
+    box-shadow: 0 5px 0 #b34d00, 0 8px 18px rgba(0,0,0,.4); transition: transform .08s, box-shadow .08s; }
+  button:active { transform: translateY(4px); box-shadow: 0 1px 0 #b34d00; }
+  button:disabled { opacity: .5; cursor: default; }
+  .home { color: #fff; opacity: .7; text-decoration: none; font-weight: 700; padding: 8px 12px; }
+  .home:hover { opacity: 1; }
+  @media (pointer: coarse) { button { padding: 18px 48px; font-size: 26px; } }
+</style>
+</head>
+<body>
+<div class="sparkles" id="sparkles"></div>
+<header>
+  <h1>🎲 Pasa Phenko! 🎲</h1>
+  <div class="turn" id="turn"></div>
+</header>
+
+<main>
+  <div class="die" id="die" title="Click to roll">?</div>
+</main>
+
+<footer>
+  <button id="go">Roll 🎲</button>
+  <a class="home" href="../index.html">⌂ All games</a>
+</footer>
+
+<script>
+const SIDES = 7; // the die rolls 1 to SIDES
+
+const $ = id => document.getElementById(id);
+let turn = 1, state = "ready"; // ready -> rolling -> done
+
+function setTurn() { $("turn").textContent = `Turn ${turn}`; }
+function ready() {
+  state = "ready"; setTurn();
+  $("die").textContent = "?"; $("die").className = "die";
+  $("go").textContent = "Roll 🎲"; $("go").disabled = false;
+}
+function roll() {
+  state = "rolling";
+  const die = $("die"), n = SIDES;
+  $("go").disabled = true;
+  die.className = "die rolling";
+  const t = setInterval(() => { die.textContent = 1 + Math.floor(Math.random() * n); }, 70);
+  setTimeout(() => {
+    clearInterval(t);
+    const v = 1 + Math.floor(Math.random() * n);
+    die.textContent = v; die.className = "die land";
+    state = "done"; $("go").textContent = "Next player ▶"; $("go").disabled = false;
+  }, 1100);
+}
+function act() {
+  if (state === "ready") roll();
+  else if (state === "done") { turn++; ready(); }
+}
+
+$("go").onclick = act;
+$("die").onclick = () => { if (state === "ready") roll(); };
+document.addEventListener("keydown", e => {
+  if (e.key === " " || e.key === "Enter") { e.preventDefault(); act(); }
+});
+
+const sp = $("sparkles");
+for (let i = 0; i < 40; i++) {
+  const s = document.createElement("i");
+  s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%";
+  s.style.animationDelay = Math.random() * 3 + "s"; sp.appendChild(s);
+}
+ready();
+</script>
+</body>
+</html>

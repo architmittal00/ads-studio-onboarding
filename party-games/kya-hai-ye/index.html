@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kya Hai Ye? – Diwali Game Night</title>
+<style>
+  :root {
+    --bg1: #2b0a3d; --bg2: #6a1b4d; --gold: #ffc83d; --orange: #ff7a18; --card: #fff8ea; --ink: #2b0a3d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color: #fff; text-align: center; overflow: hidden;
+    background: radial-gradient(circle at 50% 0%, var(--bg2), var(--bg1) 70%);
+    display: flex; flex-direction: column;
+  }
+  .sparkles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .sparkles i {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 12px 4px rgba(255,200,61,.6); animation: tw 3s infinite ease-in-out;
+  }
+  @keyframes tw { 0%,100% { opacity: .1; transform: scale(.6);} 50% { opacity: 1; transform: scale(1.2);} }
+  header { z-index: 1; padding: 14px 16px 0; }
+  h1 { margin: 0; font-size: clamp(22px, 3.2vw, 40px); color: var(--gold); letter-spacing: 1px; text-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .sub { opacity: .8; font-size: clamp(13px, 1.4vw, 18px); margin-top: 4px; }
+  main { z-index: 1; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 16px 0; }
+  .hint { flex: none; }
+  .frame {
+    background: var(--card); padding: clamp(8px, 1.2vw, 16px); border-radius: 22px;
+    border: 5px solid var(--gold); box-shadow: 0 10px 50px rgba(0,0,0,.5), 0 0 40px rgba(255,200,61,.35);
+    display: flex; flex: none;
+  }
+  /* box the frame is allowed to fill; JS sizes the photo to fit inside it */
+  .picbox { flex: 1 1 0; min-height: 0; width: min(94vw, 1100px); display: flex; align-items: center; justify-content: center; }
+  .frame img { display: block; border-radius: 12px; background: var(--card); }
+  .frame.pop { animation: pop .45s ease-out; }
+  @keyframes pop { from { transform: scale(.85) rotate(-2deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .name {
+    margin-top: clamp(8px, 1.5vh, 18px); font-size: clamp(28px, min(6vw, 8vh), 72px); font-weight: 800; line-height: 1.1; flex: none;
+    color: var(--gold); text-shadow: 0 3px 16px rgba(0,0,0,.5); min-height: 1.2em;
+  }
+  .hint { opacity: .7; font-size: clamp(13px, 1.3vw, 17px); }
+  footer { z-index: 1; padding: 10px 16px 18px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; font-weight: 800; font-size: clamp(16px, 1.8vw, 22px); cursor: pointer; border: 0; border-radius: 999px;
+    padding: 12px 30px; color: var(--ink); background: linear-gradient(180deg, var(--gold), var(--orange));
+    box-shadow: 0 5px 0 #b34d00, 0 8px 18px rgba(0,0,0,.4); transition: transform .08s, box-shadow .08s;
+  }
+  button:active { transform: translateY(4px); box-shadow: 0 1px 0 #b34d00; }
+  button.ghost { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; border: 2px solid rgba(255,255,255,.35); }
+  .home { color: #fff; opacity: .7; text-decoration: none; font-weight: 700; padding: 8px 12px; }
+  .home:hover { opacity: 1; }
+  .count { font-weight: 700; opacity: .85; min-width: 90px; }
+  @media (pointer: coarse) { button { padding: 16px 36px; font-size: 22px; } .hint { display: none; } }
+  @media (max-height: 700px) { .hint, .sub { display: none; } }
+  .end { z-index: 1; display: none; flex-direction: column; align-items: center; gap: 20px; }
+  .end h2 { font-size: clamp(36px, 7vw, 80px); color: var(--gold); margin: 0; }
+</style>
+</head>
+<body>
+<div class="sparkles" id="sparkles"></div>
+<header>
+  <h1>🪔 Kya Hai Ye? 🪔</h1>
+  <div class="sub">Describe it without saying its name – no pointing, no peeking!</div>
+</header>
+
+<main class="end" id="start" style="display:flex">
+  <h2>🤔 Ready to play?</h2>
+  <div class="sub">One person describes what's on screen. Everyone else guesses!</div>
+  <button id="begin">Start game ▶</button>
+  <a class="home" href="../index.html">⌂ All games</a>
+</main>
+
+<main id="stage" style="display:none">
+  <div class="picbox" id="picbox"><div class="frame" id="frame"><img id="pic" alt=""></div></div>
+  <div class="name" id="name"></div>
+  <div class="hint" id="hint"></div>
+</main>
+
+<main class="end" id="end">
+  <h2>🎆 Happy Diwali! 🎆</h2>
+  <div class="sub">That was every product. Hope you guessed them all!</div>
+  <button id="again">Play again</button>
+</main>
+
+<footer id="controls" style="display:none">
+  <button class="ghost" id="prev">◀ Back</button>
+  <span class="count" id="count"></span>
+  <button id="next">Next ▶</button>
+  <button class="ghost" id="shuffle">🔀 Shuffle</button>
+  <a class="home" href="../index.html">⌂ All games</a>
+</footer>
+
+<script>
+const PRODUCTS = [
+  { name: "Scrub Daddy Sponge", img: "images/scrub-daddy.jpg" },
+  { name: "AirPods",            img: "images/airpods.jpg" },
+  { name: "Avocado",            img: "images/avocado.jpg" },
+  { name: "Crocs",              img: "images/crocs.jpg" },
+  { name: "Dyson",              img: "images/dyson.jpg" },
+  { name: "Bubble Wrap",        img: "images/bubble-wrap.jpg" },
+  { name: "Car Key",            img: "images/car-key.jpg" },
+  { name: "Toothbrush",         img: "images/toothbrush.jpg" },
+  { name: "Pair of Scissors",   img: "images/scissors.jpg" },
+  { name: "Spoon",              img: "images/spoon.jpg" },
+  { name: "Sunglasses",         img: "images/sunglasses.jpg" },
+  { name: "Socks",              img: "images/socks.jpg" },
+  { name: "Onion",              img: "images/onion.jpg" },
+  { name: "Phone Charger",      img: "images/phone-charger.jpg" },
+  { name: "Hand Sanitizer",     img: "images/hand-sanitizer.jpg" },
+  { name: "Lip Balm",           img: "images/lip-balm.jpg" },
+  { name: "Sticky Notes",       img: "images/sticky-notes.jpg" },
+  { name: "Eye Mask",           img: "images/eye-mask.jpg" },
+  { name: "Key Chain Ring",     img: "images/key-chain-ring.jpg" },
+  { name: "Toothpick",          img: "images/toothpick.jpg" },
+  { name: "Tape",               img: "images/tape.jpg" },
+  { name: "Wine",               img: "images/wine.jpg" },
+  { name: "Scrunchie",          img: "images/scrunchie.jpg" },
+  { name: "Golf Ball",          img: "images/golf-ball.jpg" },
+  { name: "Lollipop",           img: "images/lollipop.jpg" },
+  { name: "Shirt",              img: "images/shirt.jpg" },
+  { name: "Domino's",           img: "images/dominos.png" },
+  { name: "Lightbulb",          img: "images/lightbulb.jpg" },
+  { name: "Oreos",              img: "images/oreos.jpg" },
+  { name: "Nike",               img: "images/nike.jpg" },
+  { name: "IKEA",               img: "images/ikea.jpg" },
+  { name: "Red Bull",           img: "images/redbull.jpg" },
+];
+
+let order = PRODUCTS.map((_, i) => i);
+let pos = 0;
+const $ = id => document.getElementById(id);
+
+function show() {
+  const p = PRODUCTS[order[pos]];
+  $("pic").onload = fit;
+  $("pic").src = p.img;
+  $("pic").alt = p.name;
+  $("name").textContent = p.name;
+  $("count").textContent = `${pos + 1} / ${order.length}`;
+  $("hint").textContent = "Space / → next · ← back";
+  const f = $("frame"); f.classList.remove("pop"); void f.offsetWidth; f.classList.add("pop");
+  $("prev").style.visibility = pos === 0 ? "hidden" : "visible";
+  $("next").textContent = pos === order.length - 1 ? "Finish 🎉" : "Next ▶";
+  // preload the following image
+  const n = PRODUCTS[order[pos + 1]]; if (n) new Image().src = n.img;
+}
+// Scale the photo to the largest size that fits the available box, so the frame hugs it
+function fit() {
+  const img = $("pic"), box = $("picbox"), cs = getComputedStyle($("frame"));
+  if (!img.naturalWidth || !box.clientWidth) return;
+  const chrome = 2 * (parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth));
+  const k = Math.min((box.clientWidth - chrome) / img.naturalWidth, (box.clientHeight - chrome) / img.naturalHeight);
+  img.style.width = Math.floor(img.naturalWidth * k) + "px";
+  img.style.height = Math.floor(img.naturalHeight * k) + "px";
+}
+window.addEventListener("resize", fit);
+function setDone(done) {
+  $("stage").style.display = done ? "none" : "flex";
+  $("end").style.display = done ? "flex" : "none";
+  $("controls").style.display = done ? "none" : "flex";
+}
+function next() { if (pos < order.length - 1) { pos++; show(); } else setDone(true); }
+function prev() { if (pos > 0) { pos--; show(); } }
+function shuffle() {
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  pos = 0; setDone(false); show();
+}
+
+let started = false;
+function begin() { started = true; $("start").style.display = "none"; shuffle(); }
+$("begin").onclick = begin;
+$("next").onclick = next;
+$("prev").onclick = prev;
+$("shuffle").onclick = shuffle;
+$("again").onclick = shuffle;
+document.addEventListener("keydown", e => {
+  if (!started) { if (e.key === " " || e.key === "Enter") { e.preventDefault(); begin(); } return; }
+  if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") { e.preventDefault(); next(); }
+  else if (e.key === "ArrowLeft") prev();
+});
+
+const sp = $("sparkles");
+for (let i = 0; i < 40; i++) {
+  const s = document.createElement("i");
+  s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%";
+  s.style.animationDelay = Math.random() * 3 + "s"; sp.appendChild(s);
+}
+</script>
+</body>
+</html>

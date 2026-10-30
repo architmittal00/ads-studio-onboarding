@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filmy Translations – Diwali Game Night</title>
+<style>
+  :root { --bg1: #2b0a3d; --bg2: #6a1b4d; --gold: #ffc83d; --orange: #ff7a18; --card: #fff8ea; --ink: #2b0a3d; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; color: #fff; text-align: center; overflow: hidden;
+    background: radial-gradient(circle at 50% 0%, var(--bg2), var(--bg1) 70%); display: flex; flex-direction: column;
+  }
+  .sparkles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .sparkles i { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 12px 4px rgba(255,200,61,.6); animation: tw 3s infinite ease-in-out; }
+  @keyframes tw { 0%,100% { opacity: .1; transform: scale(.6);} 50% { opacity: 1; transform: scale(1.2);} }
+  header { z-index: 1; padding: 14px 16px 0; flex: none; }
+  h1 { margin: 0; font-size: clamp(22px, 3.2vw, 40px); color: var(--gold); text-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .sub { opacity: .8; font-size: clamp(13px, 1.4vw, 18px); margin-top: 4px; }
+  main { z-index: 1; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 16px; gap: clamp(12px, 3vh, 32px); }
+  .card {
+    background: var(--card); color: var(--ink); border: 5px solid var(--gold); border-radius: 26px;
+    box-shadow: 0 10px 50px rgba(0,0,0,.5), 0 0 40px rgba(255,200,61,.35);
+    width: min(92vw, 1100px); padding: clamp(20px, 5vh, 56px) clamp(16px, 4vw, 48px);
+    font-size: clamp(30px, min(7.5vw, 9vh), 84px); font-weight: 800; line-height: 1.15;
+  }
+  .card.pop { animation: pop .45s ease-out; }
+  @keyframes pop { from { transform: scale(.88) rotate(-1.5deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .label { font-size: .28em; letter-spacing: 3px; text-transform: uppercase; opacity: .55; margin-bottom: .5em; }
+  .answer { min-height: 1.3em; font-size: clamp(28px, min(5.5vw, 8vh), 76px); font-weight: 800; color: var(--gold);
+    text-shadow: 0 3px 16px rgba(0,0,0,.5); line-height: 1.15; opacity: 0; transform: translateY(10px); }
+  .answer.show { opacity: 1; transform: none; transition: opacity .35s, transform .35s; }
+  footer { z-index: 1; padding: 10px 16px 18px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; flex: none; }
+  button { font: inherit; font-weight: 800; font-size: clamp(16px, 1.8vw, 22px); cursor: pointer; border: 0; border-radius: 999px;
+    padding: 12px 30px; color: var(--ink); background: linear-gradient(180deg, var(--gold), var(--orange));
+    box-shadow: 0 5px 0 #b34d00, 0 8px 18px rgba(0,0,0,.4); transition: transform .08s, box-shadow .08s; }
+  button:active { transform: translateY(4px); box-shadow: 0 1px 0 #b34d00; }
+  button.ghost { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; border: 2px solid rgba(255,255,255,.35); }
+  .home { color: #fff; opacity: .7; text-decoration: none; font-weight: 700; padding: 8px 12px; }
+  .home:hover { opacity: 1; }
+  .count { font-weight: 700; opacity: .85; min-width: 90px; }
+  .hint { opacity: .6; font-size: 14px; flex: none; }
+  .end { z-index: 1; display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+  .end h2 { font-size: clamp(36px, 7vw, 80px); color: var(--gold); margin: 0; }
+  @media (pointer: coarse) { button { padding: 16px 36px; font-size: 22px; } .hint { display: none; } }
+  @media (max-height: 700px) { .hint, .sub { display: none; } }
+</style>
+</head>
+<body>
+<div class="sparkles" id="sparkles"></div>
+<header>
+  <h1>🎬 Filmy Translations 🎬</h1>
+  <div class="sub">Which Bollywood film is this in English?</div>
+</header>
+
+<div class="end" id="start" style="display:flex">
+  <h2>🎬 Ready to play?</h2>
+  <div class="sub">An English title appears. Guess the Bollywood film!</div>
+  <button id="begin">Start game ▶</button>
+  <a class="home" href="../index.html">⌂ All games</a>
+</div>
+
+<main id="stage" style="display:none">
+  <div class="card" id="card"><div class="label">English title</div><div id="clue"></div></div>
+  <div class="answer" id="answer"></div>
+  <div class="hint">Space = reveal / next · ← back</div>
+</main>
+
+<div class="end" id="end">
+  <h2>🎆 Picture Abhi Baaki Hai! 🎆</h2>
+  <div class="sub">That was every film.</div>
+  <button id="again">Play again</button>
+</div>
+
+<footer id="controls" style="display:none">
+  <button class="ghost" id="prev">◀ Back</button>
+  <span class="count" id="count"></span>
+  <button id="main">Reveal 🎭</button>
+  <button class="ghost" id="shuffle">🔀 Shuffle</button>
+  <a class="home" href="../index.html">⌂ All games</a>
+</footer>
+
+<script>
+const FILMS = [
+  { clue: "The Brave-Hearted Will Take the Bride", title: "Dilwale Dulhania Le Jayenge" },
+  { clue: "Land Tax",                              title: "Lagaan" },
+  { clue: "Something Is Happening",                title: "Kuch Kuch Hota Hai" },
+  { clue: "God Made a Pair",                       title: "Rab Ne Bana Di Jodi" },
+  { clue: "Life Won’t Come Again",                 title: "Zindagi Na Milegi Dobara" },
+  { clue: "The Heart Wants",                       title: "Dil Chahta Hai" },
+  { clue: "The Heart Is Crazy",                    title: "Dil Toh Pagal Hai" },
+  { clue: "Colour Me Saffron",                     title: "Rang De Basanti" },
+  { clue: "A Life Without You",                    title: "Tere Bina" },
+  { clue: "As Long As I Am Alive",                 title: "Jab Tak Hai Jaan" },
+  { clue: "Tell Me That You Love Me",              title: "Kaho Naa... Pyaar Hai" },
+  { clue: "I’ve Already Given My Heart Away, Beloved", title: "Hum Dil De Chuke Sanam" },
+  { clue: "Everyone Has Their Own Way",            title: "Andaz Apna Apna" },
+  { clue: "Why Fear When You’ve Fallen in Love?",  title: "Pyaar Kiya To Darna Kya" },
+];
+
+let order = FILMS.map((_, i) => i), pos = 0, revealed = false;
+const $ = id => document.getElementById(id);
+
+function render() {
+  const f = FILMS[order[pos]];
+  $("clue").textContent = f.clue;
+  $("answer").textContent = f.title;
+  $("answer").classList.toggle("show", revealed);
+  $("count").textContent = `${pos + 1} / ${order.length}`;
+  $("prev").style.visibility = pos === 0 ? "hidden" : "visible";
+  $("main").textContent = !revealed ? "Reveal 🎭" : pos === order.length - 1 ? "Finish 🎉" : "Next ▶";
+}
+function newCard() { const c = $("card"); c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); }
+function setDone(d) {
+  $("stage").style.display = d ? "none" : "flex";
+  $("end").style.display = d ? "flex" : "none";
+  $("controls").style.display = d ? "none" : "flex";
+}
+function advance() {
+  if (!revealed) { revealed = true; render(); return; }
+  if (pos < order.length - 1) { pos++; revealed = false; render(); newCard(); } else setDone(true);
+}
+function back() { if (pos > 0) { pos--; revealed = false; render(); newCard(); } }
+function shuffle() {
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  pos = 0; revealed = false; setDone(false); render(); newCard();
+}
+
+let started = false;
+function begin() { started = true; $("start").style.display = "none"; shuffle(); }
+$("begin").onclick = begin;
+$("main").onclick = advance;
+$("prev").onclick = back;
+$("shuffle").onclick = shuffle;
+$("again").onclick = shuffle;
+document.addEventListener("keydown", e => {
+  if (!started) { if (e.key === " " || e.key === "Enter") { e.preventDefault(); begin(); } return; }
+  if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); advance(); }
+  else if (e.key === "ArrowLeft") back();
+});
+
+const sp = $("sparkles");
+for (let i = 0; i < 40; i++) {
+  const s = document.createElement("i");
+  s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%";
+  s.style.animationDelay = Math.random() * 3 + "s"; sp.appendChild(s);
+}
+</script>
+</body>
+</html>

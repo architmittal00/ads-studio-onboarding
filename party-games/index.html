@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diwali Game Night</title>
+<style>
+  :root { --bg1: #2b0a3d; --bg2: #6a1b4d; --gold: #ffc83d; --orange: #ff7a18; --card: #fff8ea; --ink: #2b0a3d; }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; margin: 0; }
+  body {
+    min-height: 100vh; color: #fff; text-align: center; overflow-x: hidden;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    background:
+      radial-gradient(ellipse 60% 45% at 50% 0%, rgba(255,160,40,.35), transparent 70%),
+      radial-gradient(circle at 50% 0%, var(--bg2), var(--bg1) 72%) fixed;
+    display: flex; flex-direction: column;
+  }
+
+  /* twinkling sparkles */
+  .sparkles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .sparkles i { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 12px 4px rgba(255,200,61,.6); animation: tw 3s infinite ease-in-out; }
+  @keyframes tw { 0%,100% { opacity: .1; transform: scale(.6);} 50% { opacity: 1; transform: scale(1.2);} }
+
+  /* string of fairy lights */
+  .lights { position: relative; z-index: 1; height: 54px; display: flex; justify-content: space-around; flex: none; overflow: hidden; }
+  .lights::before { content: ""; position: absolute; left: -2%; right: -2%; top: -14px; height: 40px; border-bottom: 3px solid rgba(255,255,255,.28); border-radius: 50%; }
+  .lights b { position: relative; top: 14px; width: 14px; height: 22px; border-radius: 50% 50% 55% 55%; animation: glow 2.4s infinite ease-in-out; }
+  .lights b:nth-child(4n+1) { background: #ffc83d; box-shadow: 0 0 18px 6px rgba(255,200,61,.7); }
+  .lights b:nth-child(4n+2) { background: #ff7a18; box-shadow: 0 0 18px 6px rgba(255,122,24,.7); animation-delay: .5s; }
+  .lights b:nth-child(4n+3) { background: #ff4d8d; box-shadow: 0 0 18px 6px rgba(255,77,141,.7); animation-delay: 1s; }
+  .lights b:nth-child(4n)   { background: #ffe9a8; box-shadow: 0 0 18px 6px rgba(255,233,168,.7); animation-delay: 1.5s; }
+  @keyframes glow { 0%,100% { opacity: .45; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.1); } }
+
+  main { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 20px 40px; }
+
+  h1 {
+    margin: 0; font-size: clamp(36px, 7vw, 92px); line-height: 1.05; color: var(--gold); letter-spacing: 1px;
+    text-shadow: 0 0 24px rgba(255,200,61,.55), 0 4px 18px rgba(0,0,0,.5);
+  }
+  .diya { display: inline-block; animation: flicker 2.2s infinite ease-in-out; filter: drop-shadow(0 0 16px rgba(255,170,40,.9)); }
+  .diya + .diya { animation-delay: 1.1s; }
+  @keyframes flicker { 0%,100% { transform: scale(1) rotate(-3deg); } 50% { transform: scale(1.12) rotate(3deg); } }
+  .sub { opacity: .85; margin: 10px 0 clamp(24px, 5vh, 56px); font-size: clamp(16px, 2.2vw, 26px); }
+
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.5vw, 36px); width: min(100%, 1250px); }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; max-width: 520px; } }
+
+  a.game {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: var(--ink);
+    background: linear-gradient(180deg, #fffdf6, var(--card)); border: 5px solid var(--gold); border-radius: 28px;
+    padding: clamp(28px, 5vh, 56px) 24px; min-height: clamp(220px, 34vh, 380px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.5), 0 0 34px rgba(255,200,61,.35);
+    transition: transform .18s, box-shadow .18s;
+    animation: rise .6s ease-out backwards;
+  }
+  a.game:nth-child(2) { animation-delay: .12s; }
+  a.game:nth-child(3) { animation-delay: .24s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(30px) scale(.94); } to { opacity: 1; transform: none; } }
+  a.game:hover, a.game:focus-visible { transform: translateY(-8px) rotate(-1deg); box-shadow: 0 20px 60px rgba(0,0,0,.55), 0 0 60px rgba(255,200,61,.75); outline: none; }
+  a.game:active { transform: translateY(-2px) scale(.98); }
+  .emoji { font-size: clamp(60px, 9vw, 110px); line-height: 1; animation: bob 3.2s infinite ease-in-out; }
+  a.game:nth-child(2) .emoji { animation-delay: .5s; }
+  a.game:nth-child(3) .emoji { animation-delay: 1s; }
+  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
+  .title { font-size: clamp(26px, 3vw, 40px); font-weight: 800; margin: 14px 0 8px; }
+  .desc { font-size: clamp(15px, 1.5vw, 19px); opacity: .75; line-height: 1.35; }
+  .play {
+    margin-top: 18px; padding: 10px 28px; border-radius: 999px; font-weight: 800; font-size: clamp(16px, 1.6vw, 20px);
+    background: linear-gradient(180deg, var(--gold), var(--orange)); box-shadow: 0 4px 0 #b34d00;
+  }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+  <div class="sparkles" id="sparkles"></div>
+  <div class="lights" id="lights"></div>
+
+  <main>
+    <h1><span class="diya">🪔</span> Diwali Game Night <span class="diya">🪔</span></h1>
+    <div class="sub">Pick a game and put it on the big screen</div>
+
+    <div class="grid">
+      <a class="game" href="kya-hai-ye/index.html">
+        <div class="emoji">🤔</div>
+        <div class="title">Kya Hai Ye?</div>
+        <div class="desc">A product appears on screen. Describe it without saying the name!</div>
+        <div class="play">Play ▶</div>
+      </a>
+      <a class="game" href="filmy-translations/index.html">
+        <div class="emoji">🎬</div>
+        <div class="title">Filmy Translations</div>
+        <div class="desc">An English translation of a Bollywood title appears. Guess the film!</div>
+        <div class="play">Play ▶</div>
+      </a>
+      <a class="game" href="pasa-phenko/index.html">
+        <div class="emoji">🎲</div>
+        <div class="title">Pasa Phenko!</div>
+        <div class="desc">Roll a number from 1 to 7, then pass it to the next player.</div>
+        <div class="play">Play ▶</div>
+      </a>
+    </div>
+  </main>
+
+<script>
+const sp = document.getElementById("sparkles");
+for (let i = 0; i < 50; i++) {
+  const s = document.createElement("i");
+  s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%";
+  s.style.animationDelay = Math.random() * 3 + "s"; sp.appendChild(s);
+}
+const l = document.getElementById("lights");
+for (let i = 0; i < 24; i++) l.appendChild(document.createElement("b"));
+</script>
+</body>
+</html>
