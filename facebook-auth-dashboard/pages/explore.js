@@ -1678,7 +1678,7 @@ export default function Explore() {
             </button>
           )}
         </div>
-        <LowBalanceBadge accountIds={activeView.accountIds} mobile />
+        <LowBalanceBadge accountIds={activeView.accountIds} refreshKey={activeView.resultFetchedAt} mobile />
         <BottomSheet
           open={viewSheetOpen}
           title="Your views"
@@ -2641,7 +2641,7 @@ export default function Explore() {
             Comparison period can&apos;t extend into the future.
           </span>
         )}
-        {!fullWidth && <LowBalanceBadge accountIds={activeView.accountIds} />}
+        {!fullWidth && <LowBalanceBadge accountIds={activeView.accountIds} refreshKey={activeView.resultFetchedAt} />}
       </>
     );
   }

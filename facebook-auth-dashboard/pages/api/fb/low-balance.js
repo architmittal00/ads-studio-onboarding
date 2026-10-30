@@ -61,6 +61,7 @@ export default async function handler(req, res) {
     }
   });
 
-  res.setHeader("Cache-Control", "private, max-age=120");
+  // Never reused by the browser: the client decides when to refresh (Hard Refresh must really refetch).
+  res.setHeader("Cache-Control", "private, no-store");
   res.status(200).json({ accounts: rows });
 }

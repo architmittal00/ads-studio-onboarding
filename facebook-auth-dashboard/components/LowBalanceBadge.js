@@ -14,27 +14,37 @@ function money(amount, currency) {
 // Amber "Low balance" chip next to a Custom View's query summary. Renders nothing unless one of
 // the view's accounts is low (see pages/api/fb/low-balance.js for the rule); clicking opens the
 // numbers behind it.
-export default function LowBalanceBadge({ accountIds, mobile = false }) {
-  const [accounts, setAccounts] = useState([]);
+// `refreshKey` changes whenever the view's data is re-run (Run, Hard Refresh, date change), which
+// refetches the balance check instead of reusing the cached one.
+export default function LowBalanceBadge({ accountIds, mobile = false, refreshKey = null }) {
+  // Tagged with the account set it was computed for, so a stale result is never shown for another set,
+  // while a refresh of the same set keeps showing the last result until the new one lands.
+  const [state, setState] = useState({ key: "", accounts: [] });
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const key = [...accountIds].sort().join(",");
+  const seenRefreshKey = useRef(refreshKey);
+  const seenAccountKey = useRef(key);
+  const accounts = state.key === key ? state.accounts : [];
 
   useEffect(() => {
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the badge while the next account set loads
-    setAccounts([]);
     if (!key || accountIds.length > 25) return;
-    cachedGet(`/api/fb/low-balance?accountIds=${encodeURIComponent(key)}`, { ttlMs: 5 * 60 * 1000 })
+    let cancelled = false;
+    // A new refreshKey (the view's data was re-run / hard refreshed) skips the cached check.
+    // Switching to another view (a different account set) just uses the short cache.
+    const force = refreshKey !== seenRefreshKey.current && key === seenAccountKey.current;
+    seenRefreshKey.current = refreshKey;
+    seenAccountKey.current = key;
+    cachedGet(`/api/fb/low-balance?accountIds=${encodeURIComponent(key)}`, { ttlMs: 2 * 60 * 1000, force })
       .then((json) => {
-        if (!cancelled && json.accounts) setAccounts(json.accounts.filter((a) => a.low));
+        if (!cancelled && json.accounts) setState({ key, accounts: json.accounts.filter((a) => a.low) });
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the account set
-  }, [key]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run for a new account set or a new refreshKey only
+  }, [key, refreshKey]);
 
   useEffect(() => {
     if (!open) return;
