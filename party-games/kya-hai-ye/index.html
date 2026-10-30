@@ -140,7 +140,7 @@ function show() {
   $("pic").alt = p.name;
   $("name").textContent = p.name;
   $("count").textContent = `${pos + 1} / ${order.length}`;
-  $("hint").textContent = "Space / → next · ← back";
+  $("hint").textContent = "Tap anywhere / Space / → next · ← back";
   const f = $("frame"); f.classList.remove("pop"); void f.offsetWidth; f.classList.add("pop");
   $("prev").style.visibility = pos === 0 ? "hidden" : "visible";
   $("next").textContent = pos === order.length - 1 ? "Finish 🎉" : "Next ▶";
@@ -176,6 +176,12 @@ $("next").onclick = next;
 $("prev").onclick = prev;
 $("shuffle").onclick = shuffle;
 $("again").onclick = shuffle;
+// Tap/click anywhere (except on buttons and links) moves to the next item
+document.addEventListener("click", e => {
+  if (!started || e.target.closest("button, a")) return;
+  if ($("stage").style.display === "none") return; // end screen
+  next();
+});
 document.addEventListener("keydown", e => {
   if (!started) { if (e.key === " " || e.key === "Enter") { e.preventDefault(); begin(); } return; }
   if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") { e.preventDefault(); next(); }
