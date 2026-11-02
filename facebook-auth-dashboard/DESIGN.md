@@ -56,7 +56,7 @@ Scale in use: 10, 11, 11.5 (tabs), 12, 12.5 (tables), 13, 15, 16. Don't add half
 **Tabs / segmented** — `.tabGroup` + `.tab` / `.tabActive` (selected = 15% purple tint, 30% purple border, purple text).
 **Badges** — `.pill` (brand), `.badgeInfo` (blue), `.badgeGood` / `.badgeWarn` / `.badgeDanger` (status). 10px/700, 20px radius.
 **Messages** — `.error` for failures; warnings/success via the `.badge*` tints. Inline status text uses `--green/--amber/--red`.
-**Tables** — `SortableTable` (sort, search, resize, freeze, pinned total row). Don't hand-roll `<table>` styling.
+**Header pills** — `LabeledPill` (uppercase label over a `.headerPillSelect`/`DateRangeMenu` trigger) inside `.headerPillRow`; reload = `.headerPillIconBtn`. **Tables** — `SortableTable` (sort, search, resize, freeze, pinned total row). Don't hand-roll `<table>` styling.
 **Overlays** — modal: fixed scrim `rgba(0,0,0,.65)` + blur, `.card` panel, `z-index: 800` (see `RowActions`, `DuplicateEntityModal`). Side drawer: `.drawerOverlay`/`.drawerPanel` (see `EntityDetailDrawer`). Creative preview: `CreativeLightbox`; thumbnails: `Thumb`.
 **Loading / empty** — `Loader` (spinner, optional label). Empty state: icon + heading + numbered steps + CTA (`.exploreEmptyState`, see `ExploreEmptyState` in `pages/explore.js`).
 **Icons** — `components/icons.js` (own inline SVGs, `size` prop). Add new icons there; don't pull another icon library.
