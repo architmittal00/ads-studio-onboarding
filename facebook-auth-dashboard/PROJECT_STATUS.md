@@ -84,6 +84,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Pixel tab redesign (2026-11-02)
+Pixel page now matches the other screens: title + labeled pills (ad account, pixel, shared `DateRangeMenu`, reload) header, `.statBar` summary (status, last fired, events, event types), a chart card with event chips (click a row or chip to chart that event), and the shared `SortableTable` with sparklines. Chart colors are tokens.
+
 ### Duplicate ad set → many campaigns, duplicate campaign, "Check your pixel" tab (2026-11-02)
 - **Duplicate ad set** (`components/DuplicateEntityModal.js`): fixed the broken campaign picker (the "Choose" button called an undefined `setPickTarget`, so it crashed). Now a checkbox list: pick several destination campaigns, edit the copy's name; one ad set (+ its ads) is created in each, paused. ABO destinations share one budget field.
 - **Duplicate campaign** (new `components/DuplicateCampaignModal.js` + `pages/api/fb/duplicate-campaign.js`): "Duplicate" row action now also on campaign rows. Uses Meta's `/{campaign}/copies` with `deep_copy`, same account only, paused/active choice, editable name, 1–5 copies. **Not tested against a real account** — very large campaigns may hit Meta's synchronous deep-copy limits.
