@@ -5,6 +5,7 @@ import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
+import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
 import RuleFlagCard from "@/components/rules/RuleFlagCard";
 import RuleActionModal from "@/components/rules/RuleActionModal";
@@ -28,7 +29,21 @@ function money(v, symbol) {
   return v == null ? "—" : `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
 }
 
+// The account check runs from RulesContent, so nothing is fetched until the PIN is entered.
 export default function Rules() {
+  return (
+    <Layout>
+      <Head>
+        <title>Rules · Facebook Auth Dashboard</title>
+      </Head>
+      <PinLock>
+        <RulesContent />
+      </PinLock>
+    </Layout>
+  );
+}
+
+function RulesContent() {
   const { adAccounts, accountsLoading, selectedAccountId, setSelectedAccountId } = useAccounts();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -80,10 +95,7 @@ export default function Rules() {
   const base7 = result?.baseline?.find((b) => b.days === 7);
 
   return (
-    <Layout>
-      <Head>
-        <title>Rules · Facebook Auth Dashboard</title>
-      </Head>
+    <>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
           <h1 className={styles.h1}>Rules</h1>
@@ -197,7 +209,7 @@ export default function Rules() {
           }}
         />
       )}
-    </Layout>
+    </>
   );
 }
 
