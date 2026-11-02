@@ -21,6 +21,11 @@ import styles from "@/styles/Home.module.css";
 // coming back or switching accounts doesn't re-run a heavy check; "Hard refresh" re-runs it now.
 const CACHE_MS = 30 * 60 * 1000;
 const cacheKey = (accountId) => `rules-check:${accountId}`;
+// Drops this account's saved checks, including the light ones Custom Views uses for its "!" marks.
+const clearRuleCaches = (accountId) => {
+  clearCachedEntry(cacheKey(accountId));
+  for (const level of ["campaign", "adset", "ad"]) clearCachedEntry(`rules-attn:${accountId}:${level}`);
+};
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
 
@@ -382,7 +387,7 @@ function RulesContent() {
               return next;
             });
             // The saved result no longer matches the account, so the next visit re-checks.
-            if (ok.length > 0) clearCachedEntry(cacheKey(selectedAccountId));
+            if (ok.length > 0) clearRuleCaches(selectedAccountId);
           }}
         />
       )}
@@ -394,7 +399,7 @@ function RulesContent() {
           onApplied={(text) => {
             setApplied((p) => ({ ...p, [acting.key]: text }));
             // The saved result no longer matches the account, so the next visit re-checks.
-            clearCachedEntry(cacheKey(selectedAccountId));
+            clearRuleCaches(selectedAccountId);
             setActing(null);
           }}
         />

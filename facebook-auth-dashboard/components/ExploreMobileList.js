@@ -52,6 +52,8 @@ export default function ExploreMobileList({
   kpiKeys,
   toolbarExtra,
   renderLead,
+  // Optional per-row extra shown beside the title (e.g. the rules "needs attention" mark).
+  renderTitleExtra,
 }) {
   const [sortOpen, setSortOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -177,6 +179,7 @@ export default function ExploreMobileList({
                 </span>
               )}
             </button>
+            {renderTitleExtra && renderTitleExtra(row)}
             {!selectMode && id && renderActions(row, rowLevel, onApplied)}
           </div>
           {renderMetricGrid(row, `${depth}:${id || title}`)}
@@ -268,6 +271,7 @@ export default function ExploreMobileList({
                 </span>
               )}
             </button>
+            {renderTitleExtra && renderTitleExtra(row)}
             {!selectMode && id && renderActions(row, level, drill.onTopApplied)}
           </div>
           {renderMetricGrid(row, `p:${id}`)}

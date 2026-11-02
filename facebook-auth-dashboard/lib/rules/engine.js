@@ -9,7 +9,7 @@ const toMajor = (v) => (v ? parseFloat(v) / 100 : null);
 // structure: { campaigns, adsets, ads } of ACTIVE entities, as listed by Graph.
 // insightsByWindow: { 3: rows[], 7: rows[], 14: rows[], 30: rows[] } — ad-level rows with ad_id/adset_id/campaign_id.
 // Returns { baseline, flags, rulesChecked }.
-export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges, extraNames = {} }) {
+export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges, extraNames = {}, levels = null }) {
   const recentChanged = recentBudgetChanges?.changed || {};
   // Aggregate every window's ad-level rows up the tree. Account totals include inactive ads too.
   const accAgg = {};
@@ -99,6 +99,8 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
   const subjectsByLevel = { campaign: campaigns, adset: adsets, ad: ads };
   const byEntity = new Map(); // "type:id" -> { subject, hits: [] }
   for (const rule of RULES) {
+    // `levels` (Custom Views) narrows the run to the entity types on screen.
+    if (levels && !levels.includes(rule.level)) continue;
     for (const subject of subjectsByLevel[rule.level]) {
       // Nothing to judge without any delivery in the last 7 days.
       if (!(subject.m[7].spend > 0)) continue;
