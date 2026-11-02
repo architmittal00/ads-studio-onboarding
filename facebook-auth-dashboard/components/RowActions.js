@@ -5,6 +5,7 @@ import { formatMetricValue, LEVEL_OPTIONS } from "@/lib/insightsMetrics";
 import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon, CopyIcon, InfoIcon, MoreIcon } from "./icons";
 import BottomSheet from "./BottomSheet";
 import DuplicateEntityModal from "./DuplicateEntityModal";
+import DuplicateCampaignModal from "./DuplicateCampaignModal";
 import BulkDuplicateAdsModal from "./BulkDuplicateAdsModal";
 
 // Quick budget bumps — the common "cut it back" / "push it harder" pacing
@@ -23,7 +24,7 @@ const BUDGET_PRESETS = [-50, -20, -10, 10, 20, 50];
 //    ever sets dailyBudget/lifetimeBudget here when that's true, which is
 //    exactly the CBO/ABO-aware check this feature needs (see that file's
 //    fetchEntityBudgets comment).
-//  - Duplicate (ad/ad set only) opens its own popup (BulkDuplicateAdsModal for an ad — the same one as the bulk Duplicate button — or DuplicateEntityModal for an ad set)
+//  - Duplicate (ad/ad set/campaign) opens its own popup (BulkDuplicateAdsModal for an ad — the same one as the bulk Duplicate button — or DuplicateEntityModal for an ad set)
 //    right here, same as the budget-change modal below — unlike those two,
 //    which are one Graph call each, duplicating is a multi-step creation
 //    flow, but it's still fundamentally "confirm something about this row
@@ -49,7 +50,7 @@ function determineActions(row, level) {
   } else if (row.lifetimeBudget != null) {
     actions.push({ key: "budget", kind: "budget", label: "Change Budget", field: "lifetime_budget", currentValue: row.lifetimeBudget });
   }
-  if ((level === "ad" || level === "adset") && row.accountId) {
+  if ((level === "ad" || level === "adset" || level === "campaign") && row.accountId) {
     actions.push({ key: "duplicate", kind: "duplicate", label: "Duplicate" });
   }
   return actions;
@@ -199,7 +200,8 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
           onClose={() => setDuplicating(false)}
         />
       )}
-      {duplicating && level !== "ad" && <DuplicateEntityModal level={level} row={row} currency={currency} onClose={() => setDuplicating(false)} />}
+      {duplicating && level === "adset" && <DuplicateEntityModal row={row} currency={currency} onClose={() => setDuplicating(false)} />}
+      {duplicating && level === "campaign" && <DuplicateCampaignModal row={row} onClose={() => setDuplicating(false)} />}
     </div>
   );
 }
