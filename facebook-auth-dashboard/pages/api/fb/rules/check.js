@@ -11,6 +11,42 @@ import { evaluateAccount } from "@/lib/rules/engine";
 // ACTIVE campaigns / ad sets / ads; everything else (account, campaign and ad set totals) is
 // summed from those rows, so the cost is 4 insights jobs + 3 list calls, all in parallel.
 const VALID_ID = /^act_\d+$/;
+const COOLDOWN_HOURS = 48;
+
+function validTimeZone(tz) {
+  if (typeof tz !== "string" || !tz) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return null;
+  }
+}
+
+// Map of object id -> ISO time of its latest budget edit in the last COOLDOWN_HOURS. The activity
+// log reports an ad set's or campaign's own budget change against that entity's id.
+async function fetchRecentBudgetChanges(accountId, token) {
+  const nowUnix = Math.floor(Date.now() / 1000);
+  try {
+    const activity = await graphGetAllPages(`/${accountId}/activities`, token, {
+      since: nowUnix - COOLDOWN_HOURS * 3600,
+      until: nowUnix,
+      limit: 500,
+      fields: "event_type,event_time,object_id,translated_event_type",
+    });
+    const changed = {};
+    for (const e of activity.data || []) {
+      if (!`${e.event_type || ""} ${e.translated_event_type || ""}`.toLowerCase().includes("budget")) continue;
+      const at = typeof e.event_time === "number" ? new Date(e.event_time * 1000) : new Date(e.event_time);
+      if (!e.object_id || isNaN(at.getTime())) continue;
+      if (!changed[e.object_id] || at > new Date(changed[e.object_id])) changed[e.object_id] = at.toISOString();
+    }
+    return { ok: true, changed };
+  } catch {
+    return { ok: false, changed: {} };
+  }
+}
+
 const ACTIVE_FILTER = [{ field: "effective_status", operator: "IN", value: ["ACTIVE", "IN_PROCESS"] }];
 
 export default async function handler(req, res) {
@@ -22,8 +58,19 @@ export default async function handler(req, res) {
   const token = session.accessToken;
 
   try {
-    const account = await graphGet(`/${accountId}`, token, { fields: "name,currency,timezone_name" });
-    const today = todayInTimeZone(account.timezone_name);
+    // Everything starts at once. The time zone (needed to place the date windows) normally comes
+    // from the client, which already has it for the picked account; only without it do we have to
+    // wait for the account call first.
+    const accountP = graphGet(`/${accountId}`, token, { fields: "name,currency,timezone_name" });
+    const listsP = Promise.all([
+      graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
+      graphGetAllPages(`/${accountId}/adsets`, token, { fields: "id,name,campaign_id,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
+      graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id", filtering: ACTIVE_FILTER, limit: 500 }),
+    ]);
+    // Budget edits in the last 48h (soft-fail: if the activity log can't be read, nothing is held back).
+    const changesP = fetchRecentBudgetChanges(accountId, token);
+    const clientTz = validTimeZone(req.query.tz);
+    const today = todayInTimeZone(clientTz || (await accountP).timezone_name);
 
     const insightsFor = (days) => {
       const range = lastNDaysRange(days, today);
@@ -40,12 +87,7 @@ export default async function handler(req, res) {
       ).then((r) => r.data || []);
     };
 
-    const [campaigns, adsets, ads, ...windowRows] = await Promise.all([
-      graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
-      graphGetAllPages(`/${accountId}/adsets`, token, { fields: "id,name,campaign_id,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
-      graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id", filtering: ACTIVE_FILTER, limit: 500 }),
-      ...WINDOWS.map(insightsFor),
-    ]);
+    const [account, [campaigns, adsets, ads], recentBudgetChanges, ...windowRows] = await Promise.all([accountP, listsP, changesP, ...WINDOWS.map(insightsFor)]);
     const insightsByWindow = Object.fromEntries(WINDOWS.map((w, i) => [w, windowRows[i]]));
 
     let currencySymbol = "₹";
@@ -58,6 +100,7 @@ export default async function handler(req, res) {
       insightsByWindow,
       currency: account.currency,
       currencySymbol,
+      recentBudgetChanges,
     });
     res.status(200).json({
       accountId,

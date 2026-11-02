@@ -9,7 +9,8 @@ const toMajor = (v) => (v ? parseFloat(v) / 100 : null);
 // structure: { campaigns, adsets, ads } of ACTIVE entities, as listed by Graph.
 // insightsByWindow: { 3: rows[], 7: rows[], 14: rows[], 30: rows[] } — ad-level rows with ad_id/adset_id/campaign_id.
 // Returns { baseline, flags, rulesChecked }.
-export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol }) {
+export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges }) {
+  const recentChanged = recentBudgetChanges?.changed || {};
   // Aggregate every window's ad-level rows up the tree. Account totals include inactive ads too.
   const accAgg = {};
   const adAgg = new Map();
@@ -111,6 +112,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
   }
 
   const flags = [];
+  const held = []; // budget suggestions skipped because that budget was edited in the last 48h
   for (const { subject, hits } of byEntity.values()) {
     // Opposite budget directions on one entity: the direction backed by the rule with
     // more conditions wins; a tie goes to the cautious (decrease) side. The loser is listed, not shown as a flag.
@@ -134,6 +136,25 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       if (subject.type === "campaign" && subject.cbo) budgetTarget = { id: subject.id, level: "campaign", type: subject.budgetType, current: subject.budget, name: subject.name };
       else if (subject.type === "adset" && subject.abo) budgetTarget = { id: subject.id, level: "adset", type: subject.budgetType, current: subject.budget, name: subject.name };
       else if (subject.type === "adset") budgetNote = "This ad set has no budget of its own — it's set on the campaign (CBO).";
+    }
+    // Cool-down: don't suggest another budget move on something whose budget was just changed — the
+    // ad set / campaign itself, the object the change would hit, or (for an ad set funded by its
+    // campaign) that campaign.
+    if (winnerAction !== "PAUSE_AD") {
+      const ids = [subject.id, budgetTarget?.id, subject.type === "adset" && !subject.abo ? subject.campaignId : null].filter(Boolean);
+      const changedId = ids.find((id) => recentChanged[id]);
+      if (changedId) {
+        held.push({
+          key: `${subject.type}:${subject.id}`,
+          entityType: subject.type,
+          name: subject.name,
+          action: winnerAction,
+          changedAt: recentChanged[changedId],
+          changedWhat: changedId === subject.id ? subject.type : "campaign",
+          ruleNames: winners.map((h) => h.rule.name),
+        });
+        continue;
+      }
     }
     const parentCampaign = campaignById.get(subject.campaignId || (subject.type === "campaign" ? subject.id : null));
     const parentAdset = subject.type === "ad" ? adsetById.get(subject.adsetId) : null;
@@ -163,6 +184,8 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     baseline: WINDOWS.map((w) => ({ days: w, spend: acc[w].spend, roas: acc[w].roas, cpr: acc[w].cpr, cpm: acc[w].cpm, ctr: acc[w].ctr })),
     counts: { campaigns: campaigns.length, adsets: adsets.length, ads: ads.length },
     flags,
+    held,
+    heldChecked: recentBudgetChanges ? recentBudgetChanges.ok : false,
     rulesChecked: RULES.map((r) => ({ id: r.id, name: r.name, level: r.level, action: r.action, text: r.text })),
   };
 }
