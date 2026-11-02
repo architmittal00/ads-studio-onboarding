@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphGetAllPages } from "@/lib/facebookGraph";
-import { addDaysUTC, todayInTimeZone } from "@/lib/dateRanges";
+import { addDaysUTC, isoDate, todayInTimeZone } from "@/lib/dateRanges";
 
 // Events a pixel received in a date range: per event the total, the last time it fired, and a
 // series for charting — hourly for a range of up to 2 days, otherwise one point per day.
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     }
 
     const now = Date.now();
-    const today = todayInTimeZone(timeZone);
+    const today = isoDate(todayInTimeZone(timeZone));
     let since;
     let until;
     if (DATE.test(String(qSince)) && DATE.test(String(qUntil))) {
