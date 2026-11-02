@@ -154,7 +154,7 @@ export default function PixelPage() {
 
               {data.events.length > 0 && (
                 <p className={styles.muted} style={{ fontSize: 12, marginBottom: 8 }}>
-                  Times are in your time zone. Meta reports events per hour, so an event&apos;s last-fired time is the start of the hour it last fired in; the pixel&apos;s own last-fired time above is exact.
+                  Times are in your time zone. Meta reports events per hour, so an event&apos;s last-fired time is the start of the hour it last fired in; the pixel&apos;s own last-fired time above is exact. Counts are browser + server events, with days in {data.timeZone}; &ldquo;Today&rdquo; is the day so far and can run up to an hour behind Events Manager, since Meta&apos;s hourly stats lag. &ldquo;Last 7 days&rdquo; includes today.
                 </p>
               )}
               {data.events.length === 0 ? (
@@ -169,7 +169,9 @@ export default function PixelPage() {
                       <tr style={{ textAlign: "left", color: "var(--t2)" }}>
                         <th style={{ padding: "8px 10px" }}>Event</th>
                         <th style={{ padding: "8px 10px" }}>Last fired</th>
-                        <th style={{ padding: "8px 10px", textAlign: "right" }}>Events (7 days)</th>
+                        <th style={{ padding: "8px 10px", textAlign: "right" }}>Today</th>
+                        <th style={{ padding: "8px 10px", textAlign: "right" }}>Yesterday</th>
+                        <th style={{ padding: "8px 10px", textAlign: "right" }}>Last 7 days</th>
                         <th style={{ padding: "8px 10px" }} />
                       </tr>
                     </thead>
@@ -184,6 +186,8 @@ export default function PixelPage() {
                                 {ago(e.lastFired)}
                               </div>
                             </td>
+                            <td style={{ padding: "10px", textAlign: "right" }}>{e.daily[e.daily.length - 1].toLocaleString("en-IN")}</td>
+                            <td style={{ padding: "10px", textAlign: "right" }}>{e.daily[e.daily.length - 2].toLocaleString("en-IN")}</td>
                             <td style={{ padding: "10px", textAlign: "right" }}>{e.total.toLocaleString("en-IN")}</td>
                             <td style={{ padding: "10px", textAlign: "right" }}>
                               <button type="button" className={styles.btnSecondary} style={{ padding: "5px 12px" }} onClick={() => setOpen(open === e.name ? null : e.name)}>
@@ -193,7 +197,7 @@ export default function PixelPage() {
                           </tr>
                           {open === e.name && (
                             <tr>
-                              <td colSpan={4} style={{ padding: "6px 10px 16px" }}>
+                              <td colSpan={6} style={{ padding: "6px 10px 16px" }}>
                                 <Trend days={data.days} daily={e.daily} />
                               </td>
                             </tr>
