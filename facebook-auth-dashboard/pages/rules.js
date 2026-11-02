@@ -6,7 +6,8 @@ import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
-import RuleFlagCard from "@/components/rules/RuleFlagCard";
+import FlagTable from "@/components/rules/FlagTable";
+import LabeledPill from "@/components/LabeledPill";
 import RuleActionModal from "@/components/rules/RuleActionModal";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import RuleCheckProgress from "@/components/rules/RuleCheckProgress";
@@ -22,8 +23,6 @@ const CACHE_MS = 30 * 60 * 1000;
 const cacheKey = (accountId) => `rules-check:${accountId}`;
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
-
-const ACTION_TEXT = { INCREASE_BUDGET: "increase budget", DECREASE_BUDGET: "decrease budget", PAUSE_AD: "pause ad" };
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -59,7 +58,6 @@ function RulesContent() {
   const [applied, setApplied] = useState({}); // flag key -> short outcome text
   const [acting, setActing] = useState(null);
   const [showRules, setShowRules] = useState(false);
-  const [query, setQuery] = useState("");
   const [savedNote, setSavedNote] = useState(null); // e.g. "saved 12 minutes ago" when the shown result came from the cache
   const [steps, setSteps] = useState({}); // check step id -> { done, detail }
   const [thumbs, setThumbs] = useState({}); // ad id -> { thumbnailUrl, isVideo } | null once loaded
@@ -156,112 +154,94 @@ function RulesContent() {
     };
   }, [result]);
 
-  // Search matches the name, its campaign / ad set, the rule names, the entity type and the action.
-  const searched = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const all = result?.flags || [];
-    if (!q) return all;
-    return all.filter((f) =>
-      [f.name, f.campaignName, f.adsetName, f.entityType === "adset" ? "ad set" : f.entityType, ACTION_TEXT[f.action], ...f.matchedRules.map((r) => r.name)].filter(Boolean).join(" ").toLowerCase().includes(q)
-    );
-  }, [result, query]);
-  const searchedHeld = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const all = result?.held || [];
-    if (!q) return all;
-    return all.filter((h) => `${h.name} ${h.ruleNames.join(" ")}`.toLowerCase().includes(q));
-  }, [result, query]);
-
   const counts = useMemo(() => {
     const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0 };
-    for (const f of searched) {
+    for (const f of result?.flags || []) {
       c.all++;
       c[f.action]++;
     }
     return c;
-  }, [searched]);
-  const shown = searched.filter((f) => filter === "all" || f.action === filter);
+  }, [result]);
+  const shown = (result?.flags || []).filter((f) => filter === "all" || f.action === filter);
   const base7 = result?.baseline?.find((b) => b.days === 7);
 
   return (
     <>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Rules</h1>
-          <p className={styles.sub} style={{ marginBottom: 16 }}>
-            Pick an account and we check every active campaign, ad set and ad against your rules, then flag what needs attention — with the action one click away.
-          </p>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
-            <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 260 }} loading={accountsLoading} />
-            <button type="button" className={styles.btnSecondary} disabled={loading || !selectedAccountId} onClick={() => run(selectedAccountId, true)} title="Re-run the whole check now. Results are otherwise saved for 30 minutes." style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <RefreshIcon size={13} />
-              Hard refresh
-            </button>
-            {result && (
-              <span className={styles.muted}>
-                Checked {new Date(result.generatedAt).toLocaleTimeString()}
-                {savedNote ? ` (saved result, ${savedNote})` : ""} · data up to {result.windowEnd}
-              </span>
-            )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <h1 className={styles.h1} style={{ margin: 0 }}>
+                Rules
+              </h1>
+              <p className={styles.sub} style={{ marginTop: 6 }}>
+                Pick an account and we check every active campaign, ad set and ad against your rules, then flag what needs attention — with the action one click away.
+              </p>
+            </div>
+            <div className={styles.headerPillRow} style={{ alignItems: "flex-end" }}>
+              <LabeledPill label="Ad Account">
+                <AccountSelect
+                  accounts={adAccounts}
+                  value={selectedAccountId}
+                  onChange={setSelectedAccountId}
+                  placeholder="Select an ad account…"
+                  inputClassName={styles.headerPillSelect}
+                  inputStyle={{ width: 190 }}
+                  loading={accountsLoading}
+                />
+              </LabeledPill>
+              <button
+                type="button"
+                className={loading ? `${styles.headerPillIconBtn} spinning` : styles.headerPillIconBtn}
+                onClick={() => run(selectedAccountId, true)}
+                disabled={loading || !selectedAccountId}
+                title="Hard refresh — re-run the whole check now. Results are otherwise saved for 30 minutes."
+                aria-label="Hard refresh"
+              >
+                <RefreshIcon size={14} />
+              </button>
+            </div>
           </div>
+          {result && (
+            <span className={styles.muted}>
+              Checked {new Date(result.generatedAt).toLocaleTimeString()}
+              {savedNote ? ` (saved result, ${savedNote})` : ""} · data up to {result.windowEnd}
+            </span>
+          )}
 
           {loading && <RuleCheckProgress accountName={adAccounts.find((a) => a.id === selectedAccountId)?.name} steps={steps} />}
           {error && <div className={styles.error}>{error}</div>}
 
           {result && (
             <>
-              <div className={styles.card} style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{result.accountName}</div>
-                    <div className={styles.muted} style={{ fontSize: 12 }}>
-                      {result.counts.campaigns} active campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules checked
-                    </div>
+              <div className={styles.statBar}>
+                <div className={styles.stat} style={{ flex: "1.6 1 220px" }}>
+                  <div className={styles.statLabel}>Account</div>
+                  <div className={styles.statValue} style={{ fontSize: 15 }}>
+                    {result.accountName}
                   </div>
-                  <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
-                    {result.baseline.map((b) => (
-                      <div key={b.days}>
-                        <div className={styles.muted} style={{ fontSize: 11 }}>
-                          {b.days}-day account
-                        </div>
-                        <div style={{ fontWeight: 700 }}>
-                          ROAS {b.roas != null ? b.roas.toFixed(2) : "—"}
-                        </div>
-                        <div className={styles.muted} style={{ fontSize: 11 }}>
-                          Spend {money(b.spend, result.currencySymbol)}
-                        </div>
-                      </div>
-                    ))}
+                  <div className={styles.muted} style={{ marginTop: 4 }}>
+                    {result.counts.campaigns} campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules
                   </div>
                 </div>
+                {result.baseline.map((b) => (
+                  <div key={b.days} className={styles.stat}>
+                    <div className={styles.statLabel}>{b.days}-day ROAS</div>
+                    <div className={styles.statValue}>{b.roas != null ? b.roas.toFixed(2) : "—"}</div>
+                    <div className={styles.muted} style={{ marginTop: 4 }}>
+                      Spend {money(b.spend, result.currencySymbol)}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              <div className={styles.tabGroup} role="radiogroup" aria-label="Filter flags">
                 {FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => setFilter(f.key)}
-                    className={filter === f.key ? styles.btnPrimary : styles.btnSecondary}
-                    style={{ padding: "7px 14px" }}
-                  >
+                  <button key={f.key} type="button" role="radio" aria-checked={filter === f.key} className={filter === f.key ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setFilter(f.key)}>
                     {f.label} ({counts[f.key]})
                   </button>
                 ))}
               </div>
-
-              {result.flags.length > 0 && (
-                <input
-                  type="search"
-                  className={styles.select}
-                  style={{ width: "100%", marginBottom: 14 }}
-                  placeholder="Search by ad, ad set or campaign name, or by rule…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  aria-label="Search flags"
-                />
-              )}
 
               {result.flags.length === 0 ? (
                 <div className={styles.card}>
@@ -269,13 +249,19 @@ function RulesContent() {
                   <p className={styles.sub}>No active campaign, ad set or ad matches any rule right now.</p>
                 </div>
               ) : shown.length === 0 ? (
-                <p className={styles.sub}>{query.trim() ? `Nothing matches “${query.trim()}”${filter === "all" ? "" : " in this category"}.` : "Nothing in this category."}</p>
+                <p className={styles.sub}>Nothing in this category.</p>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {shown.map((f) => (
-                    <RuleFlagCard key={f.key} flag={f} currencySymbol={result.currencySymbol} accountRoas7={base7?.roas ?? null} applied={applied[f.key]} onAct={setActing} thumb={f.entityType === "ad" ? thumbs[f.entityId] : undefined} onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })} />
-                  ))}
-                </div>
+                <section className={styles.card}>
+                  <FlagTable
+                    flags={shown}
+                    currencySymbol={result.currencySymbol}
+                    accountRoas7={base7?.roas ?? null}
+                    applied={applied}
+                    thumbs={thumbs}
+                    onAct={setActing}
+                    onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
+                  />
+                </section>
               )}
 
               {!result.heldChecked && (
@@ -283,15 +269,15 @@ function RulesContent() {
                   Couldn&apos;t read the account&apos;s recent changes, so the 48-hour budget cool-down wasn&apos;t applied this time — hard refresh to try again.
                 </p>
               )}
-              {searchedHeld.length > 0 && (
+              {result.held?.length > 0 && (
                 <div className={styles.card} style={{ marginTop: 18 }}>
                   <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-                    Held back — budget changed in the last 48 hours ({searchedHeld.length})
+                    Held back — budget changed in the last 48 hours ({result.held.length})
                   </h2>
                   <p className={styles.sub} style={{ marginBottom: 10 }}>
                     These match a budget rule, but we don&apos;t suggest another budget change so soon after the last one. Give the change time to settle; they&apos;ll show up here or above after 48 hours.
                   </p>
-                  {searchedHeld.map((h) => (
+                  {result.held.map((h) => (
                     <div key={h.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0 }}>
                         <span className={styles.badgeInfo}>{h.entityType === "adset" ? "Ad set" : "Campaign"}</span> <span style={{ fontWeight: 600, fontSize: 13 }}>{h.name}</span>

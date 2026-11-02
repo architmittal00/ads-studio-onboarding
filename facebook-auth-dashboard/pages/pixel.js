@@ -6,6 +6,7 @@ import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import SortableTable from "@/components/SortableTable";
+import LabeledPill from "@/components/LabeledPill";
 import { RefreshIcon, PixelIcon } from "@/components/icons";
 import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
@@ -130,17 +131,6 @@ function Sparkline({ points }) {
     <svg viewBox="0 0 100 24" preserveAspectRatio="none" style={{ width: 110, height: 26, display: "block", marginLeft: "auto" }} aria-hidden="true">
       <path d={d} fill="none" style={{ stroke: "var(--purple)" }} strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
-  );
-}
-
-function LabeledPill({ label, children }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <span className={styles.muted} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}>
-        {label}
-      </span>
-      {children}
-    </div>
   );
 }
 
