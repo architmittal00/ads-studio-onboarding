@@ -747,12 +747,14 @@ export default function Explore() {
   const [activeViewId, setActiveViewId] = useState(() => views[0].id);
   const activeView = views.find((v) => v.id === activeViewId) || views[0];
 
+  // Bumped on a hard refresh of a view, which also drops that view's saved rule results.
+  const [attentionRefresh, setAttentionRefresh] = useState(0);
   // Rules run in the background once the view's own result is on screen; flagged rows get a "!".
   const attention = useRuleAttention({
     accounts: adAccounts.filter((a) => activeView.result?.meta.accountIds.includes(a.id)).map((a) => ({ id: a.id, timezone_name: a.timezone_name })),
     level: activeView.result?.meta.level,
     ready: !!activeView.result && !activeView.loading,
-    refreshKey: activeView.resultFetchedAt,
+    refreshKey: attentionRefresh,
   });
 
 
@@ -1271,6 +1273,10 @@ export default function Explore() {
     if (!isViewRunnable(view, effectiveCatalog, adAccounts)) return;
     const spec = buildQuerySpecFromView(view, customMetrics, adAccounts);
     track("explore_query_run", { level: view.level, metric_count: view.metricKeys?.length, account_count: view.accountIds?.length, forced: !!force });
+    if (force) {
+      for (const id of view.accountIds || []) clearRuleCaches(id);
+      setAttentionRefresh((n) => n + 1);
+    }
     const cacheKey = EXPLORE_CACHE_PREFIX + JSON.stringify(spec);
 
     if (!force) {
@@ -1364,6 +1370,8 @@ export default function Explore() {
       customTitle: null,
       level: childLevel || parentLevel,
       idFilter,
+      // The "Needs attention" filter belongs to the parent level's rows, not to the ads / ad sets opened from them.
+      resultFilters: { ...activeView.resultFilters, needsAttention: false },
       result: null,
       resultFetchedAt: null,
       loading: false,
@@ -1555,7 +1563,8 @@ export default function Explore() {
   // chart, CSV export, the row-count line) reads this instead of
   // `result.rows` directly, so filtering stays consistent everywhere the
   // result set is consumed.
-  const attentionReady = attention.total > 0 && !attention.loading;
+  // If every account's check failed there is nothing to filter by, so the filter is ignored rather than hiding every row.
+  const attentionReady = attention.total > 0 && !attention.loading && attention.failed < attention.total;
   const attentionFlags = attention.flags;
   const filteredRows = useMemo(
     () =>
