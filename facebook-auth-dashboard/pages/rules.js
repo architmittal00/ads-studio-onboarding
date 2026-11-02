@@ -53,6 +53,8 @@ function RulesContent() {
   const [acting, setActing] = useState(null);
   const [showRules, setShowRules] = useState(false);
 
+  const tz = adAccounts.find((a) => a.id === selectedAccountId)?.timezone_name;
+
   async function run(accountId, force = false) {
     if (!accountId) return;
     const cached = resultCache.get(accountId);
@@ -65,7 +67,7 @@ function RulesContent() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(accountId)}`, {}, 130000);
+      const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(accountId)}${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`, {}, 130000);
       const json = await parseJsonResponse(res);
       if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
       resultCache.set(accountId, { at: Date.now(), data: json });
@@ -81,6 +83,7 @@ function RulesContent() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the check for the picked account
     run(selectedAccountId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs only when the account changes
   }, [selectedAccountId]);
 
   const counts = useMemo(() => {
@@ -172,6 +175,35 @@ function RulesContent() {
                 </div>
               )}
 
+              {!result.heldChecked && (
+                <p className={styles.muted} style={{ marginTop: 14, fontWeight: 400 }}>
+                  Couldn&apos;t read the account&apos;s recent changes, so the 48-hour budget cool-down wasn&apos;t applied this time — re-check to try again.
+                </p>
+              )}
+              {result.held?.length > 0 && (
+                <div className={styles.card} style={{ marginTop: 18 }}>
+                  <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+                    Held back — budget changed in the last 48 hours ({result.held.length})
+                  </h2>
+                  <p className={styles.sub} style={{ marginBottom: 10 }}>
+                    These match a budget rule, but we don&apos;t suggest another budget change so soon after the last one. Give the change time to settle; they&apos;ll show up here or above after 48 hours.
+                  </p>
+                  {result.held.map((h) => (
+                    <div key={h.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <span className={styles.badgeInfo}>{h.entityType === "adset" ? "Ad set" : "Campaign"}</span> <span style={{ fontWeight: 600, fontSize: 13 }}>{h.name}</span>
+                        <div className={styles.muted} style={{ fontWeight: 400 }}>
+                          Would have been: {h.action === "INCREASE_BUDGET" ? "increase" : "decrease"} budget ({h.ruleNames.join(", ")})
+                        </div>
+                      </div>
+                      <div className={styles.muted} style={{ fontWeight: 400, textAlign: "right" }}>
+                        {h.changedWhat === "campaign" && h.entityType !== "campaign" ? "Its campaign's" : "Its"} budget was changed {new Date(h.changedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div style={{ marginTop: 22 }}>
                 <button type="button" className={styles.btnSecondary} onClick={() => setShowRules((s) => !s)}>
                   {showRules ? "Hide" : "Show"} the {result.rulesChecked.length} rules checked
@@ -189,7 +221,7 @@ function RulesContent() {
                       </div>
                     ))}
                     <p className={styles.muted} style={{ fontSize: 11.5, marginTop: 10 }}>
-                      Windows are full days ending yesterday. Account figures are the account&apos;s own totals for the same window. Budget changes are suggested at 10% and can be edited before applying.
+                      Windows are full days ending yesterday. Account figures are the account&apos;s own totals for the same window. Budget changes are suggested at 10% and can be edited before applying. A budget increase/decrease is held back if that ad set or campaign&apos;s budget was changed in the last 48 hours.
                     </p>
                   </div>
                 )}
