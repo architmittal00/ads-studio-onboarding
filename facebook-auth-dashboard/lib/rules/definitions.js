@@ -174,14 +174,14 @@ export const RULES = [
     name: "Descale adset -02",
     level: "adset",
     action: "DECREASE_BUDGET",
-    text: "Among the account's top 30% highest-spending ad sets; 7-day ROAS < 1.4× account's.",
+    text: "Among the account's top 30% highest-spending ad sets; 7-day ROAS < 0.8× account's.",
     check: (s, ctx) => {
       const ranked = rankBySpend7(ctx.activeAdsets);
       const topN = Math.max(1, Math.ceil(ranked.length * 0.3));
       return {
         conditions: [
           flag("In the account's top 30% by 7-day spend", ranked.slice(0, topN).some((a) => a.id === s.id)),
-          cond(ctx, "7-day ROAS < 1.4× account", s.m[7].roas, "lt", times(ctx.acc[7].roas, 1.4)),
+          cond(ctx, "7-day ROAS < 0.8× account", s.m[7].roas, "lt", times(ctx.acc[7].roas, 0.8)),
         ],
       };
     },
