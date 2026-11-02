@@ -7,6 +7,7 @@ import Layout from "@/components/Layout";
 import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
 import FlagTable from "@/components/rules/FlagTable";
+import BulkRuleActionModal from "@/components/rules/BulkRuleActionModal";
 import LabeledPill from "@/components/LabeledPill";
 import RuleActionModal from "@/components/rules/RuleActionModal";
 import CreativeLightbox from "@/components/CreativeLightbox";
@@ -24,11 +25,17 @@ const cacheKey = (accountId) => `rules-check:${accountId}`;
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
 
+const BULK_ACTIONS = [
+  { action: "PAUSE_AD", color: "var(--red)", label: (n) => `Pause ${n} ad${n === 1 ? "" : "s"}` },
+  { action: "INCREASE_BUDGET", color: "var(--green)", label: (n) => `Increase ${n} budget${n === 1 ? "" : "s"}` },
+  { action: "DECREASE_BUDGET", color: "var(--amber)", label: (n) => `Decrease ${n} budget${n === 1 ? "" : "s"}` },
+];
+
 const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "INCREASE_BUDGET", label: "Increase budget" },
-  { key: "DECREASE_BUDGET", label: "Decrease budget" },
-  { key: "PAUSE_AD", label: "Pause ads" },
+  { key: "all", label: "All flagged" },
+  { key: "INCREASE_BUDGET", label: "Increase budget", color: "var(--green)" },
+  { key: "DECREASE_BUDGET", label: "Decrease budget", color: "var(--amber)" },
+  { key: "PAUSE_AD", label: "Pause ads", color: "var(--red)" },
 ];
 
 function money(v, symbol) {
@@ -58,6 +65,8 @@ function RulesContent() {
   const [applied, setApplied] = useState({}); // flag key -> short outcome text
   const [acting, setActing] = useState(null);
   const [showRules, setShowRules] = useState(false);
+  const [selected, setSelected] = useState(() => new Set()); // flag keys ticked for a bulk action
+  const [bulk, setBulk] = useState(null); // { action, flags } while the bulk confirm window is open
   const [savedNote, setSavedNote] = useState(null); // e.g. "saved 12 minutes ago" when the shown result came from the cache
   const [steps, setSteps] = useState({}); // check step id -> { done, detail }
   const [thumbs, setThumbs] = useState({}); // ad id -> { thumbnailUrl, isVideo } | null once loaded
@@ -72,6 +81,7 @@ function RulesContent() {
       setResult(cached.data);
       setSavedNote(formatAge(Date.now() - cached.fetchedAt));
       setApplied({});
+      setSelected(new Set());
       setError(null);
       return;
     }
@@ -109,6 +119,7 @@ function RulesContent() {
       // A result missing its 48-hour cool-down check isn't worth keeping for half an hour.
       if (json.heldChecked) setCachedEntry(cacheKey(accountId), json, { prefix: "rules-check:", maxEntriesForPrefix: 15 });
       setApplied({});
+      setSelected(new Set());
       setResult(json);
     } catch (err) {
       setError(err.message);
@@ -164,11 +175,12 @@ function RulesContent() {
   }, [result]);
   const shown = (result?.flags || []).filter((f) => filter === "all" || f.action === filter);
   const base7 = result?.baseline?.find((b) => b.days === 7);
+  const selectedFlags = (result?.flags || []).filter((f) => selected.has(f.key));
 
   return (
     <>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <main className={styles.main} style={{ maxWidth: 1600, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
             <div>
               <h1 className={styles.h1} style={{ margin: 0 }}>
@@ -235,13 +247,33 @@ function RulesContent() {
                 ))}
               </div>
 
-              <div className={styles.tabGroup} role="radiogroup" aria-label="Filter flags">
+              <div className={styles.statBar}>
                 {FILTERS.map((f) => (
-                  <button key={f.key} type="button" role="radio" aria-checked={filter === f.key} className={filter === f.key ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setFilter(f.key)}>
-                    {f.label} ({counts[f.key]})
+                  <button key={f.key} type="button" className={styles.stat} aria-pressed={filter === f.key} onClick={() => setFilter(f.key === filter ? "all" : f.key)} style={filter === f.key ? { background: "rgba(var(--purple-rgb), 0.08)" } : undefined}>
+                    <div className={styles.statLabel}>{f.label}</div>
+                    <div className={styles.statValue} style={{ color: f.color || "var(--t1)" }}>
+                      {counts[f.key]}
+                    </div>
                   </button>
                 ))}
               </div>
+
+              {selected.size > 0 && (
+                <div className={styles.card} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 14px" }}>
+                  <strong style={{ fontSize: 13 }}>{selected.size} selected</strong>
+                  {BULK_ACTIONS.map((a) => {
+                    const flags = selectedFlags.filter((f) => f.action === a.action);
+                    return flags.length > 0 ? (
+                      <button key={a.action} type="button" className={styles.btnSecondary} style={{ color: a.color }} onClick={() => setBulk({ action: a.action, flags })}>
+                        {a.label(flags.length)}
+                      </button>
+                    ) : null;
+                  })}
+                  <button type="button" className={styles.btnSecondary} onClick={() => setSelected(new Set())} style={{ marginLeft: "auto" }}>
+                    Clear
+                  </button>
+                </div>
+              )}
 
               {result.flags.length === 0 ? (
                 <div className={styles.card}>
@@ -259,6 +291,25 @@ function RulesContent() {
                     applied={applied}
                     thumbs={thumbs}
                     onAct={setActing}
+                    selected={selected}
+                    onToggle={(key) =>
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(key)) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      })
+                    }
+                    onToggleAll={(keys, checked) =>
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        for (const k of keys) {
+                          if (checked) next.add(k);
+                          else next.delete(k);
+                        }
+                        return next;
+                      })
+                    }
                     onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
                   />
                 </section>
@@ -320,6 +371,25 @@ function RulesContent() {
         </main>
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      {bulk && (
+        <BulkRuleActionModal
+          action={bulk.action}
+          flags={bulk.flags}
+          currencySymbol={result.currencySymbol}
+          onClose={() => setBulk(null)}
+          onDone={(results) => {
+            const ok = results.filter((r) => r.ok);
+            setApplied((p) => ({ ...p, ...Object.fromEntries(ok.map((r) => [r.key, r.text])) }));
+            setSelected((prev) => {
+              const next = new Set(prev);
+              for (const r of ok) next.delete(r.key);
+              return next;
+            });
+            // The saved result no longer matches the account, so the next visit re-checks.
+            if (ok.length > 0) clearCachedEntry(cacheKey(selectedAccountId));
+          }}
+        />
+      )}
       {acting && (
         <RuleActionModal
           flag={acting}
