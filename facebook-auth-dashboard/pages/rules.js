@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
-import Loader from "@/components/Loader";
 import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
 import RuleFlagCard from "@/components/rules/RuleFlagCard";
 import RuleActionModal from "@/components/rules/RuleActionModal";
+import RuleCheckProgress from "@/components/rules/RuleCheckProgress";
 import { RefreshIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
@@ -52,6 +52,7 @@ function RulesContent() {
   const [applied, setApplied] = useState({}); // flag key -> short outcome text
   const [acting, setActing] = useState(null);
   const [showRules, setShowRules] = useState(false);
+  const [steps, setSteps] = useState({}); // check step id -> { done, detail }
 
   const tz = adAccounts.find((a) => a.id === selectedAccountId)?.timezone_name;
 
@@ -67,9 +68,32 @@ function RulesContent() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(accountId)}${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`, {}, 130000);
-      const json = await parseJsonResponse(res);
-      if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
+      setSteps({});
+      const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(accountId)}&stream=1${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`, {}, 130000);
+      if (!res.ok || !res.body) {
+        const failed = await parseJsonResponse(res).catch(() => ({}));
+        throw new Error(failed.error || `Request failed (${res.status})`);
+      }
+      // Progress arrives as one JSON object per line; the last one is the result (or an error).
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let json = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          if (event.type === "step" && !event.pending) setSteps((prev) => ({ ...prev, [event.id]: { done: true, detail: event.detail } }));
+          else if (event.type === "error") throw new Error(event.error);
+          else if (event.type === "result") json = event.data;
+        }
+      }
+      if (!json) throw new Error("The check ended before finishing — please re-check.");
       resultCache.set(accountId, { at: Date.now(), data: json });
       setApplied({});
       setResult(json);
@@ -115,7 +139,7 @@ function RulesContent() {
             {result && <span className={styles.muted}>Checked {new Date(result.generatedAt).toLocaleTimeString()} · data up to {result.windowEnd}</span>}
           </div>
 
-          {loading && <Loader label="Checking the account against the rules… this can take up to a minute for large accounts." />}
+          {loading && <RuleCheckProgress accountName={adAccounts.find((a) => a.id === selectedAccountId)?.name} steps={steps} />}
           {error && <div className={styles.error}>{error}</div>}
 
           {result && (
