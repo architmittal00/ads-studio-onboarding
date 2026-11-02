@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
-import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
 import FlagTable from "@/components/rules/FlagTable";
 import BulkRuleActionModal from "@/components/rules/BulkRuleActionModal";
@@ -42,16 +41,13 @@ function money(v, symbol) {
   return v == null ? "—" : `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
 }
 
-// The account check runs from RulesContent, so nothing is fetched until the PIN is entered.
 export default function Rules() {
   return (
     <Layout>
       <Head>
         <title>Rules · Facebook Auth Dashboard</title>
       </Head>
-      <PinLock>
-        <RulesContent />
-      </PinLock>
+      <RulesContent />
     </Layout>
   );
 }
