@@ -108,6 +108,8 @@ New sidebar tab `/rules`. Pick an account → `/api/fb/rules/check` pulls ad-lev
 
 **Lighter 14/30-day pulls**: only ad rules need ad-level rows and they only use 3/7 days; the 14/30-day figures feed ad set/campaign/account totals (ad set rules: 30/14-day ROAS vs account; campaign rules: 7>14>30-day ROAS trend), so those two windows are now fetched at ad set level (far fewer rows → faster). Loader card is centered.
 
+**Parent names on ad cards**: campaign/ad set names were looked up only in the ACTIVE lists, so an ad under a paused/in-review parent showed no name. `/api/fb/rules/check` now batch-fetches (`?ids=`) the names of any parent not in those lists and the engine falls back to them.
+
 **Contextual loader**: `/api/fb/rules/check?stream=1` streams a `step` event as each piece finishes (account, lists with counts, each insights window with row counts, 48h changes, rules) and the Rules page shows them as a live checklist (`components/rules/RuleCheckProgress.js`) with elapsed time; without `stream=1` the route still returns plain JSON.
 
 **48-hour cool-down**: `/api/fb/rules/check` also reads the account activity log (last 48h); an increase/decrease-budget flag is not shown if the ad set or campaign (or, for an ad set funded by its campaign, that campaign) had a budget edit in that window — it is listed under "Held back" instead. If the activity log can't be read the check is skipped and the page says so. **Speed**: account info, campaign/ad set/ad lists, the activity read and the four insights windows now all start at once (the client passes the account's time zone as `tz` so nothing waits on the account call). Not tested against a live account.

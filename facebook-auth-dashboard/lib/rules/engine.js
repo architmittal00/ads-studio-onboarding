@@ -9,7 +9,7 @@ const toMajor = (v) => (v ? parseFloat(v) / 100 : null);
 // structure: { campaigns, adsets, ads } of ACTIVE entities, as listed by Graph.
 // insightsByWindow: { 3: rows[], 7: rows[], 14: rows[], 30: rows[] } — ad-level rows with ad_id/adset_id/campaign_id.
 // Returns { baseline, flags, rulesChecked }.
-export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges }) {
+export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges, extraNames = {} }) {
   const recentChanged = recentBudgetChanges?.changed || {};
   // Aggregate every window's ad-level rows up the tree. Account totals include inactive ads too.
   const accAgg = {};
@@ -157,14 +157,15 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       }
     }
     const parentCampaign = campaignById.get(subject.campaignId || (subject.type === "campaign" ? subject.id : null));
+    const campaignName = subject.type === "campaign" ? null : parentCampaign?.name || extraNames[subject.campaignId] || null;
     const parentAdset = subject.type === "ad" ? adsetById.get(subject.adsetId) : null;
     flags.push({
       key: `${subject.type}:${subject.id}`,
       entityType: subject.type,
       entityId: subject.id,
       name: subject.name,
-      campaignName: subject.type === "campaign" ? null : parentCampaign?.name || null,
-      adsetName: parentAdset?.name || null,
+      campaignName,
+      adsetName: subject.type === "ad" ? parentAdset?.name || extraNames[subject.adsetId] || null : null,
       action: winnerAction,
       budgetTarget,
       budgetNote,
