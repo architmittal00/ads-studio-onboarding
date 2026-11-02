@@ -104,6 +104,8 @@ Meta's IN_PROCESS effective status is mapped to ACTIVE (`lib/statusNormalize.js`
 ### Rules tab: validate an account against the team's rules sheet (2026-11-02)
 The page is behind `PinLock` (same client-side PIN gate as the other locked tabs; nothing is fetched until it's unlocked).
 New sidebar tab `/rules`. Pick an account → `/api/fb/rules/check` pulls ad-level insights for 3/7/14/30 trailing days (ending yesterday, account time zone) plus the account's ACTIVE campaigns/ad sets/ads, `lib/rules/engine.js` sums them up the tree and runs the 19 rules in `lib/rules/definitions.js` (transcribed from `Rough - Sheet88.csv`; change a threshold = change one line). Each flag shows matched rule(s), the evidence ("Why flagged"), and applies through `/api/fb/entity-action` (pause ad, or budget ±10% editable). If an increase and a decrease rule both match one entity, the direction backed by the rule with more conditions wins (tie → cautious decrease); the loser is noted on the card.
+"Why flagged" is written in plain language: each check shows what it means, e.g. "This ad set: 8 · needs to be more than 3", with a hint line explaining where the target comes from (account figure × factor, average/median campaign, ranking). `cond()`/`flag()` take an optional `hint`; ratio conditions render as %.
+
 Interpretations of unclear sheet wording are listed in the header comment of `lib/rules/definitions.js` (notably: "campaign spend > 1.4x account's spend" read as 1.4x the average active campaign; ₹20 lakh cutoff for the 1%→2% spend-share rule). Ad set rules whose ad set has no budget of its own (CBO) are flagged without an apply button. Not tested against a live account.
 
 ### Explore Ads: shorter timeout, one retry, retry button (2026-10-29)

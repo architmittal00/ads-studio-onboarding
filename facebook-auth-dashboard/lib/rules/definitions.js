@@ -29,18 +29,32 @@ function fmt(value, kind, ctx) {
       return `${value.toFixed(2)}%`;
     case "int":
       return String(Math.round(value));
+    case "ratio":
+      return `${Math.round(value * 100)}%`;
     default:
       return value.toFixed(2);
   }
 }
 
 // One condition: `label` says what is compared, actual/target are shown side by side.
-export function cond(ctx, label, actual, op, target, kind = "num") {
-  const ok = actual != null && target != null && Number.isFinite(actual) && Number.isFinite(target) && OPS[op](actual, target);
-  return { label, ok, actual: fmt(actual, kind, ctx), op: OP_TEXT[op], target: fmt(target, kind, ctx) };
+// `hint` is an optional plain-English line shown under the label. Without one, a label like
+// "7-day ROAS < 80% of account" gets an automatic hint spelling out the account figure it is based on.
+const METRIC_KEYS = { ROAS: ["roas", "num"], CPM: ["cpm", "money"], CTR: ["ctr", "pct"], CPR: ["cpr", "money"], "conversion rate": ["cvr", "pct"] };
+function autoHint(ctx, label, target, kind) {
+  if (!/(%|×) (of )?account/.test(label)) return "";
+  const days = label.match(/(\d+)-day/);
+  const metric = [...label.matchAll(/(ROAS|CPM|CTR|CPR|conversion rate)/g)].pop()?.[1];
+  const key = metric && METRIC_KEYS[metric];
+  const base = days && key ? ctx.acc[days[1]]?.[key[0]] : null;
+  if (base == null) return "";
+  return `The account's ${days[1]}-day ${metric} is ${fmt(base, key[1], ctx)}, so the limit works out to ${fmt(target, kind, ctx)}.`;
 }
-export function flag(label, ok, detail = "") {
-  return { label, ok: !!ok, actual: ok ? "yes" : "no", op: "", target: detail };
+export function cond(ctx, label, actual, op, target, kind = "num", hint = "") {
+  const ok = actual != null && target != null && Number.isFinite(actual) && Number.isFinite(target) && OPS[op](actual, target);
+  return { label, ok, actual: fmt(actual, kind, ctx), op: OP_TEXT[op], target: fmt(target, kind, ctx), hint: hint || autoHint(ctx, label, target, kind) };
+}
+export function flag(label, ok, detail = "", hint = "") {
+  return { label, ok: !!ok, actual: ok ? "yes" : "no", op: "", target: detail, hint };
 }
 
 const times = (x, n) => (x == null ? null : x * n);
@@ -142,7 +156,7 @@ export const RULES = [
       );
       return {
         conditions: [
-          cond(ctx, "Ads meeting the bar (of ad set's ads)", good.length / ads.length, "gte", 0.5, "num"),
+          cond(ctx, "Share of this ad set's ads that meet the ad-level bar", good.length / ads.length, "gte", 0.5, "ratio", `${good.length} of ${ads.length} ads have 7-day ROAS at least 1.4× the account's, spend above 3× the account's cost per result, and more than 5 purchases.`),
           cond(ctx, "Ad set 7-day ROAS > account", s.m[7].roas, "gt", ctx.acc[7].roas),
         ],
       };
@@ -161,9 +175,9 @@ export const RULES = [
       const topSpend = ranked.slice(0, topN).reduce((t, a) => t + a.m[7].spend, 0);
       return {
         conditions: [
-          cond(ctx, "Active ads in ad set", ads.length, "gt", 3, "int"),
-          cond(ctx, "7-day ad set spend", s.m[7].spend, "gt", 0, "money"),
-          cond(ctx, "Spend share of the top 30% of ads", s.m[7].spend > 0 ? topSpend / s.m[7].spend : null, "gte", 0.6, "num"),
+          cond(ctx, "Number of active ads in this ad set", ads.length, "gt", 3, "int", "Ads currently running inside this ad set."),
+          cond(ctx, "Money this ad set spent in the last 7 days", s.m[7].spend, "gt", 0, "money", "It must have spent something in the last 7 days."),
+          cond(ctx, "Share of the ad set's spend taken by its top 30% of ads", s.m[7].spend > 0 ? topSpend / s.m[7].spend : null, "gte", 0.6, "ratio", `Ranking this ad set's ads by 7-day spend, the top ${topN} of ${ads.length} ads took ${s.m[7].spend > 0 ? Math.round((topSpend / s.m[7].spend) * 100) : 0}% of its spend.`),
           cond(ctx, "7-day ROAS < 80% of account", s.m[7].roas, "lt", times(ctx.acc[7].roas, 0.8)),
         ],
       };
@@ -180,7 +194,7 @@ export const RULES = [
       const topN = Math.max(1, Math.ceil(ranked.length * 0.3));
       return {
         conditions: [
-          flag("In the account's top 30% by 7-day spend", ranked.slice(0, topN).some((a) => a.id === s.id)),
+          flag("In the account's top 30% of ad sets by 7-day spend", ranked.slice(0, topN).some((a) => a.id === s.id), `#${ranked.findIndex((a) => a.id === s.id) + 1} of ${ranked.length}`, `Active ad sets ranked by 7-day spend; the top ${topN} of ${ranked.length} count as "top 30%".`),
           cond(ctx, "7-day ROAS < 0.8× account", s.m[7].roas, "lt", times(ctx.acc[7].roas, 0.8)),
         ],
       };
@@ -196,7 +210,7 @@ export const RULES = [
       if (!s.cbo) return null;
       return {
         conditions: [
-          cond(ctx, "7-day spend > 1.4× average campaign", s.m[7].spend, "gt", ctx.avgCampaignSpend7 * 1.4, "money"),
+          cond(ctx, "7-day spend > 1.4× average campaign", s.m[7].spend, "gt", ctx.avgCampaignSpend7 * 1.4, "money", `The average active campaign spent ${fmt(ctx.avgCampaignSpend7, "money", ctx)} in 7 days; the bar is 1.4× that.`),
           cond(ctx, "7-day ROAS > 80% of account", s.m[7].roas, "gt", times(ctx.acc[7].roas, 0.8)),
           cond(ctx, "7-day ROAS > 14-day ROAS", s.m[7].roas, "gt", s.m[14].roas),
           cond(ctx, "14-day ROAS > 30-day ROAS", s.m[14].roas, "gt", s.m[30].roas),
@@ -214,7 +228,7 @@ export const RULES = [
       if (!s.cbo) return null;
       return {
         conditions: [
-          cond(ctx, "7-day spend > 1.4× average campaign", s.m[7].spend, "gt", ctx.avgCampaignSpend7 * 1.4, "money"),
+          cond(ctx, "7-day spend > 1.4× average campaign", s.m[7].spend, "gt", ctx.avgCampaignSpend7 * 1.4, "money", `The average active campaign spent ${fmt(ctx.avgCampaignSpend7, "money", ctx)} in 7 days; the bar is 1.4× that.`),
           cond(ctx, "7-day ROAS < 80% of account", s.m[7].roas, "lt", times(ctx.acc[7].roas, 0.8)),
           cond(ctx, "7-day ROAS < 14-day ROAS", s.m[7].roas, "lt", s.m[14].roas),
           cond(ctx, "14-day ROAS > 30-day ROAS", s.m[14].roas, "gt", s.m[30].roas),
@@ -232,7 +246,7 @@ export const RULES = [
       if (!s.cbo) return null;
       return {
         conditions: [
-          cond(ctx, "7-day spend > 20% of median campaign", s.m[7].spend, "gt", ctx.medianCampaignSpend7 * 0.2, "money"),
+          cond(ctx, "7-day spend > 20% of median campaign", s.m[7].spend, "gt", ctx.medianCampaignSpend7 * 0.2, "money", `The middle (median) active campaign spent ${fmt(ctx.medianCampaignSpend7, "money", ctx)} in 7 days; the bar is 20% of that.`),
           cond(ctx, "7-day ROAS > 14-day ROAS", s.m[7].roas, "gt", s.m[14].roas),
           cond(ctx, "14-day ROAS > 30-day ROAS", s.m[14].roas, "gt", s.m[30].roas),
         ],
@@ -283,7 +297,7 @@ export const RULES = [
         (a) => a.m[7].spend < limit && [30, 14, 7, 3].every((w) => a.m[w].roas != null && ctx.acc[w].roas != null && a.m[w].roas > ctx.acc[w].roas)
       );
       return {
-        conditions: [cond(ctx, `Top-half ad sets meeting the bar (limit ${share(ctx) * 100}% of account spend)`, okAdsets.length / top.length, "gte", 1, "num")],
+        conditions: [cond(ctx, "Share of this campaign's top-half ad sets that meet the bar", okAdsets.length / top.length, "gte", 1, "ratio", `${okAdsets.length} of ${top.length} top ad sets have 7-day spend under ${fmt(limit, "money", ctx)} (${share(ctx) * 100}% of account spend) and ROAS above the account's over 30, 14, 7 and 3 days. All of them must.`)],
       };
     },
   },

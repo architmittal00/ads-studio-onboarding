@@ -147,7 +147,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       action: winnerAction,
       budgetTarget,
       budgetNote,
-      matchedRules: winners.map((h) => ({ id: h.rule.id, name: h.rule.name, conditions: h.conditions })),
+      matchedRules: winners.map((h) => ({ id: h.rule.id, name: h.rule.name, text: h.rule.text, conditions: h.conditions })),
       hiddenConflicts: hidden,
       stats: {
         spend7: subject.m[7].spend,

@@ -7,6 +7,7 @@ const ACTION_META = {
   DECREASE_BUDGET: { label: "Decrease budget", color: "var(--amber)" },
   PAUSE_AD: { label: "Pause ad", color: "var(--red)" },
 };
+const OP_WORDS = { ">": "more than", "≥": "at least", "<": "less than", "≤": "at most" };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 
 function money(v, symbol) {
@@ -16,6 +17,7 @@ function money(v, symbol) {
 export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, applied, onAct }) {
   const [open, setOpen] = useState(false);
   const meta = ACTION_META[flag.action];
+  const subject = TYPE_LABEL[flag.entityType].toLowerCase();
   const canApply = flag.action === "PAUSE_AD" || !!flag.budgetTarget;
   return (
     <div className={styles.card} style={{ padding: 0, opacity: applied ? 0.7 : 1, borderLeft: `4px solid ${meta.color}` }}>
@@ -82,17 +84,37 @@ export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, appli
       {open && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px" }}>
           {flag.matchedRules.map((r) => (
-            <div key={r.id} style={{ marginBottom: 12 }}>
-              <div style={{ fontWeight: 600, fontSize: 12.5, marginBottom: 6 }}>{r.name}</div>
+            <div key={r.id} style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{r.name}</div>
+              <p className={styles.sub} style={{ marginBottom: 10 }}>
+                The rule: {r.text} Every check below passed, so this {subject} was flagged.
+              </p>
               {r.conditions.map((c, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "2px 0", alignItems: "baseline" }}>
-                  <span style={{ color: "var(--green)", fontWeight: 700 }}>✓</span>
-                  <span className={styles.sub} style={{ flex: 1 }}>
-                    {c.label}
-                  </span>
-                  <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-                    {c.actual} {c.op} {c.target}
-                  </span>
+                <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: i ? "1px solid var(--border)" : "none", alignItems: "flex-start" }}>
+                  <span style={{ color: "var(--green)", fontWeight: 700, lineHeight: "18px" }}>✓</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>{c.label}</div>
+                    {c.hint && (
+                      <div className={styles.muted} style={{ fontWeight: 400, marginTop: 1 }}>
+                        {c.hint}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 12.5, marginTop: 3 }}>
+                      {c.op ? (
+                        <>
+                          <span className={styles.muted}>This {subject}: </span>
+                          <strong>{c.actual}</strong>
+                          <span className={styles.muted}> · needs to be {OP_WORDS[c.op]} </span>
+                          <strong>{c.target}</strong>
+                        </>
+                      ) : (
+                        <>
+                          <strong>Yes</strong>
+                          {c.target && <span className={styles.muted}> · {c.target}</span>}
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
