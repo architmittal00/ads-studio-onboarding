@@ -26,17 +26,17 @@ export default function RuleCheckProgress({ accountName, steps }) {
   const slow = seconds >= 25;
 
   return (
-    <div className={styles.card} style={{ maxWidth: 560 }}>
-      <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+    <div className={styles.card} style={{ maxWidth: 560, margin: "40px auto 0", width: "100%" }}>
+      <h2 className={styles.h2} style={{ marginBottom: 2, textAlign: "center" }}>
         Checking {accountName || "the account"}
       </h2>
-      <p className={styles.sub} style={{ marginBottom: 14 }}>
+      <p className={styles.sub} style={{ marginBottom: 14, textAlign: "center" }}>
         {doneCount} of {STEPS.length} steps done · {seconds}s
       </p>
       <div style={{ height: 4, borderRadius: 4, background: "var(--card2)", overflow: "hidden", marginBottom: 14 }}>
         <div style={{ height: "100%", width: `${(doneCount / STEPS.length) * 100}%`, background: "var(--purple)", transition: "width .3s" }} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 9, width: "fit-content", margin: "0 auto", maxWidth: "100%" }}>
         {STEPS.map((s) => {
           const st = steps[s.id];
           const done = !!st?.done;
@@ -57,8 +57,8 @@ export default function RuleCheckProgress({ accountName, steps }) {
           );
         })}
       </div>
-      <p className={styles.muted} style={{ marginTop: 14, fontWeight: 400 }}>
-        {slow ? "Still working — the 30-day report is the slowest part, and big accounts can take up to a minute." : "These run at the same time, so they can finish in any order."}
+      <p className={styles.muted} style={{ marginTop: 14, fontWeight: 400, textAlign: "center" }}>
+        {slow ? "Still working — the 30-day report is usually the slowest part, and big accounts can take up to a minute." : "These run at the same time, so they can finish in any order."}
       </p>
     </div>
   );

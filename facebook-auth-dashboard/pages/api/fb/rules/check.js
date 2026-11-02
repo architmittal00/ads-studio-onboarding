@@ -7,7 +7,7 @@ import { WINDOWS } from "@/lib/rules/metrics";
 import { evaluateAccount } from "@/lib/rules/engine";
 
 // Validates one ad account against the rules sheet (lib/rules/definitions.js).
-// One ad-level insights pull per window (3/7/14/30 days ending yesterday) plus the account's
+// One insights pull per window (3/7 days at ad level, 14/30 days at ad set level, all ending yesterday) plus the account's
 // ACTIVE campaigns / ad sets / ads; everything else (account, campaign and ad set totals) is
 // summed from those rows, so the cost is 4 insights jobs + 3 list calls, all in parallel.
 const VALID_ID = /^act_\d+$/;
@@ -88,17 +88,20 @@ export default async function handler(req, res) {
 
     const insightsFor = (days) => {
       const range = lastNDaysRange(days, today);
+      // Only ad-level rules need ad rows, and they only look at 3 and 7 days; the 14 and 30-day
+      // figures feed ad set / campaign / account totals, so those are pulled per ad set — far fewer rows.
+      const level = days <= 7 ? "ad" : "adset";
       return step(`insights${days}`, graphGetInsights(
         `/${accountId}/insights`,
         token,
         {
-          level: "ad",
-          fields: "ad_id,adset_id,campaign_id,spend,impressions,clicks,actions,action_values",
+          level,
+          fields: `${level === "ad" ? "ad_id," : ""}adset_id,campaign_id,spend,impressions,clicks,actions,action_values`,
           time_range: { since: range.since, until: range.until },
           limit: 500,
         },
         { timeoutMs: 60000 }
-      ).then((r) => r.data || []), (rows) => `${rows.length.toLocaleString("en-IN")} ad rows`);
+      ).then((r) => r.data || []), (rows) => `${rows.length.toLocaleString("en-IN")} ${level === "ad" ? "ad" : "ad set"} rows`);
     };
 
     const [account, [campaigns, adsets, ads], recentBudgetChanges, ...windowRows] = await Promise.all([accountP, listsP, changesP, ...WINDOWS.map(insightsFor)]);
