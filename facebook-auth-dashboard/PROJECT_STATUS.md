@@ -108,6 +108,8 @@ New sidebar tab `/rules`. Pick an account → `/api/fb/rules/check` pulls ad-lev
 
 **Lighter 14/30-day pulls**: only ad rules need ad-level rows and they only use 3/7 days; the 14/30-day figures feed ad set/campaign/account totals (ad set rules: 30/14-day ROAS vs account; campaign rules: 7>14>30-day ROAS trend), so those two windows are now fetched at ad set level (far fewer rows → faster). Loader card is centered.
 
+**Rules result cache**: a finished check is saved 30 minutes in localStorage via the shared `lib/clientCache.js` (`rules-check:<account>`, survives reloads; not saved if the 48h cool-down read failed). The page says "saved result, N minutes ago"; the "Hard refresh" button re-runs the check. Applying a budget/pause from a card clears that account's saved result.
+
 **Rules search + clearer CTA**: a search box above the flags (matches name, campaign/ad set, rule names, type, action; counts and the Held back list follow it). Budget buttons now read "Increase budget by 10%" with "Budget now ₹25,000/day → ₹27,500" above, so the current budget is no longer mistaken for the change amount.
 
 **Parent names on ad cards**: campaign/ad set names were looked up only in the ACTIVE lists, so an ad under a paused/in-review parent showed no name. `/api/fb/rules/check` now batch-fetches (`?ids=`) the names of any parent not in those lists and the engine falls back to them.
