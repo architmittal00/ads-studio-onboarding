@@ -13,11 +13,13 @@ import RuleCheckProgress from "@/components/rules/RuleCheckProgress";
 import { RefreshIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
+import { getCachedEntry, setCachedEntry, clearCachedEntry, formatAge } from "@/lib/clientCache";
 import styles from "@/styles/Home.module.css";
 
-// Results stay in memory while the page is open, so switching accounts back and forth doesn't re-run a heavy check.
-const resultCache = new Map();
-const CACHE_MS = 10 * 60 * 1000;
+// A finished check is saved in the browser for 30 minutes (shared cache, survives reloads), so
+// coming back or switching accounts doesn't re-run a heavy check; "Hard refresh" re-runs it now.
+const CACHE_MS = 30 * 60 * 1000;
+const cacheKey = (accountId) => `rules-check:${accountId}`;
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
 
@@ -58,6 +60,7 @@ function RulesContent() {
   const [acting, setActing] = useState(null);
   const [showRules, setShowRules] = useState(false);
   const [query, setQuery] = useState("");
+  const [savedNote, setSavedNote] = useState(null); // e.g. "saved 12 minutes ago" when the shown result came from the cache
   const [steps, setSteps] = useState({}); // check step id -> { done, detail }
   const [thumbs, setThumbs] = useState({}); // ad id -> { thumbnailUrl, isVideo } | null once loaded
   const [lightboxItem, setLightboxItem] = useState(null);
@@ -66,12 +69,15 @@ function RulesContent() {
 
   async function run(accountId, force = false) {
     if (!accountId) return;
-    const cached = resultCache.get(accountId);
-    if (!force && cached && Date.now() - cached.at < CACHE_MS) {
+    const cached = force ? null : getCachedEntry(cacheKey(accountId), CACHE_MS);
+    if (cached) {
       setResult(cached.data);
+      setSavedNote(formatAge(Date.now() - cached.fetchedAt));
+      setApplied({});
       setError(null);
       return;
     }
+    setSavedNote(null);
     setLoading(true);
     setError(null);
     setResult(null);
@@ -101,8 +107,9 @@ function RulesContent() {
           else if (event.type === "result") json = event.data;
         }
       }
-      if (!json) throw new Error("The check ended before finishing — please re-check.");
-      resultCache.set(accountId, { at: Date.now(), data: json });
+      if (!json) throw new Error("The check ended before finishing — please hard refresh.");
+      // A result missing its 48-hour cool-down check isn't worth keeping for half an hour.
+      if (json.heldChecked) setCachedEntry(cacheKey(accountId), json, { prefix: "rules-check:", maxEntriesForPrefix: 15 });
       setApplied({});
       setResult(json);
     } catch (err) {
@@ -187,11 +194,16 @@ function RulesContent() {
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
             <AccountSelect accounts={adAccounts} value={selectedAccountId} onChange={setSelectedAccountId} style={{ minWidth: 260 }} loading={accountsLoading} />
-            <button type="button" className={styles.btnSecondary} disabled={loading || !selectedAccountId} onClick={() => run(selectedAccountId, true)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <button type="button" className={styles.btnSecondary} disabled={loading || !selectedAccountId} onClick={() => run(selectedAccountId, true)} title="Re-run the whole check now. Results are otherwise saved for 30 minutes." style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <RefreshIcon size={13} />
-              Re-check
+              Hard refresh
             </button>
-            {result && <span className={styles.muted}>Checked {new Date(result.generatedAt).toLocaleTimeString()} · data up to {result.windowEnd}</span>}
+            {result && (
+              <span className={styles.muted}>
+                Checked {new Date(result.generatedAt).toLocaleTimeString()}
+                {savedNote ? ` (saved result, ${savedNote})` : ""} · data up to {result.windowEnd}
+              </span>
+            )}
           </div>
 
           {loading && <RuleCheckProgress accountName={adAccounts.find((a) => a.id === selectedAccountId)?.name} steps={steps} />}
@@ -268,7 +280,7 @@ function RulesContent() {
 
               {!result.heldChecked && (
                 <p className={styles.muted} style={{ marginTop: 14, fontWeight: 400 }}>
-                  Couldn&apos;t read the account&apos;s recent changes, so the 48-hour budget cool-down wasn&apos;t applied this time — re-check to try again.
+                  Couldn&apos;t read the account&apos;s recent changes, so the 48-hour budget cool-down wasn&apos;t applied this time — hard refresh to try again.
                 </p>
               )}
               {searchedHeld.length > 0 && (
@@ -329,6 +341,8 @@ function RulesContent() {
           onClose={() => setActing(null)}
           onApplied={(text) => {
             setApplied((p) => ({ ...p, [acting.key]: text }));
+            // The saved result no longer matches the account, so the next visit re-checks.
+            clearCachedEntry(cacheKey(selectedAccountId));
             setActing(null);
           }}
         />
