@@ -19,8 +19,8 @@ import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import BulkDuplicateAdsModal from "@/components/BulkDuplicateAdsModal";
 import LowBalanceBadge from "@/components/LowBalanceBadge";
-import { AttentionMark, AttentionStatus } from "@/components/rules/RuleAttention";
-import { useRuleAttention, attentionKey } from "@/lib/rules/useRuleAttention";
+import { AttentionMark, AttentionStatus, AttentionPopover } from "@/components/rules/RuleAttention";
+import { useRuleAttention, attentionKey, clearRuleCaches } from "@/lib/rules/useRuleAttention";
 import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon, RefreshIcon, MoreIcon, FilterIcon, PlusIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry, formatAge } from "@/lib/clientCache";
@@ -1476,6 +1476,7 @@ export default function Explore() {
     ? result.meta.metricKeys.filter((k) => isChartableForView(k, effectiveCatalog, result.meta.accountIds.length))
     : [];
   const isRerun = activeView.loading && !!result;
+  const [attentionOpen, setAttentionOpen] = useState(null); // the flag whose "!" window is open
   // Rules run in the background once the view's own result is on screen; flagged rows get a "!".
   const attention = useRuleAttention({
     accounts: adAccounts.filter((a) => result?.meta.accountIds.includes(a.id)).map((a) => ({ id: a.id, timezone_name: a.timezone_name })),
@@ -2310,6 +2311,7 @@ export default function Explore() {
               effectiveCatalog={effectiveCatalog}
               onActionApplied={applyEntityActionPatch}
               attention={attention.flags}
+              onOpenAttention={setAttentionOpen}
               customMetrics={customMetrics}
               resultFilters={activeView.resultFilters}
               onOpenChildView={openChildViewFromSelection}
@@ -3139,6 +3141,19 @@ export default function Explore() {
           )}
         </main>
       </div>
+      {attentionOpen && (
+        <AttentionPopover
+          flag={attentionOpen}
+          currency={currencyByAccountId.get(attentionOpen.accountId)}
+          onClose={() => setAttentionOpen(null)}
+          onApplied={(entityId, patch) => {
+            setAttentionOpen(null);
+            // The saved rule checks no longer match the account.
+            clearRuleCaches(attentionOpen.accountId);
+            applyEntityActionPatch(entityId, patch);
+          }}
+        />
+      )}
     </Layout>
   );
 }
@@ -3265,6 +3280,7 @@ function ExploreResultsTable({
   effectiveCatalog,
   onActionApplied,
   attention,
+  onOpenAttention,
   customMetrics,
   resultFilters,
   onOpenChildView,
@@ -3682,7 +3698,7 @@ function ExploreResultsTable({
               >
                 {row[def.key]}
               </span>
-              <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} />
+              <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} onOpen={onOpenAttention} />
               <CopyIdButton id={row.entityId} onCopy={copyText} />
             </span>
           ) : (
@@ -4135,7 +4151,7 @@ function ExploreResultsTable({
           renderMetric={renderMetric}
           getTitle={getTitle}
           getSubtitle={getSubtitle}
-          renderTitleExtra={(row) => <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} />}
+          renderTitleExtra={(row) => <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} onOpen={onOpenAttention} />}
           sortKey={sortKey}
           sortDir={sortDir}
           onSortChange={(key, dir) => {

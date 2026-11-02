@@ -14,18 +14,14 @@ import RuleCheckProgress from "@/components/rules/RuleCheckProgress";
 import { RefreshIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
-import { getCachedEntry, setCachedEntry, clearCachedEntry, formatAge } from "@/lib/clientCache";
+import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
+import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
 import styles from "@/styles/Home.module.css";
 
 // A finished check is saved in the browser for 30 minutes (shared cache, survives reloads), so
 // coming back or switching accounts doesn't re-run a heavy check; "Hard refresh" re-runs it now.
 const CACHE_MS = 30 * 60 * 1000;
 const cacheKey = (accountId) => `rules-check:${accountId}`;
-// Drops this account's saved checks, including the light ones Custom Views uses for its "!" marks.
-const clearRuleCaches = (accountId) => {
-  clearCachedEntry(cacheKey(accountId));
-  for (const level of ["campaign", "adset", "ad"]) clearCachedEntry(`rules-attn:${accountId}:${level}`);
-};
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
 

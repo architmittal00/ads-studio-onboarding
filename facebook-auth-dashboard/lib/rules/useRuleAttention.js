@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
-import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
+import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
+import { toLeanFlag } from "@/lib/rules/leanFlag";
 
 // Runs the Rules page's checks in the background for the accounts of a Custom View and reports which
 // rows need attention. It calls the same /api/fb/rules/check route (lean variant, narrowed to the level
@@ -11,13 +12,20 @@ const MAX_ACCOUNTS = 8;
 const CONCURRENCY = 2;
 const RULE_LEVELS = new Set(["campaign", "adset", "ad"]);
 
+// Drops an account's saved checks (the Rules page's full one and Custom Views' light ones) — call after
+// a budget or status change so a flag that was just acted on does not come back from the cache.
+export function clearRuleCaches(accountId) {
+  clearCachedEntry(`rules-check:${accountId}`);
+  for (const level of RULE_LEVELS) clearCachedEntry(`rules-attn:${accountId}:${level}`);
+}
+
 export const attentionKey = (accountId, entityType, entityId) => `${accountId}:${entityType}:${entityId}`;
 
 // A result the Rules page already saved (full variant) answers this without any request.
 function fromFullCache(accountId, level) {
   const full = getCachedEntry(`rules-check:${accountId}`, CHECK_TTL_MS)?.data;
   if (!full?.flags) return null;
-  return full.flags.filter((f) => f.entityType === level).map((f) => ({ key: f.key, entityType: f.entityType, entityId: f.entityId, action: f.action, rules: f.matchedRules.map((r) => r.name) }));
+  return full.flags.filter((f) => f.entityType === level).map(toLeanFlag);
 }
 
 async function loadFlags(account, level, force) {
@@ -66,7 +74,7 @@ export function useRuleAttention({ accounts, level, ready, refreshKey }) {
         const account = list[next++];
         try {
           const flags = await loadFlags(account, level, force);
-          for (const f of flags) byKey.set(attentionKey(account.id, f.entityType, f.entityId), f);
+          for (const f of flags) byKey.set(attentionKey(account.id, f.entityType, f.entityId), { ...f, accountId: account.id });
         } catch {
           failed++;
         }
