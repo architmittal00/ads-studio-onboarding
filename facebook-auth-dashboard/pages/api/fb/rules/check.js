@@ -57,24 +57,38 @@ export default async function handler(req, res) {
   if (!VALID_ID.test(String(accountId || ""))) return res.status(400).json({ error: "accountId must be an ad account id like act_123" });
   const token = session.accessToken;
 
+  // `?stream=1` sends progress as newline-delimited JSON ({type:"step"} per finished piece, then
+  // {type:"result"} or {type:"error"}) so the page can show what is happening; without it the
+  // plain JSON response is unchanged.
+  const stream = req.query.stream === "1";
+  if (stream) res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" });
+  const emit = (obj) => {
+    if (stream) res.write(`${JSON.stringify(obj)}\n`);
+  };
+  const step = (id, promise, detail) =>
+    promise.then((v) => {
+      emit({ type: "step", id, detail: detail ? detail(v) : "" });
+      return v;
+    });
+
   try {
     // Everything starts at once. The time zone (needed to place the date windows) normally comes
     // from the client, which already has it for the picked account; only without it do we have to
     // wait for the account call first.
-    const accountP = graphGet(`/${accountId}`, token, { fields: "name,currency,timezone_name" });
-    const listsP = Promise.all([
+    const accountP = step("account", graphGet(`/${accountId}`, token, { fields: "name,currency,timezone_name" }), (a) => a.name);
+    const listsP = step("structure", Promise.all([
       graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
       graphGetAllPages(`/${accountId}/adsets`, token, { fields: "id,name,campaign_id,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
       graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id", filtering: ACTIVE_FILTER, limit: 500 }),
-    ]);
+    ]), ([c, a, d]) => `${(c.data || []).length} campaigns · ${(a.data || []).length} ad sets · ${(d.data || []).length} ads`);
     // Budget edits in the last 48h (soft-fail: if the activity log can't be read, nothing is held back).
-    const changesP = fetchRecentBudgetChanges(accountId, token);
+    const changesP = step("changes", fetchRecentBudgetChanges(accountId, token), (c) => (c.ok ? `${Object.keys(c.changed).length} budget edits found` : "couldn't be read — skipped"));
     const clientTz = validTimeZone(req.query.tz);
     const today = todayInTimeZone(clientTz || (await accountP).timezone_name);
 
     const insightsFor = (days) => {
       const range = lastNDaysRange(days, today);
-      return graphGetInsights(
+      return step(`insights${days}`, graphGetInsights(
         `/${accountId}/insights`,
         token,
         {
@@ -84,7 +98,7 @@ export default async function handler(req, res) {
           limit: 500,
         },
         { timeoutMs: 60000 }
-      ).then((r) => r.data || []);
+      ).then((r) => r.data || []), (rows) => `${rows.length.toLocaleString("en-IN")} ad rows`);
     };
 
     const [account, [campaigns, adsets, ads], recentBudgetChanges, ...windowRows] = await Promise.all([accountP, listsP, changesP, ...WINDOWS.map(insightsFor)]);
@@ -95,6 +109,7 @@ export default async function handler(req, res) {
       currencySymbol = new Intl.NumberFormat("en-IN", { style: "currency", currency: account.currency || "INR" }).formatToParts(0).find((p) => p.type === "currency")?.value || "₹";
     } catch {}
 
+    emit({ type: "step", id: "rules", pending: true });
     const result = evaluateAccount({
       structure: { campaigns: campaigns.data || [], adsets: adsets.data || [], ads: ads.data || [] },
       insightsByWindow,
@@ -102,7 +117,7 @@ export default async function handler(req, res) {
       currencySymbol,
       recentBudgetChanges,
     });
-    res.status(200).json({
+    const body = {
       accountId,
       accountName: account.name,
       currency: account.currency,
@@ -110,8 +125,21 @@ export default async function handler(req, res) {
       generatedAt: Date.now(),
       windowEnd: lastNDaysRange(1, today).until,
       ...result,
-    });
+    };
+    if (stream) {
+      emit({ type: "step", id: "rules", detail: `${result.rulesChecked.length} rules · ${result.flags.length} flagged` });
+      emit({ type: "result", data: body });
+      res.end();
+    } else {
+      res.status(200).json(body);
+    }
   } catch (err) {
-    res.status(err.graphResponse ? 400 : 500).json({ error: err.message || "Request failed" });
+    const status = err.graphResponse ? 400 : 500;
+    if (stream) {
+      emit({ type: "error", error: err.message || "Request failed" });
+      res.end();
+    } else {
+      res.status(status).json({ error: err.message || "Request failed" });
+    }
   }
 }
