@@ -102,7 +102,7 @@ Pixel page now matches the other screens: title + labeled pills (ad account, pix
 Meta's IN_PROCESS effective status is mapped to ACTIVE (`lib/statusNormalize.js`) wherever the server reads it (Custom Views rows, report, recent changes, copy-ads source ads, campaign lists, entity details, partnership detection/overview active count) and in the Launch Ad pickers' labels/ranking.
 
 ### Rules tab: validate an account against the team's rules sheet (2026-11-02)
-The page is behind `PinLock` (same client-side PIN gate as the other locked tabs; nothing is fetched until it's unlocked).
+The page is open to every signed-in user (the PIN gate was removed on 2026-11-02).
 New sidebar tab `/rules`. Pick an account → `/api/fb/rules/check` pulls ad-level insights for 3/7/14/30 trailing days (ending yesterday, account time zone) plus the account's ACTIVE campaigns/ad sets/ads, `lib/rules/engine.js` sums them up the tree and runs the 19 rules in `lib/rules/definitions.js` (transcribed from `Rough - Sheet88.csv`; change a threshold = change one line). Each flag shows matched rule(s), the evidence ("Why flagged"), and applies through `/api/fb/entity-action` (pause ad, or budget ±10% editable). If an increase and a decrease rule both match one entity, the direction backed by the rule with more conditions wins (tie → cautious decrease); the loser is noted on the card.
 **Ad previews + wording**: ad flags show the creative thumbnail (same `Thumb`/`CreativeLightbox`/`/api/fb/ad-thumbnails` as Custom Views), loaded in the background after the flags render (spinner tile until it arrives), plus labelled Campaign / Ad set lines. Checks read "This ad: 1.52 is less than 2.01"; amounts under 100 keep their paise.
 
