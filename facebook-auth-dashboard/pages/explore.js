@@ -231,7 +231,7 @@ function compareMetricValue(rowValue, operator, threshold) {
 // on a row with no comparable previous value, which compareMetricValue
 // already treats as "doesn't match," the same honest non-match as a missing
 // metric value.
-function applyResultFilters(rows, resultFilters, availableMetricKeys, statusAvailable = true) {
+function applyResultFilters(rows, resultFilters, availableMetricKeys, statusAvailable = true, attention = null) {
   if (!rows) return rows;
   let out = rows;
   const conditions = (resultFilters?.metricConditions || []).filter(
@@ -258,6 +258,11 @@ function applyResultFilters(rows, resultFilters, availableMetricKeys, statusAvai
     // which has no checkbox of its own — count it as Paused so a status filter
     // doesn't hide every child of a paused campaign.
     out = out.filter((row) => resultFilters.statusValues.includes(/_PAUSED$/.test(row.status || "") ? "PAUSED" : row.status));
+  }
+  // "Needs attention": only rows the rules flagged. `attention` ({ flags, level }) is only passed once the
+  // background rule check has finished, so the filter never hides everything while it is still running.
+  if (resultFilters?.needsAttention && attention) {
+    out = out.filter((row) => attention.flags.has(attentionKey(row.accountId, attention.level, row.entityId)));
   }
   return out;
 }
@@ -315,7 +320,7 @@ function createBlankView(seedAccountId = "") {
     // are already fully computed (no re-aggregation concern the way
     // nameFilters has), and `statusValues` is `null` for "no filter" (every
     // status shown) or an explicit array of statuses to keep.
-    resultFilters: { metricConditions: [], statusValues: null },
+    resultFilters: { metricConditions: [], statusValues: null, needsAttention: false },
     // Off = only entities that spent (the default). On = also list entities with zero spend.
     includeZeroSpend: false,
     result: null,
@@ -742,6 +747,15 @@ export default function Explore() {
   const [activeViewId, setActiveViewId] = useState(() => views[0].id);
   const activeView = views.find((v) => v.id === activeViewId) || views[0];
 
+  // Rules run in the background once the view's own result is on screen; flagged rows get a "!".
+  const attention = useRuleAttention({
+    accounts: adAccounts.filter((a) => activeView.result?.meta.accountIds.includes(a.id)).map((a) => ({ id: a.id, timezone_name: a.timezone_name })),
+    level: activeView.result?.meta.level,
+    ready: !!activeView.result && !activeView.loading,
+    refreshKey: activeView.resultFetchedAt,
+  });
+
+
   // Tab groups — like Chrome's own: a named, colored cluster of adjacent
   // tabs. `{id, name, color, collapsed}`; membership lives on each view's own
   // `groupId`, not here (so closing every tab in a group just leaves an
@@ -1106,7 +1120,7 @@ export default function Explore() {
         idFilter: v.idFilter || { field: "campaignId", value: "" },
         compareCustomSince: v.compareCustomSince || "",
         compareDisplay: v.compareDisplay === "absolute" ? "absolute" : "change",
-        resultFilters: v.resultFilters || { metricConditions: [], statusValues: null },
+        resultFilters: v.resultFilters || { metricConditions: [], statusValues: null, needsAttention: false },
         tableSortKey: v.tableSortKey ?? null,
         tableSortDir: v.tableSortDir || "desc",
         includeZeroSpend: !!v.includeZeroSpend,
@@ -1477,14 +1491,6 @@ export default function Explore() {
     : [];
   const isRerun = activeView.loading && !!result;
   const [attentionOpen, setAttentionOpen] = useState(null); // the flag whose "!" window is open
-  // Rules run in the background once the view's own result is on screen; flagged rows get a "!".
-  const attention = useRuleAttention({
-    accounts: adAccounts.filter((a) => result?.meta.accountIds.includes(a.id)).map((a) => ({ id: a.id, timezone_name: a.timezone_name })),
-    level: result?.meta.level,
-    ready: !!result && !activeView.loading,
-    refreshKey: activeView.resultFetchedAt,
-  });
-
   // The collapsed preference only ever applies once there's a result to show
   // instead — a brand-new (or still-loading-for-the-first-time) view has
   // nothing else on screen, so the form it needs to run a query stays open
@@ -1549,9 +1555,14 @@ export default function Explore() {
   // chart, CSV export, the row-count line) reads this instead of
   // `result.rows` directly, so filtering stays consistent everywhere the
   // result set is consumed.
+  const attentionReady = attention.total > 0 && !attention.loading;
+  const attentionFlags = attention.flags;
   const filteredRows = useMemo(
-    () => (result ? applyResultFilters(result.rows, activeView.resultFilters, result.meta.metricKeys, !!result.meta.statusAvailable) : []),
-    [result, activeView.resultFilters]
+    () =>
+      result
+        ? applyResultFilters(result.rows, activeView.resultFilters, result.meta.metricKeys, !!result.meta.statusAvailable, attentionReady ? { flags: attentionFlags, level: result.meta.level } : null)
+        : [],
+    [result, activeView.resultFilters, attentionReady, attentionFlags]
   );
 
   // Every distinct status actually present in the *unfiltered* result, so
@@ -1628,6 +1639,10 @@ export default function Explore() {
       const allChecked = availableStatuses.length > 0 && availableStatuses.every((s) => next.includes(s));
       return { resultFilters: { ...v.resultFilters, statusValues: allChecked ? null : next } };
     });
+  }
+
+  function toggleNeedsAttention() {
+    updateActive((v) => ({ resultFilters: { ...v.resultFilters, needsAttention: !v.resultFilters.needsAttention } }));
   }
 
   // Prefixes each row's `label` with its account's name whenever more than
@@ -1759,18 +1774,19 @@ export default function Explore() {
   function renderMobileFilterSheet() {
     const numericKeys = (result?.meta.metricKeys || []).filter((k) => effectiveCatalog.find((m) => m.key === k)?.format !== "text");
     const statusSelected = (s) => !activeView.resultFilters.statusValues || activeView.resultFilters.statusValues.includes(s);
-    const hasAnyFilter = draftConditions.length > 0 || !!activeView.resultFilters.statusValues || activeView.resultFilters.metricConditions.length > 0;
+    const hasAnyFilter = draftConditions.length > 0 || !!activeView.resultFilters.statusValues || !!activeView.resultFilters.needsAttention || activeView.resultFilters.metricConditions.length > 0;
     // What the table would show if the drafts were applied right now.
     const previewCount = applyResultFilters(
       result.rows,
       { ...activeView.resultFilters, metricConditions: draftConditions },
       result.meta.metricKeys,
-      !!result.meta.statusAvailable
+      !!result.meta.statusAvailable,
+      attentionReady ? { flags: attention.flags, level: result.meta.level } : null
     ).length;
     const pickingCond = filterPick ? draftConditions.find((c) => c.id === filterPick.id) : null;
     function clearAll() {
       setDraftConditions([]);
-      updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: [], statusValues: null } }));
+      updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: [], statusValues: null, needsAttention: false } }));
     }
     return (
       <BottomSheet
@@ -1813,6 +1829,23 @@ export default function Explore() {
               ))}
             </div>
             <p className={styles.fsHint}>Tap to include or hide a status.</p>
+          </div>
+        )}
+
+        {attention.total > 0 && (
+          <div className={styles.fsSection}>
+            <div className={styles.fsLabel}>Rules</div>
+            <div className={styles.fsChips}>
+              <button
+                type="button"
+                aria-pressed={!!activeView.resultFilters.needsAttention}
+                disabled={attention.loading}
+                className={activeView.resultFilters.needsAttention ? `${styles.fsChip} ${styles.fsChipOn}` : styles.fsChip}
+                onClick={toggleNeedsAttention}
+              >
+                ! Needs attention ({attention.loading ? "checking…" : attention.flags.size})
+              </button>
+            </div>
           </div>
         )}
 
@@ -1911,7 +1944,7 @@ export default function Explore() {
 
   function renderMobileResultBar() {
     const filterCount =
-      (activeView.resultFilters.metricConditions?.length || 0) + (activeView.resultFilters.statusValues ? 1 : 0);
+      (activeView.resultFilters.metricConditions?.length || 0) + (activeView.resultFilters.statusValues ? 1 : 0) + (activeView.resultFilters.needsAttention ? 1 : 0);
     const rowText =
       filteredRows.length === result.meta.rowCount
         ? `${result.meta.rowCount} row${result.meta.rowCount === 1 ? "" : "s"}`
@@ -2092,6 +2125,16 @@ export default function Explore() {
                 ))}
               </div>
             )}
+
+            {attention.total > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
+                <span className={styles.muted}>Rules</span>
+                <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }} title="Only rows your rules flagged (the ones marked !)">
+                  <input type="checkbox" checked={!!activeView.resultFilters.needsAttention} disabled={attention.loading} onChange={toggleNeedsAttention} />
+                  Needs attention ({attention.loading ? "checking…" : attention.flags.size})
+                </label>
+              </div>
+            )}
           </div>
     );
   }
@@ -2189,7 +2232,7 @@ export default function Explore() {
                   className={styles.linkButton}
                   onClick={() => {
                     setDraftConditions([]);
-                    updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: [], statusValues: null } }));
+                    updateActive((v) => ({ resultFilters: { ...v.resultFilters, metricConditions: [], statusValues: null, needsAttention: false } }));
                   }}
                 >
                   Clear filters
@@ -3991,7 +4034,7 @@ function ExploreResultsTable({
                 className={styles.linkButton}
                 onClick={() => {
                   setChildSearch("");
-                  onTableViewChange?.({ resultFilters: { metricConditions: [], statusValues: null } });
+                  onTableViewChange?.({ resultFilters: { metricConditions: [], statusValues: null, needsAttention: false } });
                 }}
               >
                 Clear filters
