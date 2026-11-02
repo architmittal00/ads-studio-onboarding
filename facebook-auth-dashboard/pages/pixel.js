@@ -20,6 +20,12 @@ function ago(iso) {
   return `${Math.round(hrs / 24)} days ago`;
 }
 
+// Exact date and time in the viewer's own time zone, e.g. "2 Nov 2026, 3:42 pm IST".
+function exactTime(iso) {
+  if (!iso) return "Never";
+  return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" });
+}
+
 function Trend({ days, daily }) {
   const max = Math.max(1, ...daily);
   const W = 420;
@@ -133,7 +139,7 @@ export default function PixelPage() {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{data.pixel.name}</div>
                   <div className={styles.muted} style={{ fontSize: 12 }}>
-                    ID {data.pixel.id} · days in {data.timeZone}
+                    ID {data.pixel.id} · trend days in {data.timeZone}
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -141,11 +147,16 @@ export default function PixelPage() {
                     {data.pixel.lastFiredTime ? (healthy ? "Firing" : "Not fired in 24h+") : "Never fired"}
                   </span>
                   <div className={styles.muted} style={{ fontSize: 12, marginTop: 4 }}>
-                    Last fired {ago(data.pixel.lastFiredTime)}
+                    Last fired {exactTime(data.pixel.lastFiredTime)} ({ago(data.pixel.lastFiredTime)})
                   </div>
                 </div>
               </div>
 
+              {data.events.length > 0 && (
+                <p className={styles.muted} style={{ fontSize: 12, marginBottom: 8 }}>
+                  Times are in your time zone. Meta reports events per hour, so an event&apos;s last-fired time is the start of the hour it last fired in; the pixel&apos;s own last-fired time above is exact.
+                </p>
+              )}
               {data.events.length === 0 ? (
                 <div className={styles.card}>
                   <p style={{ fontWeight: 700, marginBottom: 4 }}>No events in the last 7 days</p>
@@ -167,8 +178,11 @@ export default function PixelPage() {
                         <Fragment key={e.name}>
                           <tr style={{ borderTop: "1px solid var(--border)" }}>
                             <td style={{ padding: "10px", fontWeight: 600 }}>{e.name}</td>
-                            <td style={{ padding: "10px" }} title={new Date(e.lastFired).toLocaleString()}>
-                              {ago(e.lastFired)}
+                            <td style={{ padding: "10px" }}>
+                              {exactTime(e.lastFired)}
+                              <div className={styles.muted} style={{ fontSize: 11.5 }}>
+                                {ago(e.lastFired)}
+                              </div>
                             </td>
                             <td style={{ padding: "10px", textAlign: "right" }}>{e.total.toLocaleString("en-IN")}</td>
                             <td style={{ padding: "10px", textAlign: "right" }}>
