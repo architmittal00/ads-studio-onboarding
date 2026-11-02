@@ -3,6 +3,7 @@ import { todayInTimeZone } from "@/lib/dateRanges";
 import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 import { WINDOWS } from "@/lib/rules/metrics";
 import { evaluateAccount } from "@/lib/rules/engine";
+import { toLeanFlag, currencySymbolOf } from "@/lib/rules/leanFlag";
 
 // The one place an ad account is fetched and run through the rules (lib/rules/definitions.js). Used by
 // the Rules page and by the "needs attention" marks in Custom Views — through /api/fb/rules/check — so a
@@ -14,7 +15,7 @@ import { evaluateAccount } from "@/lib/rules/engine";
 //
 // `lean` is the light variant for Custom Views: it only needs to know WHICH entities are flagged, so it
 // skips the parent-name lookup, can narrow itself to the `levels` being shown (no ad rows or ad list
-// when only campaigns are on screen) and returns just { key, action, rule names } per flag.
+// when only campaigns are on screen) and returns each flag trimmed to what the "!" window needs (lib/rules/leanFlag.js).
 const COOLDOWN_HOURS = 48;
 
 export function validTimeZone(tz) {
@@ -131,10 +132,7 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
   const [account, [campaigns, adsets, ads], recentBudgetChanges, extraNames, ...windowRows] = await Promise.all([accountP, listsP, changesP, namesP, ...WINDOWS.map(insightsFor)]);
   const insightsByWindow = Object.fromEntries(WINDOWS.map((w, i) => [w, windowRows[i]]));
 
-  let currencySymbol = "₹";
-  try {
-    currencySymbol = new Intl.NumberFormat("en-IN", { style: "currency", currency: account.currency || "INR" }).formatToParts(0).find((p) => p.type === "currency")?.value || "₹";
-  } catch {}
+  const currencySymbol = currencySymbolOf(account.currency);
 
   emit({ type: "step", id: "rules", pending: true });
   const result = evaluateAccount({
@@ -153,7 +151,7 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
       accountId,
       generatedAt: Date.now(),
       heldChecked: result.heldChecked,
-      flags: result.flags.map((f) => ({ key: f.key, entityType: f.entityType, entityId: f.entityId, action: f.action, rules: f.matchedRules.map((r) => r.name) })),
+      flags: result.flags.map(toLeanFlag),
     };
   }
   return {

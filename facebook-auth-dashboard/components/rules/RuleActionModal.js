@@ -43,7 +43,11 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
       const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
       if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
       invalidateCachedGets();
-      onApplied(isPause ? "Paused" : `Budget ${money(target.current, currencySymbol)} → ${money(newBudget, currencySymbol)}`);
+      // 2nd argument: the entity that changed and the row patch Custom Views applies locally.
+      onApplied(isPause ? "Paused" : `Budget ${money(target.current, currencySymbol)} → ${money(newBudget, currencySymbol)}`, {
+        entityId: isPause ? flag.entityId : target.id,
+        patch: isPause ? { status: "PAUSED" } : { [target.type === "lifetime" ? "lifetimeBudget" : "dailyBudget"]: newBudget },
+      });
     } catch (err) {
       setError(err.message);
       setBusy(false);

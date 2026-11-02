@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import SortableTable from "@/components/SortableTable";
 import Thumb from "@/components/Thumb";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
+import FlagWhy from "@/components/rules/FlagWhy";
 import styles from "@/styles/Home.module.css";
 
 const ACTION_META = {
@@ -9,7 +10,6 @@ const ACTION_META = {
   DECREASE_BUDGET: { label: "Decrease budget", badge: styles.badgeWarn },
   PAUSE_AD: { label: "Pause ad", badge: styles.badgeDanger },
 };
-const OP_WORDS = { ">": "is more than", "≥": "is at least", "<": "is less than", "≤": "is at most" };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 const COLUMN_COUNT = 8;
 // Tinted action buttons: the colour matches the suggestion, so the button says what it will do.
@@ -20,56 +20,6 @@ const ACTION_BTN = {
 };
 
 const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
-
-// The "why was this flagged" breakdown: the rule in words, then every check with this item's figure.
-function Why({ flag }) {
-  const subject = TYPE_LABEL[flag.entityType].toLowerCase();
-  return (
-    <div style={{ padding: "4px 4px 8px" }}>
-      {flag.matchedRules.map((r) => (
-        <div key={r.id} style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{r.name}</div>
-          <p className={styles.sub} style={{ marginBottom: 8 }}>
-            The rule: {r.text} Every check below passed, so this {subject} was flagged.
-          </p>
-          {r.conditions.map((c, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, padding: "6px 0", borderTop: i ? "1px solid var(--border)" : "none", alignItems: "flex-start" }}>
-              <span style={{ color: "var(--green)", fontWeight: 700, lineHeight: "18px" }}>✓</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600 }}>{c.label}</div>
-                {c.hint && (
-                  <div className={styles.muted} style={{ fontWeight: 400, marginTop: 1 }}>
-                    {c.hint}
-                  </div>
-                )}
-                <div style={{ fontSize: 12.5, marginTop: 3 }}>
-                  {c.op ? (
-                    <>
-                      <span className={styles.muted}>This {subject}: </span>
-                      <strong>{c.actual}</strong>
-                      <span className={styles.muted}> {OP_WORDS[c.op]} </span>
-                      <strong>{c.target}</strong>
-                    </>
-                  ) : (
-                    <>
-                      <strong>Yes</strong>
-                      {c.target && <span className={styles.muted}> · {c.target}</span>}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-      {flag.hiddenConflicts.length > 0 && (
-        <p className={styles.muted} style={{ fontWeight: 400 }}>
-          A conflicting rule also matched ({flag.hiddenConflicts.join(", ")}) but the stronger one is shown.
-        </p>
-      )}
-    </div>
-  );
-}
 
 const isActionable = (f) => f.action === "PAUSE_AD" || !!f.budgetTarget;
 const ellipsis = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
@@ -253,7 +203,7 @@ export default function FlagTable({ flags, currencySymbol, accountRoas7, applied
         open[r.key] ? (
           <tr>
             <td colSpan={COLUMN_COUNT} style={{ background: "var(--card)" }}>
-              <Why flag={r} />
+              <FlagWhy flag={r} />
             </td>
           </tr>
         ) : null
