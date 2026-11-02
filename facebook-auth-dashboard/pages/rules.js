@@ -8,6 +8,7 @@ import PinLock from "@/components/PinLock";
 import AccountSelect from "@/components/AccountSelect";
 import RuleFlagCard from "@/components/rules/RuleFlagCard";
 import RuleActionModal from "@/components/rules/RuleActionModal";
+import CreativeLightbox from "@/components/CreativeLightbox";
 import RuleCheckProgress from "@/components/rules/RuleCheckProgress";
 import { RefreshIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
@@ -17,6 +18,8 @@ import styles from "@/styles/Home.module.css";
 // Results stay in memory while the page is open, so switching accounts back and forth doesn't re-run a heavy check.
 const resultCache = new Map();
 const CACHE_MS = 10 * 60 * 1000;
+// Ad creative thumbnails already fetched, by ad id (null = the ad has none).
+const thumbCache = new Map();
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -53,6 +56,8 @@ function RulesContent() {
   const [acting, setActing] = useState(null);
   const [showRules, setShowRules] = useState(false);
   const [steps, setSteps] = useState({}); // check step id -> { done, detail }
+  const [thumbs, setThumbs] = useState({}); // ad id -> { thumbnailUrl, isVideo } | null once loaded
+  const [lightboxItem, setLightboxItem] = useState(null);
 
   const tz = adAccounts.find((a) => a.id === selectedAccountId)?.timezone_name;
 
@@ -109,6 +114,37 @@ function RulesContent() {
     run(selectedAccountId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs only when the account changes
   }, [selectedAccountId]);
+
+  // Ad previews load after the flags are already on screen: each ad card shows a small spinner
+  // until its creative arrives (or settles on a blank tile when it has none / the lookup fails).
+  useEffect(() => {
+    const adIds = [...new Set((result?.flags || []).filter((f) => f.entityType === "ad").map((f) => f.entityId))];
+    const fromCache = {};
+    const missing = [];
+    for (const id of adIds) {
+      if (thumbCache.has(id)) fromCache[id] = thumbCache.get(id);
+      else missing.push(id);
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- shows already-known previews right away
+    setThumbs(fromCache);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    fetchWithTimeout("/api/fb/ad-thumbnails", { idempotent: true, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adIds: missing }) }, 60000)
+      .then((res) => parseJsonResponse(res))
+      .then((json) => json.thumbnails || {})
+      .catch(() => ({}))
+      .then((thumbnails) => {
+        const loaded = {};
+        for (const id of missing) {
+          loaded[id] = thumbnails[id] || null;
+          thumbCache.set(id, loaded[id]);
+        }
+        if (!cancelled) setThumbs((prev) => ({ ...prev, ...loaded }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [result]);
 
   const counts = useMemo(() => {
     const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0 };
@@ -194,7 +230,7 @@ function RulesContent() {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {shown.map((f) => (
-                    <RuleFlagCard key={f.key} flag={f} currencySymbol={result.currencySymbol} accountRoas7={base7?.roas ?? null} applied={applied[f.key]} onAct={setActing} />
+                    <RuleFlagCard key={f.key} flag={f} currencySymbol={result.currencySymbol} accountRoas7={base7?.roas ?? null} applied={applied[f.key]} onAct={setActing} thumb={f.entityType === "ad" ? thumbs[f.entityId] : undefined} onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })} />
                   ))}
                 </div>
               )}
@@ -254,6 +290,7 @@ function RulesContent() {
           )}
         </main>
       </div>
+      <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       {acting && (
         <RuleActionModal
           flag={acting}

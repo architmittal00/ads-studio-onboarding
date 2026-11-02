@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronIcon } from "@/components/icons";
+import Thumb from "@/components/Thumb";
 import styles from "@/styles/Home.module.css";
 
 const ACTION_META = {
@@ -7,14 +8,15 @@ const ACTION_META = {
   DECREASE_BUDGET: { label: "Decrease budget", color: "var(--amber)" },
   PAUSE_AD: { label: "Pause ad", color: "var(--red)" },
 };
-const OP_WORDS = { ">": "more than", "≥": "at least", "<": "less than", "≤": "at most" };
+const OP_WORDS = { ">": "is more than", "≥": "is at least", "<": "is less than", "≤": "is at most" };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 
 function money(v, symbol) {
   return `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
 }
 
-export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, applied, onAct }) {
+// `thumb`: undefined while the creative is still loading, null when the ad has none, else { thumbnailUrl, isVideo }.
+export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, applied, onAct, thumb, onOpenThumb }) {
   const [open, setOpen] = useState(false);
   const meta = ACTION_META[flag.action];
   const subject = TYPE_LABEL[flag.entityType].toLowerCase();
@@ -23,15 +25,33 @@ export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, appli
     <div className={styles.card} style={{ padding: 0, opacity: applied ? 0.7 : 1, borderLeft: `4px solid ${meta.color}` }}>
       <div style={{ padding: "14px 16px", display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div style={{ minWidth: 0, flex: "1 1 280px" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
-            <span className={styles.badgeInfo}>{TYPE_LABEL[flag.entityType]}</span>
-            <span style={{ fontWeight: 700, fontSize: 14, overflowWrap: "anywhere" }}>{flag.name}</span>
-          </div>
-          {(flag.campaignName || flag.adsetName) && (
-            <div className={styles.muted} style={{ fontSize: 12, marginBottom: 8, overflowWrap: "anywhere" }}>
-              {[flag.campaignName, flag.adsetName].filter(Boolean).join(" › ")}
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 8 }}>
+            {flag.entityType === "ad" && (
+              <Thumb
+                size={64}
+                src={thumb?.thumbnailUrl}
+                isVideo={!!thumb?.isVideo}
+                loading={thumb === undefined}
+                onClick={thumb?.thumbnailUrl || thumb?.isVideo ? () => onOpenThumb?.(flag, thumb) : undefined}
+              />
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
+                <span className={styles.badgeInfo}>{TYPE_LABEL[flag.entityType]}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, overflowWrap: "anywhere" }}>{flag.name}</span>
+              </div>
+              {flag.campaignName && (
+                <div className={styles.muted} style={{ fontSize: 12, fontWeight: 400, overflowWrap: "anywhere" }}>
+                  Campaign: <span style={{ color: "var(--t2)", fontWeight: 600 }}>{flag.campaignName}</span>
+                </div>
+              )}
+              {flag.adsetName && (
+                <div className={styles.muted} style={{ fontSize: 12, fontWeight: 400, overflowWrap: "anywhere" }}>
+                  Ad set: <span style={{ color: "var(--t2)", fontWeight: 600 }}>{flag.adsetName}</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
             {flag.matchedRules.map((r) => (
               <span key={r.id} className={styles.badgeWarn} style={{ fontSize: 11 }}>
@@ -104,7 +124,7 @@ export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, appli
                         <>
                           <span className={styles.muted}>This {subject}: </span>
                           <strong>{c.actual}</strong>
-                          <span className={styles.muted}> · needs to be {OP_WORDS[c.op]} </span>
+                          <span className={styles.muted}> {OP_WORDS[c.op]} </span>
                           <strong>{c.target}</strong>
                         </>
                       ) : (

@@ -24,7 +24,8 @@ function fmt(value, kind, ctx) {
   if (value == null || !Number.isFinite(value)) return "—";
   switch (kind) {
     case "money":
-      return `${ctx.currencySymbol}${Math.round(value).toLocaleString("en-IN")}`;
+      // Small amounts (CPC, CPM, CPR) keep their paise so "₹13 < ₹13" can't happen.
+      return `${ctx.currencySymbol}${Math.abs(value) < 100 ? value.toFixed(2) : Math.round(value).toLocaleString("en-IN")}`;
     case "pct":
       return `${value.toFixed(2)}%`;
     case "int":
