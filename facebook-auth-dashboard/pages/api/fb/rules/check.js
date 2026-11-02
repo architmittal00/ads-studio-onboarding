@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { todayInTimeZone } from "@/lib/dateRanges";
-import { lastNDaysRange } from "@/lib/adCreativeDetails";
+import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 import { WINDOWS } from "@/lib/rules/metrics";
 import { evaluateAccount } from "@/lib/rules/engine";
 
@@ -47,6 +47,27 @@ async function fetchRecentBudgetChanges(accountId, token) {
   }
 }
 
+// Names for parents that are not in the active lists (an ad can sit under an ad set or campaign that
+// is paused, in review or otherwise not "active"), so a flag card can still say where the ad lives.
+// Soft-fail: a failed lookup just leaves those names out.
+async function fetchMissingNames(token, campaigns, adsets, ads) {
+  const have = new Set([...campaigns, ...adsets].map((x) => x.id));
+  const wanted = new Set();
+  for (const a of adsets) if (a.campaign_id) wanted.add(a.campaign_id);
+  for (const a of ads) {
+    if (a.adset_id) wanted.add(a.adset_id);
+    if (a.campaign_id) wanted.add(a.campaign_id);
+  }
+  const missing = [...wanted].filter((id) => !have.has(id));
+  const names = {};
+  const results = await Promise.allSettled(chunk(missing, 50).map((ids) => graphGet("", token, { ids: ids.join(","), fields: "name" })));
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(r.value || {})) if (obj?.name) names[id] = obj.name;
+  }
+  return names;
+}
+
 const ACTIVE_FILTER = [{ field: "effective_status", operator: "IN", value: ["ACTIVE", "IN_PROCESS"] }];
 
 export default async function handler(req, res) {
@@ -82,6 +103,7 @@ export default async function handler(req, res) {
       graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id", filtering: ACTIVE_FILTER, limit: 500 }),
     ]), ([c, a, d]) => `${(c.data || []).length} campaigns · ${(a.data || []).length} ad sets · ${(d.data || []).length} ads`);
     // Budget edits in the last 48h (soft-fail: if the activity log can't be read, nothing is held back).
+    const namesP = listsP.then(([c, a, d]) => fetchMissingNames(token, c.data || [], a.data || [], d.data || []));
     const changesP = step("changes", fetchRecentBudgetChanges(accountId, token), (c) => (c.ok ? `${Object.keys(c.changed).length} budget edits found` : "couldn't be read — skipped"));
     const clientTz = validTimeZone(req.query.tz);
     const today = todayInTimeZone(clientTz || (await accountP).timezone_name);
@@ -104,7 +126,7 @@ export default async function handler(req, res) {
       ).then((r) => r.data || []), (rows) => `${rows.length.toLocaleString("en-IN")} ${level === "ad" ? "ad" : "ad set"} rows`);
     };
 
-    const [account, [campaigns, adsets, ads], recentBudgetChanges, ...windowRows] = await Promise.all([accountP, listsP, changesP, ...WINDOWS.map(insightsFor)]);
+    const [account, [campaigns, adsets, ads], recentBudgetChanges, extraNames, ...windowRows] = await Promise.all([accountP, listsP, changesP, namesP, ...WINDOWS.map(insightsFor)]);
     const insightsByWindow = Object.fromEntries(WINDOWS.map((w, i) => [w, windowRows[i]]));
 
     let currencySymbol = "₹";
@@ -119,6 +141,7 @@ export default async function handler(req, res) {
       currency: account.currency,
       currencySymbol,
       recentBudgetChanges,
+      extraNames,
     });
     const body = {
       accountId,
