@@ -1,12 +1,14 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
 import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
+import DateRangeMenu from "@/components/DateRangeMenu";
+import { computeRange } from "@/lib/dateRanges";
 import { cachedGet } from "@/lib/cachedGet";
 import styles from "@/styles/Home.module.css";
 
@@ -117,15 +119,6 @@ function Trend({ labels, points, granularity }) {
   );
 }
 
-const RANGES = [
-  { key: "today", label: "Today" },
-  { key: "yesterday", label: "Yesterday" },
-  { key: "7", label: "Last 7 days" },
-  { key: "14", label: "Last 14 days" },
-  { key: "30", label: "Last 30 days" },
-  { key: "custom", label: "Custom" },
-];
-
 export default function PixelPage() {
   const { adAccounts, accountsLoading, selectedAccountId, setSelectedAccountId } = useAccounts();
   const [pixels, setPixels] = useState([]);
@@ -135,9 +128,11 @@ export default function PixelPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(null);
-  const [rangeKey, setRangeKey] = useState("7");
-  const [custom, setCustom] = useState({ since: "", until: "" });
-  const [appliedCustom, setAppliedCustom] = useState(null);
+  const [rangePreset, setRangePreset] = useState("last_7d");
+  const [customSince, setCustomSince] = useState("");
+  const [customUntil, setCustomUntil] = useState("");
+  const timeZone = adAccounts.find((a) => a.id === selectedAccountId)?.timezone_name;
+  const range = useMemo(() => computeRange(rangePreset, customSince, customUntil, timeZone), [rangePreset, customSince, customUntil, timeZone]);
 
   useEffect(() => {
     if (!selectedAccountId) return;
@@ -168,11 +163,11 @@ export default function PixelPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the picked pixel's events
     setLoading(true);
     setError(null);
-    const rangeQuery = rangeKey === "custom" ? (appliedCustom ? `&since=${appliedCustom.since}&until=${appliedCustom.until}` : null) : `&range=${rangeKey}`;
-    if (!rangeQuery) {
+    if (!range) {
       setLoading(false);
       return;
     }
+    const rangeQuery = `&since=${range.since}&until=${range.until}`;
     cachedGet(`/api/fb/pixel-events?pixelId=${pixelId}&accountId=${encodeURIComponent(selectedAccountId)}${rangeQuery}`)
       .then((json) => {
         if (cancelled) return;
@@ -185,7 +180,7 @@ export default function PixelPage() {
     return () => {
       cancelled = true;
     };
-  }, [pixelId, selectedAccountId, rangeKey, appliedCustom]);
+  }, [pixelId, selectedAccountId, range]);
 
   const healthy = !!data?.pixel?.firing;
 
@@ -214,23 +209,23 @@ export default function PixelPage() {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
-            <div className={styles.tabGroup} role="radiogroup" aria-label="Date range">
-              {RANGES.map((r) => (
-                <button key={r.key} type="button" role="radio" aria-checked={rangeKey === r.key} className={rangeKey === r.key ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setRangeKey(r.key)}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-            {rangeKey === "custom" && (
-              <>
-                <input type="date" className={styles.select} value={custom.since} max={custom.until || undefined} onChange={(e) => setCustom((c) => ({ ...c, since: e.target.value }))} />
-                <span className={styles.muted}>to</span>
-                <input type="date" className={styles.select} value={custom.until} min={custom.since || undefined} onChange={(e) => setCustom((c) => ({ ...c, until: e.target.value }))} />
-                <button type="button" className={styles.btnPrimary} disabled={!custom.since || !custom.until || custom.since > custom.until} onClick={() => setAppliedCustom({ ...custom })}>
-                  Apply
-                </button>
-              </>
-            )}
+            <DateRangeMenu
+              timeZone={timeZone}
+              rangePreset={rangePreset}
+              customSince={customSince}
+              customUntil={customUntil}
+              maxRangeDays={31}
+              compareToPrevious={false}
+              compareCustomSince=""
+              compareDisplay="change"
+              compareDisabled
+              compareDisabledReason="Not available here — this page shows one window at a time."
+              onApply={(patch) => {
+                setRangePreset(patch.rangePreset);
+                setCustomSince(patch.customSince);
+                setCustomUntil(patch.customUntil);
+              }}
+            />
             {data && <span className={styles.muted}>{data.range.since === data.range.until ? data.range.since : `${data.range.since} → ${data.range.until}`} · {data.timeZone}</span>}
           </div>
 
