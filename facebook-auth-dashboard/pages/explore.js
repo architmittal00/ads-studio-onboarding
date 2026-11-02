@@ -19,6 +19,8 @@ import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import BulkDuplicateAdsModal from "@/components/BulkDuplicateAdsModal";
 import LowBalanceBadge from "@/components/LowBalanceBadge";
+import { AttentionMark, AttentionStatus } from "@/components/rules/RuleAttention";
+import { useRuleAttention, attentionKey } from "@/lib/rules/useRuleAttention";
 import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon, RefreshIcon, MoreIcon, FilterIcon, PlusIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry, formatAge } from "@/lib/clientCache";
@@ -1241,6 +1243,7 @@ export default function Explore() {
   // pre-action data — this view's own "Hard Refresh" already exists for
   // anyone who wants a fully fresh fetch instead of trusting the patch.
   function applyEntityActionPatch(entityId, patch) {
+    attention.dismiss?.(entityId);
     clearCachedEntry(EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(activeView, customMetrics, adAccounts)));
     updateActive((v) => {
       if (!v.result) return {};
@@ -1473,6 +1476,13 @@ export default function Explore() {
     ? result.meta.metricKeys.filter((k) => isChartableForView(k, effectiveCatalog, result.meta.accountIds.length))
     : [];
   const isRerun = activeView.loading && !!result;
+  // Rules run in the background once the view's own result is on screen; flagged rows get a "!".
+  const attention = useRuleAttention({
+    accounts: adAccounts.filter((a) => result?.meta.accountIds.includes(a.id)).map((a) => ({ id: a.id, timezone_name: a.timezone_name })),
+    level: result?.meta.level,
+    ready: !!result && !activeView.loading,
+    refreshKey: activeView.resultFetchedAt,
+  });
 
   // The collapsed preference only ever applies once there's a result to show
   // instead — a brand-new (or still-loading-for-the-first-time) view has
@@ -1943,6 +1953,12 @@ export default function Explore() {
           {` · ${rowText}`}
           {result.meta.filteredByNameCount > 0 && ` · ${result.meta.filteredByNameCount} hidden by name filter`}
           {activeView.resultFetchedAt && <MobileAge fetchedAt={activeView.resultFetchedAt} />}
+          {attention.total > 0 && (
+            <>
+              {" · "}
+              <AttentionStatus state={attention} />
+            </>
+          )}
         </div>
         {renderMobileFilterSheet()}
         <BottomSheet open={mobileMoreOpen} title="More" onClose={() => setMobileMoreOpen(false)}>
@@ -2121,6 +2137,7 @@ export default function Explore() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <AttentionStatus state={attention} />
               <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
                 Export CSV
               </button>
@@ -2292,6 +2309,7 @@ export default function Explore() {
               currencyByAccountId={currencyByAccountId}
               effectiveCatalog={effectiveCatalog}
               onActionApplied={applyEntityActionPatch}
+              attention={attention.flags}
               customMetrics={customMetrics}
               resultFilters={activeView.resultFilters}
               onOpenChildView={openChildViewFromSelection}
@@ -3246,6 +3264,7 @@ function ExploreResultsTable({
   currencyByAccountId,
   effectiveCatalog,
   onActionApplied,
+  attention,
   customMetrics,
   resultFilters,
   onOpenChildView,
@@ -3663,6 +3682,7 @@ function ExploreResultsTable({
               >
                 {row[def.key]}
               </span>
+              <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} />
               <CopyIdButton id={row.entityId} onCopy={copyText} />
             </span>
           ) : (
@@ -4115,6 +4135,7 @@ function ExploreResultsTable({
           renderMetric={renderMetric}
           getTitle={getTitle}
           getSubtitle={getSubtitle}
+          renderTitleExtra={(row) => <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} />}
           sortKey={sortKey}
           sortDir={sortDir}
           onSortChange={(key, dir) => {
