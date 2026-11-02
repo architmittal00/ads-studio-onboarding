@@ -138,6 +138,15 @@ export function TargetIcon(props) {
   );
 }
 
+export function RulesIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z" />
+      <path d="M9 12l2 2 4-4" />
+    </Svg>
+  );
+}
+
 export function DatabaseIcon(props) {
   return (
     <Svg {...props}>
