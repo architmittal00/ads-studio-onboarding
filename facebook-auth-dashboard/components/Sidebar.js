@@ -26,6 +26,7 @@ import {
   TagIcon,
   PlayIcon,
   RulesIcon,
+  PixelIcon,
 } from "./icons";
 
 const LINKS = [
@@ -37,6 +38,7 @@ const LINKS = [
   { href: "/catalog-ads", label: "Catalog Ads", icon: TagIcon },
   { href: "/launch-ad", label: "Launch Ad", icon: PlayIcon },
   { href: "/rules", label: "Rules", icon: RulesIcon },
+  { href: "/pixel", label: "Check your pixel", icon: PixelIcon },
   { href: "/strategy", label: "Figure Out Strategy", icon: TargetIcon },
   { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },
   { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
