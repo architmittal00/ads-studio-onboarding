@@ -107,12 +107,12 @@ export const RULES = [
     name: "Adset Scale ABO -03",
     level: "adset",
     action: "INCREASE_BUDGET",
-    text: "Ad set budget (ABO). 3-day ROAS > 80% of account's; 7-day ROAS > account's; 7-day spend > 4× account's 7-day CPR.",
+    text: "Ad set budget (ABO). 3-day ROAS > 120% of account's; 7-day ROAS > account's; 7-day spend > 4× account's 7-day CPR.",
     check: (s, ctx) => {
       if (!s.abo) return null;
       return {
         conditions: [
-          cond(ctx, "3-day ROAS > 80% of account", s.m[3].roas, "gt", times(ctx.acc[3].roas, 0.8)),
+          cond(ctx, "3-day ROAS > 120% of account", s.m[3].roas, "gt", times(ctx.acc[3].roas, 1.2)),
           cond(ctx, "7-day ROAS > account", s.m[7].roas, "gt", ctx.acc[7].roas),
           cond(ctx, "7-day spend > 4× account CPR", s.m[7].spend, "gt", times(ctx.acc[7].cpr, 4), "money"),
         ],
