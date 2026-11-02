@@ -4,7 +4,7 @@ import { invalidateCachedGets } from "@/lib/cachedGet";
 import { CloseIcon } from "@/components/icons";
 import styles from "@/styles/Home.module.css";
 
-const STEP_PCT = 10;
+export const STEP_PCT = 10;
 
 function money(v, symbol) {
   return `${symbol}${Math.round(v).toLocaleString("en-IN")}`;

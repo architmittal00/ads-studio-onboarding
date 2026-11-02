@@ -21,6 +21,8 @@ const CACHE_MS = 10 * 60 * 1000;
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
 
+const ACTION_TEXT = { INCREASE_BUDGET: "increase budget", DECREASE_BUDGET: "decrease budget", PAUSE_AD: "pause ad" };
+
 const FILTERS = [
   { key: "all", label: "All" },
   { key: "INCREASE_BUDGET", label: "Increase budget" },
@@ -55,6 +57,7 @@ function RulesContent() {
   const [applied, setApplied] = useState({}); // flag key -> short outcome text
   const [acting, setActing] = useState(null);
   const [showRules, setShowRules] = useState(false);
+  const [query, setQuery] = useState("");
   const [steps, setSteps] = useState({}); // check step id -> { done, detail }
   const [thumbs, setThumbs] = useState({}); // ad id -> { thumbnailUrl, isVideo } | null once loaded
   const [lightboxItem, setLightboxItem] = useState(null);
@@ -146,15 +149,31 @@ function RulesContent() {
     };
   }, [result]);
 
+  // Search matches the name, its campaign / ad set, the rule names, the entity type and the action.
+  const searched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const all = result?.flags || [];
+    if (!q) return all;
+    return all.filter((f) =>
+      [f.name, f.campaignName, f.adsetName, f.entityType === "adset" ? "ad set" : f.entityType, ACTION_TEXT[f.action], ...f.matchedRules.map((r) => r.name)].filter(Boolean).join(" ").toLowerCase().includes(q)
+    );
+  }, [result, query]);
+  const searchedHeld = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const all = result?.held || [];
+    if (!q) return all;
+    return all.filter((h) => `${h.name} ${h.ruleNames.join(" ")}`.toLowerCase().includes(q));
+  }, [result, query]);
+
   const counts = useMemo(() => {
     const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0 };
-    for (const f of result?.flags || []) {
+    for (const f of searched) {
       c.all++;
       c[f.action]++;
     }
     return c;
-  }, [result]);
-  const shown = (result?.flags || []).filter((f) => filter === "all" || f.action === filter);
+  }, [searched]);
+  const shown = searched.filter((f) => filter === "all" || f.action === filter);
   const base7 = result?.baseline?.find((b) => b.days === 7);
 
   return (
@@ -220,13 +239,25 @@ function RulesContent() {
                 ))}
               </div>
 
+              {result.flags.length > 0 && (
+                <input
+                  type="search"
+                  className={styles.select}
+                  style={{ width: "100%", marginBottom: 14 }}
+                  placeholder="Search by ad, ad set or campaign name, or by rule…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  aria-label="Search flags"
+                />
+              )}
+
               {result.flags.length === 0 ? (
                 <div className={styles.card}>
                   <p style={{ fontWeight: 700, marginBottom: 4 }}>Nothing flagged ✓</p>
                   <p className={styles.sub}>No active campaign, ad set or ad matches any rule right now.</p>
                 </div>
               ) : shown.length === 0 ? (
-                <p className={styles.sub}>Nothing in this category.</p>
+                <p className={styles.sub}>{query.trim() ? `Nothing matches “${query.trim()}”${filter === "all" ? "" : " in this category"}.` : "Nothing in this category."}</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {shown.map((f) => (
@@ -240,15 +271,15 @@ function RulesContent() {
                   Couldn&apos;t read the account&apos;s recent changes, so the 48-hour budget cool-down wasn&apos;t applied this time — re-check to try again.
                 </p>
               )}
-              {result.held?.length > 0 && (
+              {searchedHeld.length > 0 && (
                 <div className={styles.card} style={{ marginTop: 18 }}>
                   <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-                    Held back — budget changed in the last 48 hours ({result.held.length})
+                    Held back — budget changed in the last 48 hours ({searchedHeld.length})
                   </h2>
                   <p className={styles.sub} style={{ marginBottom: 10 }}>
                     These match a budget rule, but we don&apos;t suggest another budget change so soon after the last one. Give the change time to settle; they&apos;ll show up here or above after 48 hours.
                   </p>
-                  {result.held.map((h) => (
+                  {searchedHeld.map((h) => (
                     <div key={h.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0 }}>
                         <span className={styles.badgeInfo}>{h.entityType === "adset" ? "Ad set" : "Campaign"}</span> <span style={{ fontWeight: 600, fontSize: 13 }}>{h.name}</span>

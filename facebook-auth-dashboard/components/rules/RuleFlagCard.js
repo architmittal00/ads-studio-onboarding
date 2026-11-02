@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronIcon } from "@/components/icons";
 import Thumb from "@/components/Thumb";
+import { STEP_PCT } from "@/components/rules/RuleActionModal";
 import styles from "@/styles/Home.module.css";
 
 const ACTION_META = {
@@ -20,6 +21,8 @@ export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, appli
   const [open, setOpen] = useState(false);
   const meta = ACTION_META[flag.action];
   const subject = TYPE_LABEL[flag.entityType].toLowerCase();
+  // The first suggestion is a STEP_PCT move; the amount can be edited in the confirm window.
+  const suggested = flag.budgetTarget ? Math.max(1, Math.round(flag.budgetTarget.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
   const canApply = flag.action === "PAUSE_AD" || !!flag.budgetTarget;
   return (
     <div className={styles.card} style={{ padding: 0, opacity: applied ? 0.7 : 1, borderLeft: `4px solid ${meta.color}` }}>
@@ -80,10 +83,17 @@ export default function RuleFlagCard({ flag, currencySymbol, accountRoas7, appli
           {applied ? (
             <span style={{ color: "var(--green)", fontWeight: 700, fontSize: 13 }}>✓ {applied}</span>
           ) : canApply ? (
-            <button type="button" className={styles.btnPrimary} onClick={() => onAct(flag)}>
-              {meta.label}
-              {flag.budgetTarget && ` (${money(flag.budgetTarget.current, currencySymbol)}/${flag.budgetTarget.type === "lifetime" ? "life" : "day"})`}
-            </button>
+            <>
+              {flag.budgetTarget && (
+                <span className={styles.muted} style={{ textAlign: "right", fontWeight: 400, fontSize: 12 }}>
+                  Budget now {money(flag.budgetTarget.current, currencySymbol)}/{flag.budgetTarget.type === "lifetime" ? "life" : "day"} →{" "}
+                  <strong style={{ color: "var(--t1)" }}>{money(suggested, currencySymbol)}</strong>
+                </span>
+              )}
+              <button type="button" className={styles.btnPrimary} onClick={() => onAct(flag)}>
+                {flag.budgetTarget ? `${meta.label} by ${STEP_PCT}%` : meta.label}
+              </button>
+            </>
           ) : (
             <span className={styles.muted} style={{ maxWidth: 220, textAlign: "right", fontSize: 12 }}>
               {meta.label} suggested. {flag.budgetNote}
