@@ -84,7 +84,7 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
-> 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route (`/rules`), `lib/rules/*` and `pages/rules.js` keep their names.
+> 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
 ### Pixel tab redesign (2026-11-02)
 Pixel page now matches the other screens: title + labeled pills (ad account, pixel, shared `DateRangeMenu`, reload) header, `.statBar` summary (status, last fired, events, event types), a chart card with event chips (click a row or chip to chart that event), and the shared `SortableTable` with sparklines. Chart colors are tokens.
