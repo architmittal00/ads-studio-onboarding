@@ -1,6 +1,6 @@
 import { RULES } from "./definitions";
 import { WINDOWS, derive, emptyAgg, addInsightsRow } from "./metrics";
-import { isPurchaseOptimized } from "./optimization";
+import { isPurchaseOptimized, isLearning } from "./optimization";
 
 const BUDGET_STEP_NOTE = "Budget changes are suggested at 10% and can be edited before applying.";
 export { BUDGET_STEP_NOTE };
@@ -68,6 +68,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       budget: toMajor(parseFloat(a.daily_budget) > 0 ? a.daily_budget : a.lifetime_budget),
       // Rules only judge ad sets optimized for Purchase / purchase value (lib/rules/optimization.js).
       eligible: isPurchaseOptimized(a),
+      learning: isLearning(a),
       m: metricsOf(adsetAgg, a.id),
     };
   });
@@ -91,6 +92,8 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
   for (const c of campaigns) {
     const own = adsetsByCampaign.get(c.id) || [];
     c.eligible = own.length > 0 && own.every((a) => a.eligible);
+    // A campaign is in learning while any of its ad sets is (a campaign budget change would hit that ad set too).
+    c.learning = own.some((a) => a.learning);
   }
   const eligibleAdsets = adsets.filter((a) => a.eligible);
   const eligibleCampaigns = campaigns.filter((c) => c.eligible);
@@ -118,6 +121,8 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     for (const subject of subjectsByLevel[rule.level]) {
       // Only entities optimized for purchases; and nothing to judge without any delivery in the last 7 days.
       if (!subject.eligible) continue;
+      // Ad sets and campaigns still in Meta's learning phase are not judged (ads follow their own rules).
+      if (subject.learning) continue;
       if (!(subject.m[7].spend > 0)) continue;
       const result = rule.check(subject, ctx);
       if (!result || result.conditions.length === 0) continue;
@@ -205,6 +210,8 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       adsets: adsets.length,
       ads: ads.length,
       // Active entities the rules did not judge because they are not optimized for purchases.
+      // Eligible ad sets / campaigns held back because Meta still has them in the learning phase.
+      learning: { campaigns: eligibleCampaigns.filter((c) => c.learning).length, adsets: eligibleAdsets.filter((a) => a.learning).length },
       skipped: { campaigns: campaigns.length - eligibleCampaigns.length, adsets: adsets.length - eligibleAdsets.length, ads: ads.filter((a) => !a.eligible).length },
     },
     flags,

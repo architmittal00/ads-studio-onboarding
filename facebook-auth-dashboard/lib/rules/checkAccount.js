@@ -4,7 +4,7 @@ import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 import { WINDOWS } from "@/lib/rules/metrics";
 import { evaluateAccount } from "@/lib/rules/engine";
 import { toLeanFlag, currencySymbolOf } from "@/lib/rules/leanFlag";
-import { ADSET_OPTIMIZATION_FIELDS } from "@/lib/rules/optimization";
+import { ADSET_OPTIMIZATION_FIELDS, ADSET_LEARNING_FIELDS } from "@/lib/rules/optimization";
 
 // The one place an ad account is fetched and run through the rules (lib/rules/definitions.js). Used by
 // the Rules page and by the "needs attention" marks in Custom Views — through /api/fb/rules/check — so a
@@ -98,7 +98,7 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
     "structure",
     Promise.all([
       graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
-      graphGetAllPages(`/${accountId}/adsets`, token, { fields: `id,name,campaign_id,daily_budget,lifetime_budget,${ADSET_OPTIMIZATION_FIELDS}`, filtering: ACTIVE_FILTER, limit: 500 }),
+      graphGetAllPages(`/${accountId}/adsets`, token, { fields: `id,name,campaign_id,daily_budget,lifetime_budget,${ADSET_OPTIMIZATION_FIELDS},${ADSET_LEARNING_FIELDS}`, filtering: ACTIVE_FILTER, limit: 500 }),
       needAds ? graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id", filtering: ACTIVE_FILTER, limit: 500 }) : Promise.resolve({ data: [] }),
     ]),
     ([c, a, d]) => `${(c.data || []).length} campaigns · ${(a.data || []).length} ad sets · ${(d.data || []).length} ads`
