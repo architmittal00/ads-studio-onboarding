@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Recommendations: CPC, CTR and conversion rate use link clicks (2026-11-03)
+
+The rules engine pulled Meta's `clicks` (all clicks, including reactions and profile taps) and derived CPC, CTR and conversion rate from it, while Custom Views and Ads Manager's "CPC (link click)" use `inline_link_clicks`. `lib/rules/metrics.js` now sums `inline_link_clicks` (`linkClicks`) and `checkAccount.js` requests that field instead of `clicks`. Affects Pause ad -05 (CPC), Pause Ad -06 (CTR) and Pause ad -3 (conversion rate): the figures, for the entity and the account baseline alike, now match Custom Views. Cached results (30 min) keep the old numbers until refreshed. Not checked against a real account.
+
 ### Custom Views: no needless page scroll beside the query panel (2026-11-03)
 
 Follow-up to the item below, which wasn't enough. The query panel's height cap grew as the page scrolled, and the panel sets the grid row's height when the result column is short, so scrolling made the page taller and allowed more scrolling (an empty view could scroll by the whole header's height). When the result column fits the viewport by itself, the panel's cap is now held at what fits from its resting position, so the page doesn't scroll; with a long result the cap still grows as before. Re-evaluated when the result column resizes. Desktop only; not checked against a real account.

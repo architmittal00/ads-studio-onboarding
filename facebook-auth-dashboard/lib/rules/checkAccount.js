@@ -120,7 +120,7 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
         token,
         {
           level,
-          fields: `${level === "ad" ? "ad_id," : ""}adset_id,campaign_id,spend,impressions,clicks,actions,action_values`,
+          fields: `${level === "ad" ? "ad_id," : ""}adset_id,campaign_id,spend,impressions,inline_link_clicks,actions,action_values`,
           time_range: { since: range.since, until: range.until },
           limit: 500,
         },
