@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Custom Views: Total row follows the live result filters (2026-11-03)
+
+Status, needs-attention and metric-threshold filters hide rows instantly on the client, but the Total row stayed at the server's all-rows figure. Each result row now also carries `_totalsInputs` (`totalsInputsOf` in `lib/insightsMetrics.js`: just the raw fields the selected metrics' totals read, with `actions`/`action_values` trimmed to the action types they look at), and `ExploreResultsTable` re-runs `aggregateRowMetrics` over the rows still showing, so ratios (ROAS, CPC, CTR, cost per purchase...) are re-derived from summed parts, not averaged. Set Budget is re-summed per entity. With no filter, or on an older cached result without those inputs, the server's total is shown unchanged. A filtered Total shows no previous-period comparison. Metrics with no total (e.g. Reach) stay blank. Checked with a script (trimmed inputs reproduce the full total; a two-row subset gives the right sums); not checked against a real account.
+
 ### Recommendations: Pause ad -3 also needs 7-day ROAS below the account's (2026-11-03)
 
 Added the condition "7-day ROAS < account" (the account's own 7-day ROAS, the same baseline every other rule uses) to Pause ad -3 in `lib/rules/definitions.js`. The rule now needs all four: conversion rate < 50% of account, ROAS below account, spend ≥ 3× account CPR, fewer than 50 purchases. Not checked against a real account.

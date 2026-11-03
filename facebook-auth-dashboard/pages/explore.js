@@ -39,6 +39,7 @@ import {
   formatMetricValue,
   buildEffectiveCatalog,
   humanizeStatus,
+  aggregateRowMetrics,
 } from "@/lib/insightsMetrics";
 import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_COLORS } from "@/lib/tabGroups";
 import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount, formatTimeZoneLabel } from "@/lib/dateRanges";
@@ -3614,6 +3615,42 @@ function ExploreResultsTable({
   // (so selecting "Campaign X" means exactly that, not each of its date
   // rows separately), the plain fetched rows otherwise.
   const topLevelRows = timePivotEnabled ? pivotParentRows : rows;
+
+  // The Total row follows the live result filters: with some rows filtered out it is re-summed from just the
+  // remaining ones (from each row's raw inputs, the same way the server totals them — ratios are re-derived
+  // from summed parts, never averaged). Falls back to the server's total when nothing is filtered, or when
+  // a row (e.g. from an older cached result) carries no inputs. The previous-period comparison isn't
+  // recomputed, so a filtered Total shows none.
+  const totalsRow = useMemo(() => {
+    const base = meta.totalsRow;
+    if (!base || rows.length === meta.rowCount) return base;
+    if (rows.length === 0 || rows.some((r) => !r._totalsInputs)) return base;
+    const eventsByAccount = new Map();
+    for (const ce of childCustomEvents) {
+      if (!eventsByAccount.has(ce.accountId)) eventsByAccount.set(ce.accountId, []);
+      eventsByAccount.get(ce.accountId).push(ce);
+    }
+    const entries = rows.map((r) => ({ row: r._totalsInputs, customEvents: eventsByAccount.get(r.accountId) || [] }));
+    const totals = aggregateRowMetrics(entries, meta.metricKeys, childMetricDefs);
+    const { _previous, _deltaPct, ...rest } = base;
+    const out = { ...rest, ...totals };
+    // Set Budget adds each entity once (a time-grouped result repeats an entity on every date).
+    if (meta.metricKeys.includes("set_budget")) {
+      const seen = new Set();
+      let sum = 0;
+      let any = false;
+      for (const r of rows) {
+        if (!r.entityId || seen.has(r.entityId)) continue;
+        seen.add(r.entityId);
+        if (typeof r.set_budget === "number") {
+          sum += r.set_budget;
+          any = true;
+        }
+      }
+      out.set_budget = any ? sum : null;
+    }
+    return out;
+  }, [meta, rows, childCustomEvents, childMetricDefs]);
   const selectableRows = topLevelRows.filter((r) => r.entityId);
   // Deduplicated — a breakdown (e.g. Age & Gender) can repeat the same
   // entity across several rows, and selection is keyed by entity id, not
@@ -4245,7 +4282,7 @@ function ExploreResultsTable({
           sortColumns={sortColumns}
           statusAvailable={!!meta.statusAvailable}
           thumbsPending={!meta.thumbnailsFetched}
-          totalsRow={showTotalsRow ? meta.totalsRow : null}
+          totalsRow={showTotalsRow ? totalsRow : null}
           renderMetric={renderMetric}
           getTitle={getTitle}
           getSubtitle={getSubtitle}
@@ -4321,7 +4358,7 @@ function ExploreResultsTable({
 
   return (
     <div>
-      {(selectedIds.size > 0 || meta.totalsRow) && (
+      {(selectedIds.size > 0 || totalsRow) && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {selectedIds.size > 0 && (
@@ -4384,7 +4421,7 @@ function ExploreResultsTable({
               </>
             )}
           </div>
-          {meta.totalsRow && (
+          {totalsRow && (
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--t2)", cursor: "pointer" }}>
               <input type="checkbox" checked={showTotalsRow} onChange={(e) => setShowTotalsRow(e.target.checked)} />
               Show Total row
@@ -4424,7 +4461,7 @@ function ExploreResultsTable({
             onTableViewChange?.({ tableColOrder: order });
           }}
           onFirstColFrozenChange={(frozen) => onTableViewChange?.({ tableFirstColFrozen: frozen })}
-          pinnedRow={showTotalsRow ? meta.totalsRow || undefined : undefined}
+          pinnedRow={showTotalsRow ? totalsRow || undefined : undefined}
           highlightRow={(row) => !!row.entityId && selectedIds.has(row.entityId)}
         />
       </div>
