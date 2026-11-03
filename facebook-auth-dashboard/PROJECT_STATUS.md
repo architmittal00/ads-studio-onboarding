@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Hotfix: Custom Views crashed on load (2026-11-03)
+
+The name-columns change (#450) used `NAME_METRIC_KEYS` in `pages/explore.js` without importing it, so `/explore` threw "NAME_METRIC_KEYS is not defined" once that build went live. Import added. Lesson: the default lint run doesn't flag undefined identifiers here; check edited files with `npx eslint --rule '{"no-undef":"error"}' <files>` (clean across all files touched this session).
+
 ### Custom Views: bulk "Pause N Ads", in batches (2026-11-03)
 
 Select ads in Custom Views (Ad level, including ads drilled into) and a **Pause N Ads** button (just **Pause** on a phone) sits beside Duplicate; only selected ads that are currently Active are counted. It asks to confirm, then pauses them through Meta's Batch API: new `pages/api/fb/entity-action-batch.js` (up to 50 ids per Graph call, a result per ad so a few failures don't stop the rest) driven by `lib/batchPause.js` (50 per request, two requests at a time, progress shown). Paused rows flip to Paused in the table at once. Works across ad accounts (no single-account limit like Duplicate). The Recommendations bulk "Pause N ads" now uses the same batching instead of one request per ad. Not checked against a real account (the Graph batch response shape is from Meta's docs).
