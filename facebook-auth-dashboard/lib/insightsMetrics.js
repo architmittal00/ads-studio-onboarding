@@ -624,7 +624,16 @@ export const METRIC_CATALOG = [
   // synchronous drill-down/expand path, which already fetches ad creative
   // details for its thumbnail).
   { key: "landing_page", label: "Landing Page", group: "Creative", format: "text", fields: [], extract: () => null },
+
+  // The parent names are already part of every Ad set / Ad level pull (LEVEL_EXTRA_FIELDS), so these are plain
+  // text columns with nothing extra to fetch. A campaign row has no parent above it, so there they stay blank
+  // (the picker dims them, see pages/explore.js). No `aggregate`: a Total row has no single campaign / ad set.
+  { key: "campaign_name", label: "Campaign name", group: "Names", format: "text", fields: ["campaign_name"], extract: (r) => r.campaign_name ?? null },
+  { key: "adset_name", label: "Ad set name", group: "Names", format: "text", fields: ["adset_name"], extract: (r) => r.adset_name ?? null },
 ];
+
+// Text columns holding an entity's name: left-aligned, wider, sorted alphabetically.
+export const NAME_METRIC_KEYS = new Set(["campaign_name", "adset_name"]);
 
 export function getMetric(key) {
   return METRIC_CATALOG.find((m) => m.key === key);

@@ -232,7 +232,7 @@ const MAX_RANGE_DAYS = 90;
 // fetched via a separate entity lookup Explore does but this page doesn't),
 // so it would always render "—" here. Left out of this page's metric picker
 // entirely rather than offered as a column that can never show a value.
-const PICKER_METRIC_CATALOG = METRIC_CATALOG.filter((m) => m.key !== "budget" && m.key !== "set_budget");
+const PICKER_METRIC_CATALOG = METRIC_CATALOG.filter((m) => m.key !== "budget" && m.key !== "set_budget" && m.group !== "Names");
 const METRIC_COLUMN_WIDTH = { currency: 115, percent: 90, decimal: 90, number: 100, text: 150 };
 
 // Cross-account ad cloning: pick ads already running in one ad account and

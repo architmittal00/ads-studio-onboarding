@@ -3095,18 +3095,25 @@ export default function Explore() {
                         // — a landing page only exists on an ad's own
                         // creative, nothing above it.
                         const landingPageUnavailable = m.key === "landing_page" && activeView.level !== "ad";
+                        // A parent's name needs a parent: none above a campaign, and no ad set above an ad set.
+                        const nameUnavailable =
+                          (m.key === "campaign_name" && !["adset", "ad"].includes(activeView.level)) || (m.key === "adset_name" && activeView.level !== "ad");
                         // Still toggleable (so an already-selected one can be
                         // turned off), but visually flagged — it'll be
                         // silently absent from the result anyway once a
                         // filter forces a rollup.
-                        return (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable || landingPageUnavailable;
+                        return (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable || landingPageUnavailable || nameUnavailable;
                       }}
                       unavailableTitle={(m) =>
                         (m.key === "budget" || m.key === "set_budget") && activeView.level !== "campaign" && activeView.level !== "adset"
                           ? "Only available at Campaign or Ad Set level"
                           : m.key === "landing_page" && activeView.level !== "ad"
                             ? "Only available at Ad level"
-                            : "Not available while a name filter requires combining finer-grained data"
+                            : m.key === "campaign_name"
+                              ? "Only available at Ad Set or Ad level"
+                              : m.key === "adset_name"
+                                ? "Only available at Ad level"
+                                : "Not available while a name filter requires combining finer-grained data"
                       }
                     />
                     <div style={{ marginTop: 14 }}>
@@ -3890,12 +3897,12 @@ function ExploreResultsTable({
       return {
         key,
         label,
-        align: key === "landing_page" ? "left" : "right",
+        align: key === "landing_page" || NAME_METRIC_KEYS.has(key) ? "left" : "right",
         // The landing-page link label is up to ~40 chars on one line: its column
         // needs room for that (wider on Windows, where text renders larger), and
         // the link itself ellipsizes if the column is dragged narrower.
-        maxWidth: key === "landing_page" ? 320 : METRIC_COLUMN_WIDTH[format] || METRIC_COLUMN_WIDTH.number,
-        sortValue: (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
+        maxWidth: key === "landing_page" ? 320 : NAME_METRIC_KEYS.has(key) ? 260 : METRIC_COLUMN_WIDTH[format] || METRIC_COLUMN_WIDTH.number,
+        sortValue: NAME_METRIC_KEYS.has(key) ? (row) => String(row[key] ?? "").toLowerCase() : (row) => (typeof row[key] === "number" ? row[key] : -Infinity),
         render: (row) => {
           // A link, not plain formatted text — formatMetricValue has no
           // concept of "this text is a URL," and the row's own full URL
