@@ -89,6 +89,9 @@ No open PRs. Everything described below is merged and live.
 ### Pixel tab redesign (2026-11-02)
 Pixel page now matches the other screens: title + labeled pills (ad account, pixel, shared `DateRangeMenu`, reload) header, `.statBar` summary (status, last fired, events, event types), a chart card with event chips (click a row or chip to chart that event), and the shared `SortableTable` with sparklines. Chart colors are tokens.
 
+### Custom Views: "Set Budget" metric (2026-11-03)
+New metric `set_budget` next to Budget (Campaign / Ad Set levels). Ad set: its own daily budget. Campaign: its own daily budget if CBO; if ABO, the SUM of the daily budgets of its active ad sets (one `/{act}/adsets` listing per account, `fetchActiveAdsetBudgetSums` in `pages/api/fb/explore-insights.js`, only when the metric is selected). Entities on a lifetime budget show "—" (can't be summed with daily ones). The Total row adds each entity once (a day-grouped result repeats entities). Copy Ads' picker excludes it like Budget. Not tested against a live account.
+
 ### Custom Views: Total row formatting fix (2026-11-03)
 The Total row's money cells showed raw numbers (18507084.03) because the row has no account to read a currency from; they now use the result's shared currency (none if the accounts' currencies differ). The first Account-level totals change had also put a made-up `accountId: "Total"` on the row, which would have hidden the currency; the client now shows "Total" in the Account column itself.
 
