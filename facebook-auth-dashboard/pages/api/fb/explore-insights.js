@@ -901,9 +901,10 @@ export default async function handler(req, res) {
   let totalsRow = null;
   if (allCurrentEntries.length > (level === "account" ? 1 : 0)) {
     const totals = aggregateRowMetrics(allCurrentEntries, effectiveMetricKeys, cleanCustomMetrics);
-    // `date` / `accountId` stand in for the name column when that is the table's first column
-    // (Account level has no name column: just Date and/or Account).
-    totalsRow = { label: "Total", entityLabel: "Total", ...(level === "account" ? { date: "Total", accountId: "Total" } : {}), ...totals };
+    // `date` stands in for the name column when that is the table's first column (Account level has no
+    // name column: just Date and/or Account). No `accountId` here: the client reads it to pick the
+    // currency, and a made-up one would leave the amounts unformatted.
+    totalsRow = { label: "Total", entityLabel: "Total", ...(level === "account" ? { date: "Total" } : {}), ...totals };
     if (compareToPrevious) {
       const previousTotals = aggregateRowMetrics(allPreviousEntries, effectiveMetricKeys, cleanCustomMetrics);
       totalsRow._previous = previousTotals;
