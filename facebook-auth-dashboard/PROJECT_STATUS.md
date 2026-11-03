@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Recommendations: Pause ad -3 also needs 7-day ROAS below the account's (2026-11-03)
+
+Added the condition "7-day ROAS < account" (the account's own 7-day ROAS, the same baseline every other rule uses) to Pause ad -3 in `lib/rules/definitions.js`. The rule now needs all four: conversion rate < 50% of account, ROAS below account, spend ≥ 3× account CPR, fewer than 50 purchases. Not checked against a real account.
+
 ### Recommendations: ad sets and campaigns in learning are not judged (2026-11-03)
 
 Ad sets Meta reports as in the learning phase (`learning_stage_info.status = LEARNING`) no longer get ad-set rules, and neither does a campaign while any of its ad sets is learning (campaigns have no learning state of their own). The field is read in the existing ad set list call (`lib/rules/optimization.js` `ADSET_LEARNING_FIELDS`/`isLearning`, applied in `engine.js`), so it adds no request and no wait. Ads are unaffected. The header shows "In learning, not judged: N ad sets · M campaigns". Applies to Custom Views "!" marks too since they share the engine. "Learning limited" ad sets are still judged. Not checked against a real account.
