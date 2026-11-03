@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { invalidateCachedGets } from "@/lib/cachedGet";
+import { pauseInBatches } from "@/lib/batchPause";
 import { CloseIcon } from "@/components/icons";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
 import styles from "@/styles/Home.module.css";
@@ -35,6 +36,22 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
   async function run() {
     setStep("running");
     setProgress(0);
+    // Pausing goes in batches of 50 (one Graph call each) instead of one request per ad.
+    if (isPause) {
+      const results = await pauseInBatches(
+        flags.map((f) => f.entityId),
+        (done) => setProgress(done)
+      );
+      const outPause = flags.map((f) => {
+        const r = results.get(f.entityId);
+        return r?.ok ? { key: f.key, name: f.name, ok: true, text: "Paused" } : { key: f.key, name: f.name, ok: false, error: r?.error || "Not paused" };
+      });
+      invalidateCachedGets();
+      setResults(outPause);
+      setStep("done");
+      onDone(outPause);
+      return;
+    }
     const out = new Array(flags.length);
     let next = 0;
     async function worker() {
@@ -77,7 +94,7 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
         {step === "confirm" && (
           <>
             {isPause ? (
-              <p className={styles.sub} style={{ marginBottom: 10 }}>These ads will be paused on Meta right away. You can turn them back on from Custom Views or Ads Manager.</p>
+              <p className={styles.sub} style={{ marginBottom: 10 }}>These ads will be paused on Meta right away, in batches of 50. You can turn them back on from Custom Views or Ads Manager.</p>
             ) : (
               <>
                 <label className={styles.sub} style={{ display: "block", marginBottom: 6 }}>

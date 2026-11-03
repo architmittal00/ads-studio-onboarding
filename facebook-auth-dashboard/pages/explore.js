@@ -18,10 +18,11 @@ import CopyIdButton from "@/components/CopyIdButton";
 import MetricPicker from "@/components/MetricPicker";
 import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import BulkDuplicateAdsModal from "@/components/BulkDuplicateAdsModal";
+import BulkPauseAdsModal from "@/components/BulkPauseAdsModal";
 import LowBalanceBadge from "@/components/LowBalanceBadge";
 import { AttentionMark, AttentionStatus, AttentionPopover } from "@/components/rules/RuleAttention";
 import { useRuleAttention, attentionKey, clearRuleCaches } from "@/lib/rules/useRuleAttention";
-import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon, RefreshIcon, MoreIcon, FilterIcon, PlusIcon } from "@/components/icons";
+import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon, RefreshIcon, MoreIcon, FilterIcon, PlusIcon, PauseIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
 import { getCachedEntry, setCachedEntry, clearCachedEntry, formatAge } from "@/lib/clientCache";
 import {
@@ -3424,6 +3425,7 @@ function ExploreResultsTable({
   // the modal reads `selectedRows`/`accountId` directly off this component's
   // own render, no need to snapshot them into this state too.
   const [bulkDuplicating, setBulkDuplicating] = useState(false);
+  const [bulkPausing, setBulkPausing] = useState(false);
   // Defaults on — most views benefit from seeing the Total at a glance —
   // but some people want the table to just be the rows, so it's a toggle,
   // not forced. Local to this one render of the table, same as every other
@@ -3688,6 +3690,15 @@ function ExploreResultsTable({
   // explained in a tooltip" way as every other unavailable bulk action here,
   // rather than silently dropping the out-of-account ads from the batch.
   const selectedRows = [...selection.rows.values()];
+  // Only ads that are running can be paused; an already-paused or off ad in the selection is left out.
+  // Paused ads show as Paused straight away, whether they are top-level rows or drilled-into children.
+  function markAdsPaused(ids) {
+    for (const id of ids) {
+      onActionApplied?.(id, { status: "PAUSED" });
+      applyChildActionPatch?.(id, { status: "PAUSED" });
+    }
+  }
+  const pausableAds = selectedRows.filter((r) => r.entityId && r.status === "ACTIVE").map((r) => ({ id: r.entityId, name: r.entityLabel || r.label || r.entityId }));
   const selectedAccountIds = [...new Set(selectedRows.map((r) => r.accountId))];
 
   function startFetch(row, childLevel) {
@@ -4284,6 +4295,11 @@ function ExploreResultsTable({
             Duplicate
           </button>
         )}
+        {selectedLevel === "ad" && pausableAds.length > 0 && (
+          <button type="button" className={styles.btnSecondary} onClick={() => setBulkPausing(true)}>
+            Pause
+          </button>
+        )}
         <button type="button" className={styles.btnSecondary} onClick={() => copyText([...selectedIds].join(", "))}>
           Copy IDs
         </button>
@@ -4371,6 +4387,13 @@ function ExploreResultsTable({
             onClose={() => setBulkDuplicating(false)}
           />
         )}
+        {bulkPausing && (
+          <BulkPauseAdsModal
+            ads={pausableAds}
+            onClose={() => setBulkPausing(false)}
+            onPaused={markAdsPaused}
+          />
+        )}
       </div>
     );
   }
@@ -4429,6 +4452,12 @@ function ExploreResultsTable({
                   >
                     <CopyIcon size={11} />
                     Duplicate {selectedIds.size} Ad{selectedIds.size === 1 ? "" : "s"}
+                  </button>
+                )}
+                {selectedLevel === "ad" && pausableAds.length > 0 && (
+                  <button type="button" className={styles.btnSecondary} onClick={() => setBulkPausing(true)} title="Pause the selected ads that are running">
+                    <PauseIcon size={11} />
+                    Pause {pausableAds.length} Ad{pausableAds.length === 1 ? "" : "s"}
                   </button>
                 )}
                 <button type="button" className={styles.btnSecondary} onClick={() => copyText([...selectedIds].join(", "))}>
@@ -4498,6 +4527,13 @@ function ExploreResultsTable({
           accountId={selectedAccountIds[0]}
           currency={currencyByAccountId.get(selectedAccountIds[0])}
           onClose={() => setBulkDuplicating(false)}
+        />
+      )}
+      {bulkPausing && (
+        <BulkPauseAdsModal
+          ads={pausableAds}
+          onClose={() => setBulkPausing(false)}
+          onPaused={markAdsPaused}
         />
       )}
     </div>
