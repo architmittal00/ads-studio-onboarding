@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import styles from "@/styles/Home.module.css";
-import { ChartIcon, HandshakeIcon, TagIcon } from "./icons";
+import { ChartIcon, HandshakeIcon, TagIcon, RulesIcon } from "./icons";
 
-// The three screens that work on a phone. Each is a whole app of its own with
+// The screens that work on a phone. Each is a whole app of its own with
 // its own sub-navigation, so they live in a thumb-reach bar instead of the
 // desktop rail. Path prefixes keep sub-pages (e.g. /partnership-ads/queue)
 // highlighting their parent.
@@ -11,6 +11,7 @@ export const MOBILE_NAV = [
   { href: "/explore", label: "Views", title: "Custom Views", icon: ChartIcon },
   { href: "/partnership-ads", label: "Partners", title: "Partnership Ads", icon: HandshakeIcon },
   { href: "/catalog-ads", label: "Catalog", title: "Catalog Ads", icon: TagIcon },
+  { href: "/rules", label: "Rules", title: "Rules", icon: RulesIcon },
 ];
 
 export function mobileNavFor(pathname) {

@@ -6,6 +6,9 @@ import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import AccountSelect from "@/components/AccountSelect";
 import FlagTable from "@/components/rules/FlagTable";
+import FlagCards from "@/components/rules/FlagCards";
+import { MobileContextBar, MobileIconBtn, MobileChips, PickerSheet } from "@/components/mobile/MobileChrome";
+import { useIsMobile } from "@/lib/useIsMobile";
 import BulkRuleActionModal from "@/components/rules/BulkRuleActionModal";
 import LabeledPill from "@/components/LabeledPill";
 import RuleActionModal from "@/components/rules/RuleActionModal";
@@ -70,7 +73,10 @@ function RulesContent() {
   const [thumbs, setThumbs] = useState({}); // ad id -> { thumbnailUrl, isVideo } | null once loaded
   const [lightboxItem, setLightboxItem] = useState(null);
 
-  const tz = adAccounts.find((a) => a.id === selectedAccountId)?.timezone_name;
+  const isMobile = useIsMobile();
+  const [pickingAccount, setPickingAccount] = useState(false);
+  const selectedAccount = adAccounts.find((a) => a.id === selectedAccountId);
+  const tz = selectedAccount?.timezone_name;
 
   async function run(accountId, force = false) {
     if (!accountId) return;
@@ -188,7 +194,29 @@ function RulesContent() {
     <>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1600, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+          {isMobile && (
+            <MobileContextBar
+              title={selectedAccount?.name || "Select an ad account"}
+              sub={result ? `Checked ${new Date(result.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${savedNote ? ` · saved ${savedNote}` : ""}` : "Rules check"}
+              onOpen={() => setPickingAccount(true)}
+            >
+              <MobileIconBtn label="Hard refresh" onClick={() => run(selectedAccountId, true)} disabled={loading || !selectedAccountId} spinning={loading}>
+                <RefreshIcon size={16} />
+              </MobileIconBtn>
+            </MobileContextBar>
+          )}
+          {isMobile && pickingAccount && (
+            <PickerSheet
+              open
+              title="Ad account"
+              options={adAccounts.map((a) => ({ id: a.id, name: a.name, sub: a.id }))}
+              value={selectedAccountId}
+              onPick={setSelectedAccountId}
+              onClose={() => setPickingAccount(false)}
+              searchPlaceholder="Search ad accounts"
+            />
+          )}
+          <div className={isMobile ? styles.hideOnMobile : undefined} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
             <div>
               <h1 className={styles.h1} style={{ margin: 0 }}>
                 Rules
@@ -221,7 +249,7 @@ function RulesContent() {
               </button>
             </div>
           </div>
-          {result && (
+          {result && !isMobile && (
             <span className={styles.muted}>
               Checked {new Date(result.generatedAt).toLocaleTimeString()}
               {savedNote ? ` (saved result, ${savedNote})` : ""} · data up to {result.windowEnd}
@@ -233,8 +261,8 @@ function RulesContent() {
 
           {result && (
             <>
-              <div className={styles.statBar}>
-                <div className={styles.stat} style={{ flex: "1.6 1 220px" }}>
+              <div className={styles.statBar} style={isMobile ? { flexWrap: "nowrap", overflowX: "auto" } : undefined}>
+                <div className={styles.stat} style={{ flex: isMobile ? "0 0 220px" : "1.6 1 220px" }}>
                   <div className={styles.statLabel}>Account</div>
                   <div className={styles.statValue} style={{ fontSize: 15 }}>
                     {result.accountName}
@@ -249,7 +277,7 @@ function RulesContent() {
                   )}
                 </div>
                 {result.baseline.map((b) => (
-                  <div key={b.days} className={styles.stat}>
+                  <div key={b.days} className={styles.stat} style={isMobile ? { flex: "0 0 120px" } : undefined}>
                     <div className={styles.statLabel}>{b.days}-day ROAS</div>
                     <div className={styles.statValue}>{b.roas != null ? b.roas.toFixed(2) : "—"}</div>
                     <div className={styles.muted} style={{ marginTop: 4 }}>
@@ -259,7 +287,10 @@ function RulesContent() {
                 ))}
               </div>
 
-              <div className={styles.statBar}>
+              {isMobile && (
+                <MobileChips tabs={FILTERS.map((f) => ({ key: f.key, label: `${f.label} (${counts[f.key]})`, short: `${f.key === "all" ? "All" : f.label.replace(" budget", "").replace(" ads", "")} ${counts[f.key]}` }))} active={filter} onChange={setFilter} label="Filter flags" />
+              )}
+              <div className={isMobile ? `${styles.statBar} ${styles.hideOnMobile}` : styles.statBar}>
                 {FILTERS.map((f) => (
                   <button key={f.key} type="button" className={styles.stat} aria-pressed={filter === f.key} onClick={() => setFilter(f.key === filter ? "all" : f.key)} style={filter === f.key ? { background: "rgba(var(--purple-rgb), 0.08)" } : undefined}>
                     <div className={styles.statLabel}>{f.label}</div>
@@ -270,7 +301,7 @@ function RulesContent() {
                 ))}
               </div>
 
-              {selected.size > 0 && (
+              {!isMobile && selected.size > 0 && (
                 <div className={styles.card} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 14px" }}>
                   <strong style={{ fontSize: 13 }}>{selected.size} selected</strong>
                   {BULK_ACTIONS.map((a) => {
@@ -295,6 +326,17 @@ function RulesContent() {
               ) : shown.length === 0 ? (
                 <p className={styles.sub}>Nothing in this category.</p>
               ) : (
+                isMobile ? (
+                  <FlagCards
+                    flags={shown}
+                    currencySymbol={result.currencySymbol}
+                    accountRoas7={base7?.roas ?? null}
+                    applied={applied}
+                    thumbs={thumbs}
+                    onAct={setActing}
+                    onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
+                  />
+                ) : (
                 <section className={styles.card}>
                   <FlagTable
                     flags={shown}
@@ -325,6 +367,7 @@ function RulesContent() {
                     onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
                   />
                 </section>
+                )
               )}
 
               {!result.heldChecked && (
