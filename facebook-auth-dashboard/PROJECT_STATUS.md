@@ -89,6 +89,9 @@ No open PRs. Everything described below is merged and live.
 ### Pixel tab redesign (2026-11-02)
 Pixel page now matches the other screens: title + labeled pills (ad account, pixel, shared `DateRangeMenu`, reload) header, `.statBar` summary (status, last fired, events, event types), a chart card with event chips (click a row or chip to chart that event), and the shared `SortableTable` with sparklines. Chart colors are tokens.
 
+### Custom Views: Total row at Account level too (2026-11-03)
+`/api/fb/explore-insights` only built `meta.totalsRow` for non-account levels. It now also builds it for an Account-level result with more than one row (daily / weekly / monthly grouping, or several accounts), with "Total" in the Date / Account column. Same rules as everywhere else: sums with ratios re-derived, non-additive metrics (reach, frequency) stay blank. Results cached before this shipped show it after a Hard Refresh.
+
 ### Pixel tab: loader when the range changes (2026-11-03)
 Changing the date range (or pixel) over existing results now shows a loader over them: a blurred overlay with "Loading events for <range>…" on desktop, the same `.mvRerunBar` pill + dimmed results Custom Views uses on a phone. (Before, the results just faded with nothing saying why.)
 
