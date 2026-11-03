@@ -3051,7 +3051,7 @@ export default function Explore() {
                         // rollup-unavailable metric below, rather than
                         // blocked outright, since switching Level with it
                         // already selected shouldn't silently drop it.
-                        const budgetUnavailable = m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset";
+                        const budgetUnavailable = (m.key === "budget" || m.key === "set_budget") && activeView.level !== "campaign" && activeView.level !== "adset";
                         // Same "still toggleable, visually dimmed" treatment
                         // — a landing page only exists on an ad's own
                         // creative, nothing above it.
@@ -3063,7 +3063,7 @@ export default function Explore() {
                         return (willRollup && REACH_DEPENDENT_METRIC_KEYS.has(m.key)) || budgetUnavailable || landingPageUnavailable;
                       }}
                       unavailableTitle={(m) =>
-                        m.key === "budget" && activeView.level !== "campaign" && activeView.level !== "adset"
+                        (m.key === "budget" || m.key === "set_budget") && activeView.level !== "campaign" && activeView.level !== "adset"
                           ? "Only available at Campaign or Ad Set level"
                           : m.key === "landing_page" && activeView.level !== "ad"
                             ? "Only available at Ad level"

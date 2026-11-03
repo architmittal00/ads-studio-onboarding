@@ -145,6 +145,12 @@ export const METRIC_CATALOG = [
   // (budget-less) ad sets showing up together in one view have no honest way
   // to be summed without double-counting, same reasoning as Reach.
   { key: "budget", label: "Budget", group: "Delivery", format: "currency", fields: [], extract: () => null },
+  // Same out-of-band shape as `budget` (injected per row by explore-insights once the entity lookups
+  // resolve). The difference: an ABO campaign has no budget of its own, so its Set Budget is the sum of
+  // the DAILY budgets of its active ad sets (a CBO campaign shows its own budget, an ad set its own),
+  // and the Total row adds the rows up. Daily budgets only: a lifetime budget can't be summed with
+  // them, so an entity on a lifetime budget shows "—".
+  { key: "set_budget", label: "Set Budget", group: "Delivery", format: "currency", fields: [], extract: () => null },
   {
     key: "impressions",
     label: "Impressions",

@@ -168,6 +168,30 @@ async function fetchEntityStatuses(ids, token) {
   return statusById;
 }
 
+// campaign id -> summed DAILY budget (major units) of its active ad sets, across the given accounts. Powers the
+// "Set Budget" metric for campaigns that have no budget of their own (ABO). One paginated listing per account.
+async function fetchActiveAdsetBudgetSums(accountIds, token) {
+  const sums = {};
+  const lists = await Promise.allSettled(
+    accountIds.map((accountId) =>
+      graphGetAllPages(`/${accountId}/adsets`, token, {
+        fields: "campaign_id,daily_budget",
+        filtering: [{ field: "effective_status", operator: "IN", value: ["ACTIVE", "IN_PROCESS"] }],
+        limit: 500,
+      })
+    )
+  );
+  for (const list of lists) {
+    if (list.status !== "fulfilled") continue;
+    for (const a of list.value.data || []) {
+      const daily = toMajorUnits(a.daily_budget);
+      if (!a.campaign_id || daily == null) continue;
+      sums[a.campaign_id] = (sums[a.campaign_id] || 0) + daily;
+    }
+  }
+  return sums;
+}
+
 // Same batched-lookup shape as fetchEntityStatuses above, for the budget
 // fields the Explore row-actions feature needs to know what's even
 // adjustable from a given row. Only ever called for campaign/adset ids (see
@@ -928,10 +952,14 @@ export default async function handler(req, res) {
   // Each one soft-fails on its own (see the per-block notes below).
   const lookupIds = [...new Set(rows.map((r) => r.entityId).filter(Boolean))];
   const softFail = (promise, fallback) => promise.catch(() => fallback);
-  const [statusById, budgetById, detailsByAdId] = await Promise.all([
+  // "Set Budget" at Campaign level also needs each ABO campaign's active ad sets' budgets: one listing per
+  // account (not one call per campaign), and only when that metric was asked for.
+  const wantsSetBudget = canHaveBudget && effectiveMetricKeys.includes("set_budget");
+  const [statusById, budgetById, detailsByAdId, adsetBudgetSums] = await Promise.all([
     canHaveStatus ? softFail(fetchEntityStatuses(lookupIds, token), {}) : {},
     canHaveBudget ? softFail(fetchEntityBudgets(lookupIds, token), {}) : {},
     includeCreative && level === "ad" ? softFail(fetchAdDetails(lookupIds, token), {}) : {},
+    wantsSetBudget && level === "campaign" ? softFail(fetchActiveAdsetBudgetSums(accountIds, token), {}) : {},
   ]);
 
   // Status only powers an optional filter, so a failed lookup just means no status on any row.
@@ -953,6 +981,26 @@ export default async function handler(req, res) {
       // metric-extraction pass above (see METRIC_CATALOG's own comment) with
       // whichever of the two is actually set — an entity never has both.
       row.budget = row.dailyBudget ?? row.lifetimeBudget ?? null;
+      if (wantsSetBudget) {
+        if (row.lifetimeBudget != null) row.set_budget = null;
+        else if (row.dailyBudget != null) row.set_budget = row.dailyBudget;
+        else row.set_budget = level === "campaign" ? adsetBudgetSums[row.entityId] ?? null : null;
+      }
+    }
+    // The Total row adds up each entity once (a time-grouped result repeats an entity on every date).
+    if (wantsSetBudget && totalsRow) {
+      const seen = new Set();
+      let sum = 0;
+      let any = false;
+      for (const row of rows) {
+        if (!row.entityId || seen.has(row.entityId)) continue;
+        seen.add(row.entityId);
+        if (typeof row.set_budget === "number") {
+          sum += row.set_budget;
+          any = true;
+        }
+      }
+      totalsRow.set_budget = any ? sum : null;
     }
   }
 
@@ -1013,6 +1061,7 @@ export default async function handler(req, res) {
           status: sample.status,
           dailyBudget: sample.dailyBudget,
           lifetimeBudget: sample.lifetimeBudget,
+          ...(wantsSetBudget ? { set_budget: sample.set_budget ?? null } : {}),
           thumbnailUrl: sample.thumbnailUrl,
           isVideo: sample.isVideo,
           ...metrics,
