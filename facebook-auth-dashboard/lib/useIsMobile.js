@@ -28,7 +28,7 @@ export function useIsMobile() {
 
 // Screens that have been adapted for phones. Everything else shows a
 // "use desktop" notice on a phone-width viewport until it's ported.
-export const MOBILE_SUPPORTED_PATHS = ["/explore", "/partnership-ads", "/catalog-ads"];
+export const MOBILE_SUPPORTED_PATHS = ["/explore", "/partnership-ads", "/catalog-ads", "/rules"];
 
 // Height of the fixed bottom tab bar (components/MobileTabBar.js), excluding
 // the device safe-area inset. Fixed bottom bars of other components sit above it.
