@@ -198,7 +198,8 @@ function RulesContent() {
   return (
     <>
       <div className={styles.page}>
-        <main className={styles.main} style={{ maxWidth: 1600, margin: "0 auto" }}>
+        {/* minWidth 0: .page is a flex row, and without it the sideways-scrolling tiles/chips below make this column as wide as their content (the whole page then scrolls sideways on a phone). */}
+        <main className={styles.main} style={{ maxWidth: 1600, margin: "0 auto", minWidth: 0 }}>
           {isMobile && (
             <MobileContextBar
               title={selectedAccount?.name || "Select an ad account"}

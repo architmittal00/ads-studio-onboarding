@@ -84,9 +84,10 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, applied
                   {f.entityType === "ad" && (
                     <Thumb size={48} src={thumb?.thumbnailUrl} isVideo={!!thumb?.isVideo} loading={thumb === undefined} onClick={thumb?.thumbnailUrl || thumb?.isVideo ? () => onOpenThumb(f, thumb) : undefined} />
                   )}
-                  <div className={styles.rowCardTitleBtn} style={{ cursor: "default" }}>
+                  <div className={styles.rowCardTitleBtn} style={{ cursor: "default", minWidth: 0 }}>
                     <span className={styles.rowCardTitle}>{f.name}</span>
-                    <span className={styles.rowCardSub}>
+                    {/* overflowWrap: a long unbroken campaign / ad set name must wrap, or it widens the whole page */}
+                    <span className={styles.rowCardSub} style={{ overflowWrap: "anywhere", minWidth: 0 }}>
                       {TYPE_LABEL[f.entityType]}
                       {where ? ` · ${where}` : ""}
                     </span>
@@ -141,7 +142,7 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, applied
                 ) : (
                   <div>
                     <span className={meta.badge}>{meta.label} suggested</span>
-                    {f.budgetNote && <div className={styles.rowCardSub}>{f.budgetNote}</div>}
+                    {f.budgetNote && <div className={styles.rowCardSub} style={{ overflowWrap: "anywhere" }}>{f.budgetNote}</div>}
                   </div>
                 )}
 
