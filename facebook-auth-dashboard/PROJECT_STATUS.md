@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Custom Views: no needless page scroll beside the query panel (2026-11-03)
+
+Follow-up to the item below, which wasn't enough. The query panel's height cap grew as the page scrolled, and the panel sets the grid row's height when the result column is short, so scrolling made the page taller and allowed more scrolling (an empty view could scroll by the whole header's height). When the result column fits the viewport by itself, the panel's cap is now held at what fits from its resting position, so the page doesn't scroll; with a long result the cap still grows as before. Re-evaluated when the result column resizes. Desktop only; not checked against a real account.
+
 ### Custom Views: query panel no longer hides under the view tabs (2026-11-03)
 
 With many open views the tab strip wraps to several lines, and the Query & Filters panel stuck at a fixed 20px, so its top (and the first filters) sat underneath the strip and the page seemed to scroll too far. The panel now sticks directly below the tab strip (its measured height + 12px) and its height cap is recomputed when that height changes. Desktop only; not checked against a real account.

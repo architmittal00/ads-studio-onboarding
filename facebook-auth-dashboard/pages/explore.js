@@ -1529,7 +1529,24 @@ export default function Explore() {
       const el = queryPanelRef.current;
       if (!el) return;
       const top = el.getBoundingClientRect().top;
-      el.style.maxHeight = `${Math.max(PANEL_MIN_HEIGHT, window.innerHeight - top - PANEL_BOTTOM_MARGIN)}px`;
+      // The cap above grows as the page scrolls (the panel's top climbs toward its stuck
+      // position), and the panel is what sets the grid row's height when the result column
+      // is short — so scrolling made the page taller, which allowed more scrolling: a
+      // near-empty view could be scrolled by the whole header's height for nothing. When
+      // the result column fits the viewport on its own, hold the cap at what fits from the
+      // panel's resting position instead, so the page doesn't need to scroll at all.
+      const grid = el.parentElement;
+      const content = grid?.firstElementChild;
+      let cap = window.innerHeight - top - PANEL_BOTTOM_MARGIN;
+      if (grid && content && content !== el) {
+        const scrolled = Math.max(window.scrollY, document.body.scrollTop, document.documentElement.scrollTop);
+        const restingTop = grid.getBoundingClientRect().top + scrolled;
+        const resultBottom = restingTop + content.getBoundingClientRect().height;
+        if (resultBottom + PANEL_BOTTOM_MARGIN <= window.innerHeight) {
+          cap = window.innerHeight - restingTop - PANEL_BOTTOM_MARGIN;
+        }
+      }
+      el.style.maxHeight = `${Math.max(PANEL_MIN_HEIGHT, cap)}px`;
     }
     // Cancel-and-reschedule, not "skip while one's already pending" — the
     // latter leaves `frame` permanently non-null (so every later scroll/
@@ -1545,6 +1562,10 @@ export default function Explore() {
       frame = requestAnimationFrame(recompute);
     }
     recompute();
+    // The result column's own height decides which of the two caps applies.
+    const contentEl = panelEl?.parentElement?.firstElementChild;
+    const contentObserver = typeof ResizeObserver !== "undefined" && contentEl && contentEl !== panelEl ? new ResizeObserver(onScrollOrResize) : null;
+    if (contentObserver) contentObserver.observe(contentEl);
     // capture: true — this app's global CSS makes <body>, not the document,
     // the actual scrolling element (see styles/globals.css), and a native
     // "scroll" event doesn't bubble, so a plain window listener would never
@@ -1554,6 +1575,7 @@ export default function Explore() {
     return () => {
       window.removeEventListener("scroll", onScrollOrResize, { capture: true });
       window.removeEventListener("resize", onScrollOrResize);
+      if (contentObserver) contentObserver.disconnect();
       if (frame) cancelAnimationFrame(frame);
       if (panelEl) panelEl.style.maxHeight = "";
     };
