@@ -41,6 +41,7 @@ import {
   buildEffectiveCatalog,
   humanizeStatus,
   aggregateRowMetrics,
+  NAME_METRIC_KEYS,
 } from "@/lib/insightsMetrics";
 import { groupColor, newGroupId, pickNextGroupColor, moveViewNextToGroup, GROUP_COLORS } from "@/lib/tabGroups";
 import { isoDate, addDaysUTC, todayUTC, computeRange, inclusiveDayCount, formatTimeZoneLabel } from "@/lib/dateRanges";
