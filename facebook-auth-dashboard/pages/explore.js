@@ -3695,7 +3695,11 @@ function ExploreResultsTable({
 
   // Looked up per row (and per comparison when sorting by account) — a Map, not a scan of every account each time.
   const accountNameById = new Map(adAccounts.map((a) => [a.id, a.name]));
-  const accountName = (row) => accountNameById.get(row.accountId) || row.accountId;
+  const accountName = (row) => accountNameById.get(row.accountId) || row.accountId || (row.label === "Total" ? "Total" : "");
+  // The Total row has no account of its own: use the shared currency of the accounts in the result
+  // (no currency when they differ, since a sum across currencies means nothing).
+  const resultCurrencies = [...new Set(meta.accountIds.map((id) => currencyByAccountId.get(id)).filter(Boolean))];
+  const currencyOfRow = (row) => (row.accountId ? currencyByAccountId.get(row.accountId) : resultCurrencies.length === 1 ? resultCurrencies[0] : undefined);
   // Narrower name columns on a phone — the first column is frozen by
   // default, and a 240px one would leave almost no room for metrics beside it.
   const LEADING_MAX_WIDTH = isMobile
@@ -3831,7 +3835,7 @@ function ExploreResultsTable({
               "—"
             );
           }
-          const currency = currencyByAccountId.get(row.accountId);
+          const currency = currencyOfRow(row);
           const value = formatMetricValue(row[key], format, currency);
           if (!comparable) return value;
           const previous = row._previous?.[key];
@@ -4142,8 +4146,7 @@ function ExploreResultsTable({
 
   // ── Phone layout: cards instead of the table ──
   if (isMobile) {
-    const currencyFor = (row) =>
-      row.accountId ? currencyByAccountId.get(row.accountId) : meta.accountIds.length === 1 ? currencyByAccountId.get(meta.accountIds[0]) : undefined;
+    const currencyFor = currencyOfRow;
     const metricColumns = columns.filter((c) => allKeys.includes(c.key));
     const nameKey = leadingColumns.find((c) => c.key === "entityLabel" || c.key === "label" || c.key === "breakdownLabel" || c.key === "date")?.key;
     const getTitle = (row) => String(row.entityLabel ?? row.label ?? row.breakdownLabel ?? row.date ?? "");
