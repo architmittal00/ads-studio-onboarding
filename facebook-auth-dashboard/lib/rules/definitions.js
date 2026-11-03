@@ -307,7 +307,7 @@ export const RULES = [
     name: "Pause ad -05",
     level: "ad",
     action: "PAUSE_AD",
-    text: "3-day and 7-day ROAS < 80% of account's; 3-day CPC < 7-day CPC; 7-day spend > 4× account's 7-day CPR.",
+    text: "3-day and 7-day ROAS < 80% of account's; 3-day CPC (link click) < 7-day CPC; 7-day spend > 4× account's 7-day CPR.",
     check: (s, ctx) => ({
       conditions: [
         cond(ctx, "3-day ROAS < 80% of account", s.m[3].roas, "lt", times(ctx.acc[3].roas, 0.8)),
