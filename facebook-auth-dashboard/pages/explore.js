@@ -1844,7 +1844,7 @@ export default function Explore() {
 
         {attention.total > 0 && (
           <div className={styles.fsSection}>
-            <div className={styles.fsLabel}>Rules</div>
+            <div className={styles.fsLabel}>Recommendations</div>
             <div className={styles.fsChips}>
               <button
                 type="button"
@@ -2138,7 +2138,7 @@ export default function Explore() {
 
             {attention.total > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
-                <span className={styles.muted}>Rules</span>
+                <span className={styles.muted}>Recommendations</span>
                 <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }} title="Only rows your rules flagged (the ones marked !)">
                   <input type="checkbox" checked={!!activeView.resultFilters.needsAttention} disabled={attention.loading} onChange={toggleNeedsAttention} />
                   Needs attention ({attention.loading ? "checking…" : attention.count})
