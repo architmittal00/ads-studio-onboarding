@@ -13,7 +13,10 @@ import styles from "@/styles/Home.module.css";
 const STORAGE_KEY = "fb-dashboard:locked-tabs-unlocked";
 const CORRECT_PIN = "392164";
 
-export default function PinLock({ children }) {
+// `inline` locks just a section of a page (a single tab) instead of the whole
+// route: same shared unlock flag, but a compact card in place of the content
+// rather than a full-page takeover.
+export default function PinLock({ children, inline = false, label = "this tab" }) {
   const [unlocked, setUnlocked] = useState(false);
   const [checked, setChecked] = useState(false);
   const [pin, setPin] = useState("");
@@ -54,40 +57,46 @@ export default function PinLock({ children }) {
 
   if (unlocked) return children;
 
+  const card = (
+    <div className={styles.card} style={inline ? { maxWidth: 360, margin: "40px auto 0" } : undefined}>
+      <h2 className={styles.h2} style={{ marginBottom: 4 }}>
+        Locked
+      </h2>
+      <p className={styles.sub} style={{ marginBottom: 14 }}>
+        Enter the PIN to open {label}.
+      </p>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="password"
+          inputMode="numeric"
+          autoFocus
+          className={styles.select}
+          style={{ width: "100%", marginBottom: 10, textAlign: "center", letterSpacing: 4, fontSize: 18 }}
+          value={pin}
+          onChange={(e) => {
+            setPin(e.target.value);
+            setError(false);
+          }}
+          placeholder="······"
+        />
+        {error && (
+          <div className={styles.error} style={{ marginBottom: 10 }}>
+            Incorrect PIN.
+          </div>
+        )}
+        <button type="submit" className={styles.btnPrimary} style={{ width: "100%" }} disabled={!pin.trim()}>
+          Unlock
+        </button>
+      </form>
+    </div>
+  );
+
+  if (inline) return card;
+
   return (
     <div className={styles.page}>
       <main className={styles.main} style={{ maxWidth: 360, margin: "80px auto 0" }}>
-        <div className={styles.card}>
-          <h2 className={styles.h2} style={{ marginBottom: 4 }}>
-            Locked
-          </h2>
-          <p className={styles.sub} style={{ marginBottom: 14 }}>
-            Enter the PIN to open this tab.
-          </p>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="password"
-              inputMode="numeric"
-              autoFocus
-              className={styles.select}
-              style={{ width: "100%", marginBottom: 10, textAlign: "center", letterSpacing: 4, fontSize: 18 }}
-              value={pin}
-              onChange={(e) => {
-                setPin(e.target.value);
-                setError(false);
-              }}
-              placeholder="······"
-            />
-            {error && (
-              <div className={styles.error} style={{ marginBottom: 10 }}>
-                Incorrect PIN.
-              </div>
-            )}
-            <button type="submit" className={styles.btnPrimary} style={{ width: "100%" }} disabled={!pin.trim()}>
-              Unlock
-            </button>
-          </form>
-        </div>
+        {card}
       </main>
     </div>
   );
