@@ -11,7 +11,7 @@ export const MOBILE_NAV = [
   { href: "/explore", label: "Views", title: "Custom Views", icon: ChartIcon },
   { href: "/partnership-ads", label: "Partners", title: "Partnership Ads", icon: HandshakeIcon },
   { href: "/catalog-ads", label: "Catalog", title: "Catalog Ads", icon: TagIcon },
-  { href: "/rules", label: "Rules", title: "Rules", icon: RulesIcon },
+  { href: "/rules", label: "Recommend", title: "Recommendations", icon: RulesIcon },
 ];
 
 export function mobileNavFor(pathname) {

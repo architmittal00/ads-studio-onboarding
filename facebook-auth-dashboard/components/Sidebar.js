@@ -37,7 +37,7 @@ const LINKS = [
   { href: "/launch", label: "Launch", icon: RocketIcon },
   { href: "/catalog-ads", label: "Catalog Ads", icon: TagIcon },
   { href: "/launch-ad", label: "Launch Ad", icon: PlayIcon },
-  { href: "/rules", label: "Rules", icon: RulesIcon },
+  { href: "/rules", label: "Recommendations", icon: RulesIcon },
   { href: "/pixel", label: "Check your pixel", icon: PixelIcon },
   { href: "/strategy", label: "Figure Out Strategy", icon: TargetIcon },
   { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },

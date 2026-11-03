@@ -54,7 +54,7 @@ export default function Rules() {
   return (
     <Layout>
       <Head>
-        <title>Rules · Facebook Auth Dashboard</title>
+        <title>Recommendations · Facebook Auth Dashboard</title>
       </Head>
       <RulesContent />
     </Layout>
@@ -203,7 +203,7 @@ function RulesContent() {
           {isMobile && (
             <MobileContextBar
               title={selectedAccount?.name || "Select an ad account"}
-              sub={result ? `Checked ${new Date(result.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${savedNote ? ` · saved ${savedNote}` : ""}` : "Rules check"}
+              sub={result ? `Checked ${new Date(result.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${savedNote ? ` · saved ${savedNote}` : ""}` : "Recommendations"}
               onOpen={() => setPickingAccount(true)}
             >
               <MobileIconBtn label="Hard refresh" onClick={() => run(selectedAccountId, true)} disabled={loading || !selectedAccountId} spinning={loading}>
@@ -225,10 +225,10 @@ function RulesContent() {
           <div className={isMobile ? styles.hideOnMobile : undefined} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
             <div>
               <h1 className={styles.h1} style={{ margin: 0 }}>
-                Rules
+                Recommendations
               </h1>
               <p className={styles.sub} style={{ marginTop: 6 }}>
-                Pick an account and we check every active campaign, ad set and ad against your rules, then flag what needs attention — with the action one click away.
+                Pick an account and we check every active campaign, ad set and ad against your rules, then recommend what to do — with the action one click away.
               </p>
             </div>
             <div className={styles.headerPillRow} style={{ alignItems: "flex-end" }}>

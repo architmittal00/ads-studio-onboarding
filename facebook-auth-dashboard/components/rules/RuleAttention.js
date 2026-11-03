@@ -24,7 +24,7 @@ export function AttentionMark({ flag, onOpen }) {
         e.stopPropagation();
         onOpen?.(flag);
       }}
-      title={`${ACTION_TEXT[flag.action] || "Needs a look"} — ${names}. Click for details.`}
+      title={`${ACTION_TEXT[flag.action] || "Needs a look"} — ${names}. Click for the recommendation.`}
       aria-label={`Needs attention: ${names}`}
       style={{
         flexShrink: 0,
