@@ -15,3 +15,12 @@ export function isPurchaseOptimized(adset) {
   if (goal === "VALUE") return !event || event === "PURCHASE";
   return false;
 }
+
+// An ad set Meta still reports as in its learning phase is left alone: its numbers are unstable and a budget
+// change would restart the phase. Read from the same ad set list call as everything else, so it costs no
+// extra request. Campaigns have no learning state of their own; see engine.js.
+export const ADSET_LEARNING_FIELDS = "learning_stage_info{status}";
+
+export function isLearning(adset) {
+  return adset?.learning_stage_info?.status === "LEARNING";
+}

@@ -281,6 +281,7 @@ function RulesContent() {
                   <div className={styles.mvMeta}>
                     {result.counts.campaigns} campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules
                     {result.counts.skipped && result.counts.skipped.adsets > 0 && ` · ${result.counts.skipped.adsets} ad sets, ${result.counts.skipped.ads} ads skipped (not optimized for purchases)`}
+                    {result.counts.learning && result.counts.learning.adsets > 0 && ` · ${result.counts.learning.adsets} ad sets, ${result.counts.learning.campaigns} campaigns in learning (not judged)`}
                   </div>
                 </>
               ) : (
@@ -293,6 +294,11 @@ function RulesContent() {
                   <div className={styles.muted} style={{ marginTop: 4 }}>
                     {result.counts.campaigns} campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules
                   </div>
+                  {result.counts.learning && result.counts.learning.adsets > 0 && (
+                    <div className={styles.muted} style={{ marginTop: 2, fontWeight: 400 }} title="Ad sets Meta still has in the learning phase, and campaigns containing one, are not judged: their numbers are unstable and a budget change would restart learning.">
+                      In learning, not judged: {result.counts.learning.adsets} ad sets · {result.counts.learning.campaigns} campaigns
+                    </div>
+                  )}
                   {result.counts.skipped && result.counts.skipped.adsets > 0 && (
                     <div className={styles.muted} style={{ marginTop: 2, fontWeight: 400 }} title="Rules only judge ad sets optimized for Purchase or purchase value. Ad sets optimized for add to cart, landing page views, clicks, leads and so on are left out, along with their ads and any campaign that contains one.">
                       Skipped, not optimized for purchases: {result.counts.skipped.adsets} ad sets · {result.counts.skipped.ads} ads · {result.counts.skipped.campaigns} campaigns
