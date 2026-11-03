@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
+import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
 import { toLeanFlag } from "@/lib/rules/leanFlag";
 
@@ -53,9 +53,13 @@ async function loadFlags(account, level) {
   const saved = cachedFlags(account.id, level);
   if (saved) return saved;
   const tz = account.timezone_name ? `&tz=${encodeURIComponent(account.timezone_name)}` : "";
-  const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(account.id)}&lean=1&levels=${level}${tz}`, {}, 130000);
-  const json = await parseJsonResponse(res);
-  if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
+  // Retried when the connection drops (including mid-response); a failure the server reports is not.
+  const json = await withNetworkRetry(async () => {
+    const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(account.id)}&lean=1&levels=${level}${tz}`, {}, 130000);
+    const body = await parseJsonResponse(res);
+    if (!res.ok || body.error) throw Object.assign(new Error(body.error || `Request failed (${res.status})`), { noRetry: true });
+    return body;
+  });
   // A result missing its 48-hour cool-down check isn't worth keeping.
   if (json.heldChecked) {
     memory.set(`${account.id}:${level}`, { at: Date.now(), flags: json.flags });

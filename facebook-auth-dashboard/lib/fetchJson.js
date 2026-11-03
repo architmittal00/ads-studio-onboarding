@@ -94,3 +94,26 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs = 65000) {
     }
   }
 }
+
+// A dropped connection — including one that breaks while a response body is still being read, which
+// fetchWithTimeout's own retry (it only covers getting the response started) can't see. Not a timeout
+// (AbortError) and not an error the server itself reported.
+export function isConnectionDrop(err) {
+  if (!err || err.noRetry || err.name === "AbortError") return false;
+  if (err.retryable) return true;
+  return err instanceof TypeError || /network|failed to fetch|load failed|terminated|connection|socket|invalid response/i.test(String(err.message));
+}
+
+// Runs `fn` again (up to `retries` more times, with a short pause) when it fails because the connection
+// dropped. For requests that are safe to repeat; `onRetry(attemptNumber)` lets the caller say so on screen.
+export async function withNetworkRetry(fn, { retries = 2, onRetry } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= retries || !isConnectionDrop(err)) throw err;
+      onRetry?.(attempt + 1);
+      await new Promise((r) => setTimeout(r, CLIENT_RETRY_DELAYS_MS[Math.min(attempt, 2)]));
+    }
+  }
+}

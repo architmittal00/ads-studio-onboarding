@@ -16,7 +16,7 @@ const STEPS = [
 
 // Live checklist shown while an account is being checked: what is done (with the numbers found),
 // what is still running, and how long it has been.
-export default function RuleCheckProgress({ accountName, steps }) {
+export default function RuleCheckProgress({ accountName, steps, notice }) {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -33,6 +33,11 @@ export default function RuleCheckProgress({ accountName, steps }) {
       <p className={styles.sub} style={{ marginBottom: 14, textAlign: "center" }}>
         {doneCount} of {STEPS.length} steps done · {seconds}s
       </p>
+      {notice && (
+        <div className={styles.muted} style={{ textAlign: "center", marginBottom: 10, color: "var(--amber)", fontWeight: 600 }}>
+          {notice}
+        </div>
+      )}
       <div style={{ height: 4, borderRadius: 4, background: "var(--card2)", overflow: "hidden", marginBottom: 14 }}>
         <div style={{ height: "100%", width: `${(doneCount / STEPS.length) * 100}%`, background: "var(--purple)", transition: "width .3s" }} />
       </div>
