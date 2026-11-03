@@ -887,9 +887,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // A "Total" row for the client to pin above/below the real rows — only at
-  // a non-account level, where several rows actually exist to total up (an
-  // Account-level result is already one row per account, nothing to sum).
+  // A "Total" row for the client to pin above/below the real rows — whenever
+  // there is more than one row to total up: any non-account level, or an
+  // Account-level result with several rows (daily / weekly / monthly grouping,
+  // or more than one account). A single Account-level row is already its own total.
   // Shaped exactly like a normal output row (down to `_previous`/
   // `_deltaPct`, the comparison-mode shape every column render function
   // already knows how to read) so the client needs no special-casing beyond
@@ -898,9 +899,11 @@ export default async function handler(req, res) {
   // rolled-up, but NOT client-side status/search-filtered — this endpoint
   // has no visibility into that) current/previous rows.
   let totalsRow = null;
-  if (level !== "account" && allCurrentEntries.length > 0) {
+  if (allCurrentEntries.length > (level === "account" ? 1 : 0)) {
     const totals = aggregateRowMetrics(allCurrentEntries, effectiveMetricKeys, cleanCustomMetrics);
-    totalsRow = { label: "Total", entityLabel: "Total", ...totals };
+    // `date` / `accountId` stand in for the name column when that is the table's first column
+    // (Account level has no name column: just Date and/or Account).
+    totalsRow = { label: "Total", entityLabel: "Total", ...(level === "account" ? { date: "Total", accountId: "Total" } : {}), ...totals };
     if (compareToPrevious) {
       const previousTotals = aggregateRowMetrics(allPreviousEntries, effectiveMetricKeys, cleanCustomMetrics);
       totalsRow._previous = previousTotals;
