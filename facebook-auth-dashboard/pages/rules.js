@@ -232,6 +232,11 @@ function RulesContent() {
                   <div className={styles.muted} style={{ marginTop: 4 }}>
                     {result.counts.campaigns} campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules
                   </div>
+                  {result.counts.skipped && result.counts.skipped.adsets > 0 && (
+                    <div className={styles.muted} style={{ marginTop: 2, fontWeight: 400 }} title="Rules only judge ad sets optimized for Purchase or purchase value. Ad sets optimized for add to cart, landing page views, clicks, leads and so on are left out, along with their ads and any campaign that contains one.">
+                      Skipped, not optimized for purchases: {result.counts.skipped.adsets} ad sets · {result.counts.skipped.ads} ads · {result.counts.skipped.campaigns} campaigns
+                    </div>
+                  )}
                 </div>
                 {result.baseline.map((b) => (
                   <div key={b.days} className={styles.stat}>
@@ -358,7 +363,7 @@ function RulesContent() {
                       </div>
                     ))}
                     <p className={styles.muted} style={{ fontSize: 11.5, marginTop: 10 }}>
-                      Windows are full days ending yesterday. Account figures are the account&apos;s own totals for the same window. Budget changes are suggested at 10% and can be edited before applying. A budget increase/decrease is held back if that ad set or campaign&apos;s budget was changed in the last 48 hours.
+                      Rules only apply to ad sets optimized for Purchase or purchase value (ads follow their ad set; a campaign is judged only if all its ad sets are). Windows are full days ending yesterday. Account figures are the account&apos;s own totals for the same window. Budget changes are suggested at 10% and can be edited before applying. A budget increase/decrease is held back if that ad set or campaign&apos;s budget was changed in the last 48 hours.
                     </p>
                   </div>
                 )}

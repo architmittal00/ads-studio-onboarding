@@ -1,5 +1,6 @@
 import { RULES } from "./definitions";
 import { WINDOWS, derive, emptyAgg, addInsightsRow } from "./metrics";
+import { isPurchaseOptimized } from "./optimization";
 
 const BUDGET_STEP_NOTE = "Budget changes are suggested at 10% and can be edited before applying.";
 export { BUDGET_STEP_NOTE };
@@ -65,11 +66,14 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       abo,
       budgetType: parseFloat(a.daily_budget) > 0 ? "daily" : parseFloat(a.lifetime_budget) > 0 ? "lifetime" : null,
       budget: toMajor(parseFloat(a.daily_budget) > 0 ? a.daily_budget : a.lifetime_budget),
+      // Rules only judge ad sets optimized for Purchase / purchase value (lib/rules/optimization.js).
+      eligible: isPurchaseOptimized(a),
       m: metricsOf(adsetAgg, a.id),
     };
   });
   const adsetById = new Map(adsets.map((a) => [a.id, a]));
-  const ads = structure.ads.map((a) => ({ type: "ad", id: a.id, name: a.name, adsetId: a.adset_id, campaignId: a.campaign_id, m: metricsOf(adAgg, a.id) }));
+  // An ad follows its ad set (unknown ad set → skipped).
+  const ads = structure.ads.map((a) => ({ type: "ad", id: a.id, name: a.name, adsetId: a.adset_id, campaignId: a.campaign_id, eligible: !!adsetById.get(a.adset_id)?.eligible, m: metricsOf(adAgg, a.id) }));
 
   const adsByAdset = new Map();
   for (const ad of ads) {
@@ -82,17 +86,27 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     adsetsByCampaign.get(a.campaignId).push(a);
   }
 
-  const spends = campaigns.map((c) => c.m[7].spend).sort((a, b) => a - b);
+  // A campaign is judged only when every one of its active ad sets is optimized for purchases — its ROAS
+  // is a blend of its ad sets', so a mixed campaign's figure means nothing.
+  for (const c of campaigns) {
+    const own = adsetsByCampaign.get(c.id) || [];
+    c.eligible = own.length > 0 && own.every((a) => a.eligible);
+  }
+  const eligibleAdsets = adsets.filter((a) => a.eligible);
+  const eligibleCampaigns = campaigns.filter((c) => c.eligible);
+
+  const spends = eligibleCampaigns.map((c) => c.m[7].spend).sort((a, b) => a - b);
   const median = spends.length === 0 ? 0 : spends.length % 2 ? spends[(spends.length - 1) / 2] : (spends[spends.length / 2 - 1] + spends[spends.length / 2]) / 2;
   const ctx = {
     acc,
     currency,
     currencySymbol,
-    activeAdsets: adsets,
+    // Rankings ("top 30% by spend") compare like with like: only purchase-optimized ad sets.
+    activeAdsets: eligibleAdsets,
     adsetsOfCampaign: (id) => adsetsByCampaign.get(id) || [],
     adsOfAdset: (id) => adsByAdset.get(id) || [],
     adsetById: (id) => adsetById.get(id),
-    avgCampaignSpend7: campaigns.length ? spends.reduce((t, v) => t + v, 0) / campaigns.length : 0,
+    avgCampaignSpend7: spends.length ? spends.reduce((t, v) => t + v, 0) / spends.length : 0,
     medianCampaignSpend7: median,
   };
 
@@ -102,7 +116,8 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     // `levels` (Custom Views) narrows the run to the entity types on screen.
     if (levels && !levels.includes(rule.level)) continue;
     for (const subject of subjectsByLevel[rule.level]) {
-      // Nothing to judge without any delivery in the last 7 days.
+      // Only entities optimized for purchases; and nothing to judge without any delivery in the last 7 days.
+      if (!subject.eligible) continue;
       if (!(subject.m[7].spend > 0)) continue;
       const result = rule.check(subject, ctx);
       if (!result || result.conditions.length === 0) continue;
@@ -185,7 +200,13 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
 
   return {
     baseline: WINDOWS.map((w) => ({ days: w, spend: acc[w].spend, roas: acc[w].roas, cpr: acc[w].cpr, cpm: acc[w].cpm, ctr: acc[w].ctr })),
-    counts: { campaigns: campaigns.length, adsets: adsets.length, ads: ads.length },
+    counts: {
+      campaigns: campaigns.length,
+      adsets: adsets.length,
+      ads: ads.length,
+      // Active entities the rules did not judge because they are not optimized for purchases.
+      skipped: { campaigns: campaigns.length - eligibleCampaigns.length, adsets: adsets.length - eligibleAdsets.length, ads: ads.filter((a) => !a.eligible).length },
+    },
     flags,
     held,
     heldChecked: recentBudgetChanges ? recentBudgetChanges.ok : false,
