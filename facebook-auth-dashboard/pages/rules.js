@@ -41,6 +41,11 @@ const FILTERS = [
   { key: "PAUSE_AD", label: "Pause ads", color: "var(--red)" },
 ];
 
+// ₹27.8L, ₹1.02Cr — short money for phone tiles.
+function compactMoney(v, symbol) {
+  return v == null ? "—" : `${symbol}${new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 1 }).format(v)}`;
+}
+
 function money(v, symbol) {
   return v == null ? "—" : `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
 }
@@ -261,8 +266,25 @@ function RulesContent() {
 
           {result && (
             <>
-              <div className={styles.statBar} style={isMobile ? { flexWrap: "nowrap", overflowX: "auto" } : undefined}>
-                <div className={styles.stat} style={{ flex: isMobile ? "0 0 220px" : "1.6 1 220px" }}>
+              {isMobile ? (
+                <>
+                  <div className={styles.kpiStrip} aria-label="Account ROAS">
+                    {result.baseline.map((b) => (
+                      <div key={b.days} className={styles.kpiTile}>
+                        <div className={styles.kpiLabel}>{b.days}-day ROAS</div>
+                        <div className={styles.kpiValue}>{b.roas != null ? b.roas.toFixed(2) : "—"}</div>
+                        <div className={styles.rowCardSub}>{compactMoney(b.spend, result.currencySymbol)} spend</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.mvMeta}>
+                    {result.counts.campaigns} campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules
+                    {result.counts.skipped && result.counts.skipped.adsets > 0 && ` · ${result.counts.skipped.adsets} ad sets, ${result.counts.skipped.ads} ads skipped (not optimized for purchases)`}
+                  </div>
+                </>
+              ) : (
+              <div className={styles.statBar} >
+                <div className={styles.stat} style={{ flex: "1.6 1 220px" }}>
                   <div className={styles.statLabel}>Account</div>
                   <div className={styles.statValue} style={{ fontSize: 15 }}>
                     {result.accountName}
@@ -277,7 +299,7 @@ function RulesContent() {
                   )}
                 </div>
                 {result.baseline.map((b) => (
-                  <div key={b.days} className={styles.stat} style={isMobile ? { flex: "0 0 120px" } : undefined}>
+                  <div key={b.days} className={styles.stat} >
                     <div className={styles.statLabel}>{b.days}-day ROAS</div>
                     <div className={styles.statValue}>{b.roas != null ? b.roas.toFixed(2) : "—"}</div>
                     <div className={styles.muted} style={{ marginTop: 4 }}>
@@ -286,6 +308,7 @@ function RulesContent() {
                   </div>
                 ))}
               </div>
+              )}
 
               {isMobile && (
                 <MobileChips tabs={FILTERS.map((f) => ({ key: f.key, label: `${f.label} (${counts[f.key]})`, short: `${f.key === "all" ? "All" : f.label.replace(" budget", "").replace(" ads", "")} ${counts[f.key]}` }))} active={filter} onChange={setFilter} label="Filter flags" />
