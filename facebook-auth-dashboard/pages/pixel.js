@@ -13,6 +13,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import { computeRange } from "@/lib/dateRanges";
 import { cachedGet } from "@/lib/cachedGet";
+import { useIsMobile } from "@/lib/useIsMobile";
 import styles from "@/styles/Home.module.css";
 
 function ago(iso) {
@@ -147,6 +148,7 @@ export default function PixelPage() {
   const [rangePreset, setRangePreset] = useState("last_7d");
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
+  const isMobile = useIsMobile();
   const timeZone = adAccounts.find((a) => a.id === selectedAccountId)?.timezone_name;
   const range = useMemo(() => computeRange(rangePreset, customSince, customUntil, timeZone), [rangePreset, customSince, customUntil, timeZone]);
 
@@ -289,7 +291,21 @@ export default function PixelPage() {
           {(pixelsLoading || (loading && !data)) && <Loader label="Loading pixel events…" />}
 
           {data && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20, opacity: loading ? 0.5 : 1, transition: "opacity .15s" }}>
+            <div className={isMobile && loading ? styles.mvRerunning : undefined} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Changing the date range re-fetches: say so right on the results (same treatment as Custom Views' re-run). */}
+              {loading && isMobile && (
+                <div className={styles.mvRerunBar} role="status">
+                  <span className={`${styles.spinner} ${styles.spinnerSm}`} />
+                  <span className={styles.mvRerunText}>Loading events…</span>
+                </div>
+              )}
+              {loading && !isMobile && (
+                <div style={{ position: "absolute", inset: 0, borderRadius: 14, background: "rgba(var(--bg-rgb), 0.72)", backdropFilter: "blur(2px)", display: "flex", justifyContent: "center", alignItems: "flex-start", zIndex: 20 }}>
+                  <div style={{ position: "sticky", top: "38vh", marginTop: 120 }}>
+                    <Loader label={`Loading events for ${range ? (range.since === range.until ? range.since : `${range.since} → ${range.until}`) : "this range"}…`} />
+                  </div>
+                </div>
+              )}
               <div className={styles.statBar}>
                 <div className={styles.stat}>
                   <div className={styles.statLabel}>Pixel</div>
