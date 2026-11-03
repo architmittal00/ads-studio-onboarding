@@ -179,7 +179,7 @@ export default function ExploreMobileList({
                 </span>
               )}
             </button>
-            {renderTitleExtra && renderTitleExtra(row)}
+            {renderTitleExtra && renderTitleExtra(row, rowLevel)}
             {!selectMode && id && renderActions(row, rowLevel, onApplied)}
           </div>
           {renderMetricGrid(row, `${depth}:${id || title}`)}
@@ -271,7 +271,7 @@ export default function ExploreMobileList({
                 </span>
               )}
             </button>
-            {renderTitleExtra && renderTitleExtra(row)}
+            {renderTitleExtra && renderTitleExtra(row, level)}
             {!selectMode && id && renderActions(row, level, drill.onTopApplied)}
           </div>
           {renderMetricGrid(row, `p:${id}`)}

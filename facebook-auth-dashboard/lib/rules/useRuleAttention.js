@@ -64,10 +64,18 @@ async function loadFlags(account, level) {
   return json.flags;
 }
 
-const toMap = (byAccount, level) => {
+const toMap = (byTask) => {
   const byKey = new Map();
-  for (const [accountId, flags] of byAccount) for (const f of flags) byKey.set(attentionKey(accountId, f.entityType, f.entityId), { ...f, accountId });
+  for (const [accountId, flags] of byTask) for (const f of flags) byKey.set(attentionKey(accountId, f.entityType, f.entityId), { ...f, accountId });
   return byKey;
+};
+
+// Entities the user already acted on (paused, budget changed): hidden for the same 30 minutes the saved
+// results live, so they don't come back when a tab is revisited.
+const dismissedAt = new Map(); // entityId -> time
+const isDismissed = (entityId) => {
+  const at = dismissedAt.get(String(entityId));
+  return at != null && Date.now() - at < CHECK_TTL_MS;
 };
 
 const IDLE = { byKey: new Map(), loading: false, done: 0, total: 0, failed: 0 };
@@ -75,27 +83,36 @@ const IDLE = { byKey: new Map(), loading: false, done: 0, total: 0, failed: 0 };
 // `accounts`: [{ id, timezone_name }] for the view; `level`: the view's entity level; `ready`: true once
 // the view's own result is shown; `refreshKey`: bumped after a hard refresh (the caller has cleared the
 // saved results by then), so the check runs again.
+//
+// Every entity is judged on its own: an ad can need attention while its ad set is fine and the other way
+// round. The view's own level is checked up front; `ensureLevel("ad")` adds another level (a drilled-into
+// child list) on demand, so marks can also show on those rows without checking levels nobody opened.
 export function useRuleAttention({ accounts, level, ready, refreshKey }) {
-  const [state, setState] = useState({ ...IDLE, key: null });
-  // Entities the user already acted on from the view (paused, budget changed): hidden until the next check.
-  const [dismissed, setDismissed] = useState(() => new Set());
   const accountsKey = accounts.map((a) => a.id).join(",");
+  const baseKey = `${accountsKey}|${level}|${refreshKey}`;
+  const [extra, setExtra] = useState({ baseKey: null, levels: [] });
+  const [state, setState] = useState({ ...IDLE, key: null });
+  const [dismissVersion, setDismissVersion] = useState(0);
   const active = ready && RULE_LEVELS.has(level) && accounts.length > 0;
-  const key = `${accountsKey}|${level}|${refreshKey}`;
+  const extraLevels = extra.baseKey === baseKey ? extra.levels : [];
+  const levels = [level, ...extraLevels];
+  const key = `${baseKey}|${extraLevels.join(",")}`;
 
   // Everything already saved → the answer right now, in the same render (no loader, no flicker when
   // coming back to a tab).
   const snapshot = useMemo(() => {
     if (!active) return null;
     const list = accounts.slice(0, MAX_ACCOUNTS);
-    const byAccount = [];
-    for (const a of list) {
-      const flags = cachedFlags(a.id, level);
-      if (!flags) return null;
-      byAccount.push([a.id, flags]);
+    const byTask = [];
+    for (const lv of levels) {
+      for (const a of list) {
+        const flags = cachedFlags(a.id, lv);
+        if (!flags) return null;
+        byTask.push([a.id, flags]);
+      }
     }
-    return { byKey: toMap(byAccount, level), loading: false, done: list.length, total: list.length, failed: 0 };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the account ids, level and refresh, not the array identity
+    return { byKey: toMap(byTask), loading: false, done: byTask.length, total: byTask.length, failed: 0 };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the account ids, levels and refresh, not the array identity
   }, [active, key]);
 
   useEffect(() => {
@@ -103,40 +120,61 @@ export function useRuleAttention({ accounts, level, ready, refreshKey }) {
     if (snapshot) return; // answered from the saved results above
     let cancelled = false;
     const list = accounts.slice(0, MAX_ACCOUNTS);
-    const byAccount = [];
-    let done = 0;
+    const tasks = levels.flatMap((lv) => list.map((account) => ({ account, level: lv })));
+    // Whatever is already saved is shown straight away; only the rest is fetched.
+    const byTask = [];
+    const todo = [];
+    for (const t of tasks) {
+      const flags = cachedFlags(t.account.id, t.level);
+      if (flags) byTask.push([t.account.id, flags]);
+      else todo.push(t);
+    }
+    let done = byTask.length;
     let failed = 0;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the background check for this view
-    setDismissed(new Set());
-    setState({ ...IDLE, key, loading: true, total: list.length });
+    setState({ key, byKey: toMap(byTask), loading: true, done, total: tasks.length, failed: 0 });
     let next = 0;
     async function worker() {
-      while (next < list.length && !cancelled) {
-        const account = list[next++];
+      while (next < todo.length && !cancelled) {
+        const t = todo[next++];
         try {
-          byAccount.push([account.id, await loadFlags(account, level)]);
+          byTask.push([t.account.id, await loadFlags(t.account, t.level)]);
         } catch {
           failed++;
         }
         done++;
-        if (!cancelled) setState({ key, byKey: toMap(byAccount, level), loading: done < list.length, done, total: list.length, failed });
+        if (!cancelled) setState({ key, byKey: toMap(byTask), loading: done < tasks.length, done, total: tasks.length, failed });
       }
     }
     // A short pause so the view's own rendering and thumbnail lookups get the first go.
-    const timer = setTimeout(() => Promise.all(Array.from({ length: Math.min(CONCURRENCY, list.length) }, worker)), 400);
+    const timer = setTimeout(() => Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, worker)), 400);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the account ids, level and refresh, not the array identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the account ids, levels and refresh, not the array identity
   }, [active, key, snapshot]);
 
-  const shown = !active ? IDLE : snapshot || (state.key === key ? state : { ...IDLE, loading: true, total: Math.min(accounts.length, MAX_ACCOUNTS) });
-  const dismiss = useCallback((entityId) => setDismissed((prev) => new Set(prev).add(String(entityId))), []);
-  const flags = useMemo(() => {
-    if (dismissed.size === 0) return shown.byKey;
-    return new Map([...shown.byKey].filter(([, f]) => !dismissed.has(String(f.entityId))));
-  }, [shown.byKey, dismissed]);
+  const shown = !active ? IDLE : snapshot || (state.key === key ? state : { ...IDLE, loading: true, total: Math.min(accounts.length, MAX_ACCOUNTS) * levels.length });
+  const dismiss = useCallback((entityId) => {
+    dismissedAt.set(String(entityId), Date.now());
+    setDismissVersion((v) => v + 1);
+  }, []);
+  const ensureLevel = useCallback(
+    (lv) => {
+      if (!RULE_LEVELS.has(lv) || lv === level) return;
+      setExtra((prev) => {
+        const levelsNow = prev.baseKey === baseKey ? prev.levels : [];
+        return levelsNow.includes(lv) ? prev : { baseKey, levels: [...levelsNow, lv] };
+      });
+    },
+    [level, baseKey]
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dismissVersion changes whenever the dismissed set does
+  const flags = useMemo(() => new Map([...shown.byKey].filter(([, f]) => !isDismissed(f.entityId))), [shown.byKey, dismissVersion]);
 
-  return { flags, loading: shown.loading, done: shown.done, total: shown.total, failed: shown.failed, dismiss };
+  // Rows needing attention at the view's own level (drilled-into child rows are marked but not counted here).
+  const count = useMemo(() => [...flags.values()].filter((f) => f.entityType === level).length, [flags, level]);
+
+  return { flags, count, loading: shown.loading, done: shown.done, total: shown.total, failed: shown.failed, dismiss, ensureLevel };
 }

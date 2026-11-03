@@ -1498,6 +1498,7 @@ export default function Explore() {
     ? result.meta.metricKeys.filter((k) => isChartableForView(k, effectiveCatalog, result.meta.accountIds.length))
     : [];
   const isRerun = activeView.loading && !!result;
+  const childPatchRef = useRef(null);
   const [attentionOpen, setAttentionOpen] = useState(null); // the flag whose "!" window is open
   // The collapsed preference only ever applies once there's a result to show
   // instead — a brand-new (or still-loading-for-the-first-time) view has
@@ -1852,7 +1853,7 @@ export default function Explore() {
                 className={activeView.resultFilters.needsAttention ? `${styles.fsChip} ${styles.fsChipOn}` : styles.fsChip}
                 onClick={toggleNeedsAttention}
               >
-                ! Needs attention ({attention.loading ? "checking…" : attention.flags.size})
+                ! Needs attention ({attention.loading ? "checking…" : attention.count})
               </button>
             </div>
           </div>
@@ -2140,7 +2141,7 @@ export default function Explore() {
                 <span className={styles.muted}>Rules</span>
                 <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }} title="Only rows your rules flagged (the ones marked !)">
                   <input type="checkbox" checked={!!activeView.resultFilters.needsAttention} disabled={attention.loading} onChange={toggleNeedsAttention} />
-                  Needs attention ({attention.loading ? "checking…" : attention.flags.size})
+                  Needs attention ({attention.loading ? "checking…" : attention.count})
                 </label>
               </div>
             )}
@@ -2364,6 +2365,8 @@ export default function Explore() {
               onActionApplied={applyEntityActionPatch}
               attention={attention.flags}
               onOpenAttention={setAttentionOpen}
+              onEnsureAttentionLevel={attention.ensureLevel}
+              childPatchRef={childPatchRef}
               customMetrics={customMetrics}
               resultFilters={activeView.resultFilters}
               onOpenChildView={openChildViewFromSelection}
@@ -3203,6 +3206,7 @@ export default function Explore() {
             // The saved rule checks no longer match the account.
             clearRuleCaches(attentionOpen.accountId);
             applyEntityActionPatch(entityId, patch);
+            childPatchRef.current?.(entityId, patch);
           }}
         />
       )}
@@ -3333,6 +3337,8 @@ function ExploreResultsTable({
   onActionApplied,
   attention,
   onOpenAttention,
+  onEnsureAttentionLevel,
+  childPatchRef,
   customMetrics,
   resultFilters,
   onOpenChildView,
@@ -3642,6 +3648,8 @@ function ExploreResultsTable({
     const id = row.entityId;
     const childLevel = CHILD_LEVEL[level];
     if (!id || !childLevel) return;
+    // Opening a list of children: judge those rows too (each entity on its own, the parent being fine says nothing about them).
+    onEnsureAttentionLevel?.(childLevel);
     const existing = expansions[id];
     if (existing) {
       setExpansions((prev) => ({ ...prev, [id]: { ...prev[id], open: !prev[id].open } }));
@@ -3676,6 +3684,14 @@ function ExploreResultsTable({
       return changed ? next : prev;
     });
   }
+
+  // Lets the page (the "!" window) patch a drilled-into row the same way a row action does.
+  useEffect(() => {
+    if (childPatchRef) childPatchRef.current = applyChildActionPatch;
+    return () => {
+      if (childPatchRef) childPatchRef.current = null;
+    };
+  });
 
   // Looked up per row (and per comparison when sorting by account) — a Map, not a scan of every account each time.
   const accountNameById = new Map(adAccounts.map((a) => [a.id, a.name]));
@@ -3970,6 +3986,7 @@ function ExploreResultsTable({
                   >
                     {row.entityLabel}
                   </span>
+                  <AttentionMark flag={attention?.get(attentionKey(row.accountId, level, row.entityId))} onOpen={onOpenAttention} />
                   {row.entityId && <CopyIdButton id={row.entityId} onCopy={copyText} />}
                 </div>
               </td>
@@ -4203,7 +4220,7 @@ function ExploreResultsTable({
           renderMetric={renderMetric}
           getTitle={getTitle}
           getSubtitle={getSubtitle}
-          renderTitleExtra={(row) => <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} onOpen={onOpenAttention} />}
+          renderTitleExtra={(row, rowLevel) => <AttentionMark flag={attention?.get(attentionKey(row.accountId, rowLevel || meta.level, row.entityId))} onOpen={onOpenAttention} />}
           sortKey={sortKey}
           sortDir={sortDir}
           onSortChange={(key, dir) => {
