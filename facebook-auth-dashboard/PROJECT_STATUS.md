@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Recommendations: Pause ad -05 CPC direction (2026-11-03)
+
+Pause ad -05's condition is now "3-day CPC > 7-day CPC" (a rising cost per click), not "<". Only that one comparison in `lib/rules/definitions.js` changed. Not checked against a real account.
+
 ### Recommendations: CPC, CTR and conversion rate use link clicks (2026-11-03)
 
 The rules engine pulled Meta's `clicks` (all clicks, including reactions and profile taps) and derived CPC, CTR and conversion rate from it, while Custom Views and Ads Manager's "CPC (link click)" use `inline_link_clicks`. `lib/rules/metrics.js` now sums `inline_link_clicks` (`linkClicks`) and `checkAccount.js` requests that field instead of `clicks`. Affects Pause ad -05 (CPC), Pause Ad -06 (CTR) and Pause ad -3 (conversion rate): the figures, for the entity and the account baseline alike, now match Custom Views. Cached results (30 min) keep the old numbers until refreshed. Not checked against a real account.
