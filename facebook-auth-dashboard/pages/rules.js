@@ -13,7 +13,7 @@ import CreativeLightbox from "@/components/CreativeLightbox";
 import RuleCheckProgress from "@/components/rules/RuleCheckProgress";
 import { RefreshIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
-import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
+import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
 import styles from "@/styles/Home.module.css";
@@ -66,6 +66,7 @@ function RulesContent() {
   const [bulk, setBulk] = useState(null); // { action, flags } while the bulk confirm window is open
   const [savedNote, setSavedNote] = useState(null); // e.g. "saved 12 minutes ago" when the shown result came from the cache
   const [steps, setSteps] = useState({}); // check step id -> { done, detail }
+  const [retryNote, setRetryNote] = useState(null); // shown in the loader while a dropped connection is retried
   const [thumbs, setThumbs] = useState({}); // ad id -> { thumbnailUrl, isVideo } | null once loaded
   const [lightboxItem, setLightboxItem] = useState(null);
 
@@ -87,32 +88,41 @@ function RulesContent() {
     setError(null);
     setResult(null);
     try {
-      setSteps({});
-      const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(accountId)}&stream=1${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`, {}, 130000);
-      if (!res.ok || !res.body) {
-        const failed = await parseJsonResponse(res).catch(() => ({}));
-        throw new Error(failed.error || `Request failed (${res.status})`);
-      }
-      // Progress arrives as one JSON object per line; the last one is the result (or an error).
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let json = null;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const event = JSON.parse(line);
-          if (event.type === "step" && !event.pending) setSteps((prev) => ({ ...prev, [event.id]: { done: true, detail: event.detail } }));
-          else if (event.type === "error") throw new Error(event.error);
-          else if (event.type === "result") json = event.data;
-        }
-      }
-      if (!json) throw new Error("The check ended before finishing — please hard refresh.");
+      setRetryNote(null);
+      // The check streams for up to a minute, so the connection can drop mid-way; that is retried a couple
+      // of times (a failure the server itself reports is not).
+      const json = await withNetworkRetry(
+        async () => {
+          setSteps({});
+          const res = await fetchWithTimeout(`/api/fb/rules/check?accountId=${encodeURIComponent(accountId)}&stream=1${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`, {}, 130000);
+          if (!res.ok || !res.body) {
+            const failed = await parseJsonResponse(res).catch(() => ({}));
+            throw Object.assign(new Error(failed.error || `Request failed (${res.status})`), { noRetry: res.status < 500 || res.status === 504 });
+          }
+          // Progress arrives as one JSON object per line; the last one is the result (or an error).
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let result = null;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop();
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              const event = JSON.parse(line);
+              if (event.type === "step" && !event.pending) setSteps((prev) => ({ ...prev, [event.id]: { done: true, detail: event.detail } }));
+              else if (event.type === "error") throw Object.assign(new Error(event.error), { noRetry: true });
+              else if (event.type === "result") result = event.data;
+            }
+          }
+          if (!result) throw Object.assign(new Error("The check ended before finishing — please hard refresh."), { retryable: true });
+          return result;
+        },
+        { retries: 2, onRetry: (n) => setRetryNote(`Connection dropped — retrying (${n}/2)…`) }
+      );
       // A result missing its 48-hour cool-down check isn't worth keeping for half an hour.
       if (json.heldChecked) setCachedEntry(cacheKey(accountId), json, { prefix: "rules-check:", maxEntriesForPrefix: 15 });
       setApplied({});
@@ -218,7 +228,7 @@ function RulesContent() {
             </span>
           )}
 
-          {loading && <RuleCheckProgress accountName={adAccounts.find((a) => a.id === selectedAccountId)?.name} steps={steps} />}
+          {loading && <RuleCheckProgress accountName={adAccounts.find((a) => a.id === selectedAccountId)?.name} steps={steps} notice={retryNote} />}
           {error && <div className={styles.error}>{error}</div>}
 
           {result && (
