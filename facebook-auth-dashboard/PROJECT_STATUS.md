@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Custom Views: bulk "Pause N Ads", in batches (2026-11-03)
+
+Select ads in Custom Views (Ad level, including ads drilled into) and a **Pause N Ads** button (just **Pause** on a phone) sits beside Duplicate; only selected ads that are currently Active are counted. It asks to confirm, then pauses them through Meta's Batch API: new `pages/api/fb/entity-action-batch.js` (up to 50 ids per Graph call, a result per ad so a few failures don't stop the rest) driven by `lib/batchPause.js` (50 per request, two requests at a time, progress shown). Paused rows flip to Paused in the table at once. Works across ad accounts (no single-account limit like Duplicate). The Recommendations bulk "Pause N ads" now uses the same batching instead of one request per ad. Not checked against a real account (the Graph batch response shape is from Meta's docs).
+
 ### Custom Views: Campaign name and Ad set name columns (2026-11-03)
 
 Two new selectable columns in the metric picker, under a "Names" group: **Campaign name** (Ad set and Ad level) and **Ad set name** (Ad level). They are text metrics in `lib/insightsMetrics.js` (`campaign_name`, `adset_name`) reading names every Ad set / Ad pull already returns, so nothing extra is fetched. Left-aligned, sortable A–Z, blank in the Total row; dimmed in the picker where there is no parent (e.g. Campaign level). Hidden from Copy Ads' picker. Not checked against a real account.
