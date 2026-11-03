@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Partnership Ads: PIN on three tabs (2026-11-03)
+
+Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
+
 ### Pixel tab redesign (2026-11-02)
 Pixel page now matches the other screens: title + labeled pills (ad account, pixel, shared `DateRangeMenu`, reload) header, `.statBar` summary (status, last fired, events, event types), a chart card with event chips (click a row or chip to chart that event), and the shared `SortableTable` with sparklines. Chart colors are tokens.
 

@@ -9,6 +9,7 @@ import Layout from "@/components/Layout";
 import AccountSelect from "@/components/AccountSelect";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import { useAccounts } from "@/components/AccountProvider";
+import PinLock from "@/components/PinLock";
 import { RefreshIcon, HandshakeIcon } from "@/components/icons";
 import OverviewTab from "@/components/partnership/OverviewTab";
 import ExploreTab from "@/components/partnership/ExploreTab";
@@ -480,42 +481,48 @@ export default function PartnershipAds() {
               />
             )}
             {tab === "explore" && (
-              <ExploreTab
-                accountId={selectedAccountId}
-                businessId={businessId}
-                igUserId={selectedIgAccountId}
-                ready={ready}
-                dateRange={exploreRange}
-                onQueueChanged={refreshQueueCount}
-              />
+              <PinLock inline label="Explore Ads">
+                <ExploreTab
+                  accountId={selectedAccountId}
+                  businessId={businessId}
+                  igUserId={selectedIgAccountId}
+                  ready={ready}
+                  dateRange={exploreRange}
+                  onQueueChanged={refreshQueueCount}
+                />
+              </PinLock>
             )}
             {tab === "requests" && (
-              <RequestsTab
-                igUserId={selectedIgAccountId}
-                ready={ready}
-                ads={perf.ads}
-                currency={selectedAccount?.currency}
-                perfLoading={perf.loading}
-                perfHasLoaded={perf.hasLoaded}
-                onCheckPerformance={checkPerformance}
-                canCheckPerformance={!!performanceReady && !!performanceRange}
-              />
+              <PinLock inline label="My Requests">
+                <RequestsTab
+                  igUserId={selectedIgAccountId}
+                  ready={ready}
+                  ads={perf.ads}
+                  currency={selectedAccount?.currency}
+                  perfLoading={perf.loading}
+                  perfHasLoaded={perf.hasLoaded}
+                  onCheckPerformance={checkPerformance}
+                  canCheckPerformance={!!performanceReady && !!performanceRange}
+                />
+              </PinLock>
             )}
             {tab === "code" && (
-              <PartnershipCodeTab
-                accountId={selectedAccountId}
-                businessId={businessId}
-                igUserId={selectedIgAccountId}
-                pages={pages}
-                ready={ready}
-                onQueueChanged={refreshQueueCount}
-                igOptions={igOptions}
-                businessOptions={businessOptions}
-                onSwitchContext={(bizId, igId) => {
-                  setSelectedBusinessId(bizId);
-                  setSelectedIgAccountId(igId);
-                }}
-              />
+              <PinLock inline label="Partnership Code">
+                <PartnershipCodeTab
+                  accountId={selectedAccountId}
+                  businessId={businessId}
+                  igUserId={selectedIgAccountId}
+                  pages={pages}
+                  ready={ready}
+                  onQueueChanged={refreshQueueCount}
+                  igOptions={igOptions}
+                  businessOptions={businessOptions}
+                  onSwitchContext={(bizId, igId) => {
+                    setSelectedBusinessId(bizId);
+                    setSelectedIgAccountId(igId);
+                  }}
+                />
+              </PinLock>
             )}
           </div>
 
