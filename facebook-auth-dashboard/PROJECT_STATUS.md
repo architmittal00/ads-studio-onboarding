@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Custom Views: query panel no longer hides under the view tabs (2026-11-03)
+
+With many open views the tab strip wraps to several lines, and the Query & Filters panel stuck at a fixed 20px, so its top (and the first filters) sat underneath the strip and the page seemed to scroll too far. The panel now sticks directly below the tab strip (its measured height + 12px) and its height cap is recomputed when that height changes. Desktop only; not checked against a real account.
+
 ### Pixel tab redesign (2026-11-02)
 Pixel page now matches the other screens: title + labeled pills (ad account, pixel, shared `DateRangeMenu`, reload) header, `.statBar` summary (status, last fired, events, event types), a chart card with event chips (click a row or chip to chart that event), and the shared `SortableTable` with sparklines. Chart colors are tokens.
 

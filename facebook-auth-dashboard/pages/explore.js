@@ -1557,7 +1557,7 @@ export default function Explore() {
       if (frame) cancelAnimationFrame(frame);
       if (panelEl) panelEl.style.maxHeight = "";
     };
-  }, [queryPanelExpanded, isMobile]);
+  }, [queryPanelExpanded, isMobile, tabsRowHeight]);
 
   // Post-query pivot filters applied instantly, client-side, to whatever's
   // already in `result` — never a re-fetch. Everything downstream (table,
@@ -2802,6 +2802,10 @@ export default function Explore() {
                 className={
                   queryPanelIsSheet ? `${styles.exploreQueryPanel} ${styles.exploreQueryPanelSheet}` : styles.exploreQueryPanel
                 }
+                // Sticks just below the (sticky) view-tabs row, not at a fixed 20px: with many
+                // open views that row wraps to several lines, and a fixed offset tucked the
+                // panel's top (and the first filters) underneath it.
+                style={isMobile ? undefined : { top: tabsRowHeight + 12 }}
               >
                 <div className={`${styles.card} ${styles.exploreQueryCard}`}>
                   <div className={styles.exploreQueryHeader}>
