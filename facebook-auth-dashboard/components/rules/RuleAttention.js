@@ -60,7 +60,7 @@ export function AttentionStatus({ state }) {
       </span>
     );
   }
-  const n = state.flags.size;
+  const n = state.count;
   if (n > 0) {
     return (
       <span className={styles.muted} style={{ color: "var(--amber)", fontWeight: 700 }} title="Rows marked with ! match one of your rules">
