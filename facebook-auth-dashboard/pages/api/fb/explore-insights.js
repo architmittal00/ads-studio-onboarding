@@ -11,6 +11,7 @@ import {
   resolveGraphFields,
   deriveRowMetrics,
   aggregateRowMetrics,
+  totalsInputsOf,
   rowIdentityKey,
   rowLabel,
   rowEntityLabel,
@@ -883,6 +884,7 @@ export default async function handler(req, res) {
         ...metrics,
       };
       if (row.date_start) out.date = row.date_start;
+      out._totalsInputs = totalsInputsOf(row, effectiveMetricKeys, cleanCustomMetrics, accountCustomEvents);
       // The row's own id at `level` — read by the status lookup below, and
       // also sent to the client as-is so the results table can offer a
       // "copy ID" action (for jumping straight to this exact entity in

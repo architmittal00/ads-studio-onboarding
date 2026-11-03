@@ -1,4 +1,4 @@
-import { pickPurchaseCount, pickPurchaseValue, roasFromRow } from "./metrics";
+import { pickPurchaseCount, pickPurchaseValue, roasFromRow, PURCHASE_ACTION_TYPES } from "./metrics";
 
 export const LEVEL_OPTIONS = [
   { value: "account", label: "Account" },
@@ -916,6 +916,41 @@ export function aggregateRowMetrics(entries, metricKeys, customMetrics = []) {
     result[key] = total;
   }
   return result;
+}
+
+// What the Total row's aggregate() functions actually read from one raw row, trimmed to the selected metrics'
+// fields (and, for `actions`/`action_values`, only the action types some metric looks at). Sent with every
+// result row so the client can re-total just the rows left after its live filters (`aggregateRowMetrics`
+// above needs these raw fields; the derived display values on a row can't be re-aggregated).
+const TOTALS_ACTION_TYPES = new Set([
+  ...PURCHASE_ACTION_TYPES,
+  ...ADD_TO_CART_TYPES,
+  ...LEAD_TYPES,
+  ...INITIATE_CHECKOUT_TYPES,
+  ...ADD_PAYMENT_INFO_TYPES,
+  "landing_page_view",
+]);
+export function totalsInputsOf(row, metricKeys, customMetrics = [], customEvents = []) {
+  const customById = new Map(customMetrics.map((cm) => [cm.id, cm]));
+  const eventTypes = new Set((customEvents || []).map((ce) => ce.actionType));
+  const keys = new Set();
+  for (const k of metricKeys || []) {
+    const cm = customById.get(k);
+    if (cm) {
+      keys.add(cm.numeratorKey);
+      keys.add(cm.denominatorKey);
+    } else keys.add(k);
+  }
+  const needsActions = (customEvents || []).length > 0;
+  const fields = new Set(needsActions ? ["actions"] : []);
+  for (const k of keys) for (const f of getMetric(k)?.fields || []) fields.add(f);
+  const out = {};
+  for (const f of fields) {
+    const v = row[f];
+    if (v == null) continue;
+    out[f] = f === "actions" || f === "action_values" ? v.filter((e) => TOTALS_ACTION_TYPES.has(e.action_type) || eventTypes.has(e.action_type)) : v;
+  }
+  return out;
 }
 
 // A stable identity for one row — the level's own id (so different
