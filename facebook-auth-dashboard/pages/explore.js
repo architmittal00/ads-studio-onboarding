@@ -57,6 +57,18 @@ const ExploreChart = dynamic(() => import("@/components/ExploreChart"), { ssr: f
 const MAX_RANGE_DAYS = 365;
 const EXPLORE_CACHE_PREFIX = "explore:";
 const EXPLORE_CACHE_MAX_ENTRIES = 50;
+
+// A saved result from before rows carried `_totalsInputs` can't have its Total re-summed when result filters
+// hide rows (see ExploreResultsTable's totalsRow), so it is dropped and the view fetches fresh instead.
+function getExploreCache(key) {
+  const cached = getCachedEntry(key);
+  const rows = cached?.data?.rows;
+  if (rows && rows.length > 0 && rows.some((r) => !r._totalsInputs)) {
+    clearCachedEntry(key);
+    return null;
+  }
+  return cached;
+}
 // Per-account-set cache of discovered Custom Conversions (see
 // /api/fb/custom-conversions and the fetch effect below) — keyed by a
 // view's own sorted accountIds, same convention as EXPLORE_CACHE_PREFIX,
@@ -1144,7 +1156,7 @@ export default function Explore() {
         accountIds.length > 0 && v.metricKeys?.length > 0
           ? EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(migrated, customMetricsAtMount, adAccounts))
           : null;
-      const cached = cacheKey ? getCachedEntry(cacheKey) : null;
+      const cached = cacheKey ? getExploreCache(cacheKey) : null;
       // Rare edge case: the tab was closed (or the browser reloaded) while
       // this exact result's background thumbnail fetch (see
       // loadThumbnailsForView()) was still in flight, so what got cached was
@@ -1186,7 +1198,7 @@ export default function Explore() {
     if (!v?.needsHydrate || adAccounts.length === 0) return;
     const cacheKey =
       v.accountIds.length > 0 && v.metricKeys?.length > 0 ? EXPLORE_CACHE_PREFIX + JSON.stringify(buildQuerySpecFromView(v, customMetrics, adAccounts)) : null;
-    const cached = cacheKey ? getCachedEntry(cacheKey) : null;
+    const cached = cacheKey ? getExploreCache(cacheKey) : null;
     // One-time fill from the local cache when a tab is first shown, not derived state.
     updateView(v.id, { needsHydrate: false, ...(cached?.data ? { result: cached.data, resultFetchedAt: cached.fetchedAt } : {}) });
     if (cached?.data?.meta.level === "ad") {
@@ -1281,7 +1293,7 @@ export default function Explore() {
     const cacheKey = EXPLORE_CACHE_PREFIX + JSON.stringify(spec);
 
     if (!force) {
-      const cached = getCachedEntry(cacheKey);
+      const cached = getExploreCache(cacheKey);
       if (cached) {
         updateView(view.id, {
           result: cached.data,
