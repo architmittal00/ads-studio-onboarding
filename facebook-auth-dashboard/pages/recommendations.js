@@ -50,7 +50,7 @@ function money(v, symbol) {
   return v == null ? "—" : `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
 }
 
-export default function Rules() {
+export default function Recommendations() {
   return (
     <Layout>
       <Head>

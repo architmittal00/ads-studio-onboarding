@@ -96,7 +96,7 @@ Remaining order: 14, 12 (in-flow), 9 (replace duplicate components — removes t
 
 ## Mobile web (phone widths, ≤768px)
 
-Phone-ready screens: **Custom Views** (`/explore`), Partnership Ads, Catalog Ads and **Rules** (`/rules`: `FlagCards` instead of the table, chips for filters, no bulk select). Mobile is **not the desktop layout squeezed down** — it presents the same data differently. One breakpoint: `MOBILE_MAX_WIDTH = 768` in `lib/useIsMobile.js` (keep CSS `@media (max-width: 768px)` blocks in sync).
+Phone-ready screens: **Custom Views** (`/explore`), Partnership Ads, Catalog Ads and **Recommendations** (`/recommendations`: `FlagCards` instead of the table, chips for filters, no bulk select). Mobile is **not the desktop layout squeezed down** — it presents the same data differently. One breakpoint: `MOBILE_MAX_WIDTH = 768` in `lib/useIsMobile.js` (keep CSS `@media (max-width: 768px)` blocks in sync).
 
 **Principles**
 - One job per screen region; glanceable first (totals + ranked list), detail on demand (tap).
