@@ -6,6 +6,13 @@
 <title>Fastrr Ads — Investor Deck</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    if (!t) { try { t = localStorage.getItem('fastrr-deck-theme'); } catch (e) {} }
+    document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark';
+  })();
+</script>
 <style>
   :root {
     --bg: #07070f;
@@ -123,6 +130,30 @@
   .tight .card h3 { font-size: 16px; margin-bottom: 4px; }
   .tight .card p { font-size: 13.5px; line-height: 1.45; }
   .tight .pill { margin-bottom: 7px; }
+
+  /* ---- Light theme ---- */
+  :root[data-theme="light"] { --bg: #faf8ff; --panel: #ffffff; --line: #e4def3; --text: #16121f; --muted: #6a6483; }
+  :root[data-theme="light"], :root[data-theme="light"] body { background: var(--bg); }
+  :root[data-theme="light"] .slide::before { background: radial-gradient(closest-side, rgba(168,85,247,.14), transparent); }
+  :root[data-theme="light"] .feature li, :root[data-theme="light"] .wide .intro li, :root[data-theme="light"] .vs li, :root[data-theme="light"] .card p, :root[data-theme="light"] .step p { color: #4a4563; }
+  :root[data-theme="light"] .lede, :root[data-theme="light"] p.lede { color: #5b5575; }
+  :root[data-theme="light"] .shot { box-shadow: 0 24px 50px rgba(70,40,130,.22); border-color: #d9d2ee; }
+  :root[data-theme="light"] .shot.second, :root[data-theme="light"] .hero-shots .shot.b { border-color: #cfc5ea; }
+  :root[data-theme="light"] .shot .tag { background: rgba(255,255,255,.92); color: var(--text); border-color: #ddd5f0; }
+  :root[data-theme="light"] .card, :root[data-theme="light"] .step { box-shadow: 0 6px 20px rgba(70,40,130,.07); }
+  :root[data-theme="light"] .pill { background: rgba(168,85,247,.08); }
+  :root[data-theme="light"] .logo .sep { background: #d9d2ee; }
+  :root[data-theme="light"] .slide::after { color: #8a84a3; }
+  :root[data-theme="light"] #hud { color: #9a95b3; }
+
+  /* theme toggle */
+  #theme { position: fixed; top: 14px; right: 16px; z-index: 20; display: flex; align-items: center; gap: 8px;
+    font: 600 12px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .04em; cursor: pointer;
+    color: #f2f2fa; background: rgba(24,22,40,.85); border: 1px solid #3a3658; border-radius: 99px; padding: 7px 13px;
+    backdrop-filter: blur(6px); }
+  #theme:hover { border-color: var(--accent); }
+  :root[data-theme="light"] #theme { color: #16121f; background: rgba(255,255,255,.9); border-color: #d9d2ee; }
+  @media print { #theme { display: none; } }
   #hud { position: fixed; bottom: 12px; right: 16px; color: #666; font: 12px system-ui; z-index: 9; }
 
   @media print {
@@ -141,7 +172,7 @@
 <section class="slide first">
   <div class="hero">
     <div class="hero-text">
-      <div class="logo"><img src="assets/fastrr-ads-logo.png" alt="Fastrr Ads"><i class="sep"></i><span>by Shiprocket</span></div>
+      <div class="logo"><img data-logo src="assets/fastrr-ads-logo.png" alt="Fastrr Ads"><i class="sep"></i><span>by Shiprocket</span></div>
       <h1>One tab for every <em>Meta ads</em> answer</h1>
       <p class="lede" style="max-width:520px">Audit performance, mine insights, build creative, run experiments, track competitors and protect spend, all from one platform.</p>
       <p style="margin-top:26px"><span class="pill" style="margin:0">Built for Meta ads today · Google coverage is early</span></p>
@@ -453,11 +484,12 @@
 </section>
 
 </div>
+<button id="theme" type="button" aria-label="Switch between dark and light theme"></button>
 <div id="hud"></div>
 
 <script>
   const slides = [...document.querySelectorAll('.slide')];
-  slides.forEach((el, k) => { el.dataset.n = String(k + 1).padStart(2, '0'); if (!el.classList.contains('first')) { const im = new Image(); im.src = 'assets/fastrr-ads-logo.png'; im.className = 'wm'; el.appendChild(im); } });
+  slides.forEach((el, k) => { el.dataset.n = String(k + 1).padStart(2, '0'); if (!el.classList.contains('first')) { const im = new Image(); im.dataset.logo = ''; im.className = 'wm'; el.appendChild(im); } });
   let i = Math.min(Math.max(parseInt(location.hash.slice(1) || '1', 10) - 1, 0), slides.length - 1);
   function fit() {
     const s = Math.min(innerWidth / 1280, innerHeight / 720);
@@ -475,6 +507,20 @@
   });
   addEventListener('click', () => show(i + 1));
   addEventListener('resize', fit);
+
+  const root = document.documentElement;
+  const themeBtn = document.getElementById('theme');
+  function applyTheme(t) {
+    root.dataset.theme = t;
+    document.querySelectorAll('img[data-logo]').forEach(im => {
+      im.src = t === 'light' ? 'assets/fastrr-ads-logo-dark.png' : 'assets/fastrr-ads-logo.png';
+    });
+    themeBtn.textContent = t === 'light' ? '☾  Dark' : '☀  Light';
+    try { localStorage.setItem('fastrr-deck-theme', t); } catch (e) {}
+  }
+  themeBtn.addEventListener('click', e => { e.stopPropagation(); applyTheme(root.dataset.theme === 'light' ? 'dark' : 'light'); });
+  themeBtn.addEventListener('keydown', e => e.stopPropagation());
+  applyTheme(root.dataset.theme);
   fit(); show(i);
 </script>
 </body>
