@@ -5,6 +5,7 @@ import { deriveLandingUrl } from "./adCreativeDetails";
 import { normalizeStatus } from "./statusNormalize";
 import { EDIT_AD_FIELDS, describeEditability } from "./adEdit";
 import { fetchAdSetFull, BID_STRATEGIES } from "./adsetEdit";
+import { fetchCampaignFull } from "./campaignEdit";
 
 // Backs Explore's "View Details" row action (components/EntityDetailDrawer.js)
 // — a read-only look at how a campaign/ad set/ad is actually configured on
@@ -100,8 +101,20 @@ function summarizeGeo(geo) {
 }
 
 export async function fetchCampaignDetails(id, token) {
-  const data = await graphGet(`/${id}`, token, { fields: "name,objective" });
-  return { name: data.name, objective: objectiveLabel(data.objective) };
+  const full = await fetchCampaignFull(id, token);
+  const c = full.campaign;
+  return {
+    name: c.name,
+    objective: objectiveLabel(c.objective),
+    status: c.status || null,
+    effectiveStatus: normalizeStatus(c.effective_status) || null,
+    accountId: full.accountId,
+    budgetType: full.budgetType,
+    startTime: full.startTime,
+    form: full.form,
+    info: full.info,
+    bidStrategies: full.bidStrategies,
+  };
 }
 
 export async function fetchAdSetDetails(id, token) {

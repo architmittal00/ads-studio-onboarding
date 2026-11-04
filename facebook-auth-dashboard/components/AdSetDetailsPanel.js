@@ -3,6 +3,7 @@ import InterestPicker from "./InterestPicker";
 import CustomAudiencePicker from "./CustomAudiencePicker";
 import TargetingSearchPicker from "./TargetingSearchPicker";
 import { ATTRIBUTION_OPTIONS, PUBLISHER_PLATFORMS, FACEBOOK_POSITIONS, INSTAGRAM_POSITIONS } from "./AdSetFields";
+import { Card, Row, Pills, same, fmtDate, toLocalInput, money, humanStatus } from "./DetailParts";
 import { readApiResponse } from "@/lib/fetchJson";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
@@ -14,52 +15,6 @@ import styles from "@/styles/Home.module.css";
 
 const PLACEMENT_KEYS = ["placementType", "publisherPlatforms", "facebookPositions", "instagramPositions"];
 const labelOf = (list, value) => list.find((o) => o.value === value)?.label || value;
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const fmtDate = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—");
-const toLocalInput = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-};
-const money = (v) => (v == null ? "—" : `₹${Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`);
-const humanStatus = (s) => (s ? s.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—");
-
-function Card({ title, action, children }) {
-  return (
-    <section className={styles.dtCard}>
-      {(title || action) && (
-        <div className={styles.dtCardHead}>
-          <span className={styles.dtLabel}>{title}</span>
-          {action}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
-
-function Row({ label, children }) {
-  return (
-    <div className={styles.dtRow} style={{ alignItems: "flex-start" }}>
-      <span className={styles.dtMeta}>{label}</span>
-      <span style={{ textAlign: "right", minWidth: 0, overflowWrap: "anywhere" }}>{children}</span>
-    </div>
-  );
-}
-
-function Pills({ items, empty = "—" }) {
-  if (!items?.length) return <span className={styles.dtEmpty}>{empty}</span>;
-  return (
-    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
-      {items.map((it, i) => (
-        <span key={`${it}-${i}`} className={styles.pill}>
-          {it}
-        </span>
-      ))}
-    </span>
-  );
-}
 
 function Checkbox({ checked, onChange, label }) {
   return (

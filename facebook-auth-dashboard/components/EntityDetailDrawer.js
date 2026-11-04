@@ -3,6 +3,7 @@ import { CloseIcon } from "./icons";
 import { LEVEL_OPTIONS } from "@/lib/insightsMetrics";
 import AdDetailsPanel from "./AdDetailsPanel";
 import AdSetDetailsPanel from "./AdSetDetailsPanel";
+import CampaignDetailsPanel from "./CampaignDetailsPanel";
 import styles from "@/styles/Home.module.css";
 
 // "How is this actually set up" drawer for one Campaign/Ad Set/Ad (read-only
@@ -101,7 +102,17 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate, onSave
 
         {!showLoading && !error && data && (
           <div className={styles.dtStack} style={{ marginTop: 16 }}>
-            {entity.level === "campaign" && <CampaignDetails data={data} />}
+            {entity.level === "campaign" && (
+              <CampaignDetailsPanel
+                key={entity.id}
+                campaignId={entity.id}
+                data={data}
+                onSaved={(result) => {
+                  setReloadKey((k) => k + 1);
+                  onSaved?.(entity, result);
+                }}
+              />
+            )}
             {entity.level === "adset" && (
               <AdSetDetailsPanel
                 key={entity.id}
@@ -130,41 +141,5 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate, onSave
         )}
       </div>
     </div>
-  );
-}
-
-function DetailRow({ label, children }) {
-  return (
-    <section className={styles.dtCard}>
-      <div className={styles.dtCardHead}>
-        <span className={styles.dtLabel}>{label}</span>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function PillList({ items, emptyLabel = "—" }) {
-  if (!items || items.length === 0) {
-    return <p className={styles.dtEmpty}>{emptyLabel}</p>;
-  }
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {items.map((item, i) => (
-        <span key={`${item}-${i}`} className={styles.pill}>
-          {item}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function CampaignDetails({ data }) {
-  return (
-    <DetailRow label="Objective">
-      <p className={styles.sub} style={{ fontSize: 15, fontWeight: 600, color: "var(--t1)" }}>
-        {data.objective || "—"}
-      </p>
-    </DetailRow>
   );
 }
