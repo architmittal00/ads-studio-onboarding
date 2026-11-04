@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Duplicate ad set: always a daily budget, only under ABO (2026-11-04)
+
+Copying a lifetime-budget ad set into an ABO campaign sent a lifetime budget, which Meta rejects when the campaign once had a budget of another type ("Inconsistent adset budget type against previously disabled campaign budget", code 100, subcode 1885994). `DuplicateEntityModal` now always sends `DAILY`; the server already only sets an ad set budget under ABO (a CBO campaign owns the budget). A lifetime original's total is no longer prefilled as the daily amount (it starts blank, with a note). Not checked against a real account.
+
 ### Duplicate ad set: campaigns with a different objective are greyed out (2026-11-04)
 
 Duplicating an ad set into a campaign whose objective doesn't allow the ad set's performance goal failed on Meta with "Performance goal isn't available" (code 100, subcode 2490408). `DuplicateEntityModal` now compares the original ad set's campaign objective with each destination's (`objectivesConflict` in `lib/campaignLaunch.js`, which maps legacy objectives such as CONVERSIONS / LINK_CLICKS to the current outcome names) and greys out, with a note and tooltip, any campaign whose objective differs; unknown objectives are left selectable. If Meta still rejects one, the error adds "Pick a campaign with the same objective". Not checked against a real account.
