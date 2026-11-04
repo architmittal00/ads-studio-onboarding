@@ -100,7 +100,8 @@ export function track(event, props = {}) {
 //   search_used        typing in a search box (debounced)      query_length — never the text
 //   form_submitted     <form> submit                           form
 //   dialog_opened      modal / sheet / drawer / lightbox       dialog
-//   api_action         non-GET call to our /api/*              path, method, status, ok, duration_ms
+//   click_<endpoint>…  a click that triggered a call to our /api/*   see "Click-to-API events" below
+//   api_action         non-GET call to our /api/* not tied to a click  path, method, status, ok, duration_ms
 //   api_error          failed or non-2xx call to our /api/*    path, status, duration_ms
 //   js_error           uncaught error / unhandled rejection    message
 //   text_copied        copy to clipboard                       length
@@ -155,6 +156,7 @@ function onClick(e) {
   }
   const el = target.closest("button, a[href], [role=button], [role=tab], summary");
   if (!el || el.disabled) return;
+  recordClick(el);
   const dialog = el.closest("[role=dialog]");
   if (el.getAttribute("role") === "tab") {
     track("tab_changed", { ...screenProps(), label: safeText(el), component: componentClass(el) });
@@ -247,6 +249,105 @@ function onMutations(records) {
   }
 }
 
+// ───────────────────────── Click-to-API events ─────────────────────────
+// Every click that makes a call to our /api (GET or not) fires its own named
+// event, so "who pressed which button, and did it work" is answerable per
+// action. The name is built from the endpoint, the action the request asks for
+// (the `action`/`type`/`mode`/`kind` field of a JSON body, only when it is a
+// short enum-like word — never other body values) and the clicked control
+// (data-track-action, else its safe label, else its component class):
+//   click_entity_action_pause__pause_ad
+// So within one page (`screen`) a given control + endpoint + action is exactly
+// one event name, and two different actions never share one. `event_key` =
+// "<screen>::<event>" is that unique pair as a single property.
+// A call counts as click-driven when it starts within CLICK_WINDOW_MS of the
+// click (covers handlers that fetch straight away and effects that run after the
+// click's state change). Each click reports an endpoint once, however many times
+// it calls it (bulk actions call a batch endpoint repeatedly). Plain links
+// (page navigations) and data-track elements are not recorded.
+
+const CLICK_WINDOW_MS = 1500;
+const KIND_KEYS = ["action", "type", "mode", "kind", "op"];
+let lastClick = null;
+
+function slug(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\d+/g, " ")
+    .replace(/[^a-z]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+}
+
+function recordClick(el) {
+  if (el.tagName === "A") {
+    lastClick = null;
+    return;
+  }
+  lastClick = {
+    t: performance.now(),
+    signature: slug(el.dataset?.trackAction) || slug(safeText(el)) || slug(componentClass(el)) || "unlabeled",
+    label: safeText(el),
+    component: componentClass(el),
+    in_dialog: !!el.closest("[role=dialog]") || undefined,
+    reported: new Set(),
+  };
+}
+
+function endpointSlug(path) {
+  return (
+    path
+      .replace(/^\/api\//, "")
+      .replace(/^fb\//, "")
+      .split("/")
+      .filter((seg) => seg && !/^[0-9a-f-]{6,}$/i.test(seg) && !/^\d+$/.test(seg))
+      .join("_")
+      .replace(/[^a-z0-9]+/gi, "_")
+      .toLowerCase() || "root"
+  );
+}
+
+function requestKind(init) {
+  try {
+    if (typeof init?.body !== "string") return undefined;
+    const body = JSON.parse(init.body);
+    for (const k of KIND_KEYS) {
+      const v = body?.[k];
+      if (typeof v === "string" && /^[a-z][a-z0-9_-]{0,30}$/i.test(v)) return v.toLowerCase().replace(/-/g, "_");
+    }
+  } catch {}
+  return undefined;
+}
+
+// Returns the click this call belongs to (and claims the endpoint for it), REPEAT when
+// the same click already reported this endpoint, or null when no click is behind the call.
+const REPEAT = Symbol("repeat");
+function claimClick(path, kind) {
+  const c = lastClick;
+  if (!c || performance.now() - c.t > CLICK_WINDOW_MS) return null;
+  const key = `${path}|${kind || ""}`;
+  if (c.reported.has(key)) return REPEAT;
+  c.reported.add(key);
+  return c;
+}
+
+function trackClickApi(click, path, kind, method, outcome) {
+  const base = `click_${endpointSlug(path)}${kind ? `_${kind}` : ""}`;
+  const event = (click.signature !== kind ? `${base}__${click.signature}` : base).slice(0, 100);
+  const props = screenProps();
+  track(event, {
+    ...props,
+    event_key: `${props.screen}::${event}`,
+    path,
+    method,
+    action_kind: kind,
+    label: click.label,
+    component: click.component,
+    in_dialog: click.in_dialog,
+    ...outcome,
+  });
+}
+
 function wrapFetch() {
   const orig = window.fetch;
   if (orig.__phWrapped) return;
@@ -260,15 +361,24 @@ function wrapFetch() {
       if (u.origin === window.location.origin && u.pathname.startsWith("/api/") && !u.pathname.startsWith("/api/auth")) path = u.pathname;
     } catch {}
     if (!path) return orig.apply(this, arguments);
+    const kind = requestKind(init);
+    const click = claimClick(path, kind);
     const t0 = performance.now();
     try {
       const res = await orig.apply(this, arguments);
       const duration_ms = Math.round(performance.now() - t0);
-      if (method !== "GET") track("api_action", { path, method, status: res.status, ok: res.ok, duration_ms });
-      else if (!res.ok) track("api_error", { path, method, status: res.status, duration_ms });
+      if (click === REPEAT) {
+        // already reported for this click
+      } else if (click) trackClickApi(click, path, kind, method, { status: res.status, ok: res.ok, duration_ms });
+      else if (method !== "GET") track("api_action", { path, method, status: res.status, ok: res.ok, duration_ms });
+      if (!res.ok && (click || method === "GET")) track("api_error", { path, method, status: res.status, duration_ms });
       return res;
     } catch (err) {
-      if (err?.name !== "AbortError") track("api_error", { path, method, status: 0, error: err?.name, duration_ms: Math.round(performance.now() - t0) });
+      if (err?.name !== "AbortError") {
+        const duration_ms = Math.round(performance.now() - t0);
+        if (click && click !== REPEAT) trackClickApi(click, path, kind, method, { status: 0, ok: false, duration_ms });
+        track("api_error", { path, method, status: 0, error: err?.name, duration_ms });
+      }
       throw err;
     }
   };
