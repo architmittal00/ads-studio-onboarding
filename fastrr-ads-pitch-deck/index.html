@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fastrr Ads — Investor Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07070f;
+    --panel: #11111f;
+    --line: #25253d;
+    --text: #f2f2fa;
+    --muted: #9a9ab8;
+    --accent: #a855f7;
+    --accent-2: #ec4899;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #000; height: 100%; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--text); }
+
+  /* Slides are authored at 1280x720 and scaled to fit the window */
+  #deck { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; counter-reset: s; }
+  .slide {
+    position: absolute; width: 1280px; height: 720px; background: var(--bg);
+    padding: 56px 72px; display: none; overflow: hidden; counter-increment: s;
+    transform-origin: center center;
+  }
+  .slide.active { display: block; }
+  .slide::before {
+    content: ""; position: absolute; width: 700px; height: 700px; right: -220px; top: -260px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(168,85,247,.22), transparent);
+    pointer-events: none;
+  }
+  .slide::after {
+    content: attr(data-n);
+    position: absolute; bottom: 28px; left: 72px; font-size: 12px; color: var(--muted); letter-spacing: .1em; font-weight: 600;
+  }
+  .slide.first::after { display: none; }
+  .kicker { font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 14px; }
+  h1 { font-size: 76px; line-height: 1.02; font-weight: 800; letter-spacing: -.03em; }
+  h2 { font-size: 42px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; }
+  h2 em, h1 em { font-style: normal; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  p.lede { font-size: 20px; line-height: 1.5; color: var(--muted); margin-top: 18px; }
+
+  /* feature slides: copy left, screenshots right */
+  .feature { display: grid; grid-template-columns: 420px 1fr; gap: 44px; height: 100%; align-items: center; padding-bottom: 30px; }
+  .feature ul { list-style: none; margin-top: 26px; display: grid; gap: 16px; }
+  .feature li { font-size: 17px; line-height: 1.45; color: #d6d6ea; padding-left: 22px; position: relative; }
+  .feature li::before { content: ""; position: absolute; left: 0; top: 9px; width: 8px; height: 8px; border-radius: 2px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .feature li b { color: var(--text); }
+  .shots { position: relative; height: 470px; }
+  .shot { position: absolute; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 60px rgba(0,0,0,.55); background: var(--panel); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot.main { right: 0; top: 20px; width: 620px; }
+  .shot.second { left: 0; bottom: 20px; width: 360px; border-color: #3b3b63; }
+  .shot .tag { position: absolute; left: 10px; top: 10px; background: rgba(7,7,15,.82); border: 1px solid var(--line); color: var(--text); font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 99px; }
+
+  /* wide variant: heading on top, three screenshots in a row */
+  .wide { height: 100%; padding-bottom: 30px; }
+  .wide .intro { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: end; }
+  .wide .intro ul { list-style: none; display: grid; gap: 10px; }
+  .wide .intro li { font-size: 16px; line-height: 1.4; color: #d6d6ea; padding-left: 22px; position: relative; }
+  .wide .intro li::before { content: ""; position: absolute; left: 0; top: 8px; width: 8px; height: 8px; border-radius: 2px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .wide .intro li b { color: var(--text); }
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 30px; }
+  .trio .shot { position: relative; width: 100%; }
+  .trio .cap { font-size: 14px; color: var(--muted); margin-top: 10px; line-height: 1.4; }
+  .trio .cap b { color: var(--text); display: block; font-size: 15px; margin-bottom: 2px; }
+
+  /* generic cards */
+  .cards { display: grid; gap: 18px; margin-top: 36px; }
+  .c2 { grid-template-columns: repeat(2, 1fr); }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .c4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .card h3 { font-size: 18px; margin-bottom: 8px; }
+  .card p { font-size: 15px; line-height: 1.5; color: var(--muted); }
+  .roomy .card { padding: 30px 28px; min-height: 190px; }
+  .roomy .card h3 { font-size: 22px; margin-bottom: 12px; }
+  .roomy .card p { font-size: 17px; }
+  .card .big { font-size: 40px; font-weight: 800; letter-spacing: -.02em; }
+  .ph { color: #fbbf24; font-weight: 700; }   /* placeholder marker: needs real data */
+  .ph-box { border: 1.5px dashed #fbbf24; border-radius: 12px; padding: 16px 20px; color: #fbbf24; font-size: 14px; font-weight: 600; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 99px; padding: 3px 10px; margin-bottom: 12px; }
+
+  /* loop diagram */
+  .loop { display: flex; align-items: stretch; gap: 10px; margin-top: 48px; }
+  .step { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 18px; min-height: 210px; }
+  .step .n { font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: .14em; }
+  .step h3 { font-size: 21px; margin: 10px 0 8px; }
+  .step p { font-size: 14px; line-height: 1.45; color: var(--muted); }
+  .arrow { color: var(--accent); font-size: 26px; align-self: center; }
+
+  /* tabs-vs-one comparison */
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 40px; }
+  .vs .col { border-radius: 16px; padding: 26px 28px; border: 1px solid var(--line); background: var(--panel); }
+  .vs .col.good { border-color: var(--accent); background: linear-gradient(160deg, rgba(168,85,247,.16), var(--panel)); }
+  .vs h3 { font-size: 20px; margin-bottom: 14px; }
+  .vs ul { list-style: none; display: grid; gap: 11px; }
+  .vs li { font-size: 16px; color: #d6d6ea; line-height: 1.4; padding-left: 24px; position: relative; }
+  .vs .bad li::before { content: "✕"; position: absolute; left: 0; color: #f87171; font-weight: 800; }
+  .vs .good li::before { content: "✓"; position: absolute; left: 0; color: #34d399; font-weight: 800; }
+
+  /* title */
+  .title-wrap { height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .logo { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; margin-bottom: 40px; }
+  .logo i { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: block; }
+  .logo span { font-weight: 500; color: var(--muted); font-size: 16px; }
+
+  .logo { align-items: center; gap: 16px; margin-bottom: 44px; }
+  .logo img { height: 62px; display: block; }
+  .logo .sep { width: 1px; height: 38px; background: var(--line); display: block; }
+  .logo span { color: var(--muted); font-size: 17px; font-weight: 500; }
+  .hero { display: grid; grid-template-columns: 540px 1fr; gap: 30px; height: 100%; align-items: center; }
+  .hero h1 { font-size: 62px; line-height: 1.04; }
+  .hero-shots { position: relative; height: 100%; }
+  .hero-shots .shot.a { left: 20px; top: 150px; width: 580px; }
+  .hero-shots .shot.b { left: -50px; top: 390px; width: 400px; border-color: #3b3b63; }
+  .wm { position: absolute; right: 72px; bottom: 26px; height: 30px; opacity: .92; }
+  .lbl { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-top: 26px; }
+  .tight .card { padding: 14px 18px; }
+  .tight .card h3 { font-size: 16px; margin-bottom: 4px; }
+  .tight .card p { font-size: 13.5px; line-height: 1.45; }
+  .tight .pill { margin-bottom: 7px; }
+  #hud { position: fixed; bottom: 12px; right: 16px; color: #666; font: 12px system-ui; z-index: 9; }
+
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { background: var(--bg); height: auto; }
+    #deck { position: static; display: block; overflow: visible; }
+    .slide { display: block !important; position: relative; transform: none !important; page-break-after: always; break-after: page; }
+    #hud { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- 1 · Title -->
+<section class="slide first">
+  <div class="hero">
+    <div class="hero-text">
+      <div class="logo"><img src="assets/fastrr-ads-logo.png" alt="Fastrr Ads"><i class="sep"></i><span>by Shiprocket</span></div>
+      <h1>One tab for every <em>Meta ads</em> answer</h1>
+      <p class="lede" style="max-width:520px">Audit performance, mine insights, build creative, run experiments, track competitors and protect spend, all from one platform.</p>
+      <p style="margin-top:26px"><span class="pill" style="margin:0">Built for Meta ads today · Google coverage is early</span></p>
+    </div>
+    <div class="hero-shots">
+      <div class="shot a"><img src="assets/landing-hero.jpg" alt=""></div>
+      <div class="shot b"><img src="assets/seven-layers.jpg" alt=""></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · Problem -->
+<section class="slide">
+  <div class="kicker">The problem</div>
+  <h2>100+ live ads, and no idea which one is <em>leaking spend</em></h2>
+  <p class="lede" style="max-width:940px">To find out, marketers open 20 tabs in Ads Manager and wait on its latency, losing efficiency and, in the end, revenue.</p>
+  <div class="cards c3" style="margin-top:30px">
+    <div class="card"><h3>Spend leaks unseen</h3><p>Nobody can check every ad line by line. Losing ads keep spending while winners go unscaled.</p></div>
+    <div class="card"><h3>Insight is buried</h3><p>Meta insights only show up if you go line by line through the data. Most teams never get there.</p></div>
+    <div class="card"><h3>Too many tools, too slow</h3><p>Research, creative, launch and reporting live in different places. Each switch costs time.</p></div>
+    <div class="card"><h3>Creative is a black box</h3><p>Meta reports ROAS per ad, but not which hooks, stories or angles are driving it.</p></div>
+    <div class="card"><h3>Competitors are invisible</h3><p>Seeing what rivals run means scrolling ad libraries by hand, with no view of their strategy.</p></div>
+    <div class="card"><h3>Making and launching is slow</h3><p>Building creatives, writing copy and launching each happen in a different place, so testing stays slow.</p></div>
+  </div>
+</section>
+
+<!-- 3 · Solution -->
+<section class="slide">
+  <div class="kicker">The solution</div>
+  <h2>A marketer's whole day, in <em>one platform</em></h2>
+  <p class="lede" style="max-width:900px">Fastrr Ads stitches five jobs together so nobody has to go back to Ads Manager through the day.</p>
+  <div class="loop">
+    <div class="step"><div class="n">01</div><h3>Own data</h3><p>Creative performance, audits and trends across your Meta account.</p></div><div class="arrow">→</div>
+    <div class="step"><div class="n">02</div><h3>Competition</h3><p>What rivals run, and which creative strategy they optimise for.</p></div><div class="arrow">→</div>
+    <div class="step"><div class="n">03</div><h3>Ad spend</h3><p>Rules and alerts find what drains spend and what has upside.</p></div><div class="arrow">→</div>
+    <div class="step"><div class="n">04</div><h3>Meta insights</h3><p>Audience, reach and conversion patterns a line-by-line read would miss.</p></div><div class="arrow">→</div>
+    <div class="step"><div class="n">05</div><h3>Create &amp; launch</h3><p>Generate AI creatives and launch them from the same place.</p></div>
+  </div>
+</section>
+
+<!-- 4 · Creative Performance -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">01 · Own data</div>
+      <h2>Your account, <em>at a glance</em></h2>
+      <ul>
+        <li><b>The first screen of the day:</b> spend, ROAS, live ads and CTR, with changes vs the last window.</li>
+        <li><b>Winners and losers:</b> see which creatives are scaling, which are descaling, the top spenders and the best performers. Sort by ROAS or CPR.</li>
+        <li><b>Custom table:</b> add any metrics, sort any way. No trips back to Ads Manager.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/creative-performance.jpg" alt=""><span class="tag">Creative Performance</span></div>
+      <div class="shot second"><img src="assets/creative-detail.jpg" alt=""><span class="tag">Ad-level drill-down</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 · Creative intelligence -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">02 · Creative intelligence</div>
+      <h2>Learn which <em>hooks and angles</em> move ROAS</h2>
+      <ul>
+        <li><b>Auto-classified creatives:</b> every ad is tagged by hook, storytelling style, visual style and creator presence.</li>
+        <li><b>Story Matrix:</b> split performance by gender, hook or story style to see the strategy your account really runs on.</li>
+        <li><b>Recommendations, not dashboards:</b> clear next steps on what to make more of.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/filtered-ads.jpg" alt=""><span class="tag">Ads filtered by creative tag</span></div>
+      <div class="shot second"><img src="assets/story-matrix.jpg" alt=""><span class="tag">Story Matrix</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · Meta insights -->
+<section class="slide">
+  <div class="wide">
+    <div class="intro">
+      <div>
+        <div class="kicker">03 · Meta insights &amp; audience discovery</div>
+        <h2>Go deeper than <em>vanity metrics</em></h2>
+      </div>
+      <ul>
+        <li><b>Uncover audiences:</b> find new segments and untapped reach, not just ROAS.</li>
+        <li><b>Plain-English reads:</b> each view flags what it means and what to do next.</li>
+      </ul>
+    </div>
+    <div class="trio">
+      <div><div class="shot"><img src="assets/net-new-reach.jpg" alt=""></div><div class="cap"><b>Net New Reach</b>How much of your reach is genuinely new people vs repeat exposure, with an audience saturation warning.</div></div>
+      <div><div class="shot"><img src="assets/conversion-windows.jpg" alt=""></div><div class="cap"><b>Conversion Windows</b>Which attribution window is enough for your account, based on how fast customers convert.</div></div>
+      <div><div class="shot"><img src="assets/creative-churn.jpg" alt=""></div><div class="cap"><b>Creative Churn</b>How fast new creatives replace old ones in your spend, by launch cohort.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · Competitor analysis -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">04 · Competition</div>
+      <h2>See what competitors <em>actually run</em></h2>
+      <ul>
+        <li><b>Brand Analysis:</b> add as many competitors as you like and see ads launched, format mix and launch timing.</li>
+        <li><b>Competitor Report:</b> a 90-day strategy view: visual style, storytelling, hooks, CTAs, top products, collections and landing pages.</li>
+        <li><b>Act on it:</b> save ads to a collection, or download them as MP4 or MP3.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/brand-analysis.jpg" alt=""><span class="tag">Brand Analysis</span></div>
+      <div class="shot second"><img src="assets/competitor-report.jpg" alt=""><span class="tag">Competitor Report</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 · Rules & alerts -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">05 · Ad spend</div>
+      <h2>Rules and alerts that <em>protect spend</em> while you sleep</h2>
+      <ul>
+        <li><b>Smart defaults plus your own:</b> sample rules from our internal marketing team, or write one in plain English.</li>
+        <li><b>Every level:</b> scale or cut budgets at campaign, ad set and ad level, and pause losing ads.</li>
+        <li><b>You stay in control:</b> approve each action by email or in-app, or turn on auto-approve on a set frequency.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/alerts.jpg" alt=""><span class="tag">Alerts</span></div>
+      <div class="shot second"><img src="assets/rule-interpreted.jpg" alt=""><span class="tag">English → rule</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 · Creative creation -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">06 · Create</div>
+      <h2>Inspiration to <em>finished creative</em> in seconds</h2>
+      <ul>
+        <li><b>Inspiration Hub:</b> a Pinterest for ads, with 3 lakh+ real ad inspirations to search.</li>
+        <li><b>Generate with AI:</b> pick the ads you like, upload your product photo, and get static creatives built for your SKU.</li>
+        <li><b>Frame Studio:</b> fine-tune layers, badges and banners, then export.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/inspiration-hub.jpg" alt=""><span class="tag">Inspiration Hub</span></div>
+      <div class="shot second"><img src="assets/frame-studio.jpg" alt=""><span class="tag">Frame Studio</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 · Launch -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">07 · Launch</div>
+      <h2>Launch from the <em>same platform</em></h2>
+      <ul>
+        <li><b>Bring any creative:</b> upload an image or video, pick from your collection, or reuse an existing ad.</li>
+        <li><b>AI ad copy:</b> copy is generated by reading the video, so nobody writes it by hand. Apply a template, such as a sale template, in a click.</li>
+        <li><b>Straight to Meta:</b> launch many ads into an existing ad set, active or paused, without opening Ads Manager.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/ready-to-launch.jpg" alt=""><span class="tag">Ready to Launch</span></div>
+      <div class="shot second"><img src="assets/launch-confirm.jpg" alt=""><span class="tag">Confirm &amp; launch</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 · Comments Pulse -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">08 · Comments Pulse</div>
+      <h2>Turn ad comments into <em>signal</em></h2>
+      <ul>
+        <li><b>Auto-sorted:</b> post and ad comments land in enquiries, positive and negative.</li>
+        <li><b>What's going wrong:</b> AI groups negative comments into themes, such as delivery delays or offer clarity, each with a suggested fix.</li>
+        <li><b>Act in one click:</b> reply with saved responses, or hide all negative comments.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/post-comments.jpg" alt=""><span class="tag">Post comments</span></div>
+      <div class="shot second"><img src="assets/comment-reply.jpg" alt=""><span class="tag">Reply or hide</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 13 · Why Fastrr Ads -->
+<section class="slide">
+  <div class="kicker">Why Fastrr Ads</div>
+  <h2>One workspace, <em>full loop</em>, less friction</h2>
+  <div class="cards c3 roomy" style="margin-top:40px;gap:22px">
+    <div class="card"><h3>20 tabs become one</h3><p>Research, creative, launch, optimisation and reporting sit together instead of across Ads Manager tabs.</p></div>
+    <div class="card"><h3>Always-on optimisation</h3><p>Rules and alerts scale winners and pause losers around the clock, while you approve or auto-approve.</p></div>
+    <div class="card"><h3>Creative you can learn from</h3><p>Every ad is tagged by hook, story and visual, so you see why creatives work and which to make next.</p></div>
+    <div class="card"><h3>Know your competition</h3><p>See rivals' creatives, offers, messaging and strategy next to your own results.</p></div>
+    <div class="card"><h3>Create and launch in minutes</h3><p>3 lakh+ inspirations, AI creatives, AI ad copy and bulk launch, without opening Ads Manager.</p></div>
+    <div class="card" style="border-color:var(--accent);background:linear-gradient(160deg,rgba(168,85,247,.16),var(--panel))"><h3>Built for Indian D2C</h3><p>Shaped around realities like COD and RTO, so success is read on delivered outcomes, not just reported ones.</p></div>
+  </div>
+  <p class="lede" style="margin-top:34px;font-size:22px;color:var(--text);font-weight:600">Less friction, more efficiency, better revenue.</p>
+</section>
+
+<!-- 13 · What's coming next -->
+<section class="slide">
+  <div class="kicker">What's coming next</div>
+  <h2>More than a dashboard, and <em>shipping weekly</em></h2>
+  <div class="tight">
+    <div class="lbl">Also live today</div>
+    <div class="cards c2" style="margin-top:10px">
+      <div class="card"><span class="pill">Live</span><h3>Ad Spend Leakage Analysis</h3><p>Pinpoints where budget is wasted and where reallocating it could unlock better returns.</p></div>
+      <div class="card"><span class="pill">Live</span><h3>Meta audits and trends</h3><p>Full audits plus day, week and month trends to catch issues early. Google coverage is early.</p></div>
+    </div>
+    <div class="lbl" style="margin-top:22px">Next: creative intelligence <span style="text-transform:none;letter-spacing:0;font-weight:500">· shown in action on the next slides</span></div>
+    <div class="cards c4" style="margin-top:10px">
+      <div class="card"><span class="pill">Next</span><h3>Creative Overview</h3><p>Spend efficiency and ROAS by creative stage and angle.</p></div>
+      <div class="card"><span class="pill">Next</span><h3>Insights &amp; Actionables</h3><p>Hidden creative signals, each with a clear action.</p></div>
+      <div class="card"><span class="pill">Next</span><h3>Creative Ranking Engine</h3><p>Ranks creatives on more than ROAS, out of 100.</p></div>
+      <div class="card"><span class="pill">Next</span><h3>Experimentation Lab</h3><p>Builds your next creative recipe from your own ad history.</p></div>
+    </div>
+    <div class="lbl" style="margin-top:22px">Also in the pipeline</div>
+    <div class="cards c3" style="margin-top:10px">
+      <div class="card"><span class="pill">Coming next</span><h3>Workspaces</h3><p>Separate workspaces to organise brands, accounts and teams.</p></div>
+      <div class="card"><span class="pill">In pipeline</span><h3>Partnership ads</h3><p>Run and manage partnership ads from the same platform.</p></div>
+      <div class="card"><span class="pill">In pipeline</span><h3>Catalog ads</h3><p>Create and manage catalog ads without leaving Fastrr Ads.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 15 · Creative Overview -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">Next · Creative Overview</div>
+      <h2>See where spend <em>pays off</em>, and where it's stuck</h2>
+      <ul>
+        <li><b>Spend efficiency:</b> how much spend is stuck in low-ROAS ads, and the upside if it moved to your top-ROAS tier.</li>
+        <li><b>Creative stages:</b> every ad broken into problem statement, hook, USP claim, use case, CTA, proof points and offer.</li>
+        <li><b>Angle ranking:</b> see which angle in each stage earns the best ROAS, by campaign or SKU.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/creative-overview.jpg" alt=""><span class="tag">Creative Overview</span></div>
+      <div class="shot second"><img src="assets/creative-stages.jpg" alt=""><span class="tag">Creative stage overview</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 16 · Insights & actionables -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">Next · Insights &amp; Actionables</div>
+      <h2>Hidden signals, with <em>what to do</em> about them</h2>
+      <ul>
+        <li><b>Found in your own data:</b> for example, ads that open with a transformation story earn more than average yet get little budget.</li>
+        <li><b>Clear next step:</b> each insight comes with what we found and a one-line action, with the ads behind it.</li>
+        <li><b>Combination explorer:</b> a 3D view of hook, claim and CTA combinations. Darker means a better return.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/insights-actionables.jpg" alt=""><span class="tag">Insights &amp; Actionables</span></div>
+      <div class="shot second"><img src="assets/combo-explorer.jpg" alt=""><span class="tag">Combination explorer</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 17 · Ranking engine -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">Next · Creative Ranking Engine</div>
+      <h2>Rank creatives on <em>more than ROAS</em></h2>
+      <ul>
+        <li><b>Statistical, not just ROAS:</b> multi-parameter normalisation scores every creative out of 100.</li>
+        <li><b>Rank shift:</b> shows how far a creative moves up or down vs a plain ROAS ranking.</li>
+        <li><b>Quick views:</b> top performers, worst performers and top spend.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main" style="top:40px"><img src="assets/ranking-engine.jpg" alt=""><span class="tag">Creative Ranking Engine</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 18 · Experimentation lab -->
+<section class="slide">
+  <div class="feature">
+    <div>
+      <div class="kicker">Next · Experimentation Lab</div>
+      <h2>Your best ad hasn't been made yet. <em>Your data already knows how.</em></h2>
+      <ul>
+        <li><b>Recipe engine:</b> pick a product and it scores every supported combination of problem, hook, claim, use case and CTA.</li>
+        <li><b>Predicted ROAS:</b> shows the expected return of the winning recipe against your average ad, and flags combinations you've never tried.</li>
+        <li><b>From your data:</b> a statistical model on your own ads, not generative AI guesswork. Then generate the creative.</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="shot main"><img src="assets/lab-recipe.jpg" alt=""><span class="tag">Your creative recipe</span></div>
+      <div class="shot second"><img src="assets/lab-start.jpg" alt=""><span class="tag">Sealed recipe</span></div>
+    </div>
+  </div>
+</section>
+
+</div>
+<div id="hud"></div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  slides.forEach((el, k) => { el.dataset.n = String(k + 1).padStart(2, '0'); if (!el.classList.contains('first')) { const im = new Image(); im.src = 'assets/fastrr-ads-logo.png'; im.className = 'wm'; el.appendChild(im); } });
+  let i = Math.min(Math.max(parseInt(location.hash.slice(1) || '1', 10) - 1, 0), slides.length - 1);
+  function fit() {
+    const s = Math.min(innerWidth / 1280, innerHeight / 720);
+    slides.forEach(el => el.style.transform = `scale(${s})`);
+  }
+  function show(n) {
+    i = Math.min(Math.max(n, 0), slides.length - 1);
+    slides.forEach((el, k) => el.classList.toggle('active', k === i));
+    document.getElementById('hud').textContent = `${i + 1} / ${slides.length}  ← →`;
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+  addEventListener('keydown', e => {
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) show(i + 1);
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) show(i - 1);
+  });
+  addEventListener('click', () => show(i + 1));
+  addEventListener('resize', fit);
+  fit(); show(i);
+</script>
+</body>
+</html>
