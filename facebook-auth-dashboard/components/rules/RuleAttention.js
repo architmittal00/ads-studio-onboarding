@@ -5,9 +5,9 @@ import RuleActionModal, { STEP_PCT } from "@/components/rules/RuleActionModal";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
 import styles from "@/styles/Home.module.css";
 
-const ACTION_TEXT = { INCREASE_BUDGET: "Budget could go up", DECREASE_BUDGET: "Budget could come down", PAUSE_AD: "Consider pausing" };
-const ACTION_LABEL = { INCREASE_BUDGET: "Increase budget", DECREASE_BUDGET: "Decrease budget", PAUSE_AD: "Pause ad" };
-const TONE = { INCREASE_BUDGET: ["var(--green)", "var(--green-rgb)"], DECREASE_BUDGET: ["var(--amber)", "var(--amber-rgb)"], PAUSE_AD: ["var(--red)", "var(--red-rgb)"] };
+const ACTION_TEXT = { INCREASE_BUDGET: "Budget could go up", DECREASE_BUDGET: "Budget could come down", PAUSE_AD: "Consider pausing", ADD_CREATIVE: "Room for a new creative" };
+const ACTION_LABEL = { INCREASE_BUDGET: "Increase budget", DECREASE_BUDGET: "Decrease budget", PAUSE_AD: "Pause ad", ADD_CREATIVE: "Add a creative" };
+const TONE = { INCREASE_BUDGET: ["var(--green)", "var(--green-rgb)"], DECREASE_BUDGET: ["var(--amber)", "var(--amber-rgb)"], PAUSE_AD: ["var(--red)", "var(--red-rgb)"], ADD_CREATIVE: ["var(--blue)", "var(--blue-rgb)"] };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 
 const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
@@ -145,6 +145,7 @@ export function AttentionPopover({ flag, currency, onClose, onApplied }) {
                 </div>
               )}
               {!actionable && flag.budgetNote && <div className={styles.sub}>{flag.budgetNote}</div>}
+              {flag.action === "ADD_CREATIVE" && <div className={styles.sub}>Upload a fresh ad to this ad set.</div>}
             </div>
             {actionable && (
               <button

@@ -39,6 +39,7 @@ const FILTERS = [
   { key: "INCREASE_BUDGET", label: "Increase budget", color: "var(--green)" },
   { key: "DECREASE_BUDGET", label: "Decrease budget", color: "var(--amber)" },
   { key: "PAUSE_AD", label: "Pause ads", color: "var(--red)" },
+  { key: "ADD_CREATIVE", label: "Add a creative", color: "var(--blue)" },
 ];
 
 // ₹27.8L, ₹1.02Cr — short money for phone tiles.
@@ -184,7 +185,7 @@ function RulesContent() {
   }, [result]);
 
   const counts = useMemo(() => {
-    const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0 };
+    const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0 };
     for (const f of result?.flags || []) {
       c.all++;
       c[f.action]++;
