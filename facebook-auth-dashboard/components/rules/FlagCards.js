@@ -10,6 +10,7 @@ const ACTION_META = {
   INCREASE_BUDGET: { label: "Increase budget", badge: styles.badgeGood, color: "var(--green)", rgb: "var(--green-rgb)" },
   DECREASE_BUDGET: { label: "Decrease budget", badge: styles.badgeWarn, color: "var(--amber)", rgb: "var(--amber-rgb)" },
   PAUSE_AD: { label: "Pause ad", badge: styles.badgeDanger, color: "var(--red)", rgb: "var(--red-rgb)" },
+  ADD_CREATIVE: { label: "Add a creative", badge: styles.badgeInfo, color: "var(--blue)", rgb: "var(--blue-rgb)" },
 };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 const SORTS = [
@@ -143,6 +144,7 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, applied
                   <div>
                     <span className={meta.badge}>{meta.label} suggested</span>
                     {f.budgetNote && <div className={styles.rowCardSub} style={{ overflowWrap: "anywhere" }}>{f.budgetNote}</div>}
+                    {f.action === "ADD_CREATIVE" && <div className={styles.rowCardSub}>Upload a fresh ad to this ad set.</div>}
                   </div>
                 )}
 

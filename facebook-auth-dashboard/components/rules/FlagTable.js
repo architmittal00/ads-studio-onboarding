@@ -9,6 +9,7 @@ const ACTION_META = {
   INCREASE_BUDGET: { label: "Increase budget", badge: styles.badgeGood },
   DECREASE_BUDGET: { label: "Decrease budget", badge: styles.badgeWarn },
   PAUSE_AD: { label: "Pause ad", badge: styles.badgeDanger },
+  ADD_CREATIVE: { label: "Add a creative", badge: styles.badgeInfo },
 };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 const COLUMN_COUNT = 8;
@@ -131,6 +132,11 @@ export default function FlagTable({ flags, currencySymbol, accountRoas7, applied
           return (
             <div style={{ maxWidth: 230 }}>
               <span className={ACTION_META[r.action].badge}>{label} suggested</span>
+              {r.action === "ADD_CREATIVE" && (
+                <div className={styles.muted} style={{ fontWeight: 400, marginTop: 3 }}>
+                  Upload a fresh ad to this ad set.
+                </div>
+              )}
               {r.budgetNote && (
                 <div className={styles.muted} style={{ fontWeight: 400, marginTop: 3 }}>
                   {r.budgetNote}

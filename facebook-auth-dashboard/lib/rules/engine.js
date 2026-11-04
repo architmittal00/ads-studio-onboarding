@@ -134,8 +134,41 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
   }
 
   const flags = [];
+  function pushFlag(subject, action, winners, budgetTarget, budgetNote, hidden) {
+    const parentCampaign = campaignById.get(subject.campaignId || (subject.type === "campaign" ? subject.id : null));
+    const campaignName = subject.type === "campaign" ? null : parentCampaign?.name || extraNames[subject.campaignId] || null;
+    const parentAdset = subject.type === "ad" ? adsetById.get(subject.adsetId) : null;
+    flags.push({
+      key: `${subject.type}:${subject.id}`,
+      entityType: subject.type,
+      entityId: subject.id,
+      name: subject.name,
+      campaignName,
+      adsetName: subject.type === "ad" ? parentAdset?.name || extraNames[subject.adsetId] || null : null,
+      action,
+      budgetTarget,
+      budgetNote,
+      matchedRules: winners.map((h) => ({ id: h.rule.id, name: h.rule.name, text: h.rule.text, conditions: h.conditions })),
+      hiddenConflicts: hidden,
+      stats: {
+        spend7: subject.m[7].spend,
+        roas7: subject.m[7].roas,
+        roas3: subject.m[3].roas,
+        purchases7: subject.m[7].purchases,
+      },
+    });
+  }
+
   const held = []; // budget suggestions skipped because that budget was edited in the last 48h
-  for (const { subject, hits } of byEntity.values()) {
+  for (const { subject, hits: allHits } of byEntity.values()) {
+    // "Add a creative" is a different kind of suggestion from the budget / pause ones: it never competes with
+    // them, and a flag that has only this is informational (nothing to apply with one click).
+    const creativeHits = allHits.filter((h) => h.rule.action === "ADD_CREATIVE");
+    const hits = allHits.filter((h) => h.rule.action !== "ADD_CREATIVE");
+    if (hits.length === 0) {
+      pushFlag(subject, "ADD_CREATIVE", creativeHits, null, null, []);
+      continue;
+    }
     // Opposite budget directions on one entity: the direction backed by the rule with
     // more conditions wins; a tie goes to the cautious (decrease) side. The loser is listed, not shown as a flag.
     const dirs = { INCREASE_BUDGET: [], DECREASE_BUDGET: [], PAUSE_AD: [] };
@@ -175,31 +208,11 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
           changedWhat: changedId === subject.id ? subject.type : "campaign",
           ruleNames: winners.map((h) => h.rule.name),
         });
+        if (creativeHits.length) pushFlag(subject, "ADD_CREATIVE", creativeHits, null, null, []);
         continue;
       }
     }
-    const parentCampaign = campaignById.get(subject.campaignId || (subject.type === "campaign" ? subject.id : null));
-    const campaignName = subject.type === "campaign" ? null : parentCampaign?.name || extraNames[subject.campaignId] || null;
-    const parentAdset = subject.type === "ad" ? adsetById.get(subject.adsetId) : null;
-    flags.push({
-      key: `${subject.type}:${subject.id}`,
-      entityType: subject.type,
-      entityId: subject.id,
-      name: subject.name,
-      campaignName,
-      adsetName: subject.type === "ad" ? parentAdset?.name || extraNames[subject.adsetId] || null : null,
-      action: winnerAction,
-      budgetTarget,
-      budgetNote,
-      matchedRules: winners.map((h) => ({ id: h.rule.id, name: h.rule.name, text: h.rule.text, conditions: h.conditions })),
-      hiddenConflicts: hidden,
-      stats: {
-        spend7: subject.m[7].spend,
-        roas7: subject.m[7].roas,
-        roas3: subject.m[3].roas,
-        purchases7: subject.m[7].purchases,
-      },
-    });
+    pushFlag(subject, winnerAction, [...winners, ...creativeHits], budgetTarget, budgetNote, hidden);
   }
   flags.sort((a, b) => b.stats.spend7 - a.stats.spend7);
 

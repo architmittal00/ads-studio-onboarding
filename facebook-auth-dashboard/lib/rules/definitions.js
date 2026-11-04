@@ -70,7 +70,64 @@ function allWindowsBeatAccount(ctx, s, label) {
   return [30, 14, 7, 3].map((w) => cond(ctx, `${label} ${w}-day ROAS vs account`, s.m[w].roas, "gt", ctx.acc[w].roas));
 }
 
+
+// Spend of an ad set's active ads over the last 3 days, highest first. `null` when nothing was spent
+// (every ratio below is then "no data", never a match).
+function adSpend3(ctx, adset) {
+  const spends = ctx.adsOfAdset(adset.id).map((a) => a.m[3].spend).sort((a, b) => b - a);
+  const total = spends.reduce((t, v) => t + v, 0);
+  return { spends, total: total > 0 ? total : null };
+}
+
 export const RULES = [
+  // Room for a new creative: the ad set's spend is stacked on too few ads. "Share" is of the ad set's 3-day ad spend.
+  {
+    id: "new-creative-01",
+    name: "New creative -01",
+    level: "adset",
+    action: "ADD_CREATIVE",
+    text: "Ad set has more than 5 active ads, and its lowest-spending half takes less than 30% of the ad set's 3-day spend.",
+    check: (s, ctx) => {
+      const { spends, total } = adSpend3(ctx, s);
+      const n = spends.length;
+      const lowest = spends.slice(n - Math.floor(n / 2)).reduce((t, v) => t + v, 0);
+      return {
+        conditions: [
+          cond(ctx, "Active ads > 5", n, "gt", 5, "int"),
+          cond(ctx, "Lowest 50% of ads take < 30% of 3-day spend", total ? (lowest / total) * 100 : null, "lt", 30, "pct"),
+        ],
+      };
+    },
+  },
+  {
+    id: "new-creative-02",
+    name: "New creative -02",
+    level: "adset",
+    action: "ADD_CREATIVE",
+    text: "Ad set has 2 to 5 active ads, and its top 2 ads take more than 70% of the ad set's 3-day spend.",
+    check: (s, ctx) => {
+      const { spends, total } = adSpend3(ctx, s);
+      const top2 = spends.slice(0, 2).reduce((t, v) => t + v, 0);
+      return {
+        conditions: [
+          cond(ctx, "Active ads ≥ 2", spends.length, "gte", 2, "int"),
+          cond(ctx, "Active ads ≤ 5", spends.length, "lte", 5, "int"),
+          cond(ctx, "Top 2 ads take > 70% of 3-day spend", total ? (top2 / total) * 100 : null, "gt", 70, "pct"),
+        ],
+      };
+    },
+  },
+  {
+    id: "new-creative-03",
+    name: "New creative -03",
+    level: "adset",
+    action: "ADD_CREATIVE",
+    text: "Ad set has only 1 active ad.",
+    check: (s, ctx) => {
+      const n = ctx.adsOfAdset(s.id).length;
+      return { conditions: [cond(ctx, "Active ads = 1", n, "gte", 1, "int"), cond(ctx, "Only 1 active ad", n, "lte", 1, "int")] };
+    },
+  },
   {
     id: "adset-scale-01",
     name: "Adset scale -01",
