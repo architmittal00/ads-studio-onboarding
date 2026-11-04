@@ -138,7 +138,19 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     const parentCampaign = campaignById.get(subject.campaignId || (subject.type === "campaign" ? subject.id : null));
     const campaignName = subject.type === "campaign" ? null : parentCampaign?.name || extraNames[subject.campaignId] || null;
     const parentAdset = subject.type === "ad" ? adsetById.get(subject.adsetId) : null;
+    // Shown on click for a pause suggestion: how many active ads share the ad set, and how much of the
+    // ad set's spend this ad takes (3 and 7 days).
+    let adContext = null;
+    if (subject.type === "ad" && action === "PAUSE_AD") {
+      const siblings = adsByAdset.get(subject.adsetId) || [];
+      const shareOf = (w) => {
+        const total = siblings.reduce((t, a) => t + a.m[w].spend, 0);
+        return total > 0 ? (subject.m[w].spend / total) * 100 : null;
+      };
+      adContext = { activeAdsInAdset: siblings.length, spendShare: { 3: shareOf(3), 7: shareOf(7) } };
+    }
     flags.push({
+      adContext,
       key: `${subject.type}:${subject.id}`,
       entityType: subject.type,
       entityId: subject.id,

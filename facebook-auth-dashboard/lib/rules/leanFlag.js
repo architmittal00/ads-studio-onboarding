@@ -11,6 +11,7 @@ export function toLeanFlag(f) {
     budgetTarget: f.budgetTarget || null,
     budgetNote: f.budgetNote || null,
     stats: f.stats,
+    adContext: f.adContext || null,
     matchedRules: f.matchedRules,
     hiddenConflicts: f.hiddenConflicts || [],
   };
