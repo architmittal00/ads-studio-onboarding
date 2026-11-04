@@ -73,7 +73,8 @@ export default function DuplicateEntityModal({ row, currency, onClose }) {
         }
         setCampaignChoices(campaignsJson.campaigns || []);
         setAdsetSource(adsetJson);
-        setBudgetAmount(adsetJson.fields.budgetAmount || "");
+        // A lifetime ad set's amount is a total, not a daily figure: don't prefill it as one.
+        setBudgetAmount(adsetJson.fields.budgetType === "LIFETIME" ? "" : adsetJson.fields.budgetAmount || "");
         setStep("pick");
       })
       .catch((err) => {
@@ -119,9 +120,12 @@ export default function DuplicateEntityModal({ row, currency, onClose }) {
         accountId,
         existingCampaignId: campaign.id,
         budgetStrategy: abo ? "ABO" : "CBO",
-        budgetType: adsetSource.fields.budgetType,
+        // The copy gets a daily budget, and only under an ABO campaign (a CBO campaign owns the budget and
+        // Meta rejects one on the ad set). Never the original's lifetime type: a campaign that once had a
+        // budget of another type refuses it (code 100, subcode 1885994), and a lifetime budget also needs an end date.
+        budgetType: "DAILY",
         budgetAmount: abo ? budgetAmount : undefined,
-        adset: { ...adsetSource.fields, name: copyName.trim() || adsetSource.name },
+        adset: { ...adsetSource.fields, budgetType: "DAILY", name: copyName.trim() || adsetSource.name },
         duplicateAds: adsetSource.ads,
         status: "PAUSED",
       }),
@@ -279,15 +283,15 @@ export default function DuplicateEntityModal({ row, currency, onClose }) {
             {needsBudget && (
               <div style={{ marginTop: 14 }}>
                 <p className={styles.sub} style={{ marginBottom: 6 }}>
-                  {selected.every(isAbo) ? "These campaigns have" : "Some of these campaigns have"} no campaign-level budget, so the new ad set&apos;s{" "}
-                  {adsetSource.fields.budgetType === "LIFETIME" ? "lifetime" : "daily"} budget is needed
+                  {selected.every(isAbo) ? "These campaigns have" : "Some of these campaigns have"} no campaign-level budget, so the new ad set&apos;s daily budget is needed
+                  {adsetSource.fields.budgetType === "LIFETIME" ? " (the original uses a lifetime budget, which isn't copied)" : ""}
                 </p>
                 <input
                   type="number"
                   min="1"
                   className={styles.select}
                   style={{ width: "100%" }}
-                  placeholder={`Enter an amount (${currency || "₹"})`}
+                  placeholder={`Daily budget (${currency || "₹"})`}
                   value={budgetAmount}
                   onChange={(e) => setBudgetAmount(e.target.value)}
                 />
