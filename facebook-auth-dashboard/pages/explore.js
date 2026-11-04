@@ -4414,10 +4414,10 @@ function ExploreResultsTable({
           onSaved={(entity, saved) =>
             onActionApplied?.(
               entity.id,
-              entity.level === "adset"
+              entity.level === "adset" || entity.level === "campaign"
                 ? {
                     ...(saved.status ? { status: saved.status } : {}),
-                    ...(saved.name ? { entityLabel: saved.name, label: saved.name, adsetName: saved.name } : {}),
+                    ...(saved.name ? { entityLabel: saved.name, label: saved.name, ...(entity.level === "adset" ? { adsetName: saved.name } : { campaignName: saved.name }) } : {}),
                     ...(saved.budget != null ? (budgetFieldOf(rows, entity.id) ? { [budgetFieldOf(rows, entity.id)]: saved.budget, budget: saved.budget } : {}) : {}),
                   }
                 : { ...(saved.status ? { status: saved.status } : {}), ...(saved.name ? { adName: saved.name } : {}) }
