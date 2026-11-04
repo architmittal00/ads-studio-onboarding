@@ -5,6 +5,7 @@ import { CloseIcon } from "./icons";
 import { toMajorUnits } from "@/lib/reportShared";
 import styles from "@/styles/Home.module.css";
 import { cachedGet, invalidateCachedGets } from "@/lib/cachedGet";
+import { objectivesConflict, objectiveLabel } from "@/lib/campaignLaunch";
 
 function formatMoney(amount, currency) {
   if (amount == null) return null;
@@ -88,6 +89,7 @@ export default function DuplicateEntityModal({ row, currency, onClose }) {
   }, [campaignChoices, query]);
 
   function toggle(id) {
+    if (campaignChoices.find((c) => c.id === id && objectivesConflict(adsetSource?.campaignObjective, c.objective))) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -100,6 +102,10 @@ export default function DuplicateEntityModal({ row, currency, onClose }) {
   // A destination campaign with its own daily/lifetime budget is CBO (the ad set can't carry
   // one); one with neither is ABO, so the copy needs its own amount — same rule as pages/launch.js.
   const isAbo = (c) => !(c.daily_budget || c.lifetime_budget);
+  // The ad set's performance goal has to be allowed by the destination campaign's objective, and Meta rejects
+  // it otherwise ("Performance goal isn't available"). A campaign with a different objective can't take this copy.
+  const sourceObjective = adsetSource?.campaignObjective || null;
+  const mismatched = (c) => objectivesConflict(sourceObjective, c.objective);
   const needsBudget = selected.some(isAbo);
   const budgetValid = !needsBudget || (Number.isFinite(parseFloat(budgetAmount)) && parseFloat(budgetAmount) > 0);
   const copyName = nameEdit ?? (adsetSource ? `${adsetSource.name} - Copy` : "");
@@ -214,19 +220,31 @@ export default function DuplicateEntityModal({ row, currency, onClose }) {
               <p className={styles.sub}>No campaigns found on this account.</p>
             ) : (
               <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", maxHeight: 320, overflowY: "auto" }}>
-                {filtered.map((c) => (
-                  <label key={c.id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", cursor: "pointer", display: "flex", gap: 10, alignItems: "center" }}>
-                    <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggle(c.id)} />
+                {filtered.map((c) => {
+                  const blocked = mismatched(c);
+                  return (
+                  <label
+                    key={c.id}
+                    title={blocked ? `This campaign's objective (${objectiveLabel(c.objective)}) doesn't allow this ad set's performance goal` : undefined}
+                    style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", cursor: blocked ? "not-allowed" : "pointer", display: "flex", gap: 10, alignItems: "center", opacity: blocked ? 0.45 : 1 }}
+                  >
+                    <input type="checkbox" checked={selectedIds.has(c.id)} disabled={blocked} onChange={() => toggle(c.id)} />
                     <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
-                      <span className={styles.muted}>{budgetLabel(c, currency)}</span>
+                      <span className={styles.muted}>{blocked ? `Different objective: ${objectiveLabel(c.objective)}` : budgetLabel(c, currency)}</span>
                     </div>
                     <span className={styles.badgeInfo} style={{ flexShrink: 0 }}>
                       {c.effective_status}
                     </span>
                   </label>
-                ))}
+                  );
+                })}
               </div>
+            )}
+            {sourceObjective && filtered.some(mismatched) && (
+              <p className={styles.muted} style={{ marginTop: 8, fontWeight: 400 }}>
+                This ad set belongs to a {objectiveLabel(sourceObjective)} campaign. Campaigns with a different objective are greyed out: Meta doesn&apos;t allow its performance goal there.
+              </p>
             )}
             {selectedIds.size > 0 && (
               <p className={styles.sub} style={{ marginTop: 10 }}>
@@ -295,6 +313,7 @@ export default function DuplicateEntityModal({ row, currency, onClose }) {
                 {failed.map((r, i) => (
                   <div key={i} className={styles.error} style={{ fontSize: 12.5 }}>
                     {r.campaignName}: {r.error}
+                    {/Performance goal isn.t available/i.test(r.error || "") && " Pick a campaign with the same objective as the original ad set."}
                   </div>
                 ))}
               </div>
