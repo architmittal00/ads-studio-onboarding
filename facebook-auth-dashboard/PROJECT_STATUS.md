@@ -90,6 +90,10 @@ No open PRs. Everything described below is merged and live.
 
 Explore Ads, My Requests and Partnership Code now sit behind the shared PIN again; Overview, My Partnership Ads and Creator Hub stay open. `components/PinLock.js` gained an `inline` mode (a compact card in place of the tab's content, same session-wide unlock flag as before, so one PIN opens all three). A locked tab never mounts, so it makes no API calls until unlocked. Still a deterrent, not real security (the PIN is in the client bundle). The Ready to Launch queue page is not locked. Not checked against a real account.
 
+### Custom Views: an empty period is "No data", not "Request failed" (2026-11-04)
+
+When Meta returned no rows for the range (e.g. yesterday with no spend), `pages/api/fb/explore-insights.js` reported "Request failed" even though nothing had failed, and the page showed that error above the previous result. It now only raises an error when a call actually failed; a genuinely empty answer returns zero rows and the page shows a "No data for this period" notice (`NoDataNotice` in `pages/explore.js`) with hints (wider range, untick "only entities with spend", name/ID filters). Not checked against a real account.
+
 ### Hotfix: Custom Views crashed on load (2026-11-03)
 
 The name-columns change (#450) used `NAME_METRIC_KEYS` in `pages/explore.js` without importing it, so `/explore` threw "NAME_METRIC_KEYS is not defined" once that build went live. Import added. Lesson: the default lint run doesn't flag undefined identifiers here; check edited files with `npx eslint --rule '{"no-undef":"error"}' <files>` (clean across all files touched this session).
