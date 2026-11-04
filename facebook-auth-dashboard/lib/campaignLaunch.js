@@ -376,3 +376,34 @@ export function buildGenericAdsetPayload(fields) {
   }
   return payload;
 }
+
+// Older campaigns keep their pre-2022 objective names; Meta maps each to one of the current "outcome"
+// objectives. Used to tell whether an ad set's performance goal can live in another campaign: the goal
+// must be allowed by the campaign's objective, and those differ between outcomes.
+const LEGACY_OBJECTIVE_OUTCOME = {
+  CONVERSIONS: "OUTCOME_SALES",
+  PRODUCT_CATALOG_SALES: "OUTCOME_SALES",
+  LINK_CLICKS: "OUTCOME_TRAFFIC",
+  LEAD_GENERATION: "OUTCOME_LEADS",
+  MESSAGES: "OUTCOME_ENGAGEMENT",
+  POST_ENGAGEMENT: "OUTCOME_ENGAGEMENT",
+  PAGE_LIKES: "OUTCOME_ENGAGEMENT",
+  EVENT_RESPONSES: "OUTCOME_ENGAGEMENT",
+  VIDEO_VIEWS: "OUTCOME_ENGAGEMENT",
+  BRAND_AWARENESS: "OUTCOME_AWARENESS",
+  REACH: "OUTCOME_AWARENESS",
+  APP_INSTALLS: "OUTCOME_APP_PROMOTION",
+};
+export function normalizeObjective(objective) {
+  if (!objective) return null;
+  return LEGACY_OBJECTIVE_OUTCOME[objective] || (objective.startsWith("OUTCOME_") ? objective : null);
+}
+export function objectivesConflict(a, b) {
+  const x = normalizeObjective(a);
+  const y = normalizeObjective(b);
+  return !!x && !!y && x !== y;
+}
+export function objectiveLabel(objective) {
+  const o = normalizeObjective(objective) || objective || "";
+  return o.replace(/^OUTCOME_/, "").toLowerCase().replace(/_/g, " ");
+}
