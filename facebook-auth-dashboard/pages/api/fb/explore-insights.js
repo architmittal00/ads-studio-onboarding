@@ -757,7 +757,9 @@ export default async function handler(req, res) {
   // one failed chunk while still having real rows from its other, succeeded
   // chunks. Only an account with zero current-period rows at all has nothing
   // to show.
-  if (accountIds.every((id) => byAccount.get(id).current.length === 0)) {
+  // An empty result with no failure behind it (a day with no spend) is a normal, empty answer: it falls
+  // through and returns zero rows. "Request failed" is only for when a call really failed.
+  if (firstFailure && accountIds.every((id) => byAccount.get(id).current.length === 0)) {
     // Every account failed — nothing to show, surface it as a real error
     // rather than an empty-but-200 response. Streamed as a "done" event with
     // an `error` field (not a fresh res.status(...).json(...)) — headers

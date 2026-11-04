@@ -646,6 +646,30 @@ function SectionHeading({ children, hint }) {
   );
 }
 
+// A query that ran fine but matched nothing (a day with no spend, filters that exclude everything).
+function NoDataNotice({ meta }) {
+  const period = meta.since === meta.until ? meta.since : `${meta.since} → ${meta.until}`;
+  return (
+    <section className={styles.card}>
+      <div className={styles.exploreEmptyState}>
+        <div className={styles.exploreEmptyIcon}>
+          <ChartIcon size={26} />
+        </div>
+        <div>
+          <h2 className={styles.h2} style={{ marginBottom: 6 }}>
+            No data for this period
+          </h2>
+          <p className={styles.sub}>
+            Nothing came back for {period}. The account may not have spent anything then
+            {meta.nameFiltersApplied || meta.idFilterApplied ? ", or your name / ID filters exclude everything" : ""}. Try a wider date range
+            {meta.zeroSpendIncluded ? "" : ' or untick "Only show entities with spend greater than 0"'}.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // Shown in the result area before a view has ever been run — otherwise that
 // whole side of the screen is just blank, which is a confusing first
 // impression for a page whose entire point is the query panel next to it.
@@ -2384,7 +2408,9 @@ export default function Explore() {
             </div>
           )}
 
-          {activeView.viewMode === "table" ? (
+          {result.rows.length === 0 ? (
+            <NoDataNotice meta={result.meta} />
+          ) : activeView.viewMode === "table" ? (
             <ExploreResultsTable
               // Remounts on tab switch so SortableTable's own internal sort/
               // search/column-order/freeze state (seeded below from this
