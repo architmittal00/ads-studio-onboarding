@@ -2,6 +2,7 @@ import styles from "@/styles/Home.module.css";
 
 const OP_WORDS = { ">": "is more than", "≥": "is at least", "<": "is less than", "≤": "is at most" };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
+const fmtShare = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
 
 // The "why was this flagged" breakdown: the rule in words, then every check with this item's figure.
 export default function FlagWhy({ flag }) {
@@ -44,6 +45,24 @@ export default function FlagWhy({ flag }) {
           ))}
         </div>
       ))}
+      {flag.adContext && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>About this ad</div>
+          <div style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 3 }}>
+            <div>
+              <span className={styles.muted}>Active ads in its ad set: </span>
+              <strong>{flag.adContext.activeAdsInAdset}</strong>
+            </div>
+            <div>
+              <span className={styles.muted}>Share of the ad set&apos;s spend: </span>
+              <strong>{fmtShare(flag.adContext.spendShare[3])}</strong>
+              <span className={styles.muted}> in the last 3 days · </span>
+              <strong>{fmtShare(flag.adContext.spendShare[7])}</strong>
+              <span className={styles.muted}> in the last 7 days</span>
+            </div>
+          </div>
+        </div>
+      )}
       {flag.hiddenConflicts.length > 0 && (
         <p className={styles.muted} style={{ fontWeight: 400 }}>
           A conflicting rule also matched ({flag.hiddenConflicts.join(", ")}) but the stronger one is shown.
