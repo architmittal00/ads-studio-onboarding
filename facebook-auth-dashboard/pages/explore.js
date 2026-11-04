@@ -3402,6 +3402,13 @@ function leadingColumnDefs(meta) {
   return defs;
 }
 
+// Which budget field (daily or lifetime) a row carries, so an edited budget lands on the right one.
+function budgetFieldOf(rows, entityId) {
+  const row = rows.find((r) => r.entityId === entityId);
+  if (!row) return null;
+  return row.dailyBudget != null ? "dailyBudget" : row.lifetimeBudget != null ? "lifetimeBudget" : null;
+}
+
 function ExploreResultsTable({
   rows,
   meta,
@@ -4404,7 +4411,18 @@ function ExploreResultsTable({
           onClose={() => setDetailEntity(null)}
           onNavigate={setDetailEntity}
           // An ad edited from the drawer: patch its row so the table shows the new name/status.
-          onSaved={(entity, saved) => onActionApplied?.(entity.id, { ...(saved.status ? { status: saved.status } : {}), ...(saved.name ? { adName: saved.name } : {}) })}
+          onSaved={(entity, saved) =>
+            onActionApplied?.(
+              entity.id,
+              entity.level === "adset"
+                ? {
+                    ...(saved.status ? { status: saved.status } : {}),
+                    ...(saved.name ? { entityLabel: saved.name, label: saved.name, adsetName: saved.name } : {}),
+                    ...(saved.budget != null ? (budgetFieldOf(rows, entity.id) ? { [budgetFieldOf(rows, entity.id)]: saved.budget, budget: saved.budget } : {}) : {}),
+                  }
+                : { ...(saved.status ? { status: saved.status } : {}), ...(saved.name ? { adName: saved.name } : {}) }
+            )
+          }
         />
         {bulkDuplicating && (
           <BulkDuplicateAdsModal

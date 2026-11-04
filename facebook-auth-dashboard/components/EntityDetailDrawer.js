@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CloseIcon } from "./icons";
 import { LEVEL_OPTIONS } from "@/lib/insightsMetrics";
 import AdDetailsPanel from "./AdDetailsPanel";
+import AdSetDetailsPanel from "./AdSetDetailsPanel";
 import styles from "@/styles/Home.module.css";
 
 // "How is this actually set up" drawer for one Campaign/Ad Set/Ad (read-only
@@ -101,7 +102,18 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate, onSave
         {!showLoading && !error && data && (
           <div className={styles.dtStack} style={{ marginTop: 16 }}>
             {entity.level === "campaign" && <CampaignDetails data={data} />}
-            {entity.level === "adset" && <AdSetDetails data={data} />}
+            {entity.level === "adset" && (
+              <AdSetDetailsPanel
+                key={entity.id}
+                adsetId={entity.id}
+                data={data}
+                onNavigate={onNavigate}
+                onSaved={(result) => {
+                  setReloadKey((k) => k + 1);
+                  onSaved?.(entity, result);
+                }}
+              />
+            )}
             {entity.level === "ad" && (
               <AdDetailsPanel
                 key={entity.id}
@@ -154,60 +166,5 @@ function CampaignDetails({ data }) {
         {data.objective || "—"}
       </p>
     </DetailRow>
-  );
-}
-
-function AdSetDetails({ data }) {
-  return (
-    <>
-      <DetailRow label="Locations">
-        <PillList items={data.locations} />
-        {data.excludedLocations && (
-          <div style={{ marginTop: 8 }}>
-            <p className={styles.muted} style={{ marginBottom: 6, fontSize: 11 }}>
-              Excluded
-            </p>
-            <PillList items={data.excludedLocations} />
-          </div>
-        )}
-      </DetailRow>
-
-      <DetailRow label="Interests">
-        <PillList items={data.interests} emptyLabel={data.advantageAudience ? "Advantage+ Audience (no manual interests)" : "Broad — no detailed targeting"} />
-      </DetailRow>
-
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-        <DetailRow label="Age">
-          <p className={styles.sub}>{data.ageRange}</p>
-        </DetailRow>
-        <DetailRow label="Gender">
-          <p className={styles.sub}>{data.genders}</p>
-        </DetailRow>
-      </div>
-
-      <DetailRow label="Language">
-        <PillList items={data.languages} emptyLabel="All languages" />
-      </DetailRow>
-
-      <DetailRow label="Placement">
-        {data.placements.automatic ? (
-          <p className={styles.sub}>Advantage+ Placements (automatic)</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <PillList items={data.placements.platforms} />
-            {data.placements.facebookPositions?.length > 0 && (
-              <p className={styles.sub} style={{ fontSize: 12 }}>
-                Facebook: {data.placements.facebookPositions.join(", ")}
-              </p>
-            )}
-            {data.placements.instagramPositions?.length > 0 && (
-              <p className={styles.sub} style={{ fontSize: 12 }}>
-                Instagram: {data.placements.instagramPositions.join(", ")}
-              </p>
-            )}
-          </div>
-        )}
-      </DetailRow>
-    </>
   );
 }
