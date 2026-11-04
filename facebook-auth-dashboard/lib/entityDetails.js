@@ -4,6 +4,7 @@ import { titleCaseSnake } from "./reportShared";
 import { deriveLandingUrl } from "./adCreativeDetails";
 import { normalizeStatus } from "./statusNormalize";
 import { EDIT_AD_FIELDS, describeEditability } from "./adEdit";
+import { fetchAdSetFull, BID_STRATEGIES } from "./adsetEdit";
 
 // Backs Explore's "View Details" row action (components/EntityDetailDrawer.js)
 // — a read-only look at how a campaign/ad set/ad is actually configured on
@@ -104,45 +105,19 @@ export async function fetchCampaignDetails(id, token) {
 }
 
 export async function fetchAdSetDetails(id, token) {
-  const data = await graphGet(`/${id}`, token, { fields: "name,targeting" });
-  const targeting = data.targeting || {};
-  const localeNames = await resolveLocaleNames(token, targeting.locales);
-
-  // "Interests" in Ads Manager's own Detailed Targeting UI actually covers
-  // both interests and behaviors — both live under the same `flexible_spec`
-  // entries and both already come back with a `name`, no separate
-  // resolution needed (unlike locales/countries above).
-  const interests = (targeting.flexible_spec || [])
-    .flatMap((spec) => [...(spec.interests || []), ...(spec.behaviors || [])])
-    .map((i) => i.name)
-    .filter(Boolean);
-
-  const genders = !targeting.genders?.length
-    ? "All"
-    : targeting.genders.map((g) => (g === 1 ? "Male" : g === 2 ? "Female" : "All")).join(", ");
-
-  const ageMin = targeting.age_min ?? 18;
-  const ageMax = targeting.age_max ?? 65;
-
-  const hasManualPlacements = !!targeting.publisher_platforms?.length;
-
+  // One read of everything: the editable form state, the read-only properties, the budget type.
+  const full = await fetchAdSetFull(id, token, resolveLocaleNames);
   return {
-    name: data.name,
-    locations: summarizeGeo(targeting.geo_locations),
-    excludedLocations: summarizeGeo(targeting.excluded_geo_locations),
-    interests: interests.length ? interests : null,
-    advantageAudience: !!targeting.targeting_automation?.advantage_audience,
-    ageRange: `${ageMin}–${ageMax >= 65 ? "65+" : ageMax}`,
-    genders,
-    languages: targeting.locales?.length ? targeting.locales.map((localeId) => localeNames[String(localeId)] || `Locale ${localeId}`) : null,
-    placements: hasManualPlacements
-      ? {
-          automatic: false,
-          platforms: labelList(targeting.publisher_platforms, PLATFORM_LABELS),
-          facebookPositions: labelList(targeting.facebook_positions, FACEBOOK_POSITION_LABELS),
-          instagramPositions: labelList(targeting.instagram_positions, INSTAGRAM_POSITION_LABELS),
-        }
-      : { automatic: true },
+    name: full.adset.name,
+    status: full.adset.status || null,
+    effectiveStatus: normalizeStatus(full.adset.effective_status) || null,
+    accountId: full.accountId,
+    campaign: full.campaign,
+    budgetType: full.budgetType,
+    form: full.form,
+    info: full.info,
+    bidStrategies: BID_STRATEGIES,
+    rawTargeting: full.adset.targeting || null,
   };
 }
 

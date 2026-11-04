@@ -46,21 +46,21 @@ const CUSTOM_EVENT_TYPES = [
   { value: "COMPLETE_REGISTRATION", label: "Complete registration" },
 ];
 
-const ATTRIBUTION_OPTIONS = [
+export const ATTRIBUTION_OPTIONS = [
   { value: "7D_CLICK_1D_VIEW", label: "7-day click or 1-day view (recommended)" },
   { value: "1D_CLICK_1D_VIEW", label: "1-day click or 1-day view" },
   { value: "1D_CLICK", label: "1-day click only" },
   { value: "7D_CLICK", label: "7-day click only" },
 ];
 
-const PUBLISHER_PLATFORMS = [
+export const PUBLISHER_PLATFORMS = [
   { value: "facebook", label: "Facebook" },
   { value: "instagram", label: "Instagram" },
   { value: "messenger", label: "Messenger" },
   { value: "audience_network", label: "Audience Network" },
 ];
 
-const FACEBOOK_POSITIONS = [
+export const FACEBOOK_POSITIONS = [
   { value: "feed", label: "Feed" },
   { value: "facebook_reels", label: "Reels" },
   { value: "story", label: "Stories" },
@@ -69,7 +69,7 @@ const FACEBOOK_POSITIONS = [
   { value: "search", label: "Search results" },
 ];
 
-const INSTAGRAM_POSITIONS = [
+export const INSTAGRAM_POSITIONS = [
   { value: "stream", label: "Feed" },
   { value: "story", label: "Stories" },
   { value: "reels", label: "Reels" },
