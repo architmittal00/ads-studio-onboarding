@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import BottomSheet from "./BottomSheet";
 import AdPreviewFrame from "./AdPreviewFrame";
+import { Card, Row, Field, Notice, SaveBar } from "./DetailParts";
 import { readApiResponse } from "@/lib/fetchJson";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
@@ -15,20 +16,6 @@ const CTA_TYPES = [
   "BOOK_TRAVEL", "SUBSCRIBE", "APPLY_NOW", "WATCH_MORE", "SEND_MESSAGE", "NO_BUTTON",
 ];
 const ctaLabel = (t) => (t ? t.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—");
-
-function Card({ title, action, children }) {
-  return (
-    <section className={styles.dtCard}>
-      {(title || action) && (
-        <div className={styles.dtCardHead}>
-          <span className={styles.dtLabel}>{title}</span>
-          {action}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
 
 // One piece of ad copy that can have several rotated variants (primary text,
 // headline, description). A single value reads as plain text; several become
@@ -304,8 +291,7 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
                 <VariantEditor label="Primary text" required items={draft.primaryTexts} onChange={(v) => set({ primaryTexts: v })} multi={multi} rows={5} />
                 <VariantEditor label="Headline" items={draft.headlines} onChange={(v) => set({ headlines: v })} multi={multi} rows={2} />
                 <VariantEditor label="Description" items={draft.descriptions} onChange={(v) => set({ descriptions: v })} multi={multi} rows={2} />
-                <div className={styles.dtField}>
-                  <label className={styles.dtLabel}>Call to action</label>
+                <Field label="Call to action">
                   <select className={styles.select} value={draft.ctaType} onChange={(e) => set({ ctaType: e.target.value })}>
                     {!draft.ctaType && <option value="">—</option>}
                     {[...new Set([draft.ctaType, ...CTA_TYPES].filter(Boolean))].map((t) => (
@@ -314,11 +300,10 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div className={styles.dtField}>
-                  <label className={styles.dtLabel}>Website URL</label>
+                </Field>
+                <Field label="Website URL">
                   <input className={styles.select} type="url" inputMode="url" value={draft.landingUrl} onChange={(e) => set({ landingUrl: e.target.value })} placeholder="https://" />
-                </div>
+                </Field>
               </>
             )}
           </Card>
@@ -343,20 +328,13 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
           </div>
         )}
 
-        <div className={styles.dtSaveBar}>
-          <button type="button" className={styles.btnSecondary} onClick={() => setMode("view")} disabled={saving}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            style={{ flex: 1 }}
-            disabled={saving || !anyChange || confirming || (canEditCopy && copyChanged && !creativeChanged && !draft.primaryTexts.some((t) => t.trim()))}
-            onClick={() => (needsReviewWarning ? setConfirming(true) : save())}
-          >
-            {saving ? "Saving…" : anyChange ? "Save changes" : "No changes"}
-          </button>
-        </div>
+        <SaveBar
+          saving={saving}
+          hasChanges={anyChange}
+          disabled={confirming || (canEditCopy && copyChanged && !creativeChanged && !draft.primaryTexts.some((t) => t.trim()))}
+          onCancel={() => setMode("view")}
+          onSave={() => (needsReviewWarning ? setConfirming(true) : save())}
+        />
 
         {picking && (
           <CreativePicker
@@ -375,7 +353,7 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
 
   return (
     <div className={styles.dtStack}>
-      {notice && <div className={styles.dtNotice}>{notice}</div>}
+      <Notice>{notice}</Notice>
       <Card
         title="Status"
         action={
@@ -387,14 +365,12 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
         <div className={styles.dtRow}>
           {data.effectiveStatus && <span className={statusTone(data.effectiveStatus)}>{humanStatus(data.effectiveStatus)}</span>}
         </div>
-        <div className={styles.dtRow}>
-          <span className={styles.dtMeta}>Campaign</span>
+        <Row label="Campaign">
           <ParentLink level="campaign" id={data.campaign?.id} name={data.campaign?.name} onNavigate={onNavigate} />
-        </div>
-        <div className={styles.dtRow}>
-          <span className={styles.dtMeta}>Ad set</span>
+        </Row>
+        <Row label="Ad set">
           <ParentLink level="adset" id={data.adset?.id} name={data.adset?.name} onNavigate={onNavigate} />
-        </div>
+        </Row>
       </Card>
 
       <Card title="Preview">
@@ -411,12 +387,10 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
       <VariantViewer label="Description" items={data.descriptions} />
 
       <Card title="Call to action & link">
-        <div className={styles.dtRow}>
-          <span className={styles.dtMeta}>Button</span>
+        <Row label="Button">
           <span className={styles.badgeInfo}>{data.ctaLabel || "—"}</span>
-        </div>
-        <div className={styles.dtRow} style={{ alignItems: "flex-start" }}>
-          <span className={styles.dtMeta}>Website</span>
+        </Row>
+        <Row label="Website">
           {data.landingUrl ? (
             <a href={data.landingUrl} target="_blank" rel="noopener noreferrer" className={styles.dtUrl}>
               {data.landingUrl}
@@ -424,7 +398,7 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
           ) : (
             <span className={styles.dtEmpty}>No landing page detected for this ad.</span>
           )}
-        </div>
+        </Row>
       </Card>
     </div>
   );

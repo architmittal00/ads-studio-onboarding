@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Row, same, fmtDate, toLocalInput, money, humanStatus } from "./DetailParts";
+import { Card, Row, Field, Notice, SaveBar, same, fmtDate, toLocalInput, money, humanStatus } from "./DetailParts";
 import { readApiResponse } from "@/lib/fetchJson";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
@@ -57,12 +57,10 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
     return (
       <div className={styles.dtStack}>
         <Card title="Basics">
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Campaign name</label>
+          <Field label="Campaign name">
             <input type="text" className={styles.select} value={draft.name} onChange={(e) => set({ name: e.target.value })} />
-          </div>
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Status</label>
+          </Field>
+          <Field label="Status">
             <div className={styles.tabGroup}>
               {["ACTIVE", "PAUSED"].map((s) => (
                 <button key={s} type="button" className={draft.status === s ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => set({ status: s })}>
@@ -70,18 +68,16 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
                 </button>
               ))}
             </div>
-          </div>
+          </Field>
         </Card>
 
         <Card title="Budget & bidding">
           {hasBudget ? (
             <>
-              <div className={styles.dtField}>
-                <label className={styles.dtLabel}>{data.budgetType === "lifetime" ? "Lifetime budget" : "Daily budget"} (₹)</label>
+              <Field label={<>{data.budgetType === "lifetime" ? "Lifetime budget" : "Daily budget"} (₹)</>}>
                 <input type="number" min="1" className={styles.select} value={draft.budget ?? ""} onChange={(e) => set({ budget: e.target.value === "" ? null : Number(e.target.value) })} />
-              </div>
-              <div className={styles.dtField}>
-                <label className={styles.dtLabel}>Bid strategy</label>
+              </Field>
+              <Field label="Bid strategy" hint="Cap and goal strategies also need amounts on the ad sets.">
                 <select className={styles.select} value={draft.bidStrategy} onChange={(e) => set({ bidStrategy: e.target.value })}>
                   {data.bidStrategies.map((b) => (
                     <option key={b.value} value={b.value}>
@@ -89,40 +85,35 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
                     </option>
                   ))}
                 </select>
-                <p className={styles.dtMeta}>Cap and goal strategies also need amounts on the ad sets.</p>
-              </div>
+              </Field>
             </>
           ) : (
             <p className={styles.dtMeta}>No budget of its own: budgets are set on each ad set (ABO), so there is nothing to edit here.</p>
           )}
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Spend cap (₹, empty = none)</label>
+          <Field label="Spend cap (₹, empty = none)" hint="The most this campaign can ever spend in total.">
             <input type="number" min="0" step="any" className={styles.select} value={draft.spendCap ?? ""} onChange={(e) => set({ spendCap: e.target.value === "" ? null : Number(e.target.value) })} />
-            <p className={styles.dtMeta}>The most this campaign can ever spend in total.</p>
-          </div>
+          </Field>
         </Card>
 
         <Card title="Schedule">
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Start</label>
-            <p className={styles.dtMeta}>{fmtDate(data.startTime)} (can&apos;t be changed here)</p>
-          </div>
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Stop</label>
+          <Field label="Start" hint={<>{fmtDate(data.startTime)} (can&apos;t be changed here)</>} />
+          <Field label="Stop">
             <input type="datetime-local" className={styles.select} value={toLocalInput(draft.stopTime)} onChange={(e) => set({ stopTime: e.target.value || null })} />
-          </div>
+          </Field>
         </Card>
 
         <p className={styles.dtWarn}>The objective, buying type and special ad categories can&apos;t be changed on an existing campaign. Budget and bid changes can send its ad sets back into the learning phase.</p>
         {error && <div className={styles.error}>{error}</div>}
-        <div className={styles.dtSaveBar}>
-          <button type="button" className={styles.btnSecondary} onClick={() => { setDraft(initial); setError(null); setMode("view"); }} disabled={saving}>
-            Cancel
-          </button>
-          <button type="button" className={styles.btnPrimary} style={{ flex: 1 }} disabled={saving || changedCount === 0} onClick={save}>
-            {saving ? "Saving…" : changedCount ? `Save ${changedCount} change${changedCount === 1 ? "" : "s"}` : "No changes"}
-          </button>
-        </div>
+        <SaveBar
+          saving={saving}
+          changedCount={changedCount}
+          onCancel={() => {
+            setDraft(initial);
+            setError(null);
+            setMode("view");
+          }}
+          onSave={save}
+        />
       </div>
     );
   }
@@ -130,7 +121,7 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
   const f = initial;
   return (
     <div className={styles.dtStack}>
-      {notice && <div className={styles.dtNotice}>{notice}</div>}
+      <Notice>{notice}</Notice>
       <Card
         title="Status"
         action={

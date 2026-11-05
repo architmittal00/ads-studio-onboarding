@@ -1,6 +1,6 @@
 import styles from "@/styles/Home.module.css";
 
-// Small building blocks shared by the ad set and campaign "View details" panels.
+// Building blocks shared by the campaign, ad set and ad "View details" panels (EntityDetailDrawer).
 
 export function Card({ title, action, children }) {
   return (
@@ -21,6 +21,42 @@ export function Row({ label, children }) {
     <div className={styles.dtRow} style={{ alignItems: "flex-start" }}>
       <span className={styles.dtMeta}>{label}</span>
       <span style={{ textAlign: "right", minWidth: 0, overflowWrap: "anywhere" }}>{children}</span>
+    </div>
+  );
+}
+
+// Label above a value (and an optional hint under it) inside an edit form.
+export function Field({ label, hint, children }) {
+  return (
+    <div className={styles.dtField}>
+      <label className={styles.dtLabel}>{label}</label>
+      {children}
+      {hint && <p className={styles.dtMeta}>{hint}</p>}
+    </div>
+  );
+}
+
+// One-line status banner shown at the top of a panel after a save.
+export function Notice({ children }) {
+  return children ? <div className={styles.dtNotice}>{children}</div> : null;
+}
+
+// The Cancel / Save row at the bottom of every edit form. `changedCount` (when given) makes the button
+// read "Save N changes"; `disabled` adds extra reasons to block saving on top of "nothing changed".
+export function SaveBar({ saving, changedCount, hasChanges = changedCount > 0, disabled = false, saveLabel, onCancel, onSave }) {
+  const label = saving
+    ? "Saving…"
+    : !hasChanges
+      ? "No changes"
+      : saveLabel || (changedCount != null ? `Save ${changedCount} change${changedCount === 1 ? "" : "s"}` : "Save changes");
+  return (
+    <div className={styles.dtSaveBar}>
+      <button type="button" className={styles.btnSecondary} onClick={onCancel} disabled={saving}>
+        Cancel
+      </button>
+      <button type="button" className={styles.btnPrimary} style={{ flex: 1 }} disabled={saving || !hasChanges || disabled} onClick={onSave}>
+        {label}
+      </button>
     </div>
   );
 }
