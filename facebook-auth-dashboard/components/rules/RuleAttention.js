@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { CloseIcon } from "@/components/icons";
 import FlagWhy from "@/components/rules/FlagWhy";
 import RuleActionModal, { STEP_PCT } from "@/components/rules/RuleActionModal";
@@ -49,49 +50,117 @@ export function AttentionMark({ flag, onOpen }) {
   );
 }
 
-const LEVEL_NOUN = { adset: ["ad set", "ad sets"], ad: ["ad", "ads"] };
-const ROLLUP_TEXT = { INCREASE_BUDGET: "increase budget", DECREASE_BUDGET: "decrease budget", PAUSE_AD: "to pause", ADD_CREATIVE: "need a new creative" };
+const LEVEL_TITLE = { adset: "Ad sets", ad: "Ads" };
+const ROLLUP_TEXT = { INCREASE_BUDGET: "Increase budget", DECREASE_BUDGET: "Decrease budget", PAUSE_AD: "Pause", ADD_CREATIVE: "Add a creative" };
 const ROLLUP_ORDER = Object.keys(ROLLUP_TEXT);
+const CARD_W = 248;
 
-// Beside a campaign or ad set that is not flagged itself (or is, in addition): how many rows below it need
-// attention. Hover lists the count per level and per kind of recommendation. `rollup` comes from
-// useRuleAttention().rollups.
+// Beside a campaign or ad set: how many rows below it need attention. Hover (or focus / tap) opens a small
+// card with the count per level and per kind of recommendation. `rollup` comes from
+// useRuleAttention().rollups. The card is fixed-positioned in a portal so table cells can't clip it.
 export function ChildAttentionMark({ rollup }) {
+  const [pos, setPos] = useState(null);
+  const open = pos != null;
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setPos(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
   if (!rollup || rollup.total === 0) return null;
-  const lines = [`${rollup.total} ${rollup.total === 1 ? "row" : "rows"} below need${rollup.total === 1 ? "s" : ""} attention`];
-  for (const level of ["adset", "ad"]) {
-    const byAction = rollup.byLevel[level];
-    if (!byAction) continue;
-    const n = Object.values(byAction).reduce((t, v) => t + v, 0);
-    const [one, many] = LEVEL_NOUN[level];
-    const parts = ROLLUP_ORDER.filter((a) => byAction[a]).map((a) => `${byAction[a]} ${ROLLUP_TEXT[a]}`);
-    lines.push(`${n} ${n === 1 ? one : many}: ${parts.join(", ")}`);
-  }
-  const label = lines.join("\n");
   const tone = "var(--amber)";
+  const levels = ["adset", "ad"].filter((lv) => rollup.byLevel[lv]);
+  const summary = `${rollup.total} ${rollup.total === 1 ? "row" : "rows"} below ${rollup.total === 1 ? "needs" : "need"} attention`;
+
+  function show(e) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const estHeight = 56 + levels.length * 28 + levels.reduce((t, lv) => t + Object.keys(rollup.byLevel[lv]).length * 26, 0);
+    const below = r.bottom + 8 + estHeight < window.innerHeight;
+    setPos({ x: Math.max(8, Math.min(r.left, window.innerWidth - CARD_W - 8)), y: below ? r.bottom + 8 : Math.max(8, r.top - 8 - estHeight) });
+  }
+
   return (
-    <span
-      title={label}
-      aria-label={label.replace(/\n/g, ". ")}
-      style={{
-        flexShrink: 0,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 3,
-        height: 16,
-        padding: "0 6px",
-        borderRadius: 8,
-        fontSize: 10.5,
-        fontWeight: 800,
-        lineHeight: 1,
-        cursor: "help",
-        color: tone,
-        background: `color-mix(in srgb, ${tone} 10%, transparent)`,
-        border: `1px dashed color-mix(in srgb, ${tone} 55%, transparent)`,
-      }}
-    >
-      ! {rollup.total}
-    </span>
+    <>
+      <button
+        type="button"
+        aria-label={summary}
+        aria-expanded={open}
+        onMouseEnter={show}
+        onMouseLeave={() => setPos(null)}
+        onFocus={show}
+        onBlur={() => setPos(null)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (open) setPos(null);
+          else show(e);
+        }}
+        style={{
+          flexShrink: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 3,
+          height: 16,
+          padding: "0 6px",
+          borderRadius: 8,
+          fontSize: 10.5,
+          fontWeight: 800,
+          lineHeight: 1,
+          cursor: "pointer",
+          color: tone,
+          background: `color-mix(in srgb, ${tone} 10%, transparent)`,
+          border: `1px dashed color-mix(in srgb, ${tone} 55%, transparent)`,
+        }}
+      >
+        ! {rollup.total}
+      </button>
+      {open &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: "fixed",
+              left: pos.x,
+              top: pos.y,
+              width: CARD_W,
+              zIndex: 900,
+              pointerEvents: "none",
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              borderRadius: 12,
+              boxShadow: "var(--shadow-md)",
+              padding: "10px 12px",
+              fontSize: 12.5,
+              color: "var(--t1)",
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{summary}</div>
+            {levels.map((lv, i) => {
+              const byAction = rollup.byLevel[lv];
+              const n = Object.values(byAction).reduce((t, v) => t + v, 0);
+              return (
+                <div key={lv} style={{ marginTop: i ? 10 : 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--t2)", paddingBottom: 4, borderBottom: "1px solid var(--border)" }}>
+                    <span>{LEVEL_TITLE[lv]}</span>
+                    <span>{n}</span>
+                  </div>
+                  {ROLLUP_ORDER.filter((a) => byAction[a]).map((a) => (
+                    <div key={a} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0 0" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: TONE[a][0] }} />
+                      <span style={{ flex: 1 }}>{ROLLUP_TEXT[a]}</span>
+                      <strong>{byAction[a]}</strong>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
