@@ -145,7 +145,7 @@ const KNOWN_CACHE_FAMILIES = [
   { prefix: "recent-changes-v2:", maxEntries: 50 },
   { prefix: "partnership-perf:", maxEntries: 20 },
   { prefix: "rules-check:", maxEntries: 15 },
-  { prefix: "rules-attn:", maxEntries: 40 },
+  { prefix: "rules-attn2:", maxEntries: 60 },
 ];
 
 // Run once per app load (see pages/_app.js) — self-heals existing bloat for

@@ -49,6 +49,52 @@ export function AttentionMark({ flag, onOpen }) {
   );
 }
 
+const LEVEL_NOUN = { adset: ["ad set", "ad sets"], ad: ["ad", "ads"] };
+const ROLLUP_TEXT = { INCREASE_BUDGET: "increase budget", DECREASE_BUDGET: "decrease budget", PAUSE_AD: "to pause", ADD_CREATIVE: "need a new creative" };
+const ROLLUP_ORDER = Object.keys(ROLLUP_TEXT);
+
+// Beside a campaign or ad set that is not flagged itself (or is, in addition): how many rows below it need
+// attention. Hover lists the count per level and per kind of recommendation. `rollup` comes from
+// useRuleAttention().rollups.
+export function ChildAttentionMark({ rollup }) {
+  if (!rollup || rollup.total === 0) return null;
+  const lines = [`${rollup.total} ${rollup.total === 1 ? "row" : "rows"} below need${rollup.total === 1 ? "s" : ""} attention`];
+  for (const level of ["adset", "ad"]) {
+    const byAction = rollup.byLevel[level];
+    if (!byAction) continue;
+    const n = Object.values(byAction).reduce((t, v) => t + v, 0);
+    const [one, many] = LEVEL_NOUN[level];
+    const parts = ROLLUP_ORDER.filter((a) => byAction[a]).map((a) => `${byAction[a]} ${ROLLUP_TEXT[a]}`);
+    lines.push(`${n} ${n === 1 ? one : many}: ${parts.join(", ")}`);
+  }
+  const label = lines.join("\n");
+  const tone = "var(--amber)";
+  return (
+    <span
+      title={label}
+      aria-label={label.replace(/\n/g, ". ")}
+      style={{
+        flexShrink: 0,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 3,
+        height: 16,
+        padding: "0 6px",
+        borderRadius: 8,
+        fontSize: 10.5,
+        fontWeight: 800,
+        lineHeight: 1,
+        cursor: "help",
+        color: tone,
+        background: `color-mix(in srgb, ${tone} 10%, transparent)`,
+        border: `1px dashed color-mix(in srgb, ${tone} 55%, transparent)`,
+      }}
+    >
+      ! {rollup.total}
+    </span>
+  );
+}
+
 // "Checking rules…" while the background check runs, then how many rows need attention.
 export function AttentionStatus({ state }) {
   if (state.total === 0) return null;

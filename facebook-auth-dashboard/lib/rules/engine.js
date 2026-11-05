@@ -155,6 +155,9 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       entityType: subject.type,
       entityId: subject.id,
       name: subject.name,
+      // Parents, so Custom Views can show a campaign / ad set that has flagged rows below it.
+      campaignId: subject.type === "campaign" ? subject.id : subject.campaignId || null,
+      adsetId: subject.type === "ad" ? subject.adsetId || null : null,
       campaignName,
       adsetName: subject.type === "ad" ? parentAdset?.name || extraNames[subject.adsetId] || null : null,
       action,

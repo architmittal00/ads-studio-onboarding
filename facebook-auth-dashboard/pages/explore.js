@@ -20,7 +20,7 @@ import SelectAllCheckbox from "@/components/SelectAllCheckbox";
 import BulkDuplicateAdsModal from "@/components/BulkDuplicateAdsModal";
 import BulkPauseAdsModal from "@/components/BulkPauseAdsModal";
 import LowBalanceBadge from "@/components/LowBalanceBadge";
-import { AttentionMark, AttentionStatus, AttentionPopover } from "@/components/rules/RuleAttention";
+import { AttentionMark, ChildAttentionMark, AttentionStatus, AttentionPopover } from "@/components/rules/RuleAttention";
 import { useRuleAttention, attentionKey, clearRuleCaches } from "@/lib/rules/useRuleAttention";
 import { CloseIcon, SettingsIcon, ChevronIcon, ChartIcon, RocketIcon, CopyIcon, RefreshIcon, MoreIcon, FilterIcon, PlusIcon, PauseIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
@@ -2427,6 +2427,7 @@ export default function Explore() {
               effectiveCatalog={effectiveCatalog}
               onActionApplied={applyEntityActionPatch}
               attention={attention.flags}
+              attentionRollups={attention.rollups}
               onOpenAttention={setAttentionOpen}
               onEnsureAttentionLevel={attention.ensureLevel}
               childPatchRef={childPatchRef}
@@ -3417,6 +3418,7 @@ function ExploreResultsTable({
   effectiveCatalog,
   onActionApplied,
   attention,
+  attentionRollups,
   onOpenAttention,
   onEnsureAttentionLevel,
   childPatchRef,
@@ -3898,6 +3900,7 @@ function ExploreResultsTable({
                 {row[def.key]}
               </span>
               <AttentionMark flag={attention?.get(attentionKey(row.accountId, meta.level, row.entityId))} onOpen={onOpenAttention} />
+              <ChildAttentionMark rollup={attentionRollups?.get(attentionKey(row.accountId, meta.level, row.entityId))} />
               <CopyIdButton id={row.entityId} onCopy={copyText} />
             </span>
           ) : (
@@ -4118,6 +4121,7 @@ function ExploreResultsTable({
                     {row.entityLabel}
                   </span>
                   <AttentionMark flag={attention?.get(attentionKey(row.accountId, level, row.entityId))} onOpen={onOpenAttention} />
+                  <ChildAttentionMark rollup={attentionRollups?.get(attentionKey(row.accountId, level, row.entityId))} />
                   {row.entityId && <CopyIdButton id={row.entityId} onCopy={copyText} />}
                 </div>
               </td>
@@ -4355,7 +4359,12 @@ function ExploreResultsTable({
           renderMetric={renderMetric}
           getTitle={getTitle}
           getSubtitle={getSubtitle}
-          renderTitleExtra={(row, rowLevel) => <AttentionMark flag={attention?.get(attentionKey(row.accountId, rowLevel || meta.level, row.entityId))} onOpen={onOpenAttention} />}
+          renderTitleExtra={(row, rowLevel) => (
+            <>
+              <AttentionMark flag={attention?.get(attentionKey(row.accountId, rowLevel || meta.level, row.entityId))} onOpen={onOpenAttention} />
+              <ChildAttentionMark rollup={attentionRollups?.get(attentionKey(row.accountId, rowLevel || meta.level, row.entityId))} />
+            </>
+          )}
           sortKey={sortKey}
           sortDir={sortDir}
           onSortChange={(key, dir) => {

@@ -6,6 +6,8 @@ export function toLeanFlag(f) {
     key: f.key,
     entityType: f.entityType,
     entityId: f.entityId,
+    campaignId: f.campaignId || null,
+    adsetId: f.adsetId || null,
     name: f.name,
     action: f.action,
     budgetTarget: f.budgetTarget || null,
