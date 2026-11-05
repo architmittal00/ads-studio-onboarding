@@ -282,6 +282,8 @@ Meta reports each ad account in its own time zone (`timezone_name`), so "today" 
 
 ### Campaign details: switch between campaign budget (CBO) and ad set budgets (ABO) (2026-11-05)
 
+*Update (same day):* the switch link is also in the campaign **edit form** (Budget & bidding card), not just the read view; switching from there discards unsaved edits (a note says so) and returns to the read view.
+
 New link under "Budget & bidding" in the campaign View details drawer: "Switch to ad set budgets" (campaign has its own budget) or "Switch to a campaign budget" (it doesn't), opening `components/CampaignBudgetModeModal.js`. Server: `lib/campaignEdit.js` `fetchCampaignAdsets` / `switchBudgetMode`, route `pages/api/fb/campaign-budget-mode.js` (GET ad sets, POST switch). **CBO -> ABO** is the documented Meta call: one campaign update with `adset_budgets` = a budget for EVERY non-archived ad set (daily or lifetime, same type the campaign had); the window pre-fills an equal split and shows the total vs today's budget; refused above 70 ad sets (Meta's limit). **ABO -> CBO** is NOT in Meta's docs: it is sent as a plain `daily_budget` / `lifetime_budget` update on the campaign, pre-filled with the sum of the ad set budgets; if Meta refuses, its message is shown and nothing changes (single request each way). Both warn about the learning phase. After a switch the drawer reloads; the Custom Views table row isn't patched (budget columns update on the next refresh). New event `campaign_budget_mode_switched` (`to`). Verified both windows and request bodies with a mocked API; never sent to Meta, so especially ABO -> CBO is unproven. Try on a paused test campaign first.
 
 ### Recommendations: multiple tabs (2026-11-05)
