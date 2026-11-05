@@ -414,7 +414,7 @@ function RulesContent() {
                   <p className={styles.sub} style={{ marginBottom: 10 }}>
                     These match a budget rule, but we don&apos;t suggest another budget change so soon after the last one. Give the change time to settle; they&apos;ll show up here or above after 48 hours.
                   </p>
-                  {result.held.map((h) => (
+                  {[...result.held].sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt)).map((h) => (
                     <div key={h.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0 }}>
                         <span className={styles.badgeInfo}>{h.entityType === "adset" ? "Ad set" : "Campaign"}</span> <span style={{ fontWeight: 600, fontSize: 13 }}>{h.name}</span>
