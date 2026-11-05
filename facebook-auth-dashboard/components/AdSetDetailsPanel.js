@@ -3,7 +3,7 @@ import InterestPicker from "./InterestPicker";
 import CustomAudiencePicker from "./CustomAudiencePicker";
 import TargetingSearchPicker from "./TargetingSearchPicker";
 import { ATTRIBUTION_OPTIONS, PUBLISHER_PLATFORMS, FACEBOOK_POSITIONS, INSTAGRAM_POSITIONS } from "./AdSetFields";
-import { Card, Row, Pills, same, fmtDate, toLocalInput, money, humanStatus } from "./DetailParts";
+import { Card, Row, Field, Pills, Notice, SaveBar, same, fmtDate, toLocalInput, money, humanStatus } from "./DetailParts";
 import { readApiResponse } from "@/lib/fetchJson";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
@@ -81,12 +81,10 @@ export default function AdSetDetailsPanel({ adsetId, data, onNavigate, onSaved }
     return (
       <div className={styles.dtStack}>
         <Card title="Basics">
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Ad set name</label>
+          <Field label="Ad set name">
             <input type="text" className={styles.select} value={draft.name} onChange={(e) => set({ name: e.target.value })} />
-          </div>
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Status</label>
+          </Field>
+          <Field label="Status">
             <div className={styles.tabGroup}>
               {["ACTIVE", "PAUSED"].map((s) => (
                 <button key={s} type="button" className={draft.status === s ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => set({ status: s })}>
@@ -94,20 +92,18 @@ export default function AdSetDetailsPanel({ adsetId, data, onNavigate, onSaved }
                 </button>
               ))}
             </div>
-          </div>
+          </Field>
         </Card>
 
         <Card title="Budget & bidding">
           {hasBudget ? (
-            <div className={styles.dtField}>
-              <label className={styles.dtLabel}>{data.budgetType === "lifetime" ? "Lifetime budget" : "Daily budget"} (₹)</label>
+            <Field label={<>{data.budgetType === "lifetime" ? "Lifetime budget" : "Daily budget"} (₹)</>}>
               <input type="number" min="1" className={styles.select} value={draft.budget ?? ""} onChange={(e) => set({ budget: e.target.value === "" ? null : Number(e.target.value) })} />
-            </div>
+            </Field>
           ) : (
             <p className={styles.dtMeta}>No budget of its own: this ad set&apos;s budget is set on the campaign.</p>
           )}
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Bid strategy</label>
+          <Field label="Bid strategy">
             <select className={styles.select} value={draft.bidStrategy} onChange={(e) => set({ bidStrategy: e.target.value })}>
               {data.bidStrategies.map((b) => (
                 <option key={b.value} value={b.value}>
@@ -115,35 +111,30 @@ export default function AdSetDetailsPanel({ adsetId, data, onNavigate, onSaved }
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
           {strategyNeedsBid && (
-            <div className={styles.dtField}>
-              <label className={styles.dtLabel}>{draft.bidStrategy === "COST_CAP" ? "Cost per result goal" : "Bid cap"} (₹)</label>
+            <Field label={<>{draft.bidStrategy === "COST_CAP" ? "Cost per result goal" : "Bid cap"} (₹)</>}>
               <input type="number" min="0" step="any" className={styles.select} value={draft.bidAmount ?? ""} onChange={(e) => set({ bidAmount: e.target.value === "" ? null : Number(e.target.value) })} />
-            </div>
+            </Field>
           )}
           {draft.bidStrategy === "LOWEST_COST_WITH_MIN_ROAS" && (
-            <div className={styles.dtField}>
-              <label className={styles.dtLabel}>Minimum ROAS</label>
+            <Field label="Minimum ROAS">
               <input type="number" min="0" step="any" className={styles.select} value={draft.roasFloor ?? ""} onChange={(e) => set({ roasFloor: e.target.value === "" ? null : Number(e.target.value) })} />
-            </div>
+            </Field>
           )}
         </Card>
 
         <Card title="Schedule">
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Start</label>
+          <Field label="Start">
             {startInFuture ? (
               <input type="datetime-local" className={styles.select} value={toLocalInput(draft.startTime)} onChange={(e) => set({ startTime: e.target.value })} />
             ) : (
               <p className={styles.dtMeta}>{fmtDate(initial.startTime)} (already started, can&apos;t be changed)</p>
             )}
-          </div>
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>End</label>
+          </Field>
+          <Field label="End" hint="Leave empty to run with no end date (not allowed for a lifetime budget).">
             <input type="datetime-local" className={styles.select} value={toLocalInput(draft.endTime)} onChange={(e) => set({ endTime: e.target.value || null })} />
-            <p className={styles.dtMeta}>Leave empty to run with no end date (not allowed for a lifetime budget).</p>
-          </div>
+          </Field>
         </Card>
 
         <Card title="Locations">
@@ -180,8 +171,7 @@ export default function AdSetDetailsPanel({ adsetId, data, onNavigate, onSaved }
               </select>
             </div>
           </div>
-          <div className={styles.dtField}>
-            <label className={styles.dtLabel}>Gender</label>
+          <Field label="Gender">
             <div className={styles.tabGroup}>
               {[
                 { value: "all", label: "All" },
@@ -193,7 +183,7 @@ export default function AdSetDetailsPanel({ adsetId, data, onNavigate, onSaved }
                 </button>
               ))}
             </div>
-          </div>
+          </Field>
           <div style={{ marginTop: 12 }}>
             <TargetingSearchPicker label="Languages (empty = all)" type="adlocale" placeholder="Search languages…" values={draft.languages} onChange={(languages) => set({ languages })} />
           </div>
@@ -274,14 +264,16 @@ export default function AdSetDetailsPanel({ adsetId, data, onNavigate, onSaved }
 
         <p className={styles.dtWarn}>Changing targeting, budget or bidding on a live ad set can send it back into the learning phase. The performance goal and conversion location can&apos;t be changed on an existing ad set.</p>
         {error && <div className={styles.error}>{error}</div>}
-        <div className={styles.dtSaveBar}>
-          <button type="button" className={styles.btnSecondary} onClick={() => { setDraft(initial); setError(null); setMode("view"); }} disabled={saving}>
-            Cancel
-          </button>
-          <button type="button" className={styles.btnPrimary} style={{ flex: 1 }} disabled={saving || changedCount === 0} onClick={save}>
-            {saving ? "Saving…" : changedCount ? `Save ${changedCount} change${changedCount === 1 ? "" : "s"}` : "No changes"}
-          </button>
-        </div>
+        <SaveBar
+          saving={saving}
+          changedCount={changedCount}
+          onCancel={() => {
+            setDraft(initial);
+            setError(null);
+            setMode("view");
+          }}
+          onSave={save}
+        />
       </div>
     );
   }
@@ -294,7 +286,7 @@ export default function AdSetDetailsPanel({ adsetId, data, onNavigate, onSaved }
     : ["Advantage+ Placements (automatic)"];
   return (
     <div className={styles.dtStack}>
-      {notice && <div className={styles.dtNotice}>{notice}</div>}
+      <Notice>{notice}</Notice>
       <Card
         title="Status"
         action={

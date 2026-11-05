@@ -6,10 +6,10 @@ import AdSetDetailsPanel from "./AdSetDetailsPanel";
 import CampaignDetailsPanel from "./CampaignDetailsPanel";
 import styles from "@/styles/Home.module.css";
 
-// "How is this actually set up" drawer for one Campaign/Ad Set/Ad (read-only
-// for campaigns and ad sets; ads can also be edited — see AdDetailsPanel) —
-// for one Campaign/Ad Set/Ad
-// row in Explore — deliberately a side drawer (components/EntityChangesDrawer.js's
+// "How is this actually set up" drawer for one Campaign/Ad Set/Ad row in Explore. Each level has its
+// own panel (CampaignDetailsPanel / AdSetDetailsPanel / AdDetailsPanel: view + edit); the cards, rows,
+// save bar and notice they share live in DetailParts.js — add new layout pieces there, not per panel.
+// It is deliberately a side drawer (components/EntityChangesDrawer.js's
 // own .drawerOverlay/.drawerPanel convention), never a navigation elsewhere:
 // this is about understanding a row without losing your place in the table.
 // `entity` is `{ level: "campaign"|"adset"|"ad", id, name }`; data for each
@@ -76,15 +76,19 @@ export default function EntityDetailDrawer({ entity, onClose, onNavigate, onSave
 
   return (
     <div className={styles.drawerOverlay} onClick={onClose}>
-      <div className={styles.drawerPanel} onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100vw)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
+      <div className={styles.drawerPanel} onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100vw)", overflowX: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          {/* min-width 0 + anywhere-wrapping: campaign names are one long underscore-joined word that
+              otherwise stretches the whole panel wider than the screen and scrolls it sideways. */}
+          <div style={{ minWidth: 0 }}>
             <p className={styles.muted} style={{ marginBottom: 2 }}>
               {levelLabel} setup
             </p>
-            <h2 className={styles.h2}>{entity.name || entity.id}</h2>
+            <h2 className={styles.h2} style={{ overflowWrap: "anywhere" }}>
+              {entity.name || entity.id}
+            </h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
+          <button type="button" onClick={onClose} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6, flexShrink: 0 }}>
             <CloseIcon size={14} />
           </button>
         </div>
