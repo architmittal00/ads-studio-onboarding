@@ -17,6 +17,8 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
   const sign = flag.action === "DECREASE_BUDGET" ? -1 : 1;
   const target = flag.budgetTarget;
   const [pct, setPct] = useState(STEP_PCT);
+  const [mode, setMode] = useState("pct"); // pct | amount
+  const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -30,7 +32,19 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
 
   const pctNum = parseFloat(pct);
   const validPct = Number.isFinite(pctNum) && pctNum > 0 && pctNum < 100 * (sign === 1 ? 10 : 1);
-  const newBudget = !isPause && target && validPct ? Math.max(1, Math.round(target.current * (1 + (sign * pctNum) / 100))) : null;
+  const amountNum = parseFloat(amount);
+  const validAmount = Number.isFinite(amountNum) && amountNum >= 1;
+  const newBudget =
+    isPause || !target
+      ? null
+      : mode === "amount"
+        ? validAmount
+          ? Math.round(amountNum)
+          : null
+        : validPct
+          ? Math.max(1, Math.round(target.current * (1 + (sign * pctNum) / 100)))
+          : null;
+  const changePct = newBudget != null && target?.current ? ((newBudget - target.current) / target.current) * 100 : null;
 
   async function apply() {
     setBusy(true);
@@ -81,19 +95,46 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
             <p className={styles.sub} style={{ marginBottom: 12 }}>
               Current {target.type} budget: <strong style={{ color: "var(--t1)" }}>{money(target.current, currencySymbol)}</strong>
             </p>
-            <label className={styles.sub} style={{ display: "block", marginBottom: 6 }}>
-              {sign === 1 ? "Increase" : "Decrease"} by (%)
-            </label>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <input type="number" min="1" className={styles.select} style={{ width: 90 }} value={pct} onChange={(e) => setPct(e.target.value)} />
-              {[5, 10, 20].map((p) => (
-                <button key={p} type="button" className={styles.btnSecondary} onClick={() => setPct(p)} style={{ padding: "6px 10px" }}>
-                  {p}%
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {[
+                ["pct", `${sign === 1 ? "Increase" : "Decrease"} by %`],
+                ["amount", "Exact amount"],
+              ].map(([m, label]) => (
+                <button key={m} type="button" className={mode === m ? styles.btnPrimary : styles.btnSecondary} onClick={() => setMode(m)} style={{ padding: "6px 12px" }}>
+                  {label}
                 </button>
               ))}
             </div>
+            {mode === "pct" ? (
+              <>
+                <label className={styles.sub} style={{ display: "block", marginBottom: 6 }}>
+                  {sign === 1 ? "Increase" : "Decrease"} by (%)
+                </label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <input type="number" min="1" className={styles.select} style={{ width: 90 }} value={pct} onChange={(e) => setPct(e.target.value)} />
+                  {[5, 10, 20].map((p) => (
+                    <button key={p} type="button" className={styles.btnSecondary} onClick={() => setPct(p)} style={{ padding: "6px 10px" }}>
+                      {p}%
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <label className={styles.sub} style={{ display: "block", marginBottom: 6 }}>
+                  New {target.type} budget ({currencySymbol})
+                </label>
+                <input type="number" min="1" autoFocus className={styles.select} style={{ width: 160 }} placeholder={String(Math.round(target.current))} value={amount} onChange={(e) => setAmount(e.target.value)} />
+              </>
+            )}
             <div style={{ marginTop: 14, fontSize: 15 }}>
-              New budget: <strong style={{ color: sign === 1 ? "var(--green)" : "var(--red)" }}>{newBudget != null ? money(newBudget, currencySymbol) : "—"}</strong>
+              New budget: <strong style={{ color: changePct != null && changePct < 0 ? "var(--red)" : "var(--green)" }}>{newBudget != null ? money(newBudget, currencySymbol) : "—"}</strong>
+              {mode === "amount" && changePct != null && (
+                <span className={styles.muted} style={{ marginLeft: 8, fontWeight: 400 }}>
+                  {changePct >= 0 ? "+" : ""}
+                  {changePct.toFixed(1)}% vs current
+                </span>
+              )}
             </div>
             {target.level === "campaign" && <p className={styles.muted} style={{ marginTop: 8 }}>Applied to the campaign&apos;s own budget (CBO), so it affects every ad set in it.</p>}
           </>
