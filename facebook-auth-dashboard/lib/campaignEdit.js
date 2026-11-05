@@ -1,4 +1,4 @@
-import { graphGet, graphPost } from "./facebookGraph";
+import { graphGet, graphGetAllPages, graphPost } from "./facebookGraph";
 import { toMinorUnits } from "./campaignLaunch";
 import { BID_STRATEGIES } from "./adsetEdit";
 
@@ -101,4 +101,63 @@ export async function updateCampaign(token, id, edits) {
   if (!Object.keys(payload).length) return { changed: [] };
   await graphPost(`/${id}`, token, payload);
   return { changed };
+}
+
+// ── Switching between a campaign budget (CBO) and ad set budgets (ABO) ──────────────────────────────────────
+// Campaign budget -> ad set budgets is documented by Meta: one update of the campaign with `adset_budgets`
+// listing a budget for EVERY ad set removes the campaign budget (not possible above 70 ad sets). The other
+// way, setting a budget on the campaign, is not described in Meta's docs; it is sent as a plain campaign
+// budget update and Meta's own refusal (if any) is passed through untouched. Both are a single request, so
+// they either apply or change nothing.
+
+const LIVE_ADSET_STATUSES = ["ACTIVE", "PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "IN_PROCESS", "WITH_ISSUES", "PENDING_REVIEW", "DISAPPROVED", "PENDING_BILLING_INFO"];
+
+// Every ad set still in the campaign (archived and deleted ones are not part of it), budgets in whole currency.
+export async function fetchCampaignAdsets(campaignId, token) {
+  const { data } = await graphGetAllPages(`/${campaignId}/adsets`, token, {
+    fields: "id,name,effective_status,daily_budget,lifetime_budget",
+    filtering: [{ field: "effective_status", operator: "IN", value: LIVE_ADSET_STATUSES }],
+    limit: 500,
+  });
+  return (data || []).map((a) => ({
+    id: a.id,
+    name: a.name,
+    status: a.effective_status,
+    dailyBudget: major(a.daily_budget),
+    lifetimeBudget: major(a.lifetime_budget),
+  }));
+}
+
+// to: "adset"  -> budgets: [{ adsetId, amount }] for every ad set, in the campaign's current budget type.
+// to: "campaign" -> budget (amount) and budgetType ("daily" | "lifetime").
+export async function switchBudgetMode(token, campaignId, { to, budgets, budget, budgetType }) {
+  const current = await graphGet(`/${campaignId}`, token, { fields: "daily_budget,lifetime_budget" });
+  const currentType = current.daily_budget ? "daily" : current.lifetime_budget ? "lifetime" : null;
+
+  if (to === "adset") {
+    if (!currentType) throw new Error("This campaign already uses ad set budgets.");
+    const adsets = await fetchCampaignAdsets(campaignId, token);
+    if (adsets.length === 0) throw new Error("This campaign has no ad sets to give a budget to.");
+    if (adsets.length > 70) throw new Error("Meta doesn't allow turning off the campaign budget on a campaign with more than 70 ad sets.");
+    const byId = new Map((budgets || []).map((b) => [String(b.adsetId), Number(b.amount)]));
+    const key = `${currentType}_budget`;
+    const list = adsets.map((a) => {
+      const amount = byId.get(String(a.id));
+      if (!(amount > 0)) throw new Error(`Give "${a.name}" a budget more than 0 (Meta needs one for every ad set).`);
+      return { adset_id: a.id, [key]: toMinorUnits(amount) };
+    });
+    await graphPost(`/${campaignId}`, token, { adset_budgets: list });
+    return { changed: ["budget mode"], to: "adset", count: list.length };
+  }
+
+  if (to === "campaign") {
+    if (currentType) throw new Error("This campaign already has its own budget.");
+    if (!["daily", "lifetime"].includes(budgetType)) throw new Error("Choose a daily or a lifetime budget.");
+    const amount = Number(budget);
+    if (!(amount > 0)) throw new Error("The campaign budget must be more than 0.");
+    await graphPost(`/${campaignId}`, token, { [`${budgetType}_budget`]: toMinorUnits(amount) });
+    return { changed: ["budget mode"], to: "campaign" };
+  }
+
+  throw new Error("Unknown budget mode.");
 }
