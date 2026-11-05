@@ -178,8 +178,17 @@ export function AttentionStatus({ state }) {
   const n = state.count;
   if (n > 0) {
     return (
-      <span className={styles.muted} style={{ color: "var(--amber)", fontWeight: 700 }} title="Rows marked with ! match one of your rules">
+      <span className={styles.muted} style={{ color: "var(--amber)", fontWeight: 700 }} title="Rows marked with ! match one of your rules; rows with a count pill have flagged ad sets or ads below them">
         ! {n} need{n === 1 ? "s" : ""} attention
+      </span>
+    );
+  }
+  // Nothing flagged at this level yet, but the ad sets / ads below are still being checked.
+  if (state.belowLoading) {
+    return (
+      <span className={styles.muted} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 400 }} title="Checking the ad sets and ads below these rows">
+        <span className={`${styles.spinner} ${styles.spinnerSm}`} />
+        Checking rows below…
       </span>
     );
   }
