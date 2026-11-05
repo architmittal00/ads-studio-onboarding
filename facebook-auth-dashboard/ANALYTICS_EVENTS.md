@@ -2,7 +2,7 @@
 
 Source of truth for what we send to PostHog, from which page, and how to find it. **Keep this file updated in the same PR as any change to events** (new `track()` call, new `data-track`, change in `lib/analytics.js`). Code lives in `lib/analytics.js`; `<Analytics />` in `pages/_app.js` starts it.
 
-Last reviewed: 2026-11-04.
+Last reviewed: 2026-11-05.
 
 ## 1. How to read events in PostHog
 
@@ -66,6 +66,7 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | `ad_edited` | `/explore` (details drawer) | ad edit saved | `changed` (field names) |
 | `explore_adset_edited` | `/explore` (details drawer) | ad set edit saved | `fields` |
 | `explore_campaign_edited` | `/explore` (details drawer) | campaign edit saved | `fields` |
+| `campaign_budget_mode_switched` | `/explore` (campaign details drawer) | campaign switched between campaign budget and ad set budgets | `to` (`adset` / `campaign`) |
 | `partnership_tab_opened` | `/partnership-ads` | tab switched | `tab` |
 | `partnership_launch_started` | `/partnership-ads` (Code tab), `/partnership-ads/queue` | partnership launch wizard confirmed | — |
 | `copy_ads_started` | `/copy-ads` | copy confirmed | `level` (`ad` / `adset` / `campaign`) |
@@ -82,7 +83,7 @@ Everything in section 3 fires on every page. The `click_…` events depend on wh
 | `/` | `login_clicked` | — |
 | `/dashboard` | — | `insights`, `account-balances` |
 | `/report` | — | `report/headline`, `report/core`, `report/<id>` |
-| `/explore` | `explore_*`, `bulk_duplicate_ads_started`, `ad_edited`, `explore_adset_edited`, `explore_campaign_edited`, `date_range_applied` | `explore-insights`, `entity-action`, `entity-action-batch`, `entity-details`, `ad-update`, `adset-update`, `campaign-update`, `duplicate-ad`, `duplicate-campaign`, `launch-campaign`, `ad-thumbnails`, `ad-landing-pages`, `custom-conversions` |
+| `/explore` | `explore_*`, `bulk_duplicate_ads_started`, `ad_edited`, `explore_adset_edited`, `explore_campaign_edited`, `campaign_budget_mode_switched`, `date_range_applied` | `explore-insights`, `entity-action`, `entity-action-batch`, `entity-details`, `ad-update`, `adset-update`, `campaign-update`, `campaign-budget-mode`, `duplicate-ad`, `duplicate-campaign`, `launch-campaign`, `ad-thumbnails`, `ad-landing-pages`, `custom-conversions` |
 | `/recommendations` | — | `rules/check`, `ad-thumbnails`, `entity-action`, `entity-action-batch` |
 | `/recent-changes` | — | `recent-changes`, `recent-changes/impact`, `recent-changes/investigate` |
 | `/strategy` | `campaign_launch_started` | `data`, `strategy-signal`, `launch-strategy`, `launch-campaign` |
@@ -112,5 +113,6 @@ The endpoint lists come from a grep of the code and are a guide, not a guarantee
 
 ## Changelog
 
+- **2026-11-05** — Added `campaign_budget_mode_switched`.
 - **2026-11-04** — Added click-to-API events (`click_<endpoint>[_<action>]__<control>`, `event_key`); created this doc.
 - **2026-10-27** — Automatic event coverage (`cta_clicked`, `tab_changed`, `control_changed`, `search_used`, `form_submitted`, `dialog_opened`, `api_action`, `api_error`, `js_error`, `text_copied`); PostHog product analytics (identity, `$pageview`, first named events).

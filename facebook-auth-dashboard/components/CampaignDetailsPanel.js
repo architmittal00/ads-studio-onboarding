@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, Row, Field, Notice, SaveBar, same, fmtDate, toLocalInput, money, humanStatus } from "./DetailParts";
+import CampaignBudgetModeModal from "./CampaignBudgetModeModal";
 import { readApiResponse } from "@/lib/fetchJson";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
@@ -16,6 +17,7 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [switching, setSwitching] = useState(false); // the CBO <-> ABO switch window
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
   const hasBudget = !!data.budgetType;
@@ -141,12 +143,30 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
         <Row label={data.budgetType === "lifetime" ? "Lifetime budget" : "Daily budget"}>{hasBudget ? money(f.budget) : "On the ad sets"}</Row>
         {hasBudget && <Row label="Bid strategy">{strategyLabel(f.bidStrategy)}</Row>}
         <Row label="Spend cap">{f.spendCap != null ? money(f.spendCap) : "None"}</Row>
+        <button type="button" className={styles.dtLink} onClick={() => setSwitching(true)}>
+          {hasBudget ? "Switch to ad set budgets" : "Switch to a campaign budget"}
+        </button>
       </Card>
 
       <Card title="Schedule">
         <Row label="Start">{fmtDate(data.startTime)}</Row>
         <Row label="Stop">{f.stopTime ? fmtDate(f.stopTime) : "No stop date"}</Row>
       </Card>
+
+      {switching && (
+        <CampaignBudgetModeModal
+          campaignId={campaignId}
+          campaignName={data.name}
+          budgetType={data.budgetType}
+          budget={f.budget}
+          onClose={() => setSwitching(false)}
+          onDone={({ to }) => {
+            setSwitching(false);
+            setNotice(to === "adset" ? "Switched to ad set budgets." : "Switched to a campaign budget.");
+            onSaved?.({ changed: ["budget mode"] });
+          }}
+        />
+      )}
 
       {data.info.length > 0 && (
         <Card title="Other settings">
