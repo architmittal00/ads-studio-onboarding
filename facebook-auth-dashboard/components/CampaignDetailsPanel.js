@@ -55,6 +55,32 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
     }
   }
 
+  // The CBO <-> ABO switch is offered in both the read view and the edit form.
+  const switchLink = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+      <button type="button" className={styles.dtLink} onClick={() => setSwitching(true)}>
+        {hasBudget ? "Switch to ad set budgets" : "Switch to a campaign budget"}
+      </button>
+      {mode === "edit" && changedCount > 0 && <span className={styles.dtMeta}>Edits you haven&apos;t saved here are discarded when you switch.</span>}
+    </div>
+  );
+  const switchModal = switching && (
+    <CampaignBudgetModeModal
+      campaignId={campaignId}
+      campaignName={data.name}
+      budgetType={data.budgetType}
+      budget={initial.budget}
+      onClose={() => setSwitching(false)}
+      onDone={({ to }) => {
+        setSwitching(false);
+        setMode("view");
+        setDraft(initial);
+        setNotice(to === "adset" ? "Switched to ad set budgets." : "Switched to a campaign budget.");
+        onSaved?.({ changed: ["budget mode"] });
+      }}
+    />
+  );
+
   if (mode === "edit") {
     return (
       <div className={styles.dtStack}>
@@ -95,6 +121,7 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
           <Field label="Spend cap (₹, empty = none)" hint="The most this campaign can ever spend in total.">
             <input type="number" min="0" step="any" className={styles.select} value={draft.spendCap ?? ""} onChange={(e) => set({ spendCap: e.target.value === "" ? null : Number(e.target.value) })} />
           </Field>
+          {switchLink}
         </Card>
 
         <Card title="Schedule">
@@ -116,6 +143,7 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
           }}
           onSave={save}
         />
+        {switchModal}
       </div>
     );
   }
@@ -143,9 +171,7 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
         <Row label={data.budgetType === "lifetime" ? "Lifetime budget" : "Daily budget"}>{hasBudget ? money(f.budget) : "On the ad sets"}</Row>
         {hasBudget && <Row label="Bid strategy">{strategyLabel(f.bidStrategy)}</Row>}
         <Row label="Spend cap">{f.spendCap != null ? money(f.spendCap) : "None"}</Row>
-        <button type="button" className={styles.dtLink} onClick={() => setSwitching(true)}>
-          {hasBudget ? "Switch to ad set budgets" : "Switch to a campaign budget"}
-        </button>
+        {switchLink}
       </Card>
 
       <Card title="Schedule">
@@ -153,20 +179,7 @@ export default function CampaignDetailsPanel({ campaignId, data, onSaved }) {
         <Row label="Stop">{f.stopTime ? fmtDate(f.stopTime) : "No stop date"}</Row>
       </Card>
 
-      {switching && (
-        <CampaignBudgetModeModal
-          campaignId={campaignId}
-          campaignName={data.name}
-          budgetType={data.budgetType}
-          budget={f.budget}
-          onClose={() => setSwitching(false)}
-          onDone={({ to }) => {
-            setSwitching(false);
-            setNotice(to === "adset" ? "Switched to ad set budgets." : "Switched to a campaign budget.");
-            onSaved?.({ changed: ["budget mode"] });
-          }}
-        />
-      )}
+      {switchModal}
 
       {data.info.length > 0 && (
         <Card title="Other settings">
