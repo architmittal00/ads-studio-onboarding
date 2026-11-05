@@ -151,7 +151,8 @@ export function useRuleAttention({ accounts, level, ready, refreshKey }) {
     const primaryLeft = new Set(todo.filter((t) => t.levels[0] === level).map((t) => t.account.id)).size;
     let primaryDone = primaryTotal - primaryLeft;
     let failed = 0;
-    const publish = () => setState({ key, byKey: toMap(byTask), loading: primaryDone < primaryTotal, done: primaryDone, total: primaryTotal, failed });
+    let belowLeft = todo.filter((t) => !(t.levels[0] === level && t.levels.length === 1)).length;
+    const publish = () => setState({ key, byKey: toMap(byTask), loading: primaryDone < primaryTotal, belowLoading: belowLeft > 0, done: primaryDone, total: primaryTotal, failed });
     publish();
     let next = 0;
     async function worker() {
@@ -165,6 +166,7 @@ export function useRuleAttention({ accounts, level, ready, refreshKey }) {
           if (isPrimary) failed++;
         }
         if (isPrimary) primaryDone++;
+        else belowLeft--;
         if (!cancelled) publish();
       }
     }
@@ -214,8 +216,16 @@ export function useRuleAttention({ accounts, level, ready, refreshKey }) {
     return out;
   }, [flags]);
 
-  // Rows needing attention at the view's own level (drilled-into child rows are marked but not counted here).
-  const count = useMemo(() => [...flags.values()].filter((f) => f.entityType === level).length, [flags, level]);
+  // Rows at the view's own level that need attention: flagged themselves, or with a flagged row below them
+  // (the pill on the row). Keys are attentionKeys; this drives the count and the "Needs attention" filter, so
+  // both agree with what the marks on screen say.
+  const needs = useMemo(() => {
+    const set = new Set();
+    for (const f of flags.values()) if (f.entityType === level) set.add(attentionKey(f.accountId, level, f.entityId));
+    for (const key of rollups.keys()) if (key.split(":")[1] === level) set.add(key);
+    return set;
+  }, [flags, rollups, level]);
+  const count = needs.size;
 
-  return { flags, rollups, count, loading: shown.loading, done: shown.done, total: shown.total, failed: shown.failed, dismiss, ensureLevel };
+  return { flags, rollups, needs, count, belowLoading: !!shown.belowLoading, loading: shown.loading, done: shown.done, total: shown.total, failed: shown.failed, dismiss, ensureLevel };
 }

@@ -277,7 +277,7 @@ function applyResultFilters(rows, resultFilters, availableMetricKeys, statusAvai
   // "Needs attention": only rows the rules flagged. `attention` ({ flags, level }) is only passed once the
   // background rule check has finished, so the filter never hides everything while it is still running.
   if (resultFilters?.needsAttention && attention) {
-    out = out.filter((row) => attention.flags.has(attentionKey(row.accountId, attention.level, row.entityId)));
+    out = out.filter((row) => attention.needs.has(attentionKey(row.accountId, attention.level, row.entityId)));
   }
   return out;
 }
@@ -1626,14 +1626,15 @@ export default function Explore() {
   // `result.rows` directly, so filtering stays consistent everywhere the
   // result set is consumed.
   // If every account's check failed there is nothing to filter by, so the filter is ignored rather than hiding every row.
-  const attentionReady = attention.total > 0 && !attention.loading && attention.failed < attention.total;
-  const attentionFlags = attention.flags;
+  const attentionBusy = attention.loading || attention.belowLoading; // the rows below a campaign / ad set are part of its count
+  const attentionReady = attention.total > 0 && !attentionBusy && attention.failed < attention.total;
+  const attentionNeeds = attention.needs;
   const filteredRows = useMemo(
     () =>
       result
-        ? applyResultFilters(result.rows, activeView.resultFilters, result.meta.metricKeys, !!result.meta.statusAvailable, attentionReady ? { flags: attentionFlags, level: result.meta.level } : null)
+        ? applyResultFilters(result.rows, activeView.resultFilters, result.meta.metricKeys, !!result.meta.statusAvailable, attentionReady ? { needs: attentionNeeds, level: result.meta.level } : null)
         : [],
-    [result, activeView.resultFilters, attentionReady, attentionFlags]
+    [result, activeView.resultFilters, attentionReady, attentionNeeds]
   );
 
   // Every distinct status actually present in the *unfiltered* result, so
@@ -1852,7 +1853,7 @@ export default function Explore() {
       { ...activeView.resultFilters, metricConditions: draftConditions },
       result.meta.metricKeys,
       !!result.meta.statusAvailable,
-      attentionReady ? { flags: attention.flags, level: result.meta.level } : null
+      attentionReady ? { needs: attention.needs, level: result.meta.level } : null
     ).length;
     const pickingCond = filterPick ? draftConditions.find((c) => c.id === filterPick.id) : null;
     function clearAll() {
@@ -1910,11 +1911,11 @@ export default function Explore() {
               <button
                 type="button"
                 aria-pressed={!!activeView.resultFilters.needsAttention}
-                disabled={attention.loading}
+                disabled={attentionBusy}
                 className={activeView.resultFilters.needsAttention ? `${styles.fsChip} ${styles.fsChipOn}` : styles.fsChip}
                 onClick={toggleNeedsAttention}
               >
-                ! Needs attention ({attention.loading ? "checking…" : attention.count})
+                ! Needs attention ({attentionBusy ? "checking…" : attention.count})
               </button>
             </div>
           </div>
@@ -2201,8 +2202,8 @@ export default function Explore() {
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
                 <span className={styles.muted}>Recommendations</span>
                 <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }} title="Only rows your rules flagged (the ones marked !)">
-                  <input type="checkbox" checked={!!activeView.resultFilters.needsAttention} disabled={attention.loading} onChange={toggleNeedsAttention} />
-                  Needs attention ({attention.loading ? "checking…" : attention.count})
+                  <input type="checkbox" checked={!!activeView.resultFilters.needsAttention} disabled={attentionBusy} onChange={toggleNeedsAttention} />
+                  Needs attention ({attentionBusy ? "checking…" : attention.count})
                 </label>
               </div>
             )}
