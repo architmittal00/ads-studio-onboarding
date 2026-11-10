@@ -1629,6 +1629,7 @@ export default function Explore() {
   const attentionBusy = attention.loading || attention.belowLoading; // the rows below a campaign / ad set are part of its count
   const attentionReady = attention.total > 0 && !attentionBusy && attention.failed < attention.total;
   const attentionNeeds = attention.needs;
+  const showAttention = attention.total > 0 && (result?.rows?.length ?? 0) > 0; // nothing to flag in an empty result
   const filteredRows = useMemo(
     () =>
       result
@@ -1904,7 +1905,7 @@ export default function Explore() {
           </div>
         )}
 
-        {attention.total > 0 && (
+        {showAttention && (
           <div className={styles.fsSection}>
             <div className={styles.fsLabel}>Recommendations</div>
             <div className={styles.fsChips}>
@@ -2059,7 +2060,7 @@ export default function Explore() {
           {` · ${rowText}`}
           {result.meta.filteredByNameCount > 0 && ` · ${result.meta.filteredByNameCount} hidden by name filter`}
           {activeView.resultFetchedAt && <MobileAge fetchedAt={activeView.resultFetchedAt} />}
-          {attention.total > 0 && (
+          {showAttention && (
             <>
               {" · "}
               <AttentionStatus state={attention} />
@@ -2198,7 +2199,7 @@ export default function Explore() {
               </div>
             )}
 
-            {attention.total > 0 && (
+            {showAttention && (
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
                 <span className={styles.muted}>Recommendations</span>
                 <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }} title="Only rows your rules flagged (the ones marked !)">
@@ -2253,7 +2254,7 @@ export default function Explore() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <CacheStatus label="Result" fetchedAt={activeView.resultFetchedAt} loading={false} onRefresh={() => runQueryForView(activeView, true)} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <AttentionStatus state={attention} />
+              {showAttention && <AttentionStatus state={attention} />}
               <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
                 Export CSV
               </button>
