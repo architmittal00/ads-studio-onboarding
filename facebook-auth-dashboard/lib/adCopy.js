@@ -453,7 +453,11 @@ export async function copyImageAcrossAccounts(token, destAccountId, { sourceAcco
 
 export async function fetchVideoSourceUrl(token, videoId) {
   const json = await graphGet(`/${videoId}`, token, { fields: "source" });
-  if (!json.source) throw new Error("Source video has no downloadable source URL (Meta does not expose the file, e.g. a partner/branded-content or very old video) — re-upload it to the destination account and attach it manually.");
+  if (!json.source) {
+    const err = new Error("Source video has no downloadable source URL (Meta does not expose the file, e.g. a partner/branded-content or very old video) — re-upload it to the destination account and attach it manually.");
+    err.code = "NO_VIDEO_SOURCE";
+    throw err;
+  }
   return json.source;
 }
 
@@ -669,17 +673,30 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
     const hasAssetFeed = hasAssetFeedContent(assetFeedSpec);
     try {
       // Images and videos are independent — copied together (video processing is the long pole).
-      const [hashEntries, videoEntries] = await Promise.all([
-        Promise.all(collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])),
-        Promise.all(collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name)])),
-      ]);
-      const hashMap = new Map(hashEntries);
-      const videoIdMap = new Map(videoEntries);
+      // Meta hides the file of some videos (partner / branded-content, very old uploads), so they can't be
+      // re-uploaded. When the ad is a Page post, reuse that post instead — same video, Page and caption —
+      // the way an "existing post" ad is copied.
+      let hashMap = new Map();
+      let videoIdMap = new Map();
+      let reusePost = kind === "existing_post";
+      let postFallback = false;
+      try {
+        const [hashEntries, videoEntries] = await Promise.all([
+          Promise.all(collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])),
+          Promise.all(collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name)])),
+        ]);
+        hashMap = new Map(hashEntries);
+        videoIdMap = new Map(videoEntries);
+      } catch (err) {
+        if (err.code !== "NO_VIDEO_SOURCE" || !ad.creative.effective_object_story_id) throw err;
+        reusePost = true;
+        postFallback = true;
+      }
 
-      const rebuiltSpec = kind === "existing_post" ? null : rebuildObjectStorySpec(spec, hashMap, videoIdMap);
-      const rebuiltFeed = hasAssetFeed && kind !== "existing_post" ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
+      const rebuiltSpec = reusePost ? null : rebuildObjectStorySpec(spec, hashMap, videoIdMap);
+      const rebuiltFeed = hasAssetFeed && !reusePost ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
       const makeCreative = (feed) =>
-        kind === "existing_post"
+        reusePost
           ? createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id })
           : createCopiedCreative(token, destAccountId, {
               objectStorySpec: rebuiltSpec,
@@ -705,9 +722,13 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
         creativeId,
       });
       createdAdIds.push(newAdId);
-      const warning = instagramOmitted
-        ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default."
-        : null;
+      const warning =
+        [
+          postFallback ? "The video file can't be copied (Meta doesn't expose it), so this ad reuses the original Page post — same video, Page and caption." : null,
+          instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
+        ]
+          .filter(Boolean)
+          .join(" ") || null;
       onAdDone?.(adId, { success: true, newAdId, creativeId, warning });
       return [
         { type: "creative", label: "Creative", name: ad.name, adId, success: true, id: creativeId },
