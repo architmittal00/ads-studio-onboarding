@@ -355,7 +355,11 @@ export function buildGenericAdsetPayload(fields) {
     targeting: buildTargeting(fields),
     bid_strategy: fields.bidStrategy || BID_STRATEGY,
   };
-  if (fields.pixelId && (fields.optimizationGoal === "OFFSITE_CONVERSIONS" || fields.optimizationGoal === "LANDING_PAGE_VIEWS")) {
+  if (fields.customConversionId && fields.optimizationGoal === "OFFSITE_CONVERSIONS") {
+    // Optimizing for a saved custom conversion: it carries its own event, so no custom_event_type. The pixel is kept when
+    // the source ad set had one, and left out when it didn't (a custom conversion alone is a valid promoted_object).
+    payload.promoted_object = { custom_conversion_id: fields.customConversionId, ...(fields.pixelId ? { pixel_id: fields.pixelId } : {}) };
+  } else if (fields.pixelId && (fields.optimizationGoal === "OFFSITE_CONVERSIONS" || fields.optimizationGoal === "LANDING_PAGE_VIEWS")) {
     payload.promoted_object =
       fields.optimizationGoal === "LANDING_PAGE_VIEWS"
         ? { pixel_id: fields.pixelId }
