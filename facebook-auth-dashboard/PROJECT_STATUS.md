@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Copy Ads: video file hidden — try the Page token first (2026-11-10)
+The post-reuse fallback below was rejected by Meta for at least one ad ("Dynamic creative missing product set ID", subcode 1815017), so it isn't a reliable fix. Before falling back, the video's source is now also requested with the Page's access token (`/{page_id}?fields=access_token`), which often can read a Page-uploaded video the user token can't — that gives a true copy. If both fail, the error now says the post reuse was rejected and why. Not verified against a real account; if this ad still fails, the video genuinely can't be fetched and needs a manual re-upload.
+
 ### Copy Ads: videos Meta won't let us download (2026-11-10)
 "Source video has no downloadable source URL" (partner / branded-content or old videos) failed the whole ad. Now, when that is the only problem and the source ad has a Page post (`effective_object_story_id`), the copy reuses the post via `object_story_id` — same video, Page and caption, like an "existing post" ad — and the result carries a warning saying so. Ads with no post to reuse still fail with the old message. Not verified against a real account: Meta must allow the destination account to advertise that post.
 

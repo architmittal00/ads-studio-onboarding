@@ -451,9 +451,25 @@ export async function copyImageAcrossAccounts(token, destAccountId, { sourceAcco
   }
 }
 
-export async function fetchVideoSourceUrl(token, videoId) {
+// A video uploaded under a Page often hides its file from the user's own token but not from the Page's: retry
+// with the Page access token (available to anyone who manages the Page) before giving up.
+async function fetchSourceWithPageToken(token, pageId, videoId) {
+  if (!pageId) return null;
+  try {
+    const page = await graphGet(`/${pageId}`, token, { fields: "access_token" });
+    if (!page.access_token) return null;
+    const json = await graphGet(`/${videoId}`, page.access_token, { fields: "source" });
+    return json.source || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchVideoSourceUrl(token, videoId, pageId) {
   const json = await graphGet(`/${videoId}`, token, { fields: "source" });
   if (!json.source) {
+    const viaPage = await fetchSourceWithPageToken(token, pageId, videoId);
+    if (viaPage) return viaPage;
     const err = new Error("Source video has no downloadable source URL (Meta does not expose the file, e.g. a partner/branded-content or very old video) — re-upload it to the destination account and attach it manually.");
     err.code = "NO_VIDEO_SOURCE";
     throw err;
@@ -511,12 +527,12 @@ export function createAssetCopyCoordinator(token, destAccountId, sourceAccountId
       }
       return hashJobs.get(hash);
     },
-    copyVideo(videoId, label) {
+    copyVideo(videoId, label, pageId) {
       if (!videoJobs.has(videoId)) {
         onCopyStart?.(`Copying creative video for "${label}"…`);
         videoJobs.set(
           videoId,
-          fetchVideoSourceUrl(token, videoId).then((sourceUrl) => copyVideoAcrossAccounts(token, destAccountId, { sourceUrl, title: label }))
+          fetchVideoSourceUrl(token, videoId, pageId).then((sourceUrl) => copyVideoAcrossAccounts(token, destAccountId, { sourceUrl, title: label }))
         );
       }
       return videoJobs.get(videoId);
@@ -683,7 +699,7 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       try {
         const [hashEntries, videoEntries] = await Promise.all([
           Promise.all(collectImageHashes(ad.creative).map(async (hash) => [hash, await assets.copyHash(hash, ad.name)])),
-          Promise.all(collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name)])),
+          Promise.all(collectVideoIds(ad.creative).map(async (videoId) => [videoId, await assets.copyVideo(videoId, ad.name, spec?.page_id)])),
         ]);
         hashMap = new Map(hashEntries);
         videoIdMap = new Map(videoEntries);
@@ -707,6 +723,9 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       try {
         creativeId = await makeCreative(rebuiltFeed);
       } catch (err) {
+        if (postFallback) {
+          throw new Error(`The video file can't be copied (Meta doesn't expose it) and reusing the original Page post was rejected: ${err.message} — re-upload the video to the destination account and attach it manually.`);
+        }
         // Still "duplicate asset values" after de-duping the feed: the feed's
         // image/video pool repeats the asset the story spec already carries.
         // Retry once with the pool's media dropped (text options stay).
