@@ -44,7 +44,9 @@ function toFormFields(adset) {
     name: `${adset.name} - Copy`,
     optimizationGoal: adset.optimization_goal,
     pixelId: adset.promoted_object?.pixel_id || "",
-    customEventType: adset.promoted_object?.custom_event_type || "PURCHASE",
+    // A saved custom conversion (Events Manager) replaces the standard event; keep it so the copy optimizes for the same thing.
+    customConversionId: adset.promoted_object?.custom_conversion_id || "",
+    customEventType: adset.promoted_object?.custom_conversion_id ? "" : adset.promoted_object?.custom_event_type || "PURCHASE",
     bidStrategy: adset.bid_strategy,
     // Cost cap / bid cap / ROAS goal need these on the ad set or Meta rejects it (code 100, subcode 2490487).
     bidAmount: adset.bid_amount || null,

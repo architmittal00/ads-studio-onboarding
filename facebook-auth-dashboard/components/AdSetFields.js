@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import InterestPicker from "./InterestPicker";
 import CustomAudiencePicker from "./CustomAudiencePicker";
 import TargetingSearchPicker from "./TargetingSearchPicker";
@@ -98,6 +99,25 @@ export default function AdSetFields({ value, onChange, campaignObjective, accoun
     onChange({ ...value, ...patch });
   }
 
+  // The account's saved custom conversions (Events Manager), offered instead of a standard event.
+  const [customConversions, setCustomConversions] = useState([]);
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    fetch(`/api/fb/custom-conversions?accountIds=${encodeURIComponent(accountId)}`)
+      .then((r) => (r.ok ? r.json() : { customEvents: [] }))
+      .then((json) => {
+        if (!cancelled) setCustomConversions((json.customEvents || []).map((c) => ({ id: c.id.split(":").pop(), name: c.name })));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+  const conversionOptions = value.customConversionId && !customConversions.some((c) => c.id === value.customConversionId)
+    ? [...customConversions, { id: value.customConversionId, name: `Custom conversion ${value.customConversionId}` }] // e.g. archived, or the list didn't load
+    : customConversions;
+
   const goalOptions = OPTIMIZATION_GOALS_BY_OBJECTIVE[campaignObjective] || OPTIMIZATION_GOALS_BY_OBJECTIVE.OUTCOME_SALES;
   const needsPixel = value.optimizationGoal === "OFFSITE_CONVERSIONS" || value.optimizationGoal === "LANDING_PAGE_VIEWS" || value.optimizationGoal === "VALUE";
   const needsCustomEvent = value.optimizationGoal === "OFFSITE_CONVERSIONS" || value.optimizationGoal === "VALUE";
@@ -144,14 +164,27 @@ export default function AdSetFields({ value, onChange, campaignObjective, accoun
           <select
             className={styles.select}
             style={{ width: "100%" }}
-            value={value.customEventType}
-            onChange={(e) => set({ customEventType: e.target.value })}
+            value={value.customConversionId ? `cc:${value.customConversionId}` : value.customEventType}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v.startsWith("cc:")) set({ customConversionId: v.slice(3), customEventType: "" });
+              else set({ customConversionId: "", customEventType: v });
+            }}
           >
             {CUSTOM_EVENT_TYPES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
             ))}
+            {conversionOptions.length > 0 && (
+              <optgroup label="Custom conversions">
+                {conversionOptions.map((c) => (
+                  <option key={c.id} value={`cc:${c.id}`}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
       )}
