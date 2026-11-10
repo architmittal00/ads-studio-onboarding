@@ -45,6 +45,8 @@ function toFormFields(adset) {
     optimizationGoal: adset.optimization_goal,
     pixelId: adset.promoted_object?.pixel_id || "",
     // A saved custom conversion (Events Manager) replaces the standard event; keep it so the copy optimizes for the same thing.
+    // A custom pixel event ("Purchase_Tier_High") is custom_event_type OTHER plus its name in custom_event_str.
+    customEventStr: adset.promoted_object?.custom_event_str || "",
     customConversionId: adset.promoted_object?.custom_conversion_id || "",
     customEventType: adset.promoted_object?.custom_conversion_id ? "" : adset.promoted_object?.custom_event_type || "PURCHASE",
     bidStrategy: adset.bid_strategy,
