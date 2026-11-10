@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Copy Ads: videos Meta won't let us download (2026-11-10)
+"Source video has no downloadable source URL" (partner / branded-content or old videos) failed the whole ad. Now, when that is the only problem and the source ad has a Page post (`effective_object_story_id`), the copy reuses the post via `object_story_id` — same video, Page and caption, like an "existing post" ad — and the result carries a warning saying so. Ads with no post to reuse still fail with the old message. Not verified against a real account: Meta must allow the destination account to advertise that post.
+
 ### Recent changes: "Loading impact…" no longer sticks (2026-11-10)
 Impact is fetched in batches of 10 rows. Each merge replaced the tab's result object, but later batches checked `result === initialResult` (only true before the first merge) and were silently dropped, so every row beyond the first batch to land kept "Loading impact…" forever. The check now uses a per-run token on the result that survives merges and still invalidates when a newer fetch replaces it.
 
