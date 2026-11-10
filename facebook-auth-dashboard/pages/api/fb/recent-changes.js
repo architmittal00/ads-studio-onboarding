@@ -388,7 +388,8 @@ export default async function handler(req, res) {
     // — surfaced so pages/recent-changes.js can label its quick-signal
     // badges with the window they're actually summarizing instead of always
     // implying a fixed "1 day vs 1 day" the way this used to work.
-    e.impactDays = window.daysElapsed;
+    e.impactDays = window.days;
+    e.impactVolumeComparable = window.volumeComparable;
   }
   for (const e of entities) {
     // Beyond MAX_IMPACT_CHANGES (or, rarely, missing a lastChangeTime to
