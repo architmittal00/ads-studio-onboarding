@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Custom Views: no "needs attention" UI on an empty result (2026-11-10)
+When a query returns 0 rows, the "! n need attention" status and the Recommendations / Needs attention filter are hidden (they were counting flagged rows that aren't in the table).
+
 ### Recommendations: cost per purchase (CPP) next to ROAS (2026-11-10)
 Account tiles show each window's CPP under the ROAS; flag rows/cards/drawer show 7d CPP with a "vs acct" badge (green when below the account's, red when above — the reverse of ROAS). Cards can sort by 7d CPP. CPP is the engine's existing `cpr` (spend ÷ purchases) exposed as `stats.cpp7`; no rule logic changed. Older cached results lack `cpp7` and show "—" until re-run. Not verified against a real account.
 
