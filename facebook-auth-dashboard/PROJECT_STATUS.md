@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Copy Ads: carousel "count mismatch" (2446581) — reuse the Page post (2026-11-10)
+Dropping the text-options feed did not fix it (the mismatch is in the rebuilt carousel itself), so on subcode 2446581 the copy now (1) tries without the feed, then (2) reuses the source ad's Page post via `object_story_id` (same cards/Page/caption) with a warning. If the ad has no Page post or Meta rejects that too, the error shows both reasons. Root cause of the mismatch still unknown — needs the source creative's raw JSON (`GET /{creative_id}?fields=object_story_spec,interactive_components_spec`) to fix properly. Not verified against a real account.
+
 ### Duplicate / copy ad set: Advantage audience flag always sent (2026-11-10)
 Meta now rejects an ad set whose targeting has no `targeting_automation.advantage_audience` (code 100, subcode 1870227) — hit when duplicating an ad set that targets lookalike / custom audiences. `buildTargeting` and `buildAdsetPayload` in `lib/campaignLaunch.js` now send an explicit `advantage_audience: 0` unless the audience is Advantage+ (1). Also covers Launch and Copy Ads ad set creation. Not verified against a real account.
 
