@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recent changes: "Loading impact…" no longer sticks (2026-11-10)
+Impact is fetched in batches of 10 rows. Each merge replaced the tab's result object, but later batches checked `result === initialResult` (only true before the first merge) and were silently dropped, so every row beyond the first batch to land kept "Loading impact…" forever. The check now uses a per-run token on the result that survives merges and still invalidates when a newer fetch replaces it.
+
 ### Duplicate ad set: keeps a custom conversion (2026-11-10)
 Duplicating an ad set dropped its `promoted_object.custom_conversion_id` (and forced the event to Purchase), so the copy optimized for something else — or lost its promoted object entirely when the original had no pixel id. The duplicate now carries `customConversionId` through `adsets-list.js` → `buildGenericAdsetPayload` (`promoted_object` = custom conversion, plus pixel only if the source had one). The Launch ad set form's "Conversion event" dropdown also lists the account's custom conversions (from `/api/fb/custom-conversions`) so one can be picked or changed. Not verified against a real account: Meta's acceptance of a custom-conversion-only `promoted_object` is from its docs.
 
