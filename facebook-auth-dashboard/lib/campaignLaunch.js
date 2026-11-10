@@ -133,6 +133,9 @@ export function buildAdsetPayload({
     // as opposed to multiple flexible_spec entries, which would be ANDed.
     targeting.flexible_spec = [{ interests: interestIds.map((id) => ({ id })) }];
   }
+  // Meta requires the Advantage audience flag on every ad set (code 100, subcode 1870227): 1 for Advantage+ audience,
+  // an explicit 0 when the audience is one we chose (custom / lookalike / interest).
+  if (!targeting.targeting_automation) targeting.targeting_automation = { advantage_audience: 0 };
 
   const payload = {
     name: buildAdsetName(funnel, adset, index, { interestName }),
@@ -304,6 +307,8 @@ export function buildTargeting(fields) {
   } else if (fields.audienceType === "custom_audience" && fields.customAudiences?.length) {
     targeting.custom_audiences = fields.customAudiences.map((a) => ({ id: a.id }));
   }
+  // Same required flag as in buildAdsetPayload: explicit 0 unless this is an Advantage+ audience (subcode 1870227).
+  if (!targeting.targeting_automation) targeting.targeting_automation = { advantage_audience: 0 };
 
   if (fields.placementType === "MANUAL") {
     targeting.publisher_platforms = fields.publisherPlatforms?.length ? fields.publisherPlatforms : ["facebook", "instagram"];
