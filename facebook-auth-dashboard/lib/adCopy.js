@@ -752,9 +752,26 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
         // Multiple-Text-Options feed no longer lines up with the carousel cards. The cards themselves are what the
         // ad shows, so retry once from the story spec alone, without the feed.
         if (err.subcode === 2446581 || /interactive_components_spec/.test(err.message || "")) {
-          if (!rebuiltFeed) throw err;
-          creativeId = await withTransientRetry(() => makeCreative(null));
-          feedDropped = true;
+          if (rebuiltFeed) {
+            try {
+              creativeId = await withTransientRetry(() => makeCreative(null));
+              feedDropped = true;
+            } catch {
+              // fall through to reusing the post
+            }
+          }
+          // The carousel's cards and its interactive components don't line up when rebuilt from the spec. If the ad
+          // is a Page post, reuse that post as-is (same cards, Page and caption) instead of rebuilding it.
+          if (!creativeId && ad.creative.effective_object_story_id) {
+            try {
+              creativeId = await withTransientRetry(() => createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id }));
+              feedDropped = false;
+              postFallback = true;
+            } catch (postErr) {
+              throw new Error(`${err.message} — reusing the original Page post was also rejected: ${postErr.message}`);
+            }
+          }
+          if (!creativeId) throw err;
         } else {
         // Still "duplicate asset values" after de-duping the feed: the feed's
         // image/video pool repeats the asset the story spec already carries.
@@ -776,7 +793,7 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       createdAdIds.push(newAdId);
       const warning =
         [
-          postFallback ? "The video file can't be copied (Meta doesn't expose it), so this ad reuses the original Page post — same video, Page and caption." : null,
+          postFallback ? "Meta couldn't rebuild this creative (video file hidden, or carousel components mismatch), so this ad reuses the original Page post — same media, Page and caption." : null,
           feedDropped ? "Copied without its extra text options (Meta rejected them for this carousel) — the cards, copy and links are the same." : null,
           instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
         ]
