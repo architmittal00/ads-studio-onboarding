@@ -113,6 +113,7 @@ The endpoint lists come from a grep of the code and are a guide, not a guarantee
 
 ## Changelog
 
+- **2026-11-10** — Copy Ads result: "Retry failed ads" button re-calls `/api/fb/copy-ads/copy`; tracked automatically as a `click_copy-ads-copy__retry-failed-ads`-style click event (no new named event).
 - **2026-11-05** — Added `campaign_budget_mode_switched`.
 - **2026-11-04** — Added click-to-API events (`click_<endpoint>[_<action>]__<control>`, `event_key`); created this doc.
 - **2026-10-27** — Automatic event coverage (`cta_clicked`, `tab_changed`, `control_changed`, `search_used`, `form_submitted`, `dialog_opened`, `api_action`, `api_error`, `js_error`, `text_copied`); PostHog product analytics (identity, `$pageview`, first named events).

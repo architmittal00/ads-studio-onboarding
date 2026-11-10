@@ -86,6 +86,12 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Copy Ads: auto-retry, "Retry failed ads", carousel text-options fallback (2026-11-10)
+- Meta's "Something went wrong. Please try again later" (subcode 1487390) on creative/ad creation is retried automatically (3 tries, 1.5 s / 3 s pauses) in `lib/adCopy.js` (`withTransientRetry`).
+- "Count mismatch between child attachments and interactive_components_spec" (subcode 2446581): the creative is retried without the Multiple-Text-Options feed; the ad gets a warning saying so. Root cause is a guess (feed vs carousel-card mismatch) — if it still fails without a feed the original error is shown.
+- Copy Ads (ad level) result modal has "Retry failed ads": re-runs only the failed ads into the ad set each failed for and merges them into the result; successful ads aren't touched. Ad set / campaign levels don't have it yet.
+Not verified against a real account.
+
 ### Copy Ads: video file hidden — try the Page token first (2026-11-10)
 The post-reuse fallback below was rejected by Meta for at least one ad ("Dynamic creative missing product set ID", subcode 1815017), so it isn't a reliable fix. Before falling back, the video's source is now also requested with the Page's access token (`/{page_id}?fields=access_token`), which often can read a Page-uploaded video the user token can't — that gives a true copy. If both fail, the error now says the post reuse was rejected and why. Not verified against a real account; if this ad still fails, the video genuinely can't be fetched and needs a manual re-upload.
 

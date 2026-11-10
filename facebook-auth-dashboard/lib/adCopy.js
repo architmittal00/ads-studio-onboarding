@@ -465,6 +465,27 @@ async function fetchSourceWithPageToken(token, pageId, videoId) {
   }
 }
 
+// Meta sometimes answers a valid create with "Something went wrong. Please try again later" (subcode 1487390,
+// or a transient code) — the same request succeeds moments later. Retried a couple of times with a short pause
+// so the user isn't left to click through it by hand.
+function isTransientGraphError(err) {
+  return err?.subcode === 1487390 || err?.graphResponse?.error?.is_transient === true || /Please try again later|temporarily unavailable/i.test(err?.message || "");
+}
+
+async function withTransientRetry(fn, { tries = 3, baseMs = 1500 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientGraphError(err) || attempt === tries - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, baseMs * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 export async function fetchVideoSourceUrl(token, videoId, pageId) {
   const json = await graphGet(`/${videoId}`, token, { fields: "source" });
   if (!json.source) {
@@ -720,30 +741,43 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
               productSetId: kind === "catalog" ? ad.creative.product_set_id : null,
             });
       let creativeId;
+      let feedDropped = false;
       try {
-        creativeId = await makeCreative(rebuiltFeed);
+        creativeId = await withTransientRetry(() => makeCreative(rebuiltFeed));
       } catch (err) {
         if (postFallback) {
           throw new Error(`The video file can't be copied (Meta doesn't expose it) and reusing the original Page post was rejected: ${err.message} — re-upload the video to the destination account and attach it manually.`);
         }
+        // "Count mismatch between child attachments and interactive_components_spec" (subcode 2446581): the
+        // Multiple-Text-Options feed no longer lines up with the carousel cards. The cards themselves are what the
+        // ad shows, so retry once from the story spec alone, without the feed.
+        if (err.subcode === 2446581 || /interactive_components_spec/.test(err.message || "")) {
+          if (!rebuiltFeed) throw err;
+          creativeId = await withTransientRetry(() => makeCreative(null));
+          feedDropped = true;
+        } else {
         // Still "duplicate asset values" after de-duping the feed: the feed's
         // image/video pool repeats the asset the story spec already carries.
         // Retry once with the pool's media dropped (text options stay).
         if (err.subcode !== 1815629 && !/Duplicates of ad asset values/.test(err.message || "")) throw err;
         if (!rebuiltFeed || (!rebuiltFeed.images && !rebuiltFeed.videos)) throw err;
         const { images, videos, ...textOnly } = rebuiltFeed;
-        creativeId = await makeCreative(hasAssetFeedContent(textOnly) ? textOnly : null);
+        creativeId = await withTransientRetry(() => makeCreative(hasAssetFeedContent(textOnly) ? textOnly : null));
+        }
       }
 
-      const newAdId = await createCopiedAd(token, destAccountId, {
-        name: (customName && customName.trim()) || `${ad.name} - Copy`,
-        adsetId: destAdsetId,
-        creativeId,
-      });
+      const newAdId = await withTransientRetry(() =>
+        createCopiedAd(token, destAccountId, {
+          name: (customName && customName.trim()) || `${ad.name} - Copy`,
+          adsetId: destAdsetId,
+          creativeId,
+        })
+      );
       createdAdIds.push(newAdId);
       const warning =
         [
           postFallback ? "The video file can't be copied (Meta doesn't expose it), so this ad reuses the original Page post — same video, Page and caption." : null,
+          feedDropped ? "Copied without its extra text options (Meta rejected them for this carousel) — the cards, copy and links are the same." : null,
           instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
         ]
           .filter(Boolean)
