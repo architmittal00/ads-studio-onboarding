@@ -24,7 +24,7 @@ import styles from "@/styles/Home.module.css";
 // instead of `{entities}`) still sitting in localStorage within its TTL
 // would otherwise get a shape mismatch the instant this page tried to read
 // `result.entities` off it.
-const CACHE_PREFIX = "recent-changes-v2:";
+const CACHE_PREFIX = "recent-changes-v3:";
 const CACHE_MAX_ENTRIES = 50;
 const MAX_TABS = 10;
 
@@ -130,11 +130,13 @@ function compareEntities(a, b) {
 // below for how `before`/`after` get filled in). Renders nothing when either
 // side is missing or both are zero — a 0%-to-0% "change" is noise, not a
 // signal.
-function QuickSignal({ label, before, after }) {
+function QuickSignal({ label, before, after, lowerIsBetter }) {
   if (typeof before !== "number" || typeof after !== "number") return null;
   if (before === 0 && after === 0) return null;
   const pct = before !== 0 ? ((after - before) / Math.abs(before)) * 100 : 100;
-  const badgeClass = pct > 0 ? styles.badgeGood : pct < 0 ? styles.badgeDanger : styles.badgeInfo;
+  const good = lowerIsBetter ? pct < 0 : pct > 0;
+  const bad = lowerIsBetter ? pct > 0 : pct < 0;
+  const badgeClass = good ? styles.badgeGood : bad ? styles.badgeDanger : styles.badgeInfo;
   const arrow = pct > 0 ? "▲" : pct < 0 ? "▼" : "";
   return (
     <span className={badgeClass}>
@@ -230,12 +232,20 @@ function EntityRow({ entity, onOpen }) {
           <>
             {entity.impactDays > 0 && (
               <span className={styles.muted} style={{ fontSize: 11 }}>
-                {entity.impactDays}d before vs {entity.impactDays}d since:
+                {entity.impactVolumeComparable
+                  ? `${entity.impactDays}d before vs ${entity.impactDays}d since (full days):`
+                  : `${entity.impactDays}d before vs today so far:`}
               </span>
             )}
-            <QuickSignal label="Spend" before={entity.impact.before?.spend} after={entity.impact.after?.spend} />
-            <QuickSignal label="Purchases" before={entity.impact.before?.purchases} after={entity.impact.after?.purchases} />
+            {/* Spend and purchases only mean something when both sides cover whole days; ROAS and cost per purchase are ratios, so they are fine on a partial day. */}
+            {entity.impactVolumeComparable && (
+              <>
+                <QuickSignal label="Spend" before={entity.impact.before?.spend} after={entity.impact.after?.spend} />
+                <QuickSignal label="Purchases" before={entity.impact.before?.purchases} after={entity.impact.after?.purchases} />
+              </>
+            )}
             <QuickSignal label="ROAS" before={entity.impact.before?.roas} after={entity.impact.after?.roas} />
+            <QuickSignal label="CPP" lowerIsBetter before={entity.impact.before?.cpp} after={entity.impact.after?.cpp} />
           </>
         )}
       </div>

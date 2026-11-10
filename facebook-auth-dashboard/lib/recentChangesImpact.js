@@ -46,18 +46,40 @@ function daysBetweenUTC(fromDateStr, toDateStr) {
 // itself has no "after" data of any kind yet — not even a partial one — so
 // that's the one case this calls `tooRecent` and skips outright rather than
 // showing a window of length 0.
+//
+// Like-for-like: the day of the change and today are both partial, so volume
+// metrics (spend, purchases) are only compared over FULL days on both sides —
+// the N-1 days before the change vs the N-1 days after it, ending yesterday.
+// When the change was yesterday there is no full "after" day yet, so the
+// after side is today so far; spend and purchases would then be a full day
+// vs a partial one, so `volumeComparable` is false and only ratio metrics
+// (ROAS, cost per purchase) — which don't depend on how long a day has run —
+// are shown.
 export function impactWindowFor(eventTimeIso) {
   const changeDay = isoDate(new Date(eventTimeIso));
   const today = isoDate(new Date());
   const daysElapsed = daysBetweenUTC(changeDay, today);
   if (daysElapsed <= 0) {
-    return { before: null, after: null, tooRecent: true, daysElapsed: 0 };
+    return { before: null, after: null, tooRecent: true, daysElapsed: 0, days: 0, volumeComparable: false };
   }
+  if (daysElapsed === 1) {
+    return {
+      before: { since: addDaysUTC(changeDay, -1), until: addDaysUTC(changeDay, -1) },
+      after: { since: today, until: today },
+      tooRecent: false,
+      daysElapsed,
+      days: 1,
+      volumeComparable: false,
+    };
+  }
+  const days = daysElapsed - 1;
   return {
-    before: { since: addDaysUTC(changeDay, -daysElapsed), until: addDaysUTC(changeDay, -1) },
-    after: { since: addDaysUTC(changeDay, 1), until: today },
+    before: { since: addDaysUTC(changeDay, -days), until: addDaysUTC(changeDay, -1) },
+    after: { since: addDaysUTC(changeDay, 1), until: addDaysUTC(today, -1) },
     tooRecent: false,
     daysElapsed,
+    days,
+    volumeComparable: true,
   };
 }
 
@@ -70,5 +92,5 @@ export function impactWindowFor(eventTimeIso) {
 export function extractImpactMetrics(row) {
   const { spend, roas } = roasFromRow(row);
   const purchases = pickPurchaseCount(row.actions);
-  return { spend, purchases, roas };
+  return { spend, purchases, roas, cpp: purchases > 0 ? spend / purchases : null };
 }

@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recent changes: like-for-like before/after signal (2026-11-10)
+The row badges compare the N−1 full days before a change with the N−1 full days after it (ending yesterday) instead of counting today's partial day. A change made yesterday has no full "after" day yet, so it shows only ratio metrics — ROAS and the new CPP (cost per purchase, lower = green) — labelled "1d before vs today so far"; Spend and Purchases are hidden there. Cache prefix bumped to `recent-changes-v3:`. The Investigate drawer's own windows are unchanged. Not verified against a real account.
+
 ### Custom Views: no "needs attention" UI on an empty result (2026-11-10)
 When a query returns 0 rows, the "! n need attention" status and the Recommendations / Needs attention filter are hidden (they were counting flagged rows that aren't in the table).
 
