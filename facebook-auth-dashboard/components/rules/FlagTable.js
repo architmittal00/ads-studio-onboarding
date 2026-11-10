@@ -28,9 +28,9 @@ const ellipsis = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "no
 // Flagged items as the app's shared sortable table. Clicking a row (or "Why") opens the breakdown
 // under it; the checkbox column feeds the bulk-action bar on the page.
 // `thumbs`: ad id -> { thumbnailUrl, isVideo } | null once loaded (missing while still loading).
-export default function FlagTable({ flags, currencySymbol, accountRoas7, applied, thumbs, onAct, onOpenThumb, selected, onToggle, onToggleAll }) {
+export default function FlagTable({ flags, currencySymbol, accountRoas7, accountCpp7, applied, thumbs, onAct, onOpenThumb, selected, onToggle, onToggleAll }) {
   const [open, setOpen] = useState({});
-  const rows = useMemo(() => flags.map((f) => ({ ...f, id: f.key, spend7: f.stats.spend7, roas7: f.stats.roas7, purchases7: f.stats.purchases7, ruleText: f.matchedRules.map((r) => r.name).join(", ") })), [flags]);
+  const rows = useMemo(() => flags.map((f) => ({ ...f, id: f.key, spend7: f.stats.spend7, roas7: f.stats.roas7, cpp7: f.stats.cpp7, purchases7: f.stats.purchases7, ruleText: f.matchedRules.map((r) => r.name).join(", ") })), [flags]);
   const selectable = rows.filter((r) => isActionable(r) && !applied[r.key]);
   const allSelected = selectable.length > 0 && selectable.every((r) => selected.has(r.key));
   const toggleOpen = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }));
@@ -110,6 +110,26 @@ export default function FlagTable({ flags, currencySymbol, accountRoas7, applied
             <strong>{r.roas7 != null ? r.roas7.toFixed(2) : "—"}</strong>
             {delta != null && (
               <span className={delta >= 0 ? styles.badgeGood : styles.badgeDanger} style={{ marginLeft: 6 }} title={`Account 7-day ROAS is ${accountRoas7.toFixed(2)}`}>
+                {delta >= 0 ? "+" : "−"}
+                {Math.abs(Math.round(delta))}% vs acct
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "cpp7",
+      label: "7d CPP",
+      align: "right",
+      render: (r) => {
+        const delta = r.cpp7 != null && accountCpp7 ? (r.cpp7 / accountCpp7 - 1) * 100 : null;
+        return (
+          <div style={{ whiteSpace: "nowrap" }}>
+            <strong>{r.cpp7 != null ? money(r.cpp7, currencySymbol) : "—"}</strong>
+            {delta != null && (
+              // Cost per purchase: lower than the account's is the good direction.
+              <span className={delta <= 0 ? styles.badgeGood : styles.badgeDanger} style={{ marginLeft: 6 }} title={`Account 7-day CPP is ${money(accountCpp7, currencySymbol)}`}>
                 {delta >= 0 ? "+" : "−"}
                 {Math.abs(Math.round(delta))}% vs acct
               </span>

@@ -169,6 +169,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
         spend7: subject.m[7].spend,
         roas7: subject.m[7].roas,
         roas3: subject.m[3].roas,
+        cpp7: subject.m[7].cpr,
         purchases7: subject.m[7].purchases,
       },
     });

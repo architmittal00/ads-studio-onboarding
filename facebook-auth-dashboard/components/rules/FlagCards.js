@@ -16,6 +16,7 @@ const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 const SORTS = [
   { key: "spend7", label: "7d spend", get: (f) => f.stats.spend7 },
   { key: "roas7", label: "7d ROAS", get: (f) => f.stats.roas7 ?? -1 },
+  { key: "cpp7", label: "7d CPP", get: (f) => f.stats.cpp7 ?? -1 },
   { key: "purchases7", label: "7d purchases", get: (f) => f.stats.purchases7 },
 ];
 const PAGE = 30;
@@ -26,7 +27,7 @@ const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`
 // toolbar + search + sort sheet, rowCard head / metric grid / drill button): one card per flagged item with
 // its name, where it lives, spend / ROAS / purchases, then one action button. "Why was this flagged?"
 // opens inline. 30 at a time so 100+ flags stay light.
-export default function FlagCards({ flags, currencySymbol, accountRoas7, applied, thumbs, onAct, onOpenThumb }) {
+export default function FlagCards({ flags, currencySymbol, accountRoas7, accountCpp7, applied, thumbs, onAct, onOpenThumb }) {
   const [open, setOpen] = useState({});
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
@@ -78,6 +79,7 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, applied
             const next = t ? Math.max(1, Math.round(t.current * (1 + (f.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
             const thumb = f.entityType === "ad" ? thumbs[f.entityId] : undefined;
             const where = [f.campaignName, f.adsetName].filter(Boolean).join(" › ");
+            const cppDelta = f.stats.cpp7 != null && accountCpp7 ? (f.stats.cpp7 / accountCpp7 - 1) * 100 : null;
             const delta = f.stats.roas7 != null && accountRoas7 ? (f.stats.roas7 / accountRoas7 - 1) * 100 : null;
             return (
               <div key={f.key} className={styles.rowCard}>
@@ -113,6 +115,19 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, applied
                         <span className={delta >= 0 ? styles.badgeGood : styles.badgeDanger} style={{ marginLeft: 4 }}>
                           {delta >= 0 ? "+" : "−"}
                           {Math.abs(Math.round(delta))}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles.cardMetric}>
+                    <div className={styles.cardMetricLabel}>7d CPP</div>
+                    <div className={styles.cardMetricValue}>
+                      {f.stats.cpp7 != null ? money(f.stats.cpp7, currencySymbol) : "—"}
+                      {cppDelta != null && (
+                        // Cost per purchase: lower than the account's is the good direction.
+                        <span className={cppDelta <= 0 ? styles.badgeGood : styles.badgeDanger} style={{ marginLeft: 4 }}>
+                          {cppDelta >= 0 ? "+" : "−"}
+                          {Math.abs(Math.round(cppDelta))}%
                         </span>
                       )}
                     </div>
