@@ -464,11 +464,17 @@ export default function RecentChanges() {
 
     const impactById = {};
     let remaining = chunks.length;
+    // Every merged batch produces a NEW result object, so "is this still the result I started from?" can't be
+    // `t.result === initialResult` — that was true only until the first batch landed, after which every other batch
+    // was dropped and its rows kept saying "Loading impact…" forever. A per-run token survives the merges, and still
+    // differs once a newer fetch (Hard Refresh, switched range) replaces the result.
+    const runToken = `${Date.now()}-${Math.random()}`;
+    initialResult.impactRun = runToken;
 
     function applyBatch(batchImpact) {
       Object.assign(impactById, batchImpact);
       updateTab(tabId, (t) => {
-        if (t.result !== initialResult) return {};
+        if (t.result?.impactRun !== runToken) return {};
         return {
           result: { ...t.result, entities: t.result.entities.map((e) => (entityKey(e) in batchImpact ? { ...e, impact: batchImpact[entityKey(e)] } : e)) },
         };
