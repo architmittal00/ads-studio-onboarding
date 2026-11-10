@@ -252,6 +252,12 @@ export function AttentionPopover({ flag, currency, onClose, onApplied }) {
               </div>
             </div>
             <div className={styles.stat}>
+              <div className={styles.statLabel}>7d CPP</div>
+              <div className={styles.statValue} style={{ fontSize: 15 }}>
+                {flag.stats.cpp7 != null ? money(flag.stats.cpp7, symbol) : "—"}
+              </div>
+            </div>
+            <div className={styles.stat}>
               <div className={styles.statLabel}>7d purchases</div>
               <div className={styles.statValue} style={{ fontSize: 15 }}>
                 {Math.round(flag.stats.purchases7)}

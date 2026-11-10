@@ -386,7 +386,9 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
                   <div key={b.days} className={styles.kpiTile}>
                     <div className={styles.kpiLabel}>{b.days}-day ROAS</div>
                     <div className={styles.kpiValue}>{b.roas != null ? b.roas.toFixed(2) : "—"}</div>
-                    <div className={styles.rowCardSub}>{compactMoney(b.spend, result.currencySymbol)} spend</div>
+                    <div className={styles.rowCardSub}>
+                      CPP {b.cpr != null ? compactMoney(b.cpr, result.currencySymbol) : "—"} · {compactMoney(b.spend, result.currencySymbol)} spend
+                    </div>
                   </div>
                 ))}
               </div>
@@ -421,7 +423,10 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               <div key={b.days} className={styles.stat} >
                 <div className={styles.statLabel}>{b.days}-day ROAS</div>
                 <div className={styles.statValue}>{b.roas != null ? b.roas.toFixed(2) : "—"}</div>
-                <div className={styles.muted} style={{ marginTop: 4 }}>
+                <div className={styles.muted} style={{ marginTop: 4 }} title="Cost per purchase: spend ÷ purchases">
+                  CPP {b.cpr != null ? money(b.cpr, result.currencySymbol) : "—"}
+                </div>
+                <div className={styles.muted} style={{ marginTop: 2 }}>
                   Spend {money(b.spend, result.currencySymbol)}
                 </div>
               </div>
@@ -473,6 +478,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
                 flags={shown}
                 currencySymbol={result.currencySymbol}
                 accountRoas7={base7?.roas ?? null}
+                accountCpp7={base7?.cpr ?? null}
                 applied={applied}
                 thumbs={thumbs}
                 onAct={setActing}
@@ -484,6 +490,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
                 flags={shown}
                 currencySymbol={result.currencySymbol}
                 accountRoas7={base7?.roas ?? null}
+                accountCpp7={base7?.cpr ?? null}
                 applied={applied}
                 thumbs={thumbs}
                 onAct={setActing}
