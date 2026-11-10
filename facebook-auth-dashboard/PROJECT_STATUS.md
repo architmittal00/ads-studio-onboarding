@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Duplicate / copy ad set: Advantage audience flag always sent (2026-11-10)
+Meta now rejects an ad set whose targeting has no `targeting_automation.advantage_audience` (code 100, subcode 1870227) — hit when duplicating an ad set that targets lookalike / custom audiences. `buildTargeting` and `buildAdsetPayload` in `lib/campaignLaunch.js` now send an explicit `advantage_audience: 0` unless the audience is Advantage+ (1). Also covers Launch and Copy Ads ad set creation. Not verified against a real account.
+
 ### Copy Ads: auto-retry, "Retry failed ads", carousel text-options fallback (2026-11-10)
 - Meta's "Something went wrong. Please try again later" (subcode 1487390) on creative/ad creation is retried automatically (3 tries, 1.5 s / 3 s pauses) in `lib/adCopy.js` (`withTransientRetry`).
 - "Count mismatch between child attachments and interactive_components_spec" (subcode 2446581): the creative is retried without the Multiple-Text-Options feed; the ad gets a warning saying so. Root cause is a guess (feed vs carousel-card mismatch) — if it still fails without a feed the original error is shown.
