@@ -410,6 +410,7 @@ export default function CopyAdsModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [result, setResult] = useState(null);
+  const [retrying, setRetrying] = useState(false);
   const [lightboxItem, setLightboxItem] = useState(null);
   // Per-ad live status, keyed by source ad id: { phase: "queued"|"copying"|
   // "success"|"skipped"|"failed", error?, warning?, newAdId? }. Seeded to
@@ -825,6 +826,55 @@ export default function CopyAdsModal({
       setSubmitError(err.message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // Re-runs only the ads that failed (not skipped ones — those can't be copied at all), into the ad set each one
+  // failed for, and swaps their rows in the result. Already-created ads are left alone, so nothing is duplicated.
+  async function handleRetryFailedAds() {
+    if (!result || retrying) return;
+    const failedByDest = new Map(); // destAdsetId -> Set(adId)
+    for (const s of result.steps) {
+      if (!s.adId || s.success || s.skipped) continue;
+      const dest = s.destAdsetId || destAdsets[0]?.id;
+      if (!failedByDest.has(dest)) failedByDest.set(dest, new Set());
+      failedByDest.get(dest).add(s.adId);
+    }
+    if (failedByDest.size === 0) return;
+    setRetrying(true);
+    setSubmitError(null);
+    try {
+      let steps = result.steps.filter((s) => s.type !== "activation" && !(s.adId && failedByDest.get(s.destAdsetId || destAdsets[0]?.id)?.has(s.adId)));
+      const createdAdIds = [...result.createdAdIds];
+      for (const [destId, adIds] of failedByDest) {
+        const res = await fetch("/api/fb/copy-ads/copy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceAccountId,
+            destAccountId,
+            destAdsetIds: [destId],
+            items: ads.filter((a) => adIds.has(a.id)).map((a) => ({ adId: a.id, name: names[a.id] })),
+            finalStatus: status,
+          }),
+        });
+        let finalEvent = null;
+        await readNdjson(res, (event) => {
+          if (event.type === "done") finalEvent = event;
+        });
+        const r = normalizeCopyResult(finalEvent);
+        steps = [...steps, ...r.steps.map((st) => ({ ...st, destAdsetId: destId }))];
+        createdAdIds.push(...r.createdAdIds);
+      }
+      const stillFailing = steps.some((s) => !s.success && !s.skipped);
+      const next = { ...result, steps, createdAdIds, success: !stillFailing, error: stillFailing ? result.error : null };
+      setResult(next);
+      invalidateCachedGets();
+      onDone?.(next);
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -1651,8 +1701,19 @@ export default function CopyAdsModal({
                   </div>
                 )}
 
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-                  <button type="button" className={styles.btnPrimary} onClick={onClose}>
+                {submitError && (
+                  <div className={styles.error} style={{ marginTop: 10 }}>
+                    {submitError}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+                  {[...adStepsById.values()].some((steps) => steps.some((s) => !s.success && !s.skipped)) && (
+                    <button type="button" className={styles.btnSecondary} onClick={handleRetryFailedAds} disabled={retrying}>
+                      {retrying ? "Retrying…" : "Retry failed ads"}
+                    </button>
+                  )}
+                  <button type="button" className={styles.btnPrimary} onClick={onClose} disabled={retrying}>
                     Done
                   </button>
                 </div>
