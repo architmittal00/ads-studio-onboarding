@@ -164,11 +164,12 @@ export default function AdSetFields({ value, onChange, campaignObjective, accoun
           <select
             className={styles.select}
             style={{ width: "100%" }}
-            value={value.customConversionId ? `cc:${value.customConversionId}` : value.customEventType}
+            value={value.customConversionId ? `cc:${value.customConversionId}` : value.customEventType === "OTHER" && value.customEventStr ? `str:${value.customEventStr}` : value.customEventType}
             onChange={(e) => {
               const v = e.target.value;
-              if (v.startsWith("cc:")) set({ customConversionId: v.slice(3), customEventType: "" });
-              else set({ customConversionId: "", customEventType: v });
+              if (v.startsWith("cc:")) set({ customConversionId: v.slice(3), customEventType: "", customEventStr: "" });
+              else if (v.startsWith("str:")) set({ customConversionId: "", customEventType: "OTHER", customEventStr: v.slice(4) });
+              else set({ customConversionId: "", customEventType: v, customEventStr: "" });
             }}
           >
             {CUSTOM_EVENT_TYPES.map((c) => (
@@ -176,6 +177,9 @@ export default function AdSetFields({ value, onChange, campaignObjective, accoun
                 {c.label}
               </option>
             ))}
+            {value.customEventType === "OTHER" && value.customEventStr && (
+              <option value={`str:${value.customEventStr}`}>{value.customEventStr} (custom event)</option>
+            )}
             {conversionOptions.length > 0 && (
               <optgroup label="Custom conversions">
                 {conversionOptions.map((c) => (

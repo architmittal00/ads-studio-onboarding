@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Duplicate ad set: custom pixel events (2026-11-10)
+The duplicate of an ad set optimizing for a custom pixel event ("Purchase_Tier_High") came out with an empty Conversion event: such an event is `custom_event_type: OTHER` plus its name in `custom_event_str`, and only the type was copied. `customEventStr` now flows `adsets-list.js` → `buildGenericAdsetPayload` (sent only with OTHER) and shows in the ad set form's Conversion event dropdown. The earlier custom-conversion-id handling stays for saved custom conversions. Not verified against a real account.
+
 ### Copy Ads: carousel "count mismatch" (2446581) — reuse the Page post (2026-11-10)
 Dropping the text-options feed did not fix it (the mismatch is in the rebuilt carousel itself), so on subcode 2446581 the copy now (1) tries without the feed, then (2) reuses the source ad's Page post via `object_story_id` (same cards/Page/caption) with a warning. If the ad has no Page post or Meta rejects that too, the error shows both reasons. Root cause of the mismatch still unknown — needs the source creative's raw JSON (`GET /{creative_id}?fields=object_story_spec,interactive_components_spec`) to fix properly. Not verified against a real account.
 

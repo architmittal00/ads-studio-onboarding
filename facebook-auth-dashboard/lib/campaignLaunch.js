@@ -368,7 +368,11 @@ export function buildGenericAdsetPayload(fields) {
     payload.promoted_object =
       fields.optimizationGoal === "LANDING_PAGE_VIEWS"
         ? { pixel_id: fields.pixelId }
-        : { pixel_id: fields.pixelId, custom_event_type: fields.customEventType || "PURCHASE" };
+        : {
+            pixel_id: fields.pixelId,
+            custom_event_type: fields.customEventType || "PURCHASE",
+            ...(fields.customEventType === "OTHER" && fields.customEventStr ? { custom_event_str: fields.customEventStr } : {}),
+          };
   }
   if (fields.attributionSetting && ATTRIBUTION_SPECS[fields.attributionSetting]) {
     payload.attribution_spec = ATTRIBUTION_SPECS[fields.attributionSetting];
