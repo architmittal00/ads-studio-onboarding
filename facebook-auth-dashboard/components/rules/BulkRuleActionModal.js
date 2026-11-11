@@ -4,6 +4,7 @@ import { invalidateCachedGets } from "@/lib/cachedGet";
 import { pauseInBatches } from "@/lib/batchPause";
 import { CloseIcon } from "@/components/icons";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
+import { trackRecommendationApplied, trackRecommendationBulkApplied } from "@/lib/rules/trackApplied";
 import styles from "@/styles/Home.module.css";
 
 const CONCURRENCY = 4;
@@ -33,6 +34,16 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
   const noun = isPause ? (flags.length === 1 ? "ad" : "ads") : flags.length === 1 ? "budget" : "budgets";
   const title = isPause ? `Pause ${flags.length} ${noun}?` : `${sign === 1 ? "Increase" : "Decrease"} ${flags.length} ${noun}`;
 
+  // One event per recommendation that really went through, plus one summary for the run.
+  function reportApplied(outcomes) {
+    const done = outcomes.filter((o) => o.ok);
+    for (const o of done) {
+      const f = flags.find((x) => x.key === o.key);
+      if (f) trackRecommendationApplied(f, { bulk: true, ...(isPause ? {} : { change_pct: pctNum }) });
+    }
+    trackRecommendationBulkApplied(action, { total: outcomes.length, applied: done.length, pct: isPause ? null : pctNum });
+  }
+
   async function run() {
     setStep("running");
     setProgress(0);
@@ -47,6 +58,7 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
         return r?.ok ? { key: f.key, name: f.name, ok: true, text: "Paused" } : { key: f.key, name: f.name, ok: false, error: r?.error || "Not paused" };
       });
       invalidateCachedGets();
+      reportApplied(outPause);
       setResults(outPause);
       setStep("done");
       onDone(outPause);
@@ -74,6 +86,7 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, flags.length) }, worker));
     invalidateCachedGets();
+    reportApplied(out);
     setResults(out);
     setStep("done");
     onDone(out);

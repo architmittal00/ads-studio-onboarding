@@ -67,6 +67,8 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | `explore_adset_edited` | `/explore` (details drawer) | ad set edit saved | `fields` |
 | `explore_campaign_edited` | `/explore` (details drawer) | campaign edit saved | `fields` |
 | `campaign_budget_mode_switched` | `/explore` (campaign details drawer) | campaign switched between campaign budget and ad set budgets | `to` (`adset` / `campaign`) |
+| `recommendation_applied_ad_paused` / `recommendation_applied_budget_increased` / `recommendation_applied_budget_decreased` | `/recommendations`, `/explore` (the "!" quick-action window) | one fires per recommendation that was actually applied (after the write succeeded) | `screen`, `entity_type`, `entity_id`, `rule_id`, `bulk`, `change_pct` (budgets) |
+| `recommendation_bulk_applied` | `/recommendations` | a multi-select apply finished | `action` (`ad_paused` / `budget_increased` / `budget_decreased`), `total`, `applied`, `failed`, `change_pct` |
 | `partnership_tab_opened` | `/partnership-ads` | tab switched | `tab` |
 | `partnership_launch_started` | `/partnership-ads` (Code tab), `/partnership-ads/queue` | partnership launch wizard confirmed | — |
 | `copy_ads_started` | `/copy-ads` | copy confirmed | `level` (`ad` / `adset` / `campaign`) |
@@ -83,8 +85,8 @@ Everything in section 3 fires on every page. The `click_…` events depend on wh
 | `/` | `login_clicked` | — |
 | `/dashboard` | — | `insights`, `account-balances` |
 | `/report` | — | `report/headline`, `report/core`, `report/<id>` |
-| `/explore` | `explore_*`, `bulk_duplicate_ads_started`, `ad_edited`, `explore_adset_edited`, `explore_campaign_edited`, `campaign_budget_mode_switched`, `date_range_applied` | `explore-insights`, `entity-action`, `entity-action-batch`, `entity-details`, `ad-update`, `adset-update`, `campaign-update`, `campaign-budget-mode`, `duplicate-ad`, `duplicate-campaign`, `launch-campaign`, `ad-thumbnails`, `ad-landing-pages`, `custom-conversions` |
-| `/recommendations` | — | `rules/check`, `ad-thumbnails`, `entity-action`, `entity-action-batch` |
+| `/explore` | `recommendation_applied_*`, `explore_*`, `bulk_duplicate_ads_started`, `ad_edited`, `explore_adset_edited`, `explore_campaign_edited`, `campaign_budget_mode_switched`, `date_range_applied` | `explore-insights`, `entity-action`, `entity-action-batch`, `entity-details`, `ad-update`, `adset-update`, `campaign-update`, `campaign-budget-mode`, `duplicate-ad`, `duplicate-campaign`, `launch-campaign`, `ad-thumbnails`, `ad-landing-pages`, `custom-conversions` |
+| `/recommendations` | `recommendation_applied_*`, `recommendation_bulk_applied` | `rules/check`, `ad-thumbnails`, `entity-action`, `entity-action-batch` |
 | `/recent-changes` | — | `recent-changes`, `recent-changes/impact`, `recent-changes/investigate` |
 | `/strategy` | `campaign_launch_started` | `data`, `strategy-signal`, `launch-strategy`, `launch-campaign` |
 | `/launch` | — | `campaigns-list`, `adsets-list`, `targeting-data`, `launch-campaign` |
@@ -113,6 +115,7 @@ The endpoint lists come from a grep of the code and are a guide, not a guarantee
 
 ## Changelog
 
+- **2026-11-11** — Added `recommendation_applied_ad_paused`, `recommendation_applied_budget_increased`, `recommendation_applied_budget_decreased` (single and bulk applies, from Recommendations and Custom Views) and `recommendation_bulk_applied`.
 - **2026-11-10** — Copy Ads result: "Retry failed ads" button re-calls `/api/fb/copy-ads/copy`; tracked automatically as a `click_copy-ads-copy__retry-failed-ads`-style click event (no new named event).
 - **2026-11-05** — Added `campaign_budget_mode_switched`.
 - **2026-11-04** — Added click-to-API events (`click_<endpoint>[_<action>]__<control>`, `event_key`); created this doc.
