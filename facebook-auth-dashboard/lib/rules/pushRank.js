@@ -187,22 +187,41 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       })
       .sort((a, b) => b.spend - a.spend);
 
-    const detail = {
-      landing: key
-        ? landing.top > 0
-          ? `Goes to ${key}${(landing.byKey.get(key) || 0) > 0 ? ` — ${adsetShare.toFixed(0)}% of this ad set's 14-day spend${isTop ? " (its top page)" : ""}` : " — no ad in this ad set uses this page"}.`
-          : `Goes to ${key}; this ad set's links couldn't be read.`
-        : "No landing page to compare (for example a catalog ad).",
-      roas: `${s14.roas.toFixed(2)} over 14 days vs the account's ${b14.roas.toFixed(2)}${signed(pctVs(s14.roas, b14.roas))}${s7.roas != null ? `; ${s7.roas.toFixed(2)} over 7 days` : ""}.`,
-      ctr: ctrRatio != null ? `${pct(s14.ctr)} vs the account's ${pct(b14.ctr)}${signed(pctVs(s14.ctr, b14.ctr))}.` : "No clicks to compare.",
-      cpc: cpcRatio != null ? `${money(s14.cpc, symbol)} vs the account's ${money(b14.cpc, symbol)}${signed(pctVs(s14.cpc, b14.cpc))}.` : "No clicks to compare.",
-      consistency: `${roasTrend != null ? `7-day ROAS is ${Math.round(roasTrend * 100)}% of its 14-day ROAS — ${roasTrend >= HOLDING ? "holding ✓" : "fading ✗"}` : "Not enough 7-day data"}; ${ctrTrend != null ? `last-3-day CTR is ${Math.round(ctrTrend * 100)}% of its 14-day CTR — ${ctrTrend >= HOLDING ? "holding ✓" : "fading ✗"}` : "not enough 3-day data"}. Each check is worth half; holding means 90% or more.`,
-      evidence: `${Math.round(s14.purchases)} purchases (10 needed) and ${money(s14.spend, symbol)} spent over 14 days across ${c.ads.length} ad${c.ads.length === 1 ? "" : "s"}.`,
-      freshness: ageDays != null ? `First created ${Math.round(ageDays)} day${Math.round(ageDays) === 1 ? "" : "s"} ago.` : "Creation date unknown.",
+    // One row per factor for the "Why push this?" table: what the creative has, what it is compared with, and a
+    // strong / fair / weak verdict from how many of the factor's points it earned.
+    const path = key ? key.slice(key.indexOf("/")) || "/" : null;
+    const inSet = !!key && (landing.byKey.get(key) || 0) > 0;
+    const dir = (v, lowerIsBetter) => (v == null ? "" : `${Math.abs(Math.round(v))}% ${(v >= 0) === !lowerIsBetter ? "better" : "worse"}`);
+    const vs = (v) => (v == null ? "" : ` (${v >= 0 ? "+" : "−"}${Math.abs(Math.round(v))}%)`);
+    const days = ageDays != null ? Math.round(ageDays) : null;
+    const rows = {
+      landing: {
+        value: key ? path : "No page to compare",
+        against: landing.top <= 0 ? "This ad set's links couldn't be read" : inSet ? `${adsetShare.toFixed(0)}% of this ad set's spend${isTop ? " — its top page" : ""}` : "No ad in this ad set uses this page",
+        short: inSet ? `landing page (${adsetShare.toFixed(0)}% of this ad set's spend)` : "landing page (not used by this ad set)",
+      },
+      roas: { value: s14.roas.toFixed(2), against: `Account ${b14.roas.toFixed(2)}${vs(pctVs(s14.roas, b14.roas))}`, short: `ROAS ${dir(pctVs(s14.roas, b14.roas))} than the account` },
+      ctr: { value: pct(s14.ctr), against: ctrRatio != null ? `Account ${pct(b14.ctr)}${vs(pctVs(s14.ctr, b14.ctr))}` : "No clicks to compare", short: `CTR ${dir(pctVs(s14.ctr, b14.ctr))} than the account` },
+      cpc: { value: money(s14.cpc, symbol), against: cpcRatio != null ? `Account ${money(b14.cpc, symbol)}${vs(pctVs(s14.cpc, b14.cpc))}, lower is better` : "No clicks to compare", short: `CPC ${dir(pctVs(s14.cpc, b14.cpc), true)} than the account` },
+      consistency: {
+        value: `ROAS ${roasTrend != null ? `${Math.round(roasTrend * 100)}%` : "—"} · CTR ${ctrTrend != null ? `${Math.round(ctrTrend * 100)}%` : "—"}`,
+        against: "Recent vs 14-day level; each needs 90%+",
+        short: "holding up recently",
+      },
+      evidence: { value: `${Math.round(s14.purchases)} purchases`, against: `Needs ${MIN_PURCHASES}+ · ${money(s14.spend, symbol)} spent over ${c.ads.length} ad${c.ads.length === 1 ? "" : "s"}`, short: `${Math.round(s14.purchases)} purchases` },
+      freshness: { value: days != null ? `${days} day${days === 1 ? "" : "s"} old` : "Unknown", against: "14 days or newer scores full", short: days != null ? `${days} days old` : "age unknown" },
     };
     const breakdown = Object.keys(WEIGHTS)
       .filter((k) => points[k])
-      .map((k) => ({ key: k, label: FACTOR_LABELS[k], points: points[k].points, max: points[k].max, detail: detail[k] }));
+      .map((k) => {
+        const ratio = points[k].max > 0 ? points[k].points / points[k].max : 0;
+        return { key: k, label: FACTOR_LABELS[k], points: points[k].points, max: points[k].max, level: ratio >= 0.7 ? "strong" : ratio >= 0.3 ? "fair" : "weak", ...rows[k] };
+      });
+    const summary = {
+      grade: total >= 80 ? "Strong fit" : total >= 70 ? "Good fit" : "Decent fit",
+      strong: breakdown.filter((r) => r.level === "strong").map((r) => r.short),
+      weak: breakdown.filter((r) => r.level === "weak").map((r) => r.short),
+    };
 
     scored.push({
       creativeId: c.id,
@@ -214,6 +233,7 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       runningIn,
       score: Math.round(total),
       breakdown,
+      summary,
       tags,
       stats: {
         purchases: s14.purchases,

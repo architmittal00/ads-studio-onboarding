@@ -288,36 +288,54 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
                   {whyOpen.has(c.creativeId) && (
                     <div className={styles.pushWhy}>
                       <div>
-                        <div className={styles.recContextTitle} style={{ marginTop: 0 }}>
-                          Why it ranks {c.score}/100 for this ad set
+                        <div className={styles.pushVerdict}>
+                          <strong>
+                            {c.score}/100 · {c.summary.grade} for this ad set
+                          </strong>
+                          {c.summary.strong.length > 0 && (
+                            <p>
+                              <span className={styles.badgeGood}>Strong</span> {c.summary.strong.join(" · ")}
+                            </p>
+                          )}
+                          {c.summary.weak.length > 0 && (
+                            <p>
+                              <span className={styles.badgeDanger}>Weak</span> {c.summary.weak.join(" · ")}
+                            </p>
+                          )}
                         </div>
-                        {c.breakdown.map((b) => (
-                          <div key={b.key} className={styles.pushFactor}>
-                            <div className={styles.pushFactorHead}>
+                        <div className={styles.pushWhyTable}>
+                          <div className={`${styles.pushWhyRow} ${styles.pushWhyHead}`}>
+                            <span>What we checked</span>
+                            <span>This creative</span>
+                            <span>Compared with</span>
+                            <span style={{ textAlign: "right" }}>Result</span>
+                          </div>
+                          {c.breakdown.map((b) => (
+                            <div key={b.key} className={styles.pushWhyRow}>
                               <span>{b.label}</span>
-                              <span className={styles.muted}>
-                                {b.points.toFixed(1)} / {b.max.toFixed(1)}
+                              <strong>{b.value}</strong>
+                              <span className={styles.pushWhyAgainst}>{b.against}</span>
+                              <span style={{ textAlign: "right" }}>
+                                <span className={b.level === "strong" ? styles.badgeGood : b.level === "fair" ? styles.badgeWarn : styles.badgeDanger}>
+                                  {b.level === "strong" ? "Strong" : b.level === "fair" ? "Fair" : "Weak"}
+                                </span>
+                                <span className={styles.pushWhyPoints}>
+                                  {b.points.toFixed(0)}/{b.max.toFixed(0)}
+                                </span>
                               </span>
                             </div>
-                            <div className={styles.pushBar}>
-                              <span style={{ width: `${b.max > 0 ? Math.round((b.points / b.max) * 100) : 0}%` }} />
-                            </div>
-                            <div className={styles.pushFactorText}>{b.detail}</div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                       <div>
                         <div className={styles.recContextTitle} style={{ marginTop: 0 }}>
-                          Already running in {c.runningIn.length} ad set{c.runningIn.length === 1 ? "" : "s"} (14 days)
+                          Already running in {c.runningIn.length} ad set{c.runningIn.length === 1 ? "" : "s"} · last 14 days
                         </div>
                         <dl className={styles.recContextList}>
                           {c.runningIn.map((r) => (
                             <div key={r.adsetId} className={styles.recContextRow}>
                               <dt title={[r.campaignName, r.adsetName].filter(Boolean).join(" › ")}>
-                                <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>{r.adsetName || r.adsetId}</span>
-                                <span className={styles.muted} style={{ fontWeight: 400 }}>
-                                  {r.campaignName || ""}
-                                </span>
+                                <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>{r.adsetName || r.adsetId}</span>
                               </dt>
                               <dd>
                                 {r.roas != null ? `${r.roas.toFixed(2)} ROAS` : "—"} · {Math.round(r.purchases)} purchases

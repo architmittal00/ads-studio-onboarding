@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: clearer "Why push this?" (2026-11-11)
+The reasoning is now: a headline verdict ("83/100 · Strong fit for this ad set") with one line of what's **Strong** and one of what's **Weak**, then a table — What we checked | This creative | Compared with | Result (Strong / Fair / Weak chip + points) — and the "Already running in N ad sets" list beside it. Replaces the per-factor bars and long sentences. Each factor's verdict comes from the share of its points earned (≥70% strong, ≥30% fair, else weak); rows built in `pushRank.js` (`breakdown`, `summary`). Mock-data check only.
+
 ### Push-ads: minimum score 60 and strict evidence bar (2026-11-11)
 Only creatives scoring **60 or more** are listed (`MIN_SCORE` in `lib/rules/pushRank.js`); if some qualified but all scored lower the card says so. Evidence is now strict: **at least 10 purchases in the last 14 days** (the "or spend > 3× account CPP" alternative is gone), still with 14-day ROAS above the account's.
 
