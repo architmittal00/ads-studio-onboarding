@@ -86,6 +86,12 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: which ads to push into an ad set (2026-11-11)
+"Add a creative" cards (ad sets) now show, under See reasoning, up to 20 ranked existing creatives to add, with checkboxes and "Add n ads to this ad set" (paused copies via `/api/fb/duplicate-ad`, same creative id). For **New creative -01** (lowest half starved) the card also lists the ad set's own lowest-spending half to pause (`pauseInBatches`; nothing pre-ticked; ones beating the account are tagged "consider keeping").
+- **Pool:** `GET /api/fb/rules/creative-pool?accountId=` (new, maxDuration 120): ad-level insights for 3/7/14/30 days, active ads/ad sets/campaigns, creative id / landing page / thumbnail / format via `fetchAdDetails` + post fallback; only ads from purchase-optimized ad sets; max 900 ads. Kept 30 min in memory per account (`lib/rules/creativePool.js`).
+- **Ranking:** `lib/rules/pushRank.js` (pure). Unit = creative (all its ads pooled). Gate: ≥10 purchases or spend > 3× account CPP (30d), 30-day ROAS above the account's, an active ad using it, not already in the ad set, no Pause-flagged ad. Score: landing page 30 (ads with the same host+path ÷ the main page's ad count; main = page with most ads in the ad set; different page 0) · ROAS 25 · CTR 10 · CPC 10 · consistency 10 · evidence 10 · freshness 5; landing weight dropped when nothing to compare.
+- Checked with mock data (ranking script + preview harness) only — never against a real account. Custom Views' "!" window doesn't show the push list yet.
+
 ### Analytics: recommendation applied events (2026-11-11)
 `recommendation_applied_ad_paused`, `recommendation_applied_budget_increased`, `recommendation_applied_budget_decreased` fire once per recommendation actually applied — from the single-apply modal (used by both Recommendations and Custom Views' "!" window) and per item of a bulk apply (`bulk: true`), plus `recommendation_bulk_applied` per bulk run. Helper `lib/rules/trackApplied.js`; documented in `ANALYTICS_EVENTS.md`. Not checked in the PostHog dashboard.
 

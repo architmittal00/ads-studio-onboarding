@@ -3101,3 +3101,90 @@ button.stat:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── "Ads to push into this ad set" (components/rules/PushAds.js) ── */
+.pushWrap {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.pushBox {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 14px 0 4px;
+}
+.pushSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pushHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pushLinks {
+  display: flex;
+  gap: 14px;
+}
+.pushList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pushRow {
+  display: grid;
+  grid-template-columns: 22px 44px minmax(220px, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 14px;
+}
+.pushRow + .pushRow {
+  border-top: 1px solid var(--border);
+}
+.pushMain {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pushTags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pushStats {
+  display: grid;
+  grid-template-columns: repeat(4, 76px);
+  gap: 8px;
+}
+.pushScore {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 44px;
+  font-size: 16px;
+  color: var(--t1);
+}
+.pushFoot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+@media (max-width: 1180px) {
+  .pushRow {
+    grid-template-columns: 22px 44px minmax(0, 1fr) auto;
+  }
+  .pushStats {
+    grid-column: 3 / 5;
+    grid-row: 2;
+  }
+}

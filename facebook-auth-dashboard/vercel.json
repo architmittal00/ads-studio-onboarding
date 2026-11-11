@@ -74,6 +74,9 @@
     },
     "pages/api/fb/rules/check.js": {
       "maxDuration": 120
+    },
+    "pages/api/fb/rules/creative-pool.js": {
+      "maxDuration": 120
     }
   }
 }

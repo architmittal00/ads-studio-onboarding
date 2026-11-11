@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import Thumb from "@/components/Thumb";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
 import { WhyChecks } from "@/components/rules/FlagWhy";
+import PushAds from "@/components/rules/PushAds";
 import styles from "@/styles/Home.module.css";
 
 // The desktop Recommendations screen, laid out the way a media buyer works through it: how the account is doing,
@@ -44,8 +45,8 @@ function reasonFor(f, bench, symbol) {
       .join(" and ");
     let base;
     if (rule?.id === "new-creative-03") base = "Only 1 active ad.";
-    else if (rule?.id === "new-creative-02") base = `Its top 2 of ${cond(0)?.actual} ads take ${cond(2)?.actual} of the last 3 days' spend.`;
-    else if (rule?.id === "new-creative-01") base = `${cond(0)?.actual} active ads, but the least-used half gets only ${cond(1)?.actual} of the last 3 days' spend.`;
+    else if (rule?.id === "new-creative-02" && cond(0)?.actual && cond(2)?.actual) base = `Its top 2 of ${cond(0).actual} ads take ${cond(2).actual} of the last 3 days' spend.`;
+    else if (rule?.id === "new-creative-01" && cond(0)?.actual && cond(1)?.actual) base = `${cond(0).actual} active ads, but the least-used half gets only ${cond(1).actual} of the last 3 days' spend.`;
     else base = rule?.name || "";
     return slip ? `${base} Last 3 days vs the 4 before: ${slip}.` : base;
   }
@@ -114,7 +115,7 @@ function Context({ flag, symbol }) {
   );
 }
 
-function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb }) {
+function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds }) {
   const [open, setOpen] = useState(false);
   const where = [flag.campaignName, flag.adsetName].filter(Boolean).join("  ›  ");
   const t = flag.budgetTarget;
@@ -191,6 +192,11 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
             <WhyChecks flag={flag} />
           </div>
           <Context flag={flag} symbol={symbol} />
+          {flag.action === "ADD_CREATIVE" && flag.entityType === "adset" && accountId && (
+            <div className={styles.pushWrap}>
+              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} />
+            </div>
+          )}
         </div>
       )}
     </article>
@@ -256,12 +262,14 @@ export function RecSummary({ result, counts, flags, filter, setFilter, checkedTe
   );
 }
 
-export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb }) {
+export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb, accountId, tz }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState("spend7");
   const [expanded, setExpanded] = useState({}); // action -> shown beyond the first page
   const bench = { roas: baseline?.roas ?? null, cpp: baseline?.cpr ?? null };
   const sort = SORTS.find((s) => s.key === sortKey);
+  // Ads a Pause rule flagged: their creatives are never suggested for pushing into another ad set.
+  const pausedAdIds = useMemo(() => new Set(flags.filter((f) => f.action === "PAUSE_AD" && f.entityType === "ad").map((f) => f.entityId)), [flags]);
 
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -322,6 +330,9 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
                   onToggle={() => onToggle(f.key)}
                   onAct={onAct}
                   onOpenThumb={onOpenThumb}
+                  accountId={accountId}
+                  tz={tz}
+                  pausedAdIds={pausedAdIds}
                 />
               ))}
             </div>

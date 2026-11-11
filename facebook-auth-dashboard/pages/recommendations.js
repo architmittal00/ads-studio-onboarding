@@ -440,6 +440,8 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               filter={filter}
               currencySymbol={result.currencySymbol}
               baseline={base7}
+              accountId={selectedAccountId}
+              tz={tz}
               applied={applied}
               thumbs={thumbs}
               onAct={setActing}
