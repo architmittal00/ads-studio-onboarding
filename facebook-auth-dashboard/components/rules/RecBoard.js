@@ -76,34 +76,37 @@ function Metric({ label, children, delta: d, lowerIsBetter }) {
 function Context({ flag, symbol }) {
   const t = flag.budgetTarget;
   const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
-  const tiles = [];
+  const share = (v) => (v != null ? `${v.toFixed(1)}%` : "—");
+  const rows = [];
   if (flag.adContext) {
-    tiles.push(["Active ads in its ad set", flag.adContext.activeAdsInAdset]);
-    tiles.push(["Share of ad set spend", `${flag.adContext.spendShare[3] != null ? flag.adContext.spendShare[3].toFixed(1) : "—"}% · 3d`, `${flag.adContext.spendShare[7] != null ? flag.adContext.spendShare[7].toFixed(1) : "—"}% · 7d`]);
+    rows.push(["Active ads in its ad set", flag.adContext.activeAdsInAdset]);
+    rows.push(["Share of ad set spend, last 3 days", share(flag.adContext.spendShare[3])]);
+    rows.push(["Share of ad set spend, last 7 days", share(flag.adContext.spendShare[7])]);
   }
-  if (flag.stats.roas3 != null || flag.stats.roas7 != null) {
-    tiles.push(["ROAS trend", `${flag.stats.roas3 != null ? flag.stats.roas3.toFixed(2) : "—"} · 3d`, `${flag.stats.roas7 != null ? flag.stats.roas7.toFixed(2) : "—"} · 7d`]);
+  if (flag.stats.roas3 != null) rows.push(["ROAS, last 3 days", flag.stats.roas3.toFixed(2)]);
+  if (flag.stats.roas7 != null) rows.push(["ROAS, last 7 days", flag.stats.roas7.toFixed(2)]);
+  if (t) {
+    rows.push([`${t.type === "lifetime" ? "Lifetime" : "Daily"} budget now`, money(t.current, symbol)]);
+    rows.push([`Suggested (${STEP_PCT}% ${flag.action === "INCREASE_BUDGET" ? "up" : "down"})`, money(next, symbol)]);
   }
-  if (t) tiles.push([`${t.type === "lifetime" ? "Lifetime" : "Daily"} budget`, money(t.current, symbol), `→ ${money(next, symbol)} (${STEP_PCT}%)`]);
   return (
-    <aside className={styles.recContext}>
+    <div>
       <div className={styles.recContextTitle}>About this {TYPE_LABEL[flag.entityType].toLowerCase()}</div>
-      <div className={styles.recContextGrid}>
-        {tiles.map(([label, a, b]) => (
-          <div key={label} className={styles.recContextTile}>
-            <span className={styles.recMetricLabel}>{label}</span>
-            <strong>{a}</strong>
-            {b && <span className={styles.recContextSub}>{b}</span>}
+      <dl className={styles.recContextList}>
+        {rows.map(([label, value]) => (
+          <div key={label} className={styles.recContextRow}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
           </div>
         ))}
-      </div>
+      </dl>
       {flag.budgetNote && <p className={styles.muted} style={{ fontWeight: 400, marginTop: 10 }}>{flag.budgetNote}</p>}
       {flag.hiddenConflicts?.length > 0 && (
         <p className={styles.muted} style={{ fontWeight: 400, marginTop: 10 }}>
           A conflicting rule also matched ({flag.hiddenConflicts.join(", ")}) but the stronger one is shown.
         </p>
       )}
-    </aside>
+    </div>
   );
 }
 
@@ -115,7 +118,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
   const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
   return (
     <article className={open ? `${styles.recCard} ${styles.recCardOpen}` : styles.recCard} style={{ "--rec-rgb": section.rgb }}>
-      <div className={styles.recRow} onClick={() => setOpen((o) => !o)} role="button" tabIndex={0} aria-expanded={open} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setOpen((o) => !o))}>
+      <div className={styles.recRow} onClick={() => setOpen((o) => !o)}>
         <div className={styles.recSelect} onClick={(e) => e.stopPropagation()}>
           {actionable && <input type="checkbox" aria-label={`Select ${flag.name}`} checked={selected} onChange={onToggle} />}
         </div>
@@ -151,6 +154,9 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
           <Metric label="Purchases">{Math.round(flag.stats.purchases7)}</Metric>
         </div>
         <div className={styles.recAct} onClick={(e) => e.stopPropagation()}>
+          <button type="button" className={styles.recWhyBtn} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            {open ? "Hide reasoning ▴" : "See reasoning ▾"}
+          </button>
           {applied ? (
             <span style={{ color: "var(--green)", fontWeight: 700 }}>✓ {applied}</span>
           ) : actionable ? (
@@ -173,9 +179,6 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
             <span className={styles.recActSub}>Add one in Ads Manager</span>
           )}
         </div>
-        <span className={styles.recChevron} aria-hidden>
-          {open ? "▴" : "▾"}
-        </span>
       </div>
       {open && (
         <div className={styles.recDetail}>
@@ -192,8 +195,9 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
 
 // The summary: how the account is doing (what everything is compared with) and a tab per decision, each with
 // the spend riding on it.
-export function RecSummary({ result, counts, flags, filter, setFilter }) {
+export function RecSummary({ result, counts, flags, filter, setFilter, checkedText }) {
   const symbol = result.currencySymbol;
+  const b7 = result.baseline.find((b) => b.days === 7);
   const impact = (action) => {
     const list = flags.filter((f) => f.action === action);
     const spend = list.reduce((t, f) => t + f.stats.spend7, 0);
@@ -203,43 +207,33 @@ export function RecSummary({ result, counts, flags, filter, setFilter }) {
   const notes = [];
   if (result.counts.learning?.adsets > 0) notes.push(`${result.counts.learning.adsets} ad sets and ${result.counts.learning.campaigns} campaigns still in learning aren't judged`);
   if (result.counts.skipped?.adsets > 0) notes.push(`${result.counts.skipped.adsets} ad sets and ${result.counts.skipped.ads} ads not optimized for purchases are skipped`);
+  const tabs = [{ key: "all", label: "Everything", color: "var(--t1)" }, ...SECTIONS.map((s) => ({ key: s.action, label: s.title, color: s.color, action: s.action }))];
   return (
     <>
-      <section className={styles.recHero}>
-        <div className={styles.recHeroLead}>
-          <div className={styles.recHeroNum}>{counts.all}</div>
-          <div>
-            <div className={styles.recHeroTitle}>{counts.all === 1 ? "thing needs" : "things need"} a decision</div>
-            <div className={styles.muted} style={{ fontWeight: 400 }}>
-              {result.accountName} · {result.counts.campaigns} campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules
-            </div>
-          </div>
-        </div>
-        <div className={styles.recBench} aria-label="Account benchmark">
-          <span className={styles.recBenchLabel}>Account benchmark — what each item is compared with</span>
-          <div className={styles.recBenchGrid}>
-            {result.baseline.map((b) => (
-              <div key={b.days} className={styles.recBenchCell}>
-                <span className={styles.recMetricLabel}>Last {b.days} days</span>
-                <strong>{b.roas != null ? `${b.roas.toFixed(2)} ROAS` : "—"}</strong>
-                <span className={styles.recContextSub}>
-                  CPP {money(b.cpr, symbol)} · {compact(b.spend, symbol)} spent
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      {notes.length > 0 && <p className={styles.muted} style={{ fontWeight: 400, margin: "-6px 2px 0" }}>{notes.join(" · ")}.</p>}
+      <p className={styles.recStrip}>
+        <span>
+          Compared with the account&apos;s last 7 days: ROAS {b7?.roas != null ? b7.roas.toFixed(2) : "—"} · CPP {money(b7?.cpr, symbol)} · {compact(b7?.spend, symbol)} spent
+        </span>
+        <span className={styles.recStripMeta}>
+          {checkedText} · {result.counts.campaigns} campaigns, {result.counts.adsets} ad sets, {result.counts.ads} ads, {result.rulesChecked.length} rules
+          {notes.length > 0 && (
+            <span title={`${notes.join(". ")}.`} aria-label={`${notes.join(". ")}.`} style={{ marginLeft: 6, cursor: "help" }}>
+              ⓘ
+            </span>
+          )}
+        </span>
+      </p>
       <div className={styles.recTabs} role="tablist" aria-label="Filter recommendations">
-        {[{ key: "all", label: "Everything", color: "var(--t1)" }, ...SECTIONS.map((s) => ({ key: s.action, label: s.title, color: s.color, action: s.action }))].map((tab) => {
+        {tabs.map((tab) => {
           const im = tab.action ? impact(tab.action) : null;
           const on = filter === tab.key;
           return (
             <button key={tab.key} type="button" role="tab" aria-selected={on} className={on ? `${styles.recTab} ${styles.recTabOn}` : styles.recTab} onClick={() => setFilter(on && tab.key !== "all" ? "all" : tab.key)}>
               <span className={styles.recTabTop}>
                 <span style={{ color: tab.color }}>{tab.label}</span>
-                <strong style={{ color: tab.color }}>{counts[tab.key]}</strong>
+                <span className={styles.recTabCount} style={{ color: tab.color }}>
+                  {counts[tab.key]}
+                </span>
               </span>
               <span className={styles.recTabSub}>
                 {tab.action === "ADD_CREATIVE"
@@ -248,7 +242,7 @@ export function RecSummary({ result, counts, flags, filter, setFilter }) {
                   ? im.n > 0
                     ? `${compact(im.spend, symbol)} spent · ${im.roas != null ? im.roas.toFixed(2) : "—"} ROAS`
                     : "Nothing here"
-                  : "All recommendations"}
+                  : `${counts.all} in total`}
               </span>
             </button>
           );

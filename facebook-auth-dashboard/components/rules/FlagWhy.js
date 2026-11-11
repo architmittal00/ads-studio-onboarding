@@ -15,7 +15,7 @@ export function WhyChecks({ flag }) {
       {flag.matchedRules.map((r) => (
         <section key={r.id} style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{r.name}</span>
+            <span style={{ fontWeight: 600, fontSize: 13.5 }}>{r.name}</span>
             <span className={styles.badgeGood}>
               All {r.conditions.length} check{r.conditions.length === 1 ? "" : "s"} passed
             </span>
@@ -34,7 +34,7 @@ export function WhyChecks({ flag }) {
                 <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
                   <span style={{ color: "var(--green)", fontWeight: 800, lineHeight: "18px" }}>✓</span>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, overflowWrap: "anywhere" }}>{c.label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflowWrap: "anywhere" }}>{c.label}</div>
                     {c.hint && (
                       <div className={styles.muted} style={{ fontWeight: 400, marginTop: 2, overflowWrap: "anywhere" }}>
                         {c.hint}
