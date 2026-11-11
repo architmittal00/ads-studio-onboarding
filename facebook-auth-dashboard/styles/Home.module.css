@@ -3232,3 +3232,55 @@ button.stat:hover {
     padding-left: 0;
   }
 }
+
+.pushVerdict {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--t2);
+}
+.pushVerdict strong {
+  font-size: 14px;
+  color: var(--t1);
+}
+.pushVerdict p {
+  margin: 0;
+  line-height: 1.6;
+}
+.pushWhyTable {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pushWhyRow {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1.3fr) 96px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--t1);
+}
+.pushWhyRow + .pushWhyRow {
+  border-top: 1px solid var(--border);
+}
+.pushWhyHead {
+  background: var(--card);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+.pushWhyAgainst {
+  color: var(--t2);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.pushWhyPoints {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--t3);
+}
