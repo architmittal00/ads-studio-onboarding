@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: readable flagged table + "Why" panel (2026-11-11)
+The desktop flagged table was too wide (the Action column wrapped one word per line). Now: one **Recommendation** column (action badge + rule name + the "upload a fresh ad" note), ROAS and CPP show their "% vs acct" badge *under* the figure so the columns stay narrow, and a separate **Apply** column holds only the button. The **Why** panel is a table — Check | This ad | Needs to be — with an "All n checks passed" badge and the rule's one-line meaning, instead of a paragraph plus a checklist. Mobile cards unchanged. Checked in a production build with mock data only.
+
 ### Recommendations: "New creative" rules also need CPC or CTR up (2026-11-11)
 All three `new-creative-0x` rules (add a creative to an ad set) now also require that the ad set's last-3-day link CPC is at least 10% higher than, or its last-3-day link CTR at least 10% lower than, the days just before (4–7 days ago = 7-day window minus the 3-day window, via `priorOf3` in `lib/rules/metrics.js`; no extra Insights call). Either one is enough. `derive()` now also returns raw `impressions` / `linkClicks`.
 

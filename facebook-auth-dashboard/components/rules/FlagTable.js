@@ -12,7 +12,7 @@ const ACTION_META = {
   ADD_CREATIVE: { label: "Add a creative", badge: styles.badgeInfo },
 };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 9;
 // Tinted action buttons: the colour matches the suggestion, so the button says what it will do.
 const ACTION_BTN = {
   INCREASE_BUDGET: { color: "var(--green)", rgb: "var(--green-rgb)" },
@@ -24,6 +24,22 @@ const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`
 
 const isActionable = (f) => f.action === "PAUSE_AD" || !!f.budgetTarget;
 const ellipsis = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+
+// A figure with its comparison to the account underneath (so the column stays narrow). `lowerIsBetter` flips the colours for costs.
+function MetricCell({ value, delta, lowerIsBetter, title }) {
+  const good = delta != null && (lowerIsBetter ? delta <= 0 : delta >= 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, whiteSpace: "nowrap" }}>
+      <strong>{value}</strong>
+      {delta != null && (
+        <span className={good ? styles.badgeGood : styles.badgeDanger} title={title}>
+          {delta >= 0 ? "+" : "−"}
+          {Math.abs(Math.round(delta))}% vs acct
+        </span>
+      )}
+    </div>
+  );
+}
 
 // Flagged items as the app's shared sortable table. Clicking a row (or "Why") opens the breakdown
 // under it; the checkbox column feeds the bulk-action bar on the page.
@@ -61,7 +77,7 @@ export default function FlagTable({ flags, currencySymbol, accountRoas7, account
         const thumb = r.entityType === "ad" ? thumbs[r.entityId] : undefined;
         const where = [r.campaignName, r.adsetName].filter(Boolean).join("  ›  ");
         return (
-          <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 280, maxWidth: 520 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 240, maxWidth: 380 }}>
             {r.entityType === "ad" && (
               <Thumb size={40} src={thumb?.thumbnailUrl} isVideo={!!thumb?.isVideo} loading={thumb === undefined} onClick={thumb?.thumbnailUrl || thumb?.isVideo ? () => onOpenThumb(r, thumb) : undefined} />
             )}
@@ -86,88 +102,74 @@ export default function FlagTable({ flags, currencySymbol, accountRoas7, account
     },
     {
       key: "ruleText",
-      label: "Rule",
-      render: (r) => (
-        <div style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap" }}>
-          <span className={styles.badgeWarn}>{r.matchedRules[0].name}</span>
-          {r.matchedRules.length > 1 && (
-            <span className={styles.badgeInfo} title={r.matchedRules.map((m) => m.name).join(", ")}>
-              +{r.matchedRules.length - 1}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    { key: "spend7", label: "7d spend", align: "right", render: (r) => money(r.spend7, currencySymbol) },
-    {
-      key: "roas7",
-      label: "7d ROAS",
-      align: "right",
+      label: "Recommendation",
+      sortValue: (r) => r.action,
       render: (r) => {
-        const delta = r.roas7 != null && accountRoas7 ? (r.roas7 / accountRoas7 - 1) * 100 : null;
+        const meta = ACTION_META[r.action];
+        const rules = r.matchedRules.map((m) => m.name).join(", ");
         return (
-          <div style={{ whiteSpace: "nowrap" }}>
-            <strong>{r.roas7 != null ? r.roas7.toFixed(2) : "—"}</strong>
-            {delta != null && (
-              <span className={delta >= 0 ? styles.badgeGood : styles.badgeDanger} style={{ marginLeft: 6 }} title={`Account 7-day ROAS is ${accountRoas7.toFixed(2)}`}>
-                {delta >= 0 ? "+" : "−"}
-                {Math.abs(Math.round(delta))}% vs acct
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start", minWidth: 150, maxWidth: 240 }}>
+            <span className={meta.badge} style={{ whiteSpace: "nowrap" }}>
+              {meta.label}
+            </span>
+            <span title={rules} className={styles.muted} style={{ fontWeight: 500, ...ellipsis, maxWidth: "100%" }}>
+              {r.matchedRules[0].name}
+              {r.matchedRules.length > 1 ? ` +${r.matchedRules.length - 1} more` : ""}
+            </span>
+            {r.action === "ADD_CREATIVE" && (
+              <span className={styles.muted} style={{ fontWeight: 400 }}>
+                Upload a fresh ad to this ad set.
+              </span>
+            )}
+            {!isActionable(r) && r.budgetNote && (
+              <span className={styles.muted} style={{ fontWeight: 400 }}>
+                {r.budgetNote}
               </span>
             )}
           </div>
         );
       },
+    },
+    { key: "spend7", label: "7d spend", align: "right", render: (r) => <strong style={{ whiteSpace: "nowrap" }}>{money(r.spend7, currencySymbol)}</strong> },
+    {
+      key: "roas7",
+      label: "7d ROAS",
+      align: "right",
+      render: (r) => (
+        <MetricCell
+          value={r.roas7 != null ? r.roas7.toFixed(2) : "—"}
+          delta={r.roas7 != null && accountRoas7 ? (r.roas7 / accountRoas7 - 1) * 100 : null}
+          title={accountRoas7 ? `Account 7-day ROAS is ${accountRoas7.toFixed(2)}` : undefined}
+        />
+      ),
     },
     {
       key: "cpp7",
       label: "7d CPP",
       align: "right",
-      render: (r) => {
-        const delta = r.cpp7 != null && accountCpp7 ? (r.cpp7 / accountCpp7 - 1) * 100 : null;
-        return (
-          <div style={{ whiteSpace: "nowrap" }}>
-            <strong>{r.cpp7 != null ? money(r.cpp7, currencySymbol) : "—"}</strong>
-            {delta != null && (
-              // Cost per purchase: lower than the account's is the good direction.
-              <span className={delta <= 0 ? styles.badgeGood : styles.badgeDanger} style={{ marginLeft: 6 }} title={`Account 7-day CPP is ${money(accountCpp7, currencySymbol)}`}>
-                {delta >= 0 ? "+" : "−"}
-                {Math.abs(Math.round(delta))}% vs acct
-              </span>
-            )}
-          </div>
-        );
-      },
+      render: (r) => (
+        <MetricCell
+          value={r.cpp7 != null ? money(r.cpp7, currencySymbol) : "—"}
+          delta={r.cpp7 != null && accountCpp7 ? (r.cpp7 / accountCpp7 - 1) * 100 : null}
+          lowerIsBetter
+          title={accountCpp7 ? `Account 7-day CPP is ${money(accountCpp7, currencySymbol)}` : undefined}
+        />
+      ),
     },
-    { key: "purchases7", label: "7d purchases", align: "right", render: (r) => Math.round(r.purchases7) },
+    { key: "purchases7", label: "Purchases", align: "right", render: (r) => <strong>{Math.round(r.purchases7)}</strong> },
     {
       key: "action",
-      label: "Action",
+      label: "Apply",
       sortValue: (r) => r.action,
       render: (r) => {
         const t = r.budgetTarget;
         const btn = ACTION_BTN[r.action];
         const label = ACTION_META[r.action].label;
         if (applied[r.key]) return <span style={{ color: "var(--green)", fontWeight: 700, whiteSpace: "nowrap" }}>✓ {applied[r.key]}</span>;
-        if (!isActionable(r)) {
-          return (
-            <div style={{ maxWidth: 230 }}>
-              <span className={ACTION_META[r.action].badge}>{label} suggested</span>
-              {r.action === "ADD_CREATIVE" && (
-                <div className={styles.muted} style={{ fontWeight: 400, marginTop: 3 }}>
-                  Upload a fresh ad to this ad set.
-                </div>
-              )}
-              {r.budgetNote && (
-                <div className={styles.muted} style={{ fontWeight: 400, marginTop: 3 }}>
-                  {r.budgetNote}
-                </div>
-              )}
-            </div>
-          );
-        }
+        if (!isActionable(r)) return <span className={styles.muted}>—</span>;
         const next = t ? Math.max(1, Math.round(t.current * (1 + (r.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
         return (
-          <div style={{ minWidth: 190 }}>
+          <div style={{ minWidth: 150 }}>
             <button
               type="button"
               onClick={(e) => {
