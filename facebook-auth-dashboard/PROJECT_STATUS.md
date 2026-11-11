@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads rows decluttered, thumbnails clickable (2026-11-11)
+Each suggested creative's row now shows only thumbnail, format, name, "Running in N ad sets" + "Why push this?", the four 14-day figures and the score — the tag chips are gone (the "Why push this?" panel already has the per-factor breakdown). Thumbnails (push list and pause list) open the creative lightbox like elsewhere on the page.
+
 ### Push-ads: simpler "Consistency" (2026-11-11)
 Consistency (10 pts) is now two pass/fail checks worth half each: 7-day ROAS ≥ 90% of the creative's 14-day ROAS, and last-3-day CTR ≥ 90% of its 14-day CTR (no data → half credit). Replaces the 0–1 sliding scales with 70% / 80% floors. `HOLDING = 0.9` in `lib/rules/pushRank.js`.
 

@@ -194,7 +194,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
           <Context flag={flag} symbol={symbol} />
           {flag.action === "ADD_CREATIVE" && flag.entityType === "adset" && accountId && (
             <div className={styles.pushWrap}>
-              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} />
+              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} />
             </div>
           )}
         </div>

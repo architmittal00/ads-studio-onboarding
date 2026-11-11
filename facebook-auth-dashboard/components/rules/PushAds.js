@@ -57,7 +57,7 @@ function StatsRow({ stats, symbol }) {
   );
 }
 
-export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
+export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOpenThumb }) {
   const [pool, setPool] = useState(null);
   const [error, setError] = useState(null);
   const [pickedPush, setPickedPush] = useState(() => new Set());
@@ -202,7 +202,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
               return (
                 <div key={a.adId} className={styles.pushRow}>
                   <input type="checkbox" aria-label={`Select ${a.name}`} checked={pickedPause.has(a.adId) && !r?.ok} disabled={r?.ok || busy} onChange={() => toggle(setPickedPause)(a.adId)} />
-                  <Thumb size={44} src={a.thumbnailUrl} isVideo={a.format === "Video"} />
+                  <Thumb size={44} src={a.thumbnailUrl} isVideo={a.format === "Video"} onClick={a.thumbnailUrl || a.format === "Video" ? () => onOpenThumb?.({ entityId: a.adId, name: a.name }, { thumbnailUrl: a.thumbnailUrl, isVideo: a.format === "Video" }) : undefined} />
                   <div className={styles.pushMain}>
                     <div className={styles.recName}>
                       <span title={a.name}>{a.name}</span>
@@ -262,7 +262,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
               return (
                 <div key={c.creativeId} className={styles.pushRow}>
                   <input type="checkbox" aria-label={`Select ${c.name}`} checked={pickedPush.has(c.creativeId) && !r?.ok} disabled={r?.ok || !!busy} onChange={() => toggle(setPickedPush)(c.creativeId)} />
-                  <Thumb size={44} src={c.thumbnailUrl} isVideo={c.format === "Video"} />
+                  <Thumb size={44} src={c.thumbnailUrl} isVideo={c.format === "Video"} onClick={c.thumbnailUrl || c.format === "Video" ? () => onOpenThumb?.({ entityId: c.sourceAdId, name: c.name }, { thumbnailUrl: c.thumbnailUrl, isVideo: c.format === "Video" }) : undefined} />
                   <div className={styles.pushMain}>
                     <div className={styles.recName}>
                       <span className={styles.badgeInfo} style={{ flexShrink: 0 }}>
@@ -272,20 +272,11 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
                     </div>
                     <div className={styles.recWhere}>
                       Running in {c.runningIn.length} ad set{c.runningIn.length === 1 ? "" : "s"}
-                      {c.runningIn.length > 0 && ` · ${new Set(c.runningIn.map((r) => r.campaignName).filter(Boolean)).size || 1} campaign${new Set(c.runningIn.map((r) => r.campaignName).filter(Boolean)).size > 1 ? "s" : ""}`}
-                      {c.adCount > 1 ? ` · ${c.adCount} ads` : ""}
                       <button type="button" className={styles.recWhyBtn} style={{ marginLeft: 10 }} onClick={() => toggle(setWhyOpen)(c.creativeId)} aria-expanded={whyOpen.has(c.creativeId)}>
                         {whyOpen.has(c.creativeId) ? "Hide why ▴" : "Why push this? ▾"}
                       </button>
                     </div>
-                    <div className={styles.pushTags}>
-                      {c.tags.map((t) => (
-                        <span key={t} className={t.startsWith("Main landing") ? styles.badgeGood : styles.badgeInfo}>
-                          {t}
-                        </span>
-                      ))}
-                      {r && <span style={{ color: r.ok ? "var(--green)" : "var(--red)", fontSize: 12 }}>{r.ok ? `✓ ${r.text}` : r.error}</span>}
-                    </div>
+                    {r && <div style={{ color: r.ok ? "var(--green)" : "var(--red)", fontSize: 12 }}>{r.ok ? `✓ ${r.text}` : r.error}</div>}
                   </div>
                   <StatsRow stats={c.stats} symbol={symbol} />
                   <div className={styles.pushScore}>
