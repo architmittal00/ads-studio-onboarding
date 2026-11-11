@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import Thumb from "@/components/Thumb";
-import { loadCreativePool, clearCreativePool } from "@/lib/rules/creativePool";
-import { rankPushCandidates, starvedAds, FACTOR_LABELS, MAX_PUSH_OPTIONS } from "@/lib/rules/pushRank";
+import { loadCreativePool, clearCreativePool, loadAdsetExtras } from "@/lib/rules/creativePool";
+import { rankPushCandidates, starvedAds, MAX_PUSH_OPTIONS } from "@/lib/rules/pushRank";
 import { pauseInBatches } from "@/lib/batchPause";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { invalidateCachedGets } from "@/lib/cachedGet";
@@ -19,7 +19,7 @@ function Vs({ value, lowerIsBetter }) {
   if (value == null) return null;
   const good = lowerIsBetter ? value <= 0 : value >= 0;
   return (
-    <span className={good ? styles.badgeGood : styles.badgeDanger} title="Compared with the account's 30-day figure">
+    <span className={good ? styles.badgeGood : styles.badgeDanger} title="Compared with the account's 14-day figure">
       {value >= 0 ? "+" : "−"}
       {Math.abs(Math.round(value))}%
     </span>
@@ -38,15 +38,15 @@ function Stat({ label, children }) {
 function StatsRow({ stats, symbol }) {
   return (
     <div className={styles.pushStats}>
-      <Stat label="30d ROAS">
+      <Stat label="14d ROAS">
         <strong>{stats.roas != null ? stats.roas.toFixed(2) : "—"}</strong>
         <Vs value={stats.roasVsAcct} />
       </Stat>
-      <Stat label="30d CTR">
+      <Stat label="14d CTR">
         <strong>{stats.ctr != null ? `${stats.ctr.toFixed(2)}%` : "—"}</strong>
         <Vs value={stats.ctrVsAcct} />
       </Stat>
-      <Stat label="30d CPC">
+      <Stat label="14d CPC">
         <strong>{money(stats.cpc, symbol)}</strong>
         <Vs value={stats.cpcVsAcct} lowerIsBetter />
       </Stat>
@@ -57,13 +57,6 @@ function StatsRow({ stats, symbol }) {
   );
 }
 
-function scoreTitle(c) {
-  return Object.entries(c.parts)
-    .filter(([, v]) => v != null)
-    .map(([k, v]) => `${FACTOR_LABELS[k]} ${Math.round(v * 100)}%`)
-    .join(" · ");
-}
-
 export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
   const [pool, setPool] = useState(null);
   const [error, setError] = useState(null);
@@ -71,6 +64,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
   const [pickedPause, setPickedPause] = useState(() => new Set());
   const [busy, setBusy] = useState(null); // "push" | "pause"
   const [done, setDone] = useState({}); // creativeId / adId -> { ok, text?, error? }
+  const [extras, setExtras] = useState(null); // this ad set's own ads: landing pages + thumbnails
+  const [whyOpen, setWhyOpen] = useState(() => new Set());
 
   const load = useCallback(
     (force = false) => {
@@ -87,9 +82,21 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
   }, [load]);
 
   const adsetId = flag.entityId;
-  const ranked = useMemo(() => (pool ? rankPushCandidates({ pool, adsetId, pausedAdIds }) : null), [pool, adsetId, pausedAdIds]);
+  // The ad set's own ads need their landing pages to learn which page it spends on.
+  useEffect(() => {
+    if (!pool) return;
+    let cancelled = false;
+    loadAdsetExtras(pool.ads.filter((a) => a.adsetId === adsetId).map((a) => a.id)).then((x) => {
+      if (!cancelled) setExtras(x);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pool, adsetId]);
+  const readyPool = useMemo(() => (pool && extras ? { ...pool, ads: pool.ads.map((a) => (a.adsetId === adsetId ? { ...a, landing: extras.landings[a.id] || a.landing || null, thumbnailUrl: extras.thumbnails[a.id]?.thumbnailUrl || a.thumbnailUrl || null, format: a.format || (extras.thumbnails[a.id]?.isVideo ? "Video" : null) } : a)) } : null), [pool, extras, adsetId]);
+  const ranked = useMemo(() => (readyPool ? rankPushCandidates({ pool: readyPool, adsetId, pausedAdIds, symbol }) : null), [readyPool, adsetId, pausedAdIds, symbol]);
   const isStarvedRule = flag.matchedRules.some((r) => r.id === "new-creative-01");
-  const starved = useMemo(() => (pool && isStarvedRule ? starvedAds({ pool, adsetId }) : []), [pool, adsetId, isStarvedRule]);
+  const starved = useMemo(() => (readyPool && isStarvedRule ? starvedAds({ pool: readyPool, adsetId }) : []), [readyPool, adsetId, isStarvedRule]);
 
   const toggle = (setter) => (id) =>
     setter((prev) => {
@@ -171,7 +178,6 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
     );
   }
 
-  const adsetAdsCount = ranked.mainLanding?.totalAds;
   const pushPending = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok).length;
   const pausePending = starved.filter((a) => pickedPause.has(a.adId) && !done[a.adId]?.ok).length;
   const allPush = ranked.candidates.length > 0 && ranked.candidates.every((c) => done[c.creativeId]?.ok || pickedPush.has(c.creativeId));
@@ -228,8 +234,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
             </div>
             <p className={styles.sub} style={{ margin: "4px 0 0" }}>
               {ranked.mainLanding
-                ? `Most of this ad set's ads (${ranked.mainLanding.adCount} of ${adsetAdsCount}) go to ${ranked.mainLanding.key}. Ranked by that landing page, ROAS, CTR, CPC, consistency, evidence and freshness — compared across every ad that uses the creative.`
-                : "Ranked by ROAS, CTR, CPC, consistency, evidence and freshness — compared across every ad that uses the creative."}
+                ? `Most of this ad set's spend${ranked.mainLanding.share != null ? ` (${ranked.mainLanding.share.toFixed(0)}%)` : ""} goes to ${ranked.mainLanding.key}, and that page counts far more than the others. Ranked by landing page, ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative.`
+                : "Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative."}
               {ranked.qualified > MAX_PUSH_OPTIONS ? ` Showing the best ${MAX_PUSH_OPTIONS} of ${ranked.qualified}.` : ""}
             </p>
           </div>
@@ -247,7 +253,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
 
         {ranked.candidates.length === 0 ? (
           <p className={styles.sub}>
-            No proven creatives to add yet — none of the account&apos;s other creatives has 10+ purchases (or spend above 3× the account&apos;s cost per purchase) and beats the account&apos;s 30-day ROAS. Upload a fresh one in Ads Manager.
+            No proven creatives to add yet — none of the account&apos;s other creatives has 10+ purchases (or spend above 3× the account&apos;s cost per purchase) in the last 14 days and beats the account&apos;s 14-day ROAS. Upload a fresh one in Ads Manager.
           </p>
         ) : (
           <div className={styles.pushList}>
@@ -264,9 +270,13 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
                       </span>
                       <span title={c.name}>{c.name}</span>
                     </div>
-                    <div className={styles.recWhere} title={c.where}>
-                      Runs in {c.where || "another ad set"}
-                      {c.adCount > 1 ? ` · ${c.adCount} ads use this creative` : ""}
+                    <div className={styles.recWhere}>
+                      Running in {c.runningIn.length} ad set{c.runningIn.length === 1 ? "" : "s"}
+                      {c.runningIn.length > 0 && ` · ${new Set(c.runningIn.map((r) => r.campaignName).filter(Boolean)).size || 1} campaign${new Set(c.runningIn.map((r) => r.campaignName).filter(Boolean)).size > 1 ? "s" : ""}`}
+                      {c.adCount > 1 ? ` · ${c.adCount} ads` : ""}
+                      <button type="button" className={styles.recWhyBtn} style={{ marginLeft: 10 }} onClick={() => toggle(setWhyOpen)(c.creativeId)} aria-expanded={whyOpen.has(c.creativeId)}>
+                        {whyOpen.has(c.creativeId) ? "Hide why ▴" : "Why push this? ▾"}
+                      </button>
                     </div>
                     <div className={styles.pushTags}>
                       {c.tags.map((t) => (
@@ -278,10 +288,53 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds }) {
                     </div>
                   </div>
                   <StatsRow stats={c.stats} symbol={symbol} />
-                  <div className={styles.pushScore} title={scoreTitle(c)}>
+                  <div className={styles.pushScore}>
                     <span className={styles.recMetricLabel}>Score</span>
                     <strong>{c.score}</strong>
                   </div>
+                  {whyOpen.has(c.creativeId) && (
+                    <div className={styles.pushWhy}>
+                      <div>
+                        <div className={styles.recContextTitle} style={{ marginTop: 0 }}>
+                          Why it ranks {c.score}/100 for this ad set
+                        </div>
+                        {c.breakdown.map((b) => (
+                          <div key={b.key} className={styles.pushFactor}>
+                            <div className={styles.pushFactorHead}>
+                              <span>{b.label}</span>
+                              <span className={styles.muted}>
+                                {b.points.toFixed(1)} / {b.max.toFixed(1)}
+                              </span>
+                            </div>
+                            <div className={styles.pushBar}>
+                              <span style={{ width: `${b.max > 0 ? Math.round((b.points / b.max) * 100) : 0}%` }} />
+                            </div>
+                            <div className={styles.pushFactorText}>{b.detail}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className={styles.recContextTitle} style={{ marginTop: 0 }}>
+                          Already running in {c.runningIn.length} ad set{c.runningIn.length === 1 ? "" : "s"} (14 days)
+                        </div>
+                        <dl className={styles.recContextList}>
+                          {c.runningIn.map((r) => (
+                            <div key={r.adsetId} className={styles.recContextRow}>
+                              <dt title={[r.campaignName, r.adsetName].filter(Boolean).join(" › ")}>
+                                <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>{r.adsetName || r.adsetId}</span>
+                                <span className={styles.muted} style={{ fontWeight: 400 }}>
+                                  {r.campaignName || ""}
+                                </span>
+                              </dt>
+                              <dd>
+                                {r.roas != null ? `${r.roas.toFixed(2)} ROAS` : "—"} · {Math.round(r.purchases)} purchases
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

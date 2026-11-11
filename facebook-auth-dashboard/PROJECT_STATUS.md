@@ -86,6 +86,13 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: push-ads list — faster, 14-day, spend-weighted landing page, "why" (2026-11-11)
+- **Speed:** the pool now pulls 3 ad-level insights jobs (3/7/14 days; was 4 incl. 30) and starts the active ads' creative ids while they run; landing page / thumbnail / format are looked up only for the one stand-in ad of each creative that clears the bar (≤150), not ~900 ads; the ad set's own ads' landing pages + thumbnails come from two small calls when a card opens; and the pool is **prefetched** as soon as a check shows an "Add a creative" ad-set card.
+- **14 days everywhere** (gate, ROAS/CTR/CPC comparison, evidence); 7 and 3 days feed ROAS blend and consistency.
+- **Landing page = share of the target ad set's 14-day spend** (any ad that delivered in it), relative to its top page, **cubed** (`LANDING_EXPONENT = 3`): top page 100% → 30 pts, a page with 60% of the top page's spend → 22% of the points, 30% → ~3%. A page not in the ad set → 0.
+- **Rows** show "Running in N ad sets · N campaigns · N ads" and a "Why push this?" panel: points per factor with a bar and the figures behind each, plus the ad sets the creative already runs in with their 14-day ROAS / purchases.
+- Mock-data verification only.
+
 ### Recommendations: which ads to push into an ad set (2026-11-11)
 "Add a creative" cards (ad sets) now show, under See reasoning, up to 20 ranked existing creatives to add, with checkboxes and "Add n ads to this ad set" (paused copies via `/api/fb/duplicate-ad`, same creative id). For **New creative -01** (lowest half starved) the card also lists the ad set's own lowest-spending half to pause (`pauseInBatches`; nothing pre-ticked; ones beating the account are tagged "consider keeping").
 - **Pool:** `GET /api/fb/rules/creative-pool?accountId=` (new, maxDuration 120): ad-level insights for 3/7/14/30 days, active ads/ad sets/campaigns, creative id / landing page / thumbnail / format via `fetchAdDetails` + post fallback; only ads from purchase-optimized ad sets; max 900 ads. Kept 30 min in memory per account (`lib/rules/creativePool.js`).
