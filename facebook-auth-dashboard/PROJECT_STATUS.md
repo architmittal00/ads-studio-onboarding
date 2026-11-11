@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: clearer CPC / CTR check (2026-11-11)
+The "New creative" rules' CPC-or-CTR gate was one line of text ("CPC ₹6.86 vs ₹6.82; CTR …"). It is now a group, "Performance is slipping — either one is enough", with two rows: CPC (last 3 days vs days 4–7, needs ≥ 10% higher → shows the ₹ threshold) and CTR (needs ≥ 10% lower → shows the % threshold), each with its figure, the days 4–7 value in the hint and a ✓ / ✗ (the unmet one is greyed). The card's one-line reason now says e.g. "Last 3 days vs the 4 before: CTR down 13% (1.37% vs 1.57% before)". Conditions can carry an `either` list; only `FlagWhy` renders it. Checked with mock data only.
+
 ### Recommendations: board polish (2026-11-11)
 Feedback on the redesign: too busy at the top, too much bold, no visible way to open the reasoning, "About this ad" out of step. Now: the big count + 4-window benchmark are gone — one quiet line ("Compared with the account's last 7 days: ROAS · CPP · spend", checked time and counts on the right, ⓘ for the skipped/in-learning note) above the decision tabs; weights lowered to 500/600 (bold only on badges/buttons); each card has an explicit "See reasoning ▾ / Hide reasoning ▴" link; "About this ad" is a single list card (label left, value right) aligned with "Why it was flagged". Checked in a production build with mock data only.
 

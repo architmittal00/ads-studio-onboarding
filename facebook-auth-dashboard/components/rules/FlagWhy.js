@@ -29,7 +29,36 @@ export function WhyChecks({ flag }) {
               <span style={{ textAlign: "right" }}>This {subject}</span>
               <span style={{ textAlign: "right" }}>Needs to be</span>
             </div>
-            {r.conditions.map((c, i) => (
+            {r.conditions.map((c, i) =>
+              c.either ? (
+                <div key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "9px 12px 4px" }}>
+                    <span style={{ color: "var(--green)", fontWeight: 700, lineHeight: "18px" }}>✓</span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{c.label}</span>
+                    <span className={styles.badgeInfo}>either one is enough</span>
+                  </div>
+                  {c.either.map((o, j) => (
+                    <div key={j} style={{ display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "6px 12px 8px 36px", alignItems: "start", opacity: o.ok ? 1 : 0.6 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, overflowWrap: "anywhere" }}>
+                          <span style={{ color: o.ok ? "var(--green)" : "var(--t3)", fontWeight: 700, marginRight: 6 }}>{o.ok ? "✓" : "✗"}</span>
+                          {o.label}
+                        </div>
+                        {o.hint && (
+                          <div className={styles.muted} style={{ fontWeight: 400, marginTop: 2, overflowWrap: "anywhere" }}>
+                            {o.hint}
+                          </div>
+                        )}
+                      </div>
+                      <strong style={{ textAlign: "right", fontSize: 13 }}>{o.actual}</strong>
+                      <span style={{ textAlign: "right", fontSize: 13 }}>
+                        <span className={styles.muted}>{OP_SHORT[o.op]} </span>
+                        <strong>{o.target}</strong>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <div key={i} style={{ display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "9px 12px", borderTop: "1px solid var(--border)", alignItems: "start" }}>
                 <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
                   <span style={{ color: "var(--green)", fontWeight: 800, lineHeight: "18px" }}>✓</span>
@@ -59,7 +88,8 @@ export function WhyChecks({ flag }) {
                   </>
                 )}
               </div>
-            ))}
+            )
+            )}
           </div>
         </section>
       ))}

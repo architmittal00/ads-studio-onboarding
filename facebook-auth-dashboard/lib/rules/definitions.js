@@ -85,15 +85,34 @@ function adSpend3(ctx, adset) {
 // click through at least 10% less, than the days just before them (4–7 days ago). Either one is enough.
 function recentVsPrior(ctx, s) {
   const prior = priorOf3(s.m);
-  const cpcHigher = s.m[3].cpc != null && prior.cpc != null && s.m[3].cpc >= prior.cpc * 1.1;
-  const ctrLower = s.m[3].ctr != null && prior.ctr != null && s.m[3].ctr <= prior.ctr * 0.9;
-  const money = (v) => (v == null ? "—" : `${ctx.currencySymbol}${v.toFixed(2)}`);
-  const pct = (v) => (v == null ? "—" : `${v.toFixed(2)}%`);
-  return flag(
-    "3-day CPC ≥10% higher, or CTR ≥10% lower, than days 4–7",
-    cpcHigher || ctrLower,
-    `CPC ${money(s.m[3].cpc)} vs ${money(prior.cpc)}; CTR ${pct(s.m[3].ctr)} vs ${pct(prior.ctr)}`
+  const sym = ctx.currencySymbol;
+  const change = (now, before) => (now != null && before ? (now / before - 1) * 100 : null);
+  const cpc = cond(
+    ctx,
+    "CPC, last 3 days vs days 4–7",
+    s.m[3].cpc,
+    "gte",
+    prior.cpc == null ? null : prior.cpc * 1.1,
+    "money",
+    prior.cpc == null ? "No clicks in days 4–7 to compare with." : `Days 4–7 CPC was ${sym}${prior.cpc.toFixed(2)}; it counts when the last 3 days are at least 10% higher.`
   );
+  const ctr = cond(
+    ctx,
+    "CTR, last 3 days vs days 4–7",
+    s.m[3].ctr,
+    "lte",
+    prior.ctr == null ? null : prior.ctr * 0.9,
+    "pct",
+    prior.ctr == null ? "No impressions in days 4–7 to compare with." : `Days 4–7 CTR was ${prior.ctr.toFixed(2)}%; it counts when the last 3 days are at least 10% lower.`
+  );
+  // Extra fields let the Recommendations card write its one-line reason without re-deriving anything.
+  cpc.short = "CPC";
+  cpc.prior = prior.cpc == null ? null : `${sym}${prior.cpc.toFixed(2)}`;
+  cpc.changePct = change(s.m[3].cpc, prior.cpc);
+  ctr.short = "CTR";
+  ctr.prior = prior.ctr == null ? null : `${prior.ctr.toFixed(2)}%`;
+  ctr.changePct = change(s.m[3].ctr, prior.ctr);
+  return { label: "Performance is slipping", ok: cpc.ok || ctr.ok, either: [cpc, ctr] };
 }
 
 export const RULES = [

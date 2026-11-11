@@ -37,13 +37,17 @@ function reasonFor(f, bench, symbol) {
   const rule = f.matchedRules[0];
   const cond = (i) => rule?.conditions?.[i];
   if (f.action === "ADD_CREATIVE") {
-    const slip = rule?.conditions?.find((c) => /CPC|CTR/.test(c.label) && !c.op)?.target;
+    const slip = rule?.conditions
+      ?.find((c) => c.either)
+      ?.either.filter((o) => o.ok)
+      .map((o) => `${o.short} ${o.changePct >= 0 ? "up" : "down"} ${Math.abs(Math.round(o.changePct))}% (${o.actual} vs ${o.prior} before)`)
+      .join(" and ");
     let base;
     if (rule?.id === "new-creative-03") base = "Only 1 active ad.";
     else if (rule?.id === "new-creative-02") base = `Its top 2 of ${cond(0)?.actual} ads take ${cond(2)?.actual} of the last 3 days' spend.`;
     else if (rule?.id === "new-creative-01") base = `${cond(0)?.actual} active ads, but the least-used half gets only ${cond(1)?.actual} of the last 3 days' spend.`;
     else base = rule?.name || "";
-    return slip ? `${base} Performance is slipping — ${slip}.` : base;
+    return slip ? `${base} Last 3 days vs the 4 before: ${slip}.` : base;
   }
   const parts = [];
   if (roas != null && roasD != null) parts.push(`ROAS ${roas} is ${pctText(roasD)} ${roasD < 0 ? "below" : "above"} the account's ${bench.roas.toFixed(2)}`);
