@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: simpler "Consistency" (2026-11-11)
+Consistency (10 pts) is now two pass/fail checks worth half each: 7-day ROAS ≥ 90% of the creative's 14-day ROAS, and last-3-day CTR ≥ 90% of its 14-day CTR (no data → half credit). Replaces the 0–1 sliding scales with 70% / 80% floors. `HOLDING = 0.9` in `lib/rules/pushRank.js`.
+
 ### Recommendations: push-ads list — faster, 14-day, spend-weighted landing page, "why" (2026-11-11)
 - **Speed:** the pool now pulls 3 ad-level insights jobs (3/7/14 days; was 4 incl. 30) and starts the active ads' creative ids while they run; landing page / thumbnail / format are looked up only for the one stand-in ad of each creative that clears the bar (≤150), not ~900 ads; the ad set's own ads' landing pages + thumbnails come from two small calls when a card opens; and the pool is **prefetched** as soon as a check shows an "Add a creative" ad-set card.
 - **14 days everywhere** (gate, ROAS/CTR/CPC comparison, evidence); 7 and 3 days feed ROAS blend and consistency.
