@@ -8,10 +8,10 @@ const fmtShare = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
 // what was measured, this item's figure, what it needed to beat — so nothing has to be read as a sentence.
 const GRID = "minmax(0, 1.6fr) minmax(90px, 0.6fr) minmax(110px, 0.6fr)";
 
-export default function FlagWhy({ flag }) {
+export function WhyChecks({ flag }) {
   const subject = TYPE_LABEL[flag.entityType].toLowerCase();
   return (
-    <div style={{ padding: "8px 8px 10px", maxWidth: 860 }}>
+    <div>
       {flag.matchedRules.map((r) => (
         <section key={r.id} style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
@@ -63,6 +63,14 @@ export default function FlagWhy({ flag }) {
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+export default function FlagWhy({ flag }) {
+  return (
+    <div style={{ padding: "8px 8px 10px", maxWidth: 860 }}>
+      <WhyChecks flag={flag} />
       {flag.adContext && (
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>About this ad</div>

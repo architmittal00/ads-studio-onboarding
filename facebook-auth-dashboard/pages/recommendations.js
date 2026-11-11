@@ -6,7 +6,7 @@ import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import ViewTabs from "@/components/ViewTabs";
 import AccountSelect from "@/components/AccountSelect";
-import FlagTable from "@/components/rules/FlagTable";
+import RecBoard, { RecSummary } from "@/components/rules/RecBoard";
 import FlagCards from "@/components/rules/FlagCards";
 import { MobileContextBar, MobileIconBtn, MobileChips, PickerSheet } from "@/components/mobile/MobileChrome";
 import { useIsMobile } from "@/lib/useIsMobile";
@@ -399,55 +399,12 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               </div>
             </>
           ) : (
-          <div className={styles.statBar} >
-            <div className={styles.stat} style={{ flex: "1.6 1 220px" }}>
-              <div className={styles.statLabel}>Account</div>
-              <div className={styles.statValue} style={{ fontSize: 15 }}>
-                {result.accountName}
-              </div>
-              <div className={styles.muted} style={{ marginTop: 4 }}>
-                {result.counts.campaigns} campaigns · {result.counts.adsets} ad sets · {result.counts.ads} ads · {result.rulesChecked.length} rules
-              </div>
-              {result.counts.learning && result.counts.learning.adsets > 0 && (
-                <div className={styles.muted} style={{ marginTop: 2, fontWeight: 400 }} title="Ad sets Meta still has in the learning phase, and campaigns containing one, are not judged: their numbers are unstable and a budget change would restart learning.">
-                  In learning, not judged: {result.counts.learning.adsets} ad sets · {result.counts.learning.campaigns} campaigns
-                </div>
-              )}
-              {result.counts.skipped && result.counts.skipped.adsets > 0 && (
-                <div className={styles.muted} style={{ marginTop: 2, fontWeight: 400 }} title="Rules only judge ad sets optimized for Purchase or purchase value. Ad sets optimized for add to cart, landing page views, clicks, leads and so on are left out, along with their ads and any campaign that contains one.">
-                  Skipped, not optimized for purchases: {result.counts.skipped.adsets} ad sets · {result.counts.skipped.ads} ads · {result.counts.skipped.campaigns} campaigns
-                </div>
-              )}
-            </div>
-            {result.baseline.map((b) => (
-              <div key={b.days} className={styles.stat} >
-                <div className={styles.statLabel}>{b.days}-day ROAS</div>
-                <div className={styles.statValue}>{b.roas != null ? b.roas.toFixed(2) : "—"}</div>
-                <div className={styles.muted} style={{ marginTop: 4 }} title="Cost per purchase: spend ÷ purchases">
-                  CPP {b.cpr != null ? money(b.cpr, result.currencySymbol) : "—"}
-                </div>
-                <div className={styles.muted} style={{ marginTop: 2 }}>
-                  Spend {money(b.spend, result.currencySymbol)}
-                </div>
-              </div>
-            ))}
-          </div>
+            <RecSummary result={result} counts={counts} flags={result.flags} filter={filter} setFilter={setFilter} />
           )}
 
           {isMobile && (
             <MobileChips tabs={FILTERS.map((f) => ({ key: f.key, label: `${f.label} (${counts[f.key]})`, short: `${f.key === "all" ? "All" : f.label.replace(" budget", "").replace(" ads", "")} ${counts[f.key]}` }))} active={filter} onChange={setFilter} label="Filter flags" />
           )}
-          <div className={isMobile ? `${styles.statBar} ${styles.hideOnMobile}` : styles.statBar}>
-            {FILTERS.map((f) => (
-              <button key={f.key} type="button" className={styles.stat} aria-pressed={filter === f.key} onClick={() => setFilter(f.key === filter ? "all" : f.key)} style={filter === f.key ? { background: "rgba(var(--purple-rgb), 0.08)" } : undefined}>
-                <div className={styles.statLabel}>{f.label}</div>
-                <div className={styles.statValue} style={{ color: f.color || "var(--t1)" }}>
-                  {counts[f.key]}
-                </div>
-              </button>
-            ))}
-          </div>
-
           {!isMobile && selected.size > 0 && (
             <div className={styles.card} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 14px" }}>
               <strong style={{ fontSize: 13 }}>{selected.size} selected</strong>
@@ -485,37 +442,35 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
                 onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
               />
             ) : (
-            <section className={styles.card}>
-              <FlagTable
-                flags={shown}
-                currencySymbol={result.currencySymbol}
-                accountRoas7={base7?.roas ?? null}
-                accountCpp7={base7?.cpr ?? null}
-                applied={applied}
-                thumbs={thumbs}
-                onAct={setActing}
-                selected={selected}
-                onToggle={(key) =>
-                  setSelected((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(key)) next.delete(key);
-                    else next.add(key);
-                    return next;
-                  })
-                }
-                onToggleAll={(keys, checked) =>
-                  setSelected((prev) => {
-                    const next = new Set(prev);
-                    for (const k of keys) {
-                      if (checked) next.add(k);
-                      else next.delete(k);
-                    }
-                    return next;
-                  })
-                }
-                onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
-              />
-            </section>
+            <RecBoard
+              flags={result.flags}
+              filter={filter}
+              currencySymbol={result.currencySymbol}
+              baseline={base7}
+              applied={applied}
+              thumbs={thumbs}
+              onAct={setActing}
+              selected={selected}
+              onToggle={(key) =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
+              }
+              onToggleAll={(keys, checked) =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  for (const k of keys) {
+                    if (checked) next.add(k);
+                    else next.delete(k);
+                  }
+                  return next;
+                })
+              }
+              onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
+            />
             )
           )}
 
