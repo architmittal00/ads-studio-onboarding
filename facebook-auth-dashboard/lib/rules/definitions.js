@@ -81,16 +81,16 @@ function adSpend3(ctx, adset) {
   return { spends, total: total > 0 ? total : null };
 }
 
-// Extra gate on the "New creative" rules: the ad set is slipping — its last 3 days cost more per link click, or
-// click through less, than the days just before them (4–7 days ago). Either one is enough.
+// Extra gate on the "New creative" rules: the ad set is slipping — its last 3 days cost at least 10% more per link click, or
+// click through at least 10% less, than the days just before them (4–7 days ago). Either one is enough.
 function recentVsPrior(ctx, s) {
   const prior = priorOf3(s.m);
-  const cpcHigher = s.m[3].cpc != null && prior.cpc != null && s.m[3].cpc > prior.cpc;
-  const ctrLower = s.m[3].ctr != null && prior.ctr != null && s.m[3].ctr < prior.ctr;
+  const cpcHigher = s.m[3].cpc != null && prior.cpc != null && s.m[3].cpc >= prior.cpc * 1.1;
+  const ctrLower = s.m[3].ctr != null && prior.ctr != null && s.m[3].ctr <= prior.ctr * 0.9;
   const money = (v) => (v == null ? "—" : `${ctx.currencySymbol}${v.toFixed(2)}`);
   const pct = (v) => (v == null ? "—" : `${v.toFixed(2)}%`);
   return flag(
-    "3-day CPC is higher, or CTR is lower, than days 4–7",
+    "3-day CPC ≥10% higher, or CTR ≥10% lower, than days 4–7",
     cpcHigher || ctrLower,
     `CPC ${money(s.m[3].cpc)} vs ${money(prior.cpc)}; CTR ${pct(s.m[3].ctr)} vs ${pct(prior.ctr)}`
   );
@@ -103,7 +103,7 @@ export const RULES = [
     name: "New creative -01",
     level: "adset",
     action: "ADD_CREATIVE",
-    text: "Ad set has more than 5 active ads, its lowest-spending half takes less than 30% of the ad set's 3-day spend, and its 3-day CPC is higher or its 3-day CTR is lower than in days 4–7.",
+    text: "Ad set has more than 5 active ads, its lowest-spending half takes less than 30% of the ad set's 3-day spend, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7.",
     check: (s, ctx) => {
       const { spends, total } = adSpend3(ctx, s);
       const n = spends.length;
@@ -122,7 +122,7 @@ export const RULES = [
     name: "New creative -02",
     level: "adset",
     action: "ADD_CREATIVE",
-    text: "Ad set has 2 to 5 active ads, its top 2 ads take more than 70% of the ad set's 3-day spend, and its 3-day CPC is higher or its 3-day CTR is lower than in days 4–7.",
+    text: "Ad set has 2 to 5 active ads, its top 2 ads take more than 70% of the ad set's 3-day spend, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7.",
     check: (s, ctx) => {
       const { spends, total } = adSpend3(ctx, s);
       const top2 = spends.slice(0, 2).reduce((t, v) => t + v, 0);
@@ -141,7 +141,7 @@ export const RULES = [
     name: "New creative -03",
     level: "adset",
     action: "ADD_CREATIVE",
-    text: "Ad set has only 1 active ad, and its 3-day CPC is higher or its 3-day CTR is lower than in days 4–7.",
+    text: "Ad set has only 1 active ad, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7.",
     check: (s, ctx) => {
       const n = ctx.adsOfAdset(s.id).length;
       return { conditions: [cond(ctx, "Active ads = 1", n, "gte", 1, "int"), cond(ctx, "Only 1 active ad", n, "lte", 1, "int"), recentVsPrior(ctx, s)] };
