@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: "New creative" rules also need CPC or CTR up (2026-11-11)
+All three `new-creative-0x` rules (add a creative to an ad set) now also require that the ad set's last-3-day link CPC is higher than, or its last-3-day link CTR is higher than, the days just before (4–7 days ago = 7-day window minus the 3-day window, via `priorOf3` in `lib/rules/metrics.js`; no extra Insights call). Either one is enough. Note: a higher CTR is normally good news — implemented literally as requested; flip the `>` for `ctrHigher` in `recentVsPrior` (`definitions.js`) if "lower" was meant. `derive()` now also returns raw `impressions` / `linkClicks`.
+
 ### Duplicate ad set: custom pixel events (2026-11-10)
 The duplicate of an ad set optimizing for a custom pixel event ("Purchase_Tier_High") came out with an empty Conversion event: such an event is `custom_event_type: OTHER` plus its name in `custom_event_str`, and only the type was copied. `customEventStr` now flows `adsets-list.js` → `buildGenericAdsetPayload` (sent only with OTHER) and shows in the ad set form's Conversion event dropdown. The earlier custom-conversion-id handling stays for saved custom conversions. Not verified against a real account.
 

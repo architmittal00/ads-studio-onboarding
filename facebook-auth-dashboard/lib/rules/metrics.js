@@ -19,9 +19,23 @@ export function addInsightsRow(agg, row) {
 }
 
 // Ratios are null (never 0) when their denominator is 0, so a rule can't match on "no data".
+// The days just before the last 3 (days 4–7 ago): the 7-day window minus the 3-day one, so it needs no extra
+// Insights call. Same ratios as derive(), null when there is nothing to divide by.
+export function priorOf3(m) {
+  const spend = m[7].spend - m[3].spend;
+  const impressions = m[7].impressions - m[3].impressions;
+  const linkClicks = m[7].linkClicks - m[3].linkClicks;
+  return {
+    cpc: linkClicks > 0 ? spend / linkClicks : null,
+    ctr: impressions > 0 ? (linkClicks / impressions) * 100 : null,
+  };
+}
+
 export function derive(a) {
   return {
     spend: a.spend,
+    impressions: a.impressions,
+    linkClicks: a.linkClicks,
     purchases: a.purchases,
     revenue: a.revenue,
     roas: a.spend > 0 ? a.revenue / a.spend : null,
