@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { invalidateCachedGets } from "@/lib/cachedGet";
 import { CloseIcon } from "@/components/icons";
+import { trackRecommendationApplied } from "@/lib/rules/trackApplied";
 import styles from "@/styles/Home.module.css";
 
 export const STEP_PCT = 10;
@@ -57,6 +58,7 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
       const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
       if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
       invalidateCachedGets();
+      trackRecommendationApplied(flag, { bulk: false, ...(isPause ? {} : { change_pct: changePct != null ? Math.round(changePct * 10) / 10 : undefined }) });
       // 2nd argument: the entity that changed and the row patch Custom Views applies locally.
       onApplied(isPause ? "Paused" : `Budget ${money(target.current, currencySymbol)} → ${money(newBudget, currencySymbol)}`, {
         entityId: isPause ? flag.entityId : target.id,

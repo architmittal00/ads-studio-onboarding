@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Analytics: recommendation applied events (2026-11-11)
+`recommendation_applied_ad_paused`, `recommendation_applied_budget_increased`, `recommendation_applied_budget_decreased` fire once per recommendation actually applied — from the single-apply modal (used by both Recommendations and Custom Views' "!" window) and per item of a bulk apply (`bulk: true`), plus `recommendation_bulk_applied` per bulk run. Helper `lib/rules/trackApplied.js`; documented in `ANALYTICS_EVENTS.md`. Not checked in the PostHog dashboard.
+
 ### Recommendations: clearer CPC / CTR check (2026-11-11)
 The "New creative" rules' CPC-or-CTR gate was one line of text ("CPC ₹6.86 vs ₹6.82; CTR …"). It is now a group, "Performance is slipping — either one is enough", with two rows: CPC (last 3 days vs days 4–7, needs ≥ 10% higher → shows the ₹ threshold) and CTR (needs ≥ 10% lower → shows the % threshold), each with its figure, the days 4–7 value in the hint and a ✓ / ✗ (the unmet one is greyed). The card's one-line reason now says e.g. "Last 3 days vs the 4 before: CTR down 13% (1.37% vs 1.57% before)". Conditions can carry an `either` list; only `FlagWhy` renders it. Checked with mock data only.
 
