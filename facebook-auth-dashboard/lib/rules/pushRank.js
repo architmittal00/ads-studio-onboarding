@@ -20,6 +20,7 @@ export const WEIGHTS = { landing: 30, roas: 25, ctr: 10, cpc: 10, consistency: 1
 export const FACTOR_LABELS = { landing: "Landing page", roas: "ROAS", ctr: "CTR", cpc: "CPC", consistency: "Consistency", evidence: "Evidence", freshness: "Freshness" };
 export const POOL_WINDOWS = [3, 7, 14];
 export const LANDING_EXPONENT = 3; // 100% of the top page's spend → 1.0, 60% → 0.22, 30% → 0.03
+const HOLDING = 0.9; // recent ROAS / CTR must be at least 90% of the 14-day figure to count as "holding"
 const MIN_PURCHASES = 10;
 const MIN_SPEND_IN_ACCOUNT_CPP = 3;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -155,7 +156,8 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       roas: clamp01((roasRatio - 1) / 0.5),
       ctr: ctrRatio == null ? 0 : clamp01((ctrRatio - 1) / 0.3),
       cpc: cpcRatio == null ? 0 : clamp01((1 - cpcRatio) / 0.3),
-      consistency: ((roasTrend == null ? 0.5 : clamp01((roasTrend - 0.7) / 0.3)) + (ctrTrend == null ? 0.5 : clamp01((ctrTrend - 0.8) / 0.2))) / 2,
+      // Two yes/no checks, half each: is it still at 90%+ of its 14-day level? (No data to tell → half credit.)
+      consistency: ((roasTrend == null ? 0.5 : roasTrend >= HOLDING ? 1 : 0) + (ctrTrend == null ? 0.5 : ctrTrend >= HOLDING ? 1 : 0)) / 2,
       evidence: clamp01(Math.log10(Math.max(1, s14.purchases)) / 2),
       freshness: ageDays == null ? 0.5 : clamp01(1 - (ageDays - 14) / 106),
     };
@@ -194,7 +196,7 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       roas: `${s14.roas.toFixed(2)} over 14 days vs the account's ${b14.roas.toFixed(2)}${signed(pctVs(s14.roas, b14.roas))}${s7.roas != null ? `; ${s7.roas.toFixed(2)} over 7 days` : ""}.`,
       ctr: ctrRatio != null ? `${pct(s14.ctr)} vs the account's ${pct(b14.ctr)}${signed(pctVs(s14.ctr, b14.ctr))}.` : "No clicks to compare.",
       cpc: cpcRatio != null ? `${money(s14.cpc, symbol)} vs the account's ${money(b14.cpc, symbol)}${signed(pctVs(s14.cpc, b14.cpc))}.` : "No clicks to compare.",
-      consistency: `${roasTrend != null ? `7-day ROAS is ${Math.round(roasTrend * 100)}% of its 14-day ROAS` : "Not enough 7-day data"}; ${ctrTrend != null ? `last-3-day CTR is ${Math.round(ctrTrend * 100)}% of its 14-day CTR` : "not enough 3-day data"}.`,
+      consistency: `${roasTrend != null ? `7-day ROAS is ${Math.round(roasTrend * 100)}% of its 14-day ROAS — ${roasTrend >= HOLDING ? "holding ✓" : "fading ✗"}` : "Not enough 7-day data"}; ${ctrTrend != null ? `last-3-day CTR is ${Math.round(ctrTrend * 100)}% of its 14-day CTR — ${ctrTrend >= HOLDING ? "holding ✓" : "fading ✗"}` : "not enough 3-day data"}. Each check is worth half; holding means 90% or more.`,
       evidence: `${Math.round(s14.purchases)} purchases and ${money(s14.spend, symbol)} spent over 14 days across ${c.ads.length} ad${c.ads.length === 1 ? "" : "s"}.`,
       freshness: ageDays != null ? `First created ${Math.round(ageDays)} day${Math.round(ageDays) === 1 ? "" : "s"} ago.` : "Creation date unknown.",
     };
