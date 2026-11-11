@@ -6,17 +6,20 @@ import { derive, emptyAgg } from "./metrics";
 //
 // The unit is the CREATIVE: every ad that uses it (copies in other ad sets share one creative id) is pooled, and
 // ROAS / link CTR / link CPC are worked out from the pooled totals — not averaged per ad. Only ads from
-// purchase-optimized ad sets are in the pool.
+// purchase-optimized ad sets are in the pool. Everything is compared over the last 14 days (3 and 7 days for trend).
 //
-// A creative qualifies when it has enough evidence (≥ 10 purchases, or spend > 3× the account's cost per purchase,
-// over 30 days) and beats the account's 30-day ROAS; it is skipped when it already runs in the target ad set, no ad
-// using it is active, or one of its ads is flagged by a Pause rule. Qualifiers are scored 0–100:
-//   landing page 30 · ROAS vs account 25 · CTR 10 · CPC 10 · consistency 10 · evidence 10 · freshness 5
+// A creative qualifies when it has enough evidence (≥ 10 purchases, or spend > 3× the account's cost per purchase)
+// and beats the account's 14-day ROAS; it is skipped when it already runs in the target ad set, no ad using it is
+// active, or one of its ads is flagged by a Pause rule. Qualifiers are scored 0–100:
+//   landing page 30 · ROAS 25 · CTR 10 · CPC 10 · consistency 10 · evidence 10 · freshness 5
+// Landing page = the share of the TARGET ad set's 14-day spend that goes to the candidate's page, relative to the
+// ad set's top page, raised to a power so the top page counts far more than the rest.
 
 export const MAX_PUSH_OPTIONS = 20;
 export const WEIGHTS = { landing: 30, roas: 25, ctr: 10, cpc: 10, consistency: 10, evidence: 10, freshness: 5 };
 export const FACTOR_LABELS = { landing: "Landing page", roas: "ROAS", ctr: "CTR", cpc: "CPC", consistency: "Consistency", evidence: "Evidence", freshness: "Freshness" };
-const WINDOWS = [3, 7, 14, 30];
+export const POOL_WINDOWS = [3, 7, 14];
+export const LANDING_EXPONENT = 3; // 100% of the top page's spend → 1.0, 60% → 0.22, 30% → 0.03
 const MIN_PURCHASES = 10;
 const MIN_SPEND_IN_ACCOUNT_CPP = 3;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -39,7 +42,7 @@ export function normalizeLandingUrl(url) {
 
 function statsOf(ads) {
   const out = {};
-  for (const w of WINDOWS) {
+  for (const w of POOL_WINDOWS) {
     const agg = emptyAgg();
     for (const ad of ads) {
       const m = ad.m?.[w];
@@ -67,83 +70,137 @@ export function groupCreatives(poolAds) {
   for (const [id, ads] of byId) {
     const activeAds = ads.filter((a) => a.status === "ACTIVE");
     // The active ad that has spent the most stands in for the creative (its name, landing page, where it runs).
-    const source = [...(activeAds.length ? activeAds : ads)].sort((a, b) => (b.m?.[30]?.spend || 0) - (a.m?.[30]?.spend || 0))[0];
+    const source = [...(activeAds.length ? activeAds : ads)].sort((a, b) => (b.m?.[14]?.spend || 0) - (a.m?.[14]?.spend || 0))[0];
     const created = ads.map((a) => Date.parse(a.createdTime)).filter(Number.isFinite);
     out.set(id, { id, ads, activeAds, source, stats: statsOf(ads), createdAt: created.length ? Math.min(...created) : null });
   }
   return out;
 }
 
+// The bar a creative has to clear before it is worth suggesting; shared with the server, which uses it to decide
+// whose thumbnail and landing page to look up.
+export function qualifiesCreative(stats14, base14) {
+  if (!stats14 || !base14 || base14.roas == null || stats14.roas == null) return false;
+  const enough = stats14.purchases >= MIN_PURCHASES || (base14.cpr != null && stats14.spend > MIN_SPEND_IN_ACCOUNT_CPP * base14.cpr);
+  return enough && stats14.roas > base14.roas;
+}
+
 const pctVs = (value, base) => (value != null && base ? (value / base - 1) * 100 : null);
 
 // Landing-page weight is dropped (the rest re-scaled) when there is nothing to compare — the ad set's ads have no
 // links we could read, or the candidate has none (catalog ads).
-function totalScore(parts) {
-  let sum = 0;
+function weighted(parts) {
   let weight = 0;
+  for (const [k, v] of Object.entries(parts)) if (v != null) weight += WEIGHTS[k];
+  const points = {};
+  let total = 0;
   for (const [k, v] of Object.entries(parts)) {
     if (v == null) continue;
-    sum += WEIGHTS[k] * v;
-    weight += WEIGHTS[k];
+    points[k] = { points: (WEIGHTS[k] * v * 100) / weight, max: (WEIGHTS[k] * 100) / weight };
+    total += points[k].points;
   }
-  return weight > 0 ? (sum / weight) * 100 : 0;
+  return { total, points };
 }
 
-export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now = Date.now() }) {
-  const base = pool.baseline;
-  const b30 = base?.[30];
-  if (!b30) return { candidates: [], qualified: 0, mainLanding: null };
-  const creatives = groupCreatives(pool.ads);
-  const adsetAds = pool.ads.filter((a) => a.adsetId === adsetId && a.status === "ACTIVE");
-  const inAdset = new Set(adsetAds.map((a) => a.creativeId).filter(Boolean));
+const money = (v, symbol) => (v == null ? "—" : `${symbol}${v < 100 ? v.toFixed(2) : Math.round(v).toLocaleString("en-IN")}`);
+const pct = (v) => (v == null ? "—" : `${v.toFixed(2)}%`);
+const signed = (v) => (v == null ? "" : ` (${v >= 0 ? "+" : "−"}${Math.abs(Math.round(v))}% vs account)`);
 
-  const landingCounts = new Map();
+// How the target ad set's spend splits across landing pages (14 days, every ad that delivered in it, any status).
+function landingSpend(adsetAds) {
+  const byKey = new Map();
+  let total = 0;
   for (const a of adsetAds) {
+    const spend = a.m?.[14]?.spend || 0;
+    total += spend;
     const key = normalizeLandingUrl(a.landing);
-    if (key) landingCounts.set(key, (landingCounts.get(key) || 0) + 1);
+    if (key) byKey.set(key, (byKey.get(key) || 0) + spend);
   }
-  const mainCount = Math.max(0, ...landingCounts.values());
-  const mainKey = mainCount > 0 ? [...landingCounts.entries()].find(([, n]) => n === mainCount)[0] : null;
+  const top = Math.max(0, ...byKey.values());
+  const topKey = top > 0 ? [...byKey.entries()].find(([, s]) => s === top)[0] : null;
+  return { byKey, total, top, topKey };
+}
+
+export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now = Date.now(), symbol = "₹" }) {
+  const base = pool.baseline;
+  const b14 = base?.[14];
+  if (!b14) return { candidates: [], qualified: 0, mainLanding: null };
+  const creatives = groupCreatives(pool.ads);
+  const adsetAds = pool.ads.filter((a) => a.adsetId === adsetId);
+  const inAdset = new Set(adsetAds.map((a) => a.creativeId).filter(Boolean));
+  const landing = landingSpend(adsetAds);
 
   const scored = [];
   for (const c of creatives.values()) {
     if (inAdset.has(c.id) || c.activeAds.length === 0) continue;
     if (c.ads.some((a) => pausedAdIds.has(a.id))) continue;
-    const s30 = c.stats[30];
-    const enough = s30.purchases >= MIN_PURCHASES || (b30.cpr != null && s30.spend > MIN_SPEND_IN_ACCOUNT_CPP * b30.cpr);
-    if (!enough || s30.roas == null || b30.roas == null || !(s30.roas > b30.roas)) continue;
-
     const s14 = c.stats[14];
+    if (!qualifiesCreative(s14, b14)) continue;
+
     const s7 = c.stats[7];
     const s3 = c.stats[3];
-    const roasRatio = 0.6 * (s30.roas / b30.roas) + 0.4 * (s14.roas != null && base[14]?.roas ? s14.roas / base[14].roas : s30.roas / b30.roas);
+    const roasRatio = 0.6 * (s14.roas / b14.roas) + 0.4 * (s7.roas != null && base[7]?.roas ? s7.roas / base[7].roas : s14.roas / b14.roas);
 
     const key = normalizeLandingUrl(c.source?.landing);
-    const landing = mainCount === 0 || !key ? null : (landingCounts.get(key) || 0) / mainCount;
-    const ctrRatio = s30.ctr != null && b30.ctr ? s30.ctr / b30.ctr : null;
-    const cpcRatio = s30.cpc != null && b30.cpc ? s30.cpc / b30.cpc : null;
-    const roasTrend = s7.roas != null && s30.roas ? s7.roas / s30.roas : null;
-    const ctrTrend = s3.ctr != null && s30.ctr ? s3.ctr / s30.ctr : null;
+    const share = landing.top > 0 && key ? (landing.byKey.get(key) || 0) / landing.top : null; // relative to the top page
+    const landingScore = share == null ? null : Math.pow(share, LANDING_EXPONENT);
+    const ctrRatio = s14.ctr != null && b14.ctr ? s14.ctr / b14.ctr : null;
+    const cpcRatio = s14.cpc != null && b14.cpc ? s14.cpc / b14.cpc : null;
+    const roasTrend = s7.roas != null && s14.roas ? s7.roas / s14.roas : null;
+    const ctrTrend = s3.ctr != null && s14.ctr ? s3.ctr / s14.ctr : null;
     const ageDays = c.createdAt ? (now - c.createdAt) / DAY_MS : null;
 
     const parts = {
-      landing,
+      landing: landingScore,
       roas: clamp01((roasRatio - 1) / 0.5),
       ctr: ctrRatio == null ? 0 : clamp01((ctrRatio - 1) / 0.3),
       cpc: cpcRatio == null ? 0 : clamp01((1 - cpcRatio) / 0.3),
       consistency: ((roasTrend == null ? 0.5 : clamp01((roasTrend - 0.7) / 0.3)) + (ctrTrend == null ? 0.5 : clamp01((ctrTrend - 0.8) / 0.2))) / 2,
-      evidence: clamp01(Math.log10(Math.max(1, s30.purchases)) / 2),
+      evidence: clamp01(Math.log10(Math.max(1, s14.purchases)) / 2),
       freshness: ageDays == null ? 0.5 : clamp01(1 - (ageDays - 14) / 106),
     };
+    const { total, points } = weighted(parts);
 
-    const beaten = WINDOWS.filter((w) => c.stats[w].roas != null && base[w]?.roas != null && c.stats[w].roas > base[w].roas);
-    const withData = WINDOWS.filter((w) => c.stats[w].spend > 0);
+    const beaten = POOL_WINDOWS.filter((w) => c.stats[w].roas != null && base[w]?.roas != null && c.stats[w].roas > base[w].roas);
+    const withData = POOL_WINDOWS.filter((w) => c.stats[w].spend > 0);
+    const isTop = share === 1;
+    const adsetShare = landing.total > 0 && key ? ((landing.byKey.get(key) || 0) / landing.total) * 100 : null;
     const tags = [];
-    if (landing === 1) tags.push("Main landing page");
-    else if (landing > 0) tags.push("Landing page already in this ad set");
-    tags.push(`Beat account ROAS in ${beaten.length} of ${withData.length || WINDOWS.length} windows`);
+    if (isTop) tags.push("Main landing page");
+    else if (share > 0) tags.push("Landing page already in this ad set");
+    tags.push(`Beat account ROAS in ${beaten.length} of ${withData.length || POOL_WINDOWS.length} windows`);
     if (ctrRatio != null && ctrRatio > 1) tags.push("CTR above account");
     if (cpcRatio != null && cpcRatio < 1) tags.push("CPC below account");
+
+    // Where the creative already runs (active ads, grouped by ad set).
+    const bySet = new Map();
+    for (const a of c.activeAds) {
+      if (!bySet.has(a.adsetId)) bySet.set(a.adsetId, { adsetId: a.adsetId, adsetName: a.adsetName, campaignName: a.campaignName, ads: [] });
+      bySet.get(a.adsetId).ads.push(a);
+    }
+    const runningIn = [...bySet.values()]
+      .map((r) => {
+        const st = statsOf(r.ads)[14];
+        return { adsetId: r.adsetId, adsetName: r.adsetName, campaignName: r.campaignName, spend: st.spend, roas: st.roas, purchases: st.purchases };
+      })
+      .sort((a, b) => b.spend - a.spend);
+
+    const detail = {
+      landing: key
+        ? landing.top > 0
+          ? `Goes to ${key}${(landing.byKey.get(key) || 0) > 0 ? ` — ${adsetShare.toFixed(0)}% of this ad set's 14-day spend${isTop ? " (its top page)" : ""}` : " — no ad in this ad set uses this page"}.`
+          : `Goes to ${key}; this ad set's links couldn't be read.`
+        : "No landing page to compare (for example a catalog ad).",
+      roas: `${s14.roas.toFixed(2)} over 14 days vs the account's ${b14.roas.toFixed(2)}${signed(pctVs(s14.roas, b14.roas))}${s7.roas != null ? `; ${s7.roas.toFixed(2)} over 7 days` : ""}.`,
+      ctr: ctrRatio != null ? `${pct(s14.ctr)} vs the account's ${pct(b14.ctr)}${signed(pctVs(s14.ctr, b14.ctr))}.` : "No clicks to compare.",
+      cpc: cpcRatio != null ? `${money(s14.cpc, symbol)} vs the account's ${money(b14.cpc, symbol)}${signed(pctVs(s14.cpc, b14.cpc))}.` : "No clicks to compare.",
+      consistency: `${roasTrend != null ? `7-day ROAS is ${Math.round(roasTrend * 100)}% of its 14-day ROAS` : "Not enough 7-day data"}; ${ctrTrend != null ? `last-3-day CTR is ${Math.round(ctrTrend * 100)}% of its 14-day CTR` : "not enough 3-day data"}.`,
+      evidence: `${Math.round(s14.purchases)} purchases and ${money(s14.spend, symbol)} spent over 14 days across ${c.ads.length} ad${c.ads.length === 1 ? "" : "s"}.`,
+      freshness: ageDays != null ? `First created ${Math.round(ageDays)} day${Math.round(ageDays) === 1 ? "" : "s"} ago.` : "Creation date unknown.",
+    };
+    const breakdown = Object.keys(WEIGHTS)
+      .filter((k) => points[k])
+      .map((k) => ({ key: k, label: FACTOR_LABELS[k], points: points[k].points, max: points[k].max, detail: detail[k] }));
 
     scored.push({
       creativeId: c.id,
@@ -151,21 +208,20 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       name: c.source.name,
       thumbnailUrl: c.source.thumbnailUrl || null,
       format: c.source.format || null,
-      where: [c.source.campaignName, c.source.adsetName].filter(Boolean).join(" › "),
       adCount: c.ads.length,
-      score: Math.round(totalScore(parts)),
-      parts,
+      runningIn,
+      score: Math.round(total),
+      breakdown,
       tags,
-      landingMatch: landing,
       stats: {
-        purchases: s30.purchases,
-        spend: s30.spend,
-        roas: s30.roas,
-        roasVsAcct: pctVs(s30.roas, b30.roas),
-        ctr: s30.ctr,
-        ctrVsAcct: pctVs(s30.ctr, b30.ctr),
-        cpc: s30.cpc,
-        cpcVsAcct: pctVs(s30.cpc, b30.cpc),
+        purchases: s14.purchases,
+        spend: s14.spend,
+        roas: s14.roas,
+        roasVsAcct: pctVs(s14.roas, b14.roas),
+        ctr: s14.ctr,
+        ctrVsAcct: pctVs(s14.ctr, b14.ctr),
+        cpc: s14.cpc,
+        cpcVsAcct: pctVs(s14.cpc, b14.cpc),
       },
     });
   }
@@ -173,20 +229,20 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
   return {
     candidates: scored.slice(0, MAX_PUSH_OPTIONS),
     qualified: scored.length,
-    mainLanding: mainKey ? { key: mainKey, adCount: mainCount, totalAds: adsetAds.length } : null,
+    mainLanding: landing.topKey ? { key: landing.topKey, share: landing.total > 0 ? (landing.top / landing.total) * 100 : null } : null,
   };
 }
 
 // For "New creative -01" (spend stacked on a few ads): the ad set's own lowest-spending half by 3-day spend — the ads
 // that aren't getting served — worst performers first. Starved ads that beat the account are tagged so they can be kept.
 export function starvedAds({ pool, adsetId }) {
-  const b30 = pool.baseline?.[30];
+  const b14 = pool.baseline?.[14];
   const creatives = groupCreatives(pool.ads);
   const own = pool.ads.filter((a) => a.adsetId === adsetId && a.status === "ACTIVE").sort((a, b) => (a.m?.[3]?.spend || 0) - (b.m?.[3]?.spend || 0));
   const total3 = own.reduce((t, a) => t + (a.m?.[3]?.spend || 0), 0);
   const rows = own.slice(0, Math.floor(own.length / 2)).map((a) => {
-    const s30 = creatives.get(a.creativeId)?.stats[30] || statsOf([a])[30];
-    const beats = s30.roas != null && b30?.roas != null && s30.roas > b30.roas && s30.purchases >= 5;
+    const s14 = creatives.get(a.creativeId)?.stats[14] || statsOf([a])[14];
+    const beats = s14.roas != null && b14?.roas != null && s14.roas > b14.roas && s14.purchases >= 5;
     return {
       adId: a.id,
       name: a.name,
@@ -194,13 +250,13 @@ export function starvedAds({ pool, adsetId }) {
       format: a.format || null,
       spendShare3: total3 > 0 ? ((a.m?.[3]?.spend || 0) / total3) * 100 : null,
       stats: {
-        purchases: s30.purchases,
-        roas: s30.roas,
-        roasVsAcct: pctVs(s30.roas, b30?.roas),
-        ctr: s30.ctr,
-        ctrVsAcct: pctVs(s30.ctr, b30?.ctr),
-        cpc: s30.cpc,
-        cpcVsAcct: pctVs(s30.cpc, b30?.cpc),
+        purchases: s14.purchases,
+        roas: s14.roas,
+        roasVsAcct: pctVs(s14.roas, b14?.roas),
+        ctr: s14.ctr,
+        ctrVsAcct: pctVs(s14.ctr, b14?.ctr),
+        cpc: s14.cpc,
+        cpcVsAcct: pctVs(s14.cpc, b14?.cpc),
       },
       beatsAccount: beats,
     };

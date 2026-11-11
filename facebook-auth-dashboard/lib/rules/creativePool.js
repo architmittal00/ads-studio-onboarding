@@ -21,3 +21,20 @@ export function loadCreativePool(accountId, tz, { force = false } = {}) {
 export function clearCreativePool(accountId) {
   cache.delete(accountId);
 }
+
+// The target ad set's own ads need their landing pages (to learn which page it spends on) and thumbnails (for the
+// pause list). A few ads, so one small call each, kept per set of ads.
+const extras = new Map();
+export function loadAdsetExtras(adIds) {
+  const key = [...adIds].sort().join(",");
+  if (!key) return Promise.resolve({ landings: {}, thumbnails: {} });
+  const hit = extras.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.promise;
+  const post = (url) =>
+    fetchWithTimeout(url, { idempotent: true, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adIds }) }, 60000)
+      .then((res) => parseJsonResponse(res))
+      .catch(() => ({}));
+  const promise = Promise.all([post("/api/fb/ad-landing-pages"), post("/api/fb/ad-thumbnails")]).then(([l, t]) => ({ landings: l.landingPages || {}, thumbnails: t.thumbnails || {} }));
+  extras.set(key, { at: Date.now(), promise });
+  return promise;
+}

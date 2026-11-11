@@ -3,19 +3,35 @@ import { authOptions } from "../../auth/[...nextauth]";
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { todayInTimeZone } from "@/lib/dateRanges";
 import { lastNDaysRange, chunk, fetchAdDetails, fetchPostLandingUrls } from "@/lib/adCreativeDetails";
-import { WINDOWS, derive, emptyAgg, addInsightsRow } from "@/lib/rules/metrics";
+import { derive, emptyAgg, addInsightsRow } from "@/lib/rules/metrics";
 import { ADSET_OPTIMIZATION_FIELDS, isPurchaseOptimized } from "@/lib/rules/optimization";
 import { validTimeZone } from "@/lib/rules/checkAccount";
+import { POOL_WINDOWS, groupCreatives, qualifiesCreative } from "@/lib/rules/pushRank";
 
-// GET /api/fb/rules/creative-pool?accountId=act_123[&tz=…] — everything needed to suggest which existing ads to
-// push into an ad set (lib/rules/pushRank.js ranks it in the browser): every ad that delivered in the last 30 days
-// in a purchase-optimized ad set, with its 3/7/14/30-day totals, creative id, landing page, thumbnail and format,
-// plus the account's own figures for the same windows. One pool per account serves every ad set.
+// GET /api/fb/rules/creative-pool?accountId=act_123[&tz=…] — what's needed to suggest which existing ads to push
+// into an ad set (lib/rules/pushRank.js ranks it in the browser). Every ad that delivered in the last 14 days in a
+// purchase-optimized ad set comes back with its 3/7/14-day totals and creative id, plus the account's own figures.
+//
+// Kept fast on purpose: three ad-level insights jobs (not four), creative ids fetched in small batches while those
+// run, and the heavy lookups (landing page, thumbnail, format) only for the ONE ad that stands in for each creative
+// that actually clears the bar — a handful, not the whole account.
 const VALID_ID = /^act_\d+$/;
 const MAX_ADS = 900; // most-spent ads beyond this are dropped (active ads always stay)
+const MAX_SOURCES = 150;
 const ACTIVE_FILTER = [{ field: "effective_status", operator: "IN", value: ["ACTIVE", "IN_PROCESS"] }];
 
 const compact = (agg) => ({ spend: agg.spend, impressions: agg.impressions, linkClicks: agg.linkClicks, purchases: agg.purchases, revenue: agg.revenue });
+
+// adId -> creative id, 50 ads per Graph call, all calls at once.
+async function fetchCreativeIds(adIds, token) {
+  const out = new Map();
+  const results = await Promise.allSettled(chunk(adIds, 50).map((ids) => graphGet("", token, { ids: ids.join(","), fields: "creative{id}" })));
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(r.value || {})) if (obj?.creative?.id) out.set(id, obj.creative.id);
+  }
+  return out;
+}
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -26,8 +42,10 @@ export default async function handler(req, res) {
   const token = session.accessToken;
 
   try {
-    const account = await graphGet(`/${accountId}`, token, { fields: "currency,timezone_name" });
-    const today = todayInTimeZone(validTimeZone(req.query.tz) || account.timezone_name);
+    // The time zone places the date windows; the client normally sends it, so nothing waits on the account call.
+    const tzParam = validTimeZone(req.query.tz);
+    const account = tzParam ? { timezone_name: tzParam } : await graphGet(`/${accountId}`, token, { fields: "timezone_name" });
+    const today = todayInTimeZone(tzParam || account.timezone_name);
 
     const insightsFor = (days) => {
       const range = lastNDaysRange(days, today);
@@ -39,26 +57,29 @@ export default async function handler(req, res) {
       ).then((r) => r.data || []);
     };
 
-    const [activeAds, activeAdsets, activeCampaigns, ...windowRows] = await Promise.all([
-      graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id,created_time", filtering: ACTIVE_FILTER, limit: 500 }),
-      graphGetAllPages(`/${accountId}/adsets`, token, { fields: `id,name,campaign_id,${ADSET_OPTIMIZATION_FIELDS}`, filtering: ACTIVE_FILTER, limit: 500 }),
-      graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name", filtering: ACTIVE_FILTER, limit: 500 }),
-      ...WINDOWS.map(insightsFor),
-    ]);
-    const rowsByWindow = Object.fromEntries(WINDOWS.map((w, i) => [w, windowRows[i]]));
+    const activeAdsP = graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id,created_time", filtering: ACTIVE_FILTER, limit: 500 });
+    const activeAdsetsP = graphGetAllPages(`/${accountId}/adsets`, token, { fields: `id,name,campaign_id,${ADSET_OPTIMIZATION_FIELDS}`, filtering: ACTIVE_FILTER, limit: 500 });
+    const activeCampaignsP = graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name", filtering: ACTIVE_FILTER, limit: 500 });
+    // Creative ids of the active ads start loading the moment the lists are back — while the insights jobs are still running.
+    const activeCreativesP = Promise.all([activeAdsP, activeAdsetsP]).then(([ads, adsets]) => {
+      const eligibleSets = new Set((adsets.data || []).filter(isPurchaseOptimized).map((a) => a.id));
+      return fetchCreativeIds((ads.data || []).filter((a) => eligibleSets.has(a.adset_id)).map((a) => a.id), token);
+    });
+
+    const [activeAds, activeAdsets, activeCampaigns, activeCreatives, ...windowRows] = await Promise.all([activeAdsP, activeAdsetsP, activeCampaignsP, activeCreativesP, ...POOL_WINDOWS.map(insightsFor)]);
+    const rowsByWindow = Object.fromEntries(POOL_WINDOWS.map((w, i) => [w, windowRows[i]]));
 
     // Account totals (the benchmark every creative is compared with), summed from the same rows.
     const baseline = {};
-    for (const w of WINDOWS) {
+    for (const w of POOL_WINDOWS) {
       const agg = emptyAgg();
       for (const row of rowsByWindow[w]) addInsightsRow(agg, row);
       const d = derive(agg);
       baseline[w] = { spend: d.spend, roas: d.roas, ctr: d.ctr, cpc: d.cpc, cpr: d.cpr };
     }
 
-    // Per-ad totals for every window.
     const perAd = new Map();
-    for (const w of WINDOWS) {
+    for (const w of POOL_WINDOWS) {
       for (const row of rowsByWindow[w]) {
         if (!row.ad_id) continue;
         if (!perAd.has(row.ad_id)) perAd.set(row.ad_id, { adsetId: row.adset_id, aggs: {} });
@@ -67,13 +88,11 @@ export default async function handler(req, res) {
         addInsightsRow(entry.aggs[w], row);
       }
     }
-
     const activeById = new Map((activeAds.data || []).map((a) => [a.id, a]));
     for (const a of activeById.values()) if (!perAd.has(a.id)) perAd.set(a.id, { adsetId: a.adset_id, aggs: {} });
-    for (const [id, entry] of perAd) if (!entry.adsetId && activeById.get(id)) entry.adsetId = activeById.get(id).adset_id;
 
-    // Which ad sets are purchase-optimized: the active ones come with the list; an ad that delivered in a
-    // since-paused ad set needs its ad set looked up.
+    // Purchase-optimized ad sets: the active ones came with the list; an ad that delivered in a since-paused ad set
+    // needs its ad set looked up.
     const adsetInfo = new Map((activeAdsets.data || []).map((a) => [a.id, a]));
     const unknownAdsets = [...new Set([...perAd.values()].map((e) => e.adsetId).filter((id) => id && !adsetInfo.has(id)))];
     const lookups = await Promise.allSettled(chunk(unknownAdsets, 50).map((ids) => graphGet("", token, { ids: ids.join(","), fields: `name,campaign_id,${ADSET_OPTIMIZATION_FIELDS}` })));
@@ -82,57 +101,56 @@ export default async function handler(req, res) {
       for (const [id, obj] of Object.entries(l.value || {})) adsetInfo.set(id, { id, ...obj });
     }
 
-    // Candidates: ads in purchase-optimized ad sets. Most-spent first; every active ad is kept.
     let ids = [...perAd.entries()].filter(([, e]) => isPurchaseOptimized(adsetInfo.get(e.adsetId))).map(([id]) => id);
-    const spend30 = (id) => perAd.get(id).aggs[30]?.spend || 0;
-    ids.sort((a, b) => spend30(b) - spend30(a));
+    const spend14 = (id) => perAd.get(id).aggs[14]?.spend || 0;
+    ids.sort((a, b) => spend14(b) - spend14(a));
     if (ids.length > MAX_ADS) {
       const keep = new Set(ids.slice(0, MAX_ADS));
       for (const id of ids) if (activeById.has(id)) keep.add(id);
       ids = ids.filter((id) => keep.has(id));
     }
 
-    const details = await fetchAdDetails(ids, token);
+    // Creative ids: the active ones are already here; only ads that have since been paused still need one.
+    const creativeOf = new Map(activeCreatives);
+    const pausedFetched = await fetchCreativeIds(ids.filter((id) => !creativeOf.has(id)), token);
+    for (const [id, c] of pausedFetched) creativeOf.set(id, c);
+
+    const campaignName = new Map((activeCampaigns.data || []).map((c) => [c.id, c.name]));
+    const light = ids.map((id) => {
+      const e = perAd.get(id);
+      const active = activeById.get(id);
+      const adset = adsetInfo.get(e.adsetId);
+      return {
+        id,
+        name: active?.name || id,
+        adsetId: e.adsetId,
+        adsetName: adset?.name || null,
+        campaignName: campaignName.get(active?.campaign_id || adset?.campaign_id) || null,
+        status: active ? "ACTIVE" : "PAUSED",
+        creativeId: creativeOf.get(id) || null,
+        createdTime: active?.created_time || null,
+        m: Object.fromEntries(POOL_WINDOWS.map((w) => [w, compact(e.aggs[w] || emptyAgg())])),
+      };
+    });
+
+    // Only the creatives that clear the bar get their stand-in ad looked up (landing page, thumbnail, format).
+    const creatives = groupCreatives(light);
+    const sources = [...creatives.values()]
+      .filter((c) => c.activeAds.length > 0 && qualifiesCreative(c.stats[14], baseline[14]))
+      .sort((a, b) => b.stats[14].spend - a.stats[14].spend)
+      .slice(0, MAX_SOURCES)
+      .map((c) => c.source.id);
+    const details = await fetchAdDetails(sources, token);
     const postIds = [...new Set(Object.values(details).map((d) => d.postId).filter(Boolean))];
     let postUrls = {};
     try {
       postUrls = await fetchPostLandingUrls(postIds, token);
     } catch {}
-    const campaignName = new Map((activeCampaigns.data || []).map((c) => [c.id, c.name]));
-    const missingCampaigns = [...new Set([...adsetInfo.values()].map((a) => a.campaign_id).filter((id) => id && !campaignName.has(id)))];
-    const nameLookups = await Promise.allSettled(chunk(missingCampaigns, 50).map((cs) => graphGet("", token, { ids: cs.join(","), fields: "name" })));
-    for (const l of nameLookups) {
-      if (l.status !== "fulfilled") continue;
-      for (const [id, obj] of Object.entries(l.value || {})) if (obj?.name) campaignName.set(id, obj.name);
-    }
-    // Names and creation times of ads that are no longer active come from a lookup by id.
-    const pausedInfo = {};
-    const needInfo = ids.filter((id) => !activeById.has(id));
-    const infoResults = await Promise.allSettled(chunk(needInfo, 50).map((c) => graphGet("", token, { ids: c.join(","), fields: "name,created_time,campaign_id" })));
-    for (const r of infoResults) {
-      if (r.status !== "fulfilled") continue;
-      for (const [id, obj] of Object.entries(r.value || {})) pausedInfo[id] = obj;
-    }
-
-    const ads = ids.map((id) => {
-      const e = perAd.get(id);
-      const d = details[id] || {};
-      const active = activeById.get(id);
-      const adset = adsetInfo.get(e.adsetId);
-      return {
-        id,
-        name: active?.name || pausedInfo[id]?.name || id,
-        adsetId: e.adsetId,
-        adsetName: adset?.name || null,
-        campaignName: campaignName.get(active?.campaign_id || adset?.campaign_id || pausedInfo[id]?.campaign_id) || null,
-        status: activeById.has(id) ? "ACTIVE" : d.status || "PAUSED",
-        creativeId: d.creativeId || null,
-        landing: d.landingUrl || (d.postId ? postUrls[d.postId] : null) || null,
-        thumbnailUrl: d.thumbnailUrl || null,
-        format: d.creativeType || null,
-        createdTime: active?.created_time || pausedInfo[id]?.created_time || null,
-        m: Object.fromEntries(WINDOWS.map((w) => [w, compact(e.aggs[w] || emptyAgg())])),
-      };
+    const sourceSet = new Set(sources);
+    const ads = light.map((a) => {
+      if (!sourceSet.has(a.id)) return a;
+      const d = details[a.id] || {};
+      return { ...a, landing: d.landingUrl || (d.postId ? postUrls[d.postId] : null) || null, thumbnailUrl: d.thumbnailUrl || null, format: d.creativeType || null };
     });
 
     res.setHeader("Cache-Control", "private, max-age=300");

@@ -20,6 +20,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
+import { loadCreativePool } from "@/lib/rules/creativePool";
 import styles from "@/styles/Home.module.css";
 
 // A finished check is saved in the browser for 30 minutes (shared cache, survives reloads), so
@@ -297,6 +298,14 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
       cancelled = true;
     };
   }, [result]);
+
+  // "Add a creative" cards need the account's creative pool (a few seconds on a big account) — start it as soon as
+  // the check shows there are such cards, so it is ready by the time one is opened.
+  useEffect(() => {
+    if (isMobile || !result || !selectedAccountId) return;
+    if (!result.flags.some((f) => f.action === "ADD_CREATIVE" && f.entityType === "adset")) return;
+    loadCreativePool(selectedAccountId, tz).catch(() => {});
+  }, [result, selectedAccountId, tz, isMobile]);
 
   const counts = useMemo(() => {
     const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0 };
