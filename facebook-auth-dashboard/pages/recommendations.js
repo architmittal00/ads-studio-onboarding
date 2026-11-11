@@ -340,7 +340,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
             Recommendations
           </h1>
           <p className={styles.sub} style={{ marginTop: 6 }}>
-            Pick an account and we check every active campaign, ad set and ad against your rules, then recommend what to do — with the action one click away.
+            We check every active campaign, ad set and ad against your rules and recommend what to do.
           </p>
         </div>
         <div className={styles.headerPillRow} style={{ alignItems: "flex-end" }}>
@@ -367,13 +367,6 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
           </button>
         </div>
       </div>
-      {result && !isMobile && (
-        <span className={styles.muted}>
-          Checked {new Date(result.generatedAt).toLocaleTimeString()}
-          {savedNote ? ` (saved result, ${savedNote})` : ""} · data up to {result.windowEnd}
-        </span>
-      )}
-
       {loading && <RuleCheckProgress accountName={adAccounts.find((a) => a.id === selectedAccountId)?.name} steps={steps} notice={retryNote} />}
       {error && <div className={styles.error}>{error}</div>}
 
@@ -399,7 +392,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               </div>
             </>
           ) : (
-            <RecSummary result={result} counts={counts} flags={result.flags} filter={filter} setFilter={setFilter} />
+            <RecSummary result={result} counts={counts} flags={result.flags} filter={filter} setFilter={setFilter} checkedText={`Checked ${new Date(result.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${savedNote ? ` (saved, ${savedNote})` : ""}`} />
           )}
 
           {isMobile && (
