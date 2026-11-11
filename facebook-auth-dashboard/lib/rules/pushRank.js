@@ -8,21 +8,21 @@ import { derive, emptyAgg } from "./metrics";
 // ROAS / link CTR / link CPC are worked out from the pooled totals — not averaged per ad. Only ads from
 // purchase-optimized ad sets are in the pool. Everything is compared over the last 14 days (3 and 7 days for trend).
 //
-// A creative qualifies when it has enough evidence (≥ 10 purchases, or spend > 3× the account's cost per purchase)
-// and beats the account's 14-day ROAS; it is skipped when it already runs in the target ad set, no ad using it is
-// active, or one of its ads is flagged by a Pause rule. Qualifiers are scored 0–100:
+// A creative qualifies when it has at least 10 purchases in the last 14 days and beats the account's 14-day ROAS; it is skipped when it already runs in the target ad set, no ad using it is
+// active, or one of its ads is flagged by a Pause rule. Qualifiers are scored 0–100 and only those scoring
+// MIN_SCORE (60) or more are shown:
 //   landing page 30 · ROAS 25 · CTR 10 · CPC 10 · consistency 10 · evidence 10 · freshness 5
 // Landing page = the share of the TARGET ad set's 14-day spend that goes to the candidate's page, relative to the
 // ad set's top page, raised to a power so the top page counts far more than the rest.
 
 export const MAX_PUSH_OPTIONS = 20;
+export const MIN_SCORE = 60; // creatives scoring below this are not shown
 export const WEIGHTS = { landing: 30, roas: 25, ctr: 10, cpc: 10, consistency: 10, evidence: 10, freshness: 5 };
 export const FACTOR_LABELS = { landing: "Landing page", roas: "ROAS", ctr: "CTR", cpc: "CPC", consistency: "Consistency", evidence: "Evidence", freshness: "Freshness" };
 export const POOL_WINDOWS = [3, 7, 14];
 export const LANDING_EXPONENT = 3; // 100% of the top page's spend → 1.0, 60% → 0.22, 30% → 0.03
 const HOLDING = 0.9; // recent ROAS / CTR must be at least 90% of the 14-day figure to count as "holding"
 const MIN_PURCHASES = 10;
-const MIN_SPEND_IN_ACCOUNT_CPP = 3;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const DAY_MS = 86400000;
 
@@ -82,8 +82,7 @@ export function groupCreatives(poolAds) {
 // whose thumbnail and landing page to look up.
 export function qualifiesCreative(stats14, base14) {
   if (!stats14 || !base14 || base14.roas == null || stats14.roas == null) return false;
-  const enough = stats14.purchases >= MIN_PURCHASES || (base14.cpr != null && stats14.spend > MIN_SPEND_IN_ACCOUNT_CPP * base14.cpr);
-  return enough && stats14.roas > base14.roas;
+  return stats14.purchases >= MIN_PURCHASES && stats14.roas > base14.roas;
 }
 
 const pctVs = (value, base) => (value != null && base ? (value / base - 1) * 100 : null);
@@ -132,6 +131,7 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
   const landing = landingSpend(adsetAds);
 
   const scored = [];
+  let belowBar = 0;
   for (const c of creatives.values()) {
     if (inAdset.has(c.id) || c.activeAds.length === 0) continue;
     if (c.ads.some((a) => pausedAdIds.has(a.id))) continue;
@@ -197,7 +197,7 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       ctr: ctrRatio != null ? `${pct(s14.ctr)} vs the account's ${pct(b14.ctr)}${signed(pctVs(s14.ctr, b14.ctr))}.` : "No clicks to compare.",
       cpc: cpcRatio != null ? `${money(s14.cpc, symbol)} vs the account's ${money(b14.cpc, symbol)}${signed(pctVs(s14.cpc, b14.cpc))}.` : "No clicks to compare.",
       consistency: `${roasTrend != null ? `7-day ROAS is ${Math.round(roasTrend * 100)}% of its 14-day ROAS — ${roasTrend >= HOLDING ? "holding ✓" : "fading ✗"}` : "Not enough 7-day data"}; ${ctrTrend != null ? `last-3-day CTR is ${Math.round(ctrTrend * 100)}% of its 14-day CTR — ${ctrTrend >= HOLDING ? "holding ✓" : "fading ✗"}` : "not enough 3-day data"}. Each check is worth half; holding means 90% or more.`,
-      evidence: `${Math.round(s14.purchases)} purchases and ${money(s14.spend, symbol)} spent over 14 days across ${c.ads.length} ad${c.ads.length === 1 ? "" : "s"}.`,
+      evidence: `${Math.round(s14.purchases)} purchases (10 needed) and ${money(s14.spend, symbol)} spent over 14 days across ${c.ads.length} ad${c.ads.length === 1 ? "" : "s"}.`,
       freshness: ageDays != null ? `First created ${Math.round(ageDays)} day${Math.round(ageDays) === 1 ? "" : "s"} ago.` : "Creation date unknown.",
     };
     const breakdown = Object.keys(WEIGHTS)
@@ -227,10 +227,13 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       },
     });
   }
-  scored.sort((a, b) => b.score - a.score || b.stats.purchases - a.stats.purchases);
+  const shown = scored.filter((c) => c.score >= MIN_SCORE);
+  belowBar = scored.length - shown.length;
+  shown.sort((a, b) => b.score - a.score || b.stats.purchases - a.stats.purchases);
   return {
-    candidates: scored.slice(0, MAX_PUSH_OPTIONS),
-    qualified: scored.length,
+    candidates: shown.slice(0, MAX_PUSH_OPTIONS),
+    qualified: shown.length,
+    belowBar,
     mainLanding: landing.topKey ? { key: landing.topKey, share: landing.total > 0 ? (landing.top / landing.total) * 100 : null } : null,
   };
 }

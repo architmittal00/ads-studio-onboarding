@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import Thumb from "@/components/Thumb";
 import { loadCreativePool, clearCreativePool, loadAdsetExtras } from "@/lib/rules/creativePool";
-import { rankPushCandidates, starvedAds, MAX_PUSH_OPTIONS } from "@/lib/rules/pushRank";
+import { rankPushCandidates, starvedAds, MAX_PUSH_OPTIONS, MIN_SCORE } from "@/lib/rules/pushRank";
 import { pauseInBatches } from "@/lib/batchPause";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { invalidateCachedGets } from "@/lib/cachedGet";
@@ -234,8 +234,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
             </div>
             <p className={styles.sub} style={{ margin: "4px 0 0" }}>
               {ranked.mainLanding
-                ? `Most of this ad set's spend${ranked.mainLanding.share != null ? ` (${ranked.mainLanding.share.toFixed(0)}%)` : ""} goes to ${ranked.mainLanding.key}, and that page counts far more than the others. Ranked by landing page, ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative.`
-                : "Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative."}
+                ? `Most of this ad set's spend${ranked.mainLanding.share != null ? ` (${ranked.mainLanding.share.toFixed(0)}%)` : ""} goes to ${ranked.mainLanding.key}, and that page counts far more than the others. Ranked by landing page, ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative. Only creatives scoring ${MIN_SCORE}+ are shown.`
+                : `Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative. Only creatives scoring ${MIN_SCORE}+ are shown.`}
               {ranked.qualified > MAX_PUSH_OPTIONS ? ` Showing the best ${MAX_PUSH_OPTIONS} of ${ranked.qualified}.` : ""}
             </p>
           </div>
@@ -253,7 +253,9 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
 
         {ranked.candidates.length === 0 ? (
           <p className={styles.sub}>
-            No proven creatives to add yet — none of the account&apos;s other creatives has 10+ purchases (or spend above 3× the account&apos;s cost per purchase) in the last 14 days and beats the account&apos;s 14-day ROAS. Upload a fresh one in Ads Manager.
+            {ranked.belowBar > 0
+              ? `${ranked.belowBar} creative${ranked.belowBar === 1 ? "" : "s"} qualified, but none scored ${MIN_SCORE} or more for this ad set. Upload a fresh one in Ads Manager.`
+              : "No proven creatives to add yet — none of the account's other creatives has 10+ purchases in the last 14 days and beats the account's 14-day ROAS. Upload a fresh one in Ads Manager."}
           </p>
         ) : (
           <div className={styles.pushList}>

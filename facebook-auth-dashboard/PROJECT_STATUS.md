@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: minimum score 60 and strict evidence bar (2026-11-11)
+Only creatives scoring **60 or more** are listed (`MIN_SCORE` in `lib/rules/pushRank.js`); if some qualified but all scored lower the card says so. Evidence is now strict: **at least 10 purchases in the last 14 days** (the "or spend > 3× account CPP" alternative is gone), still with 14-day ROAS above the account's.
+
 ### Push-ads rows decluttered, thumbnails clickable (2026-11-11)
 Each suggested creative's row now shows only thumbnail, format, name, "Running in N ad sets" + "Why push this?", the four 14-day figures and the score — the tag chips are gone (the "Why push this?" panel already has the per-factor breakdown). Thumbnails (push list and pause list) open the creative lightbox like elsewhere on the page.
 
