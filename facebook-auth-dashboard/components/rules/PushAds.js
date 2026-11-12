@@ -326,6 +326,11 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
                               <span className={styles.badgeGood}>Strong</span> {c.summary.strong.join(" · ")}
                             </p>
                           )}
+                          {c.summary.slight.length > 0 && (
+                            <p>
+                              <span className={styles.badgeInfo}>Slight edge</span> {c.summary.slight.join(" · ")}
+                            </p>
+                          )}
                           {c.summary.weak.length > 0 && (
                             <p>
                               <span className={styles.badgeDanger}>Weak</span> {c.summary.weak.join(" · ")}
@@ -345,8 +350,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
                               <strong>{b.value}</strong>
                               <span className={styles.pushWhyAgainst}>{b.against}</span>
                               <span style={{ textAlign: "right" }}>
-                                <span className={b.level === "strong" ? styles.badgeGood : b.level === "fair" ? styles.badgeWarn : styles.badgeDanger}>
-                                  {b.level === "strong" ? "Strong" : b.level === "fair" ? "Fair" : "Weak"}
+                                <span className={b.level === "strong" ? styles.badgeGood : b.level === "fair" ? styles.badgeWarn : b.level === "slight" ? styles.badgeInfo : styles.badgeDanger}>
+                                  {b.level === "strong" ? "Strong" : b.level === "fair" ? "Fair" : b.level === "slight" ? "Slight edge" : "Weak"}
                                 </span>
                                 <span className={styles.pushWhyPoints}>
                                   {b.points.toFixed(0)}/{b.max.toFixed(0)}
