@@ -1,4 +1,4 @@
-import { fetchWithTimeout, parseJsonResponse } from "@/lib/fetchJson";
+import { fetchWithTimeout, readApiResponse } from "@/lib/fetchJson";
 
 // The account's creative pool (pages/api/fb/rules/creative-pool.js) is the same for every ad set, so it is
 // fetched once per account, kept for 30 minutes in memory, and shared between cards opened at the same time.
@@ -8,8 +8,11 @@ const cache = new Map(); // accountId -> { at, promise, value }
 export function loadCreativePool(accountId, tz, { force = false } = {}) {
   const hit = cache.get(accountId);
   if (!force && hit && Date.now() - hit.at < TTL_MS) return hit.promise;
-  const promise = fetchWithTimeout(`/api/fb/rules/creative-pool?accountId=${encodeURIComponent(accountId)}${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`, { idempotent: true }, 130000)
-    .then((res) => parseJsonResponse(res))
+  const url = `/api/fb/rules/creative-pool?accountId=${encodeURIComponent(accountId)}${tz ? `&tz=${encodeURIComponent(tz)}` : ""}`;
+  const fetchPool = () => fetchWithTimeout(url, { idempotent: true }, 130000).then((res) => readApiResponse(res));
+  // Meta now and then refuses one of the lookups for a moment (rate limit, busy); a second go a moment later usually works.
+  const promise = fetchPool()
+    .catch(() => new Promise((resolve) => setTimeout(resolve, 2000)).then(fetchPool))
     .catch((err) => {
       cache.delete(accountId); // a failure isn't remembered
       throw err;
@@ -23,7 +26,7 @@ export function loadCreativePool(accountId, tz, { force = false } = {}) {
 // The pool if it has already arrived, so a card opened after a prefetch renders at once instead of flashing a loader.
 export function peekCreativePool(accountId) {
   const hit = cache.get(accountId);
-  return hit && Date.now() - hit.at < TTL_MS ? hit.value : null;
+  return hit && Date.now() - hit.at < TTL_MS && Array.isArray(hit.value?.ads) ? hit.value : null;
 }
 
 export function clearCreativePool(accountId) {
@@ -40,7 +43,7 @@ export function loadAdsetExtras(adIds) {
   if (hit && Date.now() - hit.at < TTL_MS) return hit.promise;
   const entry = { at: Date.now(), promise: null, value: null };
   const promise = fetchWithTimeout("/api/fb/ad-creative-info", { idempotent: true, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adIds }) }, 60000)
-    .then((res) => parseJsonResponse(res))
+    .then((res) => readApiResponse(res))
     .then((json) => ({ info: json.info || {} }))
     .catch(() => ({ info: {} }));
   entry.promise = promise;
