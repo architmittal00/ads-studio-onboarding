@@ -2879,9 +2879,58 @@ button.stat:hover {
 }
 .recToolbar {
   display: flex;
-  gap: 12px;
-  align-items: flex-end;
+  gap: 10px;
+  align-items: center;
   flex-wrap: wrap;
+}
+/* A control with its label inside the same bordered pill (Sort, share filter), all the toolbar's height. */
+.recField {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(var(--surface-tint-rgb), 0.04);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.recField:hover {
+  border-color: var(--border2);
+}
+.recField:focus-within {
+  border-color: var(--purple);
+}
+.recFieldInput {
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t1);
+  padding: 0;
+}
+.recFieldInput::placeholder {
+  color: var(--t3);
+  font-weight: 500;
+}
+.recFieldClear {
+  border: 0;
+  background: none;
+  color: var(--t3);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 0 2px;
+  cursor: pointer;
+}
+.recFieldClear:hover {
+  color: var(--t1);
 }
 .recSort {
   display: flex;
