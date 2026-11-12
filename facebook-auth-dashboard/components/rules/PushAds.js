@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import Thumb from "@/components/Thumb";
+import { CloseIcon } from "@/components/icons";
 import { loadCreativePool, clearCreativePool, loadAdsetExtras, peekCreativePool, peekAdsetExtras } from "@/lib/rules/creativePool";
 import { rankPushCandidates, starvedAds, MAX_PUSH_OPTIONS, MIN_SCORE } from "@/lib/rules/pushRank";
 import { pauseInBatches } from "@/lib/batchPause";
@@ -207,6 +208,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     ranked.profile?.type ? `${ranked.profile.type.label} ads (${ranked.profile.type.share.toFixed(0)}%)` : null,
     ranked.profile?.language ? `${ranked.profile.language.label} (${ranked.profile.language.share.toFixed(0)}%)` : null,
   ].filter(Boolean);
+  const pickedCandidates = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok);
   const pushPending = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok).length;
   const pausePending = starved.filter((a) => pickedPause.has(a.adId) && !done[a.adId]?.ok).length;
   const allPush = ranked.candidates.length > 0 && ranked.candidates.every((c) => done[c.creativeId]?.ok || pickedPush.has(c.creativeId));
@@ -391,45 +393,74 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
         )}
         {ranked.candidates.length > 0 && (
           <div className={styles.pushFoot}>
-            {confirming && pushPending > 0 ? (
-              <div className={styles.pushConfirm}>
-                <strong>
-                  Launch {pushPending} ad{pushPending === 1 ? "" : "s"} as…
-                </strong>
-                <div className={styles.tabGroup} role="radiogroup" aria-label="Launch as">
-                  <button type="button" role="radio" aria-checked={launchAs === "PAUSED"} className={`${styles.tab} ${launchAs === "PAUSED" ? styles.tabActive : ""}`} onClick={() => setLaunchAs("PAUSED")}>
-                    Paused
-                  </button>
-                  <button type="button" role="radio" aria-checked={launchAs === "ACTIVE"} className={`${styles.tab} ${launchAs === "ACTIVE" ? styles.tabActive : ""}`} onClick={() => setLaunchAs("ACTIVE")}>
-                    Active
-                  </button>
-                </div>
-                <span className={styles.muted} style={{ fontWeight: 400 }}>
-                  {launchAs === "ACTIVE" ? "Active ads start spending right away." : "Paused copies don't spend until you turn them on in Ads Manager."}
-                </span>
-                <div className={styles.pushConfirmActions}>
-                  <button type="button" className={styles.btnPrimary} onClick={() => pushPicked(launchAs)}>
-                    Launch as {launchAs === "ACTIVE" ? "active" : "paused"}
-                  </button>
-                  <button type="button" className={styles.btnSecondary} onClick={() => setConfirming(false)}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <button type="button" className={styles.btnPrimary} disabled={pushPending === 0 || !!busy} onClick={() => setConfirming(true)}>
-                  {busy === "push" ? "Adding…" : pushPending ? `Add ${pushPending} ad${pushPending === 1 ? "" : "s"} to this ad set` : "Select ads to add"}
-                </button>
-                <span className={styles.muted} style={{ fontWeight: 400 }}>
-                  Each one reuses the same creative; you choose paused or active before anything is created.
-                </span>
-              </>
-            )}
+            <button type="button" className={styles.btnPrimary} disabled={pushPending === 0 || !!busy} onClick={() => setConfirming(true)}>
+              {busy === "push" ? "Adding…" : pushPending ? `Add ${pushPending} ad${pushPending === 1 ? "" : "s"} to this ad set` : "Select ads to add"}
+            </button>
+            <span className={styles.muted} style={{ fontWeight: 400 }}>
+              Each one reuses the same creative; you choose paused or active before anything is created.
+            </span>
           </div>
         )}
         </>
       </section>
+      )}
+      {confirming && pushPending > 0 && (
+        <div
+          onClick={() => setConfirming(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Launch ads"
+            onClick={(e) => e.stopPropagation()}
+            className={styles.card}
+            style={{ background: "var(--bg)", width: "min(480px, 100%)", maxHeight: "85vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+                  Launch {pushPending} ad{pushPending === 1 ? "" : "s"}
+                </h2>
+                <p className={styles.sub}>into {flag.name}</p>
+              </div>
+              <button type="button" onClick={() => setConfirming(false)} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
+                <CloseIcon size={14} />
+              </button>
+            </div>
+            <div className={styles.pushConfirmList}>
+              {pickedCandidates.map((c) => (
+                <span key={c.creativeId} className={styles.sub} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {c.name}
+                </span>
+              ))}
+            </div>
+            <div>
+              <p className={styles.muted} style={{ marginBottom: 6 }}>
+                Launch as
+              </p>
+              <div className={styles.tabGroup} role="radiogroup" aria-label="Launch as">
+                <button type="button" role="radio" aria-checked={launchAs === "PAUSED"} className={`${styles.tab} ${launchAs === "PAUSED" ? styles.tabActive : ""}`} onClick={() => setLaunchAs("PAUSED")}>
+                  Paused
+                </button>
+                <button type="button" role="radio" aria-checked={launchAs === "ACTIVE"} className={`${styles.tab} ${launchAs === "ACTIVE" ? styles.tabActive : ""}`} onClick={() => setLaunchAs("ACTIVE")}>
+                  Active
+                </button>
+              </div>
+              <p className={styles.sub} style={{ marginTop: 8 }}>
+                {launchAs === "ACTIVE" ? "Active ads start spending right away." : "Paused copies don't spend until you turn them on in Ads Manager."}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" className={styles.btnSecondary} onClick={() => setConfirming(false)}>
+                Cancel
+              </button>
+              <button type="button" className={styles.btnPrimary} onClick={() => pushPicked(launchAs)}>
+                Launch as {launchAs === "ACTIVE" ? "active" : "paused"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
