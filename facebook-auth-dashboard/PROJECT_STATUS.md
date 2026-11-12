@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations toolbar: tidier Sort and share filter (2026-11-12)
+
+Search, Sort and the Pause share filter now sit on one row at the same 40px height, each Sort/filter as a bordered pill with its label inside it ("Sort  Most spend", "Pause · ad's 7-day share ≥ [40] %", with a × to clear) — replacing the small uppercase labels above the boxes, the clipped placeholder and the stray "%". New `.recField` / `.recFieldInput` / `.recFieldClear` classes. Lint/build only.
+
 ### "Push new ads" opens a pop-up (2026-11-12)
 
 On a Pause card for a dominant ad (over 40% of its ad set's 7-day spend), "Push new ads" now opens a wide modal (scrim, `.card`, close X, click-outside and Esc close) with the ranked push list inside — header says which ad set and which ad takes the share. The inline panel under "See reasoning" is gone. The paused/active confirmation still opens on top of it. Lint/build only.

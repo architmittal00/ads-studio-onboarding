@@ -346,10 +346,10 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
   return (
     <div className={styles.recBoard}>
       <div className={styles.recToolbar}>
-        <input className={styles.select} style={{ flex: "1 1 260px", maxWidth: 420 }} placeholder="Search by ad, ad set, campaign or rule…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <label className={styles.recSort}>
-          <span className={styles.recMetricLabel}>Sort</span>
-          <select className={styles.select} value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
+        <input className={styles.select} style={{ flex: "1 1 260px", maxWidth: 420, height: 40 }} placeholder="Search by ad, ad set, campaign or rule…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <label className={styles.recField}>
+          <span>Sort</span>
+          <select className={styles.recFieldInput} value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
             {SORTS.map((s) => (
               <option key={s.key} value={s.key}>
                 {s.label}
@@ -357,12 +357,15 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
             ))}
           </select>
         </label>
-        <label className={styles.recSort}>
-          <span className={styles.recMetricLabel}>Pause · ad&apos;s 7-day share of its ad set, at least</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input className={styles.select} type="number" min="0" max="100" step="any" inputMode="decimal" placeholder="e.g. 40" value={minShare} onChange={(e) => setMinShare(e.target.value)} style={{ width: 84 }} />
-            <span className={styles.sub}>%</span>
-          </span>
+        <label className={styles.recField} title="Pause cards only: keep ads that take at least this share of their ad set's 7-day spend">
+          <span>Pause · ad&apos;s 7-day share ≥</span>
+          <input className={styles.recFieldInput} type="number" min="0" max="100" step="any" inputMode="decimal" placeholder="40" value={minShare} onChange={(e) => setMinShare(e.target.value)} style={{ width: 52 }} />
+          <span>%</span>
+          {minShare !== "" && (
+            <button type="button" className={styles.recFieldClear} aria-label="Clear share filter" onClick={(e) => (e.preventDefault(), setMinShare(""))}>
+              ×
+            </button>
+          )}
         </label>
       </div>
       {minShareCap != null && grouped.some((g) => g.section.action === "PAUSE_AD") && grouped.find((g) => g.section.action === "PAUSE_AD").items.length === 0 && flags.some((f) => f.action === "PAUSE_AD") && (
