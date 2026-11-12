@@ -72,6 +72,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   const [whyOpen, setWhyOpen] = useState(() => new Set());
   // Both lists start folded so the card stays readable; the header says what's inside.
   const [tab, setTab] = useState("push");
+  const [maxShare7, setMaxShare7] = useState(""); // Pause tab filter: only ads at or below this 7-day spend share (%)
   const [confirming, setConfirming] = useState(false); // asking paused or active before adding
   const [launchAs, setLaunchAs] = useState("PAUSED");
 
@@ -167,7 +168,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   }
 
   async function pausePicked() {
-    const ids = [...pickedPause].filter((id) => !done[id]?.ok);
+    const visible = new Set(visibleStarved.map((a) => a.adId)); // a ticked ad the filter now hides is left alone
+    const ids = [...pickedPause].filter((id) => !done[id]?.ok && visible.has(id));
     if (ids.length === 0) return;
     setBusy("pause");
     const results = await pauseInBatches(ids);
@@ -210,7 +212,10 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   ].filter(Boolean);
   const pickedCandidates = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok);
   const pushPending = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok).length;
-  const pausePending = starved.filter((a) => pickedPause.has(a.adId) && !done[a.adId]?.ok).length;
+  // An empty or invalid box shows everything; an ad with no 7-day spend counts as 0%.
+  const shareCap = maxShare7.trim() === "" || !Number.isFinite(Number(maxShare7)) ? null : Number(maxShare7);
+  const visibleStarved = shareCap == null ? starved : starved.filter((a) => (a.spendShare7 ?? 0) <= shareCap);
+  const pausePending = visibleStarved.filter((a) => pickedPause.has(a.adId) && !done[a.adId]?.ok).length;
   const allPush = ranked.candidates.length > 0 && ranked.candidates.every((c) => done[c.creativeId]?.ok || pickedPush.has(c.creativeId));
 
   const showPause = starved.length > 0 && tab === "pause";
@@ -232,8 +237,19 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
               <p className={styles.sub} style={{ margin: 0 }}>
                 This ad set&apos;s lowest-spending half of ads over the last 3 days, worst performers first. Nothing is ticked for you.
               </p>
+          <div className={styles.pushFilter}>
+            <label htmlFor={`share7-${adsetId}`}>Only ads with a 7-day spend share of at most</label>
+            <input id={`share7-${adsetId}`} className={styles.select} type="number" min="0" step="any" inputMode="decimal" placeholder="e.g. 5" value={maxShare7} onChange={(e) => setMaxShare7(e.target.value)} style={{ width: 84 }} />
+            <span>% of this ad set</span>
+            {shareCap != null && (
+              <span className={styles.muted}>
+                Showing {visibleStarved.length} of {starved.length}
+              </span>
+            )}
+          </div>
+          {visibleStarved.length === 0 && <p className={styles.sub}>No ads at or below {shareCap}% — raise the number to see more.</p>}
           <div className={styles.pushList}>
-            {starved.map((a) => {
+            {visibleStarved.map((a) => {
               const r = done[a.adId];
               return (
                 <div key={a.adId} className={styles.pushRow}>
@@ -245,6 +261,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
                     </div>
                     <div className={styles.recWhere}>
                       {a.spendShare3 != null ? `${a.spendShare3.toFixed(1)}% of the ad set's spend, last 3 days` : "No spend in the last 3 days"}
+                      {` · ${(a.spendShare7 ?? 0).toFixed(1)}% over 7 days`}
                       {a.beatsAccount && <span className={styles.badgeGood} style={{ marginLeft: 8 }}>performing well — consider keeping</span>}
                       {r && <span style={{ marginLeft: 8, color: r.ok ? "var(--green)" : "var(--red)" }}>{r.ok ? `✓ ${r.text}` : r.error}</span>}
                     </div>
