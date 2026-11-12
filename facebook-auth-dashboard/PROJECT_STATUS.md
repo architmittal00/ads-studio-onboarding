@@ -86,9 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
-### Push-ads: 30-day "already in this ad set" check, design-system fold headers (2026-11-12)
+### Push-ads: creative already in the ad set — active or paused (2026-11-12)
 
-A creative is no longer suggested when it spent anything in the target ad set in the last 30 days, even if the ad that spent is now paused or deleted from the active list. `creative-pool` runs one more ad-level insights job (30 days), looks up creative ids for ads that spent only in days 15–30, and returns `adsetCreatives30` (ad set → creative ids); `rankPushCandidates` adds those to the "already in this ad set" set. The two fold headers now use the shared `ChevronIcon`, a bordered `--card` row (9px radius, hover `--card2`, purple focus border) with the count as a `.pill`; the old text arrows are gone. Checked with lint/build only — not against a real account.
+A creative is not suggested when any ad using it is live in the target ad set in an active **or paused** state (previously a paused ad with no delivery in the last 14 days was missed, because the pool only held ads with insights). `creative-pool` now also lists paused ads (a list call, no extra insights job), fetches their creative ids and returns `pausedCreatives` (ad set → creative ids); `rankPushCandidates` adds them to the "already in this ad set" set. This replaces the 30-day-spend check from #507 (it needed a fourth ad-level insights job). The fold headers still use `ChevronIcon` and the bordered `--card` row. Lint/build only — not checked against a real account.
 
 ### Push-ads: "Pause these" and "Ads to push" fold open/closed (2026-11-12)
 Both lists start folded behind a chevron header (▸ / ▾) so the card reads at a glance: the header shows the count plus a one-line hint ("best score 83/100", "the lowest-spending half of this ad set's ads"). Click to open; the description, Select all / Clear, the rows and the action button live inside.
