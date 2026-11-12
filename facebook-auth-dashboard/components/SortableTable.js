@@ -43,16 +43,20 @@ function renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, hi
         boxShadow: "1px 0 0 var(--border2)",
       }
     : null;
+  // `stickyRight`: a narrow column (row actions) pinned to the right edge so it stays visible while the table scrolls sideways.
+  const stickyRightStyle = col.stickyRight
+    ? { position: "sticky", right: 0, zIndex: 1, background: highlighted ? HIGHLIGHT_BG : "var(--bg)", boxShadow: "-1px 0 0 var(--border2)", textAlign: "center", paddingLeft: 6, paddingRight: 6 }
+    : null;
   if (!width) {
     return (
-      <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle }}>
+      <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle, ...stickyRightStyle }}>
         {content}
       </td>
     );
   }
   const title = col.title ? col.title(row) : typeof row[col.key] === "string" ? row[col.key] : undefined;
   return (
-    <td key={col.key} style={{ textAlign: col.align || "left", width: useFixedWidths ? width : undefined, ...frozenStyle }}>
+    <td key={col.key} style={{ textAlign: col.align || "left", width: useFixedWidths ? width : undefined, ...frozenStyle, ...stickyRightStyle }}>
       <div title={title} className={styles.clamp3} style={{ maxWidth: width }}>
         {content}
       </div>
@@ -452,7 +456,7 @@ export default function SortableTable({
                   return (
                     <th
                       key={col.key}
-                      draggable={orderedColumns.length > 1}
+                      draggable={orderedColumns.length > 1 && !col.stickyRight}
                       onDragStart={() => setDragKey(col.key)}
                       onDragOver={(e) => {
                         e.preventDefault();
@@ -469,11 +473,12 @@ export default function SortableTable({
                         setDragKey(null);
                         setDragOverKey(null);
                       }}
-                      onClick={() => toggleSort(col.key)}
+                      onClick={col.stickyRight ? undefined : () => toggleSort(col.key)}
                       className={dragOverKey === col.key && dragKey !== col.key ? styles.colDragOver : undefined}
                       style={{
-                        cursor: "pointer",
+                        cursor: col.stickyRight ? "default" : "pointer",
                         textAlign: col.align || "left",
+                        ...(col.stickyRight ? { right: 0, zIndex: 3, boxShadow: "-1px 0 0 var(--border2)", paddingLeft: 6, paddingRight: 6 } : null),
                         // NOT `position: resizableColumns ? "relative" : …` —
                         // that used to live here to anchor the resize
                         // handle's `position: absolute` below, but inline
@@ -527,7 +532,7 @@ export default function SortableTable({
                             boxShadow: "1px 0 0 var(--border2)",
                           }}
                         >
-                          {orderedColumns.length > 1 && typeof col.label === "string" && (
+                          {orderedColumns.length > 1 && typeof col.label === "string" && !col.stickyRight && (
                             <span className={styles.colDragHandle} aria-hidden="true">
                               <GripIcon size={10} />
                             </span>
@@ -537,7 +542,7 @@ export default function SortableTable({
                         </div>
                       ) : (
                         <>
-                          {orderedColumns.length > 1 && typeof col.label === "string" && (
+                          {orderedColumns.length > 1 && typeof col.label === "string" && !col.stickyRight && (
                             <span className={styles.colDragHandle} aria-hidden="true">
                               <GripIcon size={10} />
                             </span>
@@ -546,7 +551,7 @@ export default function SortableTable({
                           {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                         </>
                       )}
-                      {resizableColumns && (
+                      {resizableColumns && !col.stickyRight && (
                         <span
                           className={styles.colResizeHandle}
                           onMouseDown={(e) => startResize(e, col)}

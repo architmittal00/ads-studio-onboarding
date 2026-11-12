@@ -52,6 +52,9 @@ import ExploreMobileList from "@/components/ExploreMobileList";
 import styles from "@/styles/Home.module.css";
 import { track } from "@/lib/analytics";
 
+// The pinned right-hand actions cell of a child / date row (same look as the main rows' `stickyRight` column).
+const actionsCellStyle = { position: "sticky", right: 0, zIndex: 1, background: "var(--bg)", boxShadow: "-1px 0 0 var(--border2)", textAlign: "center", paddingLeft: 6, paddingRight: 6 };
+
 // Recharts measures its container via ResizeObserver, so it can't be
 // server-rendered — loaded only on this route, only on the client.
 const ExploreChart = dynamic(() => import("@/components/ExploreChart"), { ssr: false });
@@ -3985,14 +3988,16 @@ function ExploreResultsTable({
       ? [
           {
             key: "__actions",
-            label: "Actions",
-            maxWidth: 170,
+            label: "",
+            maxWidth: 48,
             freezeExempt: true,
+            stickyRight: true, // pinned to the right edge: a ⋯ button whose dropdown lists the actions
             // No entity (the pinned Total row, see totalsRow below) means
             // nothing to Pause/Activate/Change Budget.
             render: (row) =>
               row.entityId ? (
                 <RowActions
+                  variant="icon"
                   row={row}
                   level={meta.level}
                   currency={currencyByAccountId.get(row.accountId)}
@@ -4063,8 +4068,9 @@ function ExploreResultsTable({
           }
           if (col.key === "__actions") {
             return (
-              <td key={col.key} style={frozenStyle(col)}>
+              <td key={col.key} style={actionsCellStyle}>
                 <RowActions
+                  variant="icon"
                   row={row}
                   level={level}
                   currency={currencyByAccountId.get(row.accountId)}
@@ -4232,7 +4238,8 @@ function ExploreResultsTable({
     return (
       <tr key={dateRow.date}>
         {childOrderedColumns.map((col) => {
-          if (col.key === "__select" || col.key === "__actions") return <td key={col.key} style={frozenStyle(col)} />;
+          if (col.key === "__actions") return <td key={col.key} style={actionsCellStyle} />;
+          if (col.key === "__select") return <td key={col.key} style={frozenStyle(col)} />;
           if (col.key === "entityLabel" || col.key === "label") {
             return (
               <td key={col.key} style={frozenStyle(col)}>

@@ -92,6 +92,7 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
 
   if (!row.entityId) return null;
   const actions = determineActions(row, level);
+  if (variant === "icon" && actions.length === 0) return null;
 
   function openAction(action) {
     setMenuOpen(false);
@@ -149,6 +150,32 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
     <div style={{ position: "relative", display: "inline-block" }}>
       {variant === "sheet" ? (
         sheetTrigger
+      ) : variant === "icon" ? (
+        // The table's pinned right-hand column: just a ⋯ button, every action (even a single one) in the dropdown.
+        <>
+          <button
+            ref={triggerRef}
+            type="button"
+            className={styles.rowActionIconBtn}
+            aria-label="Actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            title="Actions"
+            onClick={toggleMenu}
+            onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
+          >
+            <MoreIcon size={16} />
+          </button>
+          {menuOpen && menuPos && (
+            <div className={styles.rowActionMenu} role="menu" style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}>
+              {actions.map((action) => (
+                <button key={action.key} type="button" role="menuitem" className={styles.rowActionMenuItem} onMouseDown={() => openAction(action)}>
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       ) : actions.length === 1 ? (
         <ActionTriggerButton action={actions[0]} onClick={() => openAction(actions[0])} />
       ) : (
