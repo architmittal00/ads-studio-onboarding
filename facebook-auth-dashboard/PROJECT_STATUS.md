@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Activity log read in parallel time slices (2026-11-12)
+The 48-hour budget-change read (Recommendations cool-down, Custom Views lean check) and the Recent changes page both walked the account's activity log as one strictly sequential chain of pages. `lib/activityLog.js` `fetchActivities` now splits the window into disjoint slices (24h → 2, 48h → 4, 72h/7d → 6, newest first) fetched at the same time and concatenates them. Same result shape; any failed slice fails the read as before. Slicing logic checked with a stub; the speed-up itself is **not measured** (needs a real account — time `/api/fb/rules/check?stream=1` before/after).
+
 ### Recommendations: results show before the 48-hour cool-down is read (2026-11-12)
 Measured on a real account (40 s total): everything finished by 15 s except the activity-log read (`changes`, pages through every event of the last 48 h) which ended at 40 s and held up the rules step. The full check now **streams a "partial" result** (rules run without the cool-down) as soon as the insights are in, then re-runs the rules when the log arrives and sends the final result (this is the only one cached). While the log is pending: a banner says so, budget Apply buttons (and the bulk budget buttons) wait, Pause suggestions are usable, the creative-pool prefetch already starts. Budget suggestions that turn out to be recently changed move to "Held back" when the final result lands. Custom Views' light check is unchanged (still waits). Everything else in the check already ran in parallel.
 

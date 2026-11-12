@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { graphGet, graphGetAllPages } from "@/lib/facebookGraph";
+import { graphGet } from "@/lib/facebookGraph";
+import { fetchActivities } from "@/lib/activityLog";
 import { chunk } from "@/lib/adCreativeDetails";
 import { normalizeStatus } from "@/lib/statusNormalize";
 import { MAX_IMPACT_CHANGES, impactWindowFor } from "@/lib/recentChangesImpact";
@@ -218,10 +219,10 @@ export default async function handler(req, res) {
     // the cause of a live FUNCTION_INVOCATION_TIMEOUT). 500/page (the same
     // cap used everywhere else list data is paginated in this app, e.g.
     // pages/api/fb/campaigns-list.js) cuts the round-trip count by ~20x.
-    activity = await graphGetAllPages(`/${accountId}/activities`, token, {
-      since: sinceUnix,
-      until: nowUnix,
-      limit: 500,
+    // Read as parallel time slices (lib/activityLog.js) — the paging chain is what made this slow.
+    activity = await fetchActivities(accountId, token, {
+      sinceUnix,
+      untilUnix: nowUnix,
       fields: "actor_name,event_type,event_time,object_id,object_name,object_type,extra_data,translated_event_type",
     });
   } catch (err) {
