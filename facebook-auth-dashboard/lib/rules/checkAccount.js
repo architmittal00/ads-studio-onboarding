@@ -100,7 +100,7 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
     Promise.all([
       graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name,daily_budget,lifetime_budget", filtering: ACTIVE_FILTER, limit: 500 }),
       graphGetAllPages(`/${accountId}/adsets`, token, { fields: `id,name,campaign_id,daily_budget,lifetime_budget,${ADSET_OPTIMIZATION_FIELDS},${ADSET_LEARNING_FIELDS}`, filtering: ACTIVE_FILTER, limit: 500 }),
-      needAds ? graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id", filtering: ACTIVE_FILTER, limit: 500 }) : Promise.resolve({ data: [] }),
+      needAds ? graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id,created_time", filtering: ACTIVE_FILTER, limit: 500 }) : Promise.resolve({ data: [] }),
     ]),
     ([c, a, d]) => `${(c.data || []).length} campaigns · ${(a.data || []).length} ad sets · ${(d.data || []).length} ads`
   );
