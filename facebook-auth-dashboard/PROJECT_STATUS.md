@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: paused/active choice is a pop-up (2026-11-12)
+
+The inline "Launch n ads as…" panel under the list is now a modal like the other confirmations (`BulkDuplicateAdsModal` pattern: scrim, `.card`, close button, Cancel / primary right-aligned): "Launch n ads into <ad set>", the selected ads' names, the Paused | Active toggle (default Paused) with its one-line note, and "Launch as paused/active". Clicking outside or Cancel closes it without creating anything. Lint/build only — not previewed.
+
 ### New creative rules: skip ad sets that got a new ad in the last 24 hours (2026-11-12)
 
 `new-creative-01/02/03` have a fourth gate: no active ad in the ad set was created in the last 24 hours ("New ads added in the last 24 hours ≤ 0", shown in Why like the other checks). No new call: the check's active-ads list now also requests `created_time` (same call, one more field), `engine.js` keeps it as `createdAt` on each ad and sets `ctx.now`. Limits: only **active** ads are in that list, so a new ad that is still paused (our push default) does not count until it is turned on; and the age is the ad's creation time, not the time it was moved or turned on. Rule texts updated. Lint/build only.
