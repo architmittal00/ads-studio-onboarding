@@ -69,7 +69,9 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | `campaign_budget_mode_switched` | `/explore` (campaign details drawer) | campaign switched between campaign budget and ad set budgets | `to` (`adset` / `campaign`) |
 | `recommendation_applied_ad_paused` / `recommendation_applied_budget_increased` / `recommendation_applied_budget_decreased` | `/recommendations`, `/explore` (the "!" quick-action window) | one fires per recommendation that was actually applied (after the write succeeded) | `screen`, `entity_type`, `entity_id`, `rule_id`, `bulk`, `change_pct` (budgets) |
 | `recommendation_bulk_applied` | `/recommendations` | a multi-select apply finished | `action` (`ad_paused` / `budget_increased` / `budget_decreased`), `total`, `applied`, `failed`, `change_pct` |
+| `recommendation_applied_ad_added` | `/recommendations` (ads pushed into an ad set from "Add a creative") | one fires per ad successfully added | `screen`, `entity_type`, `entity_id` (source ad), `creative_id`, `destination_adset_id`, `rule_id`, `score`, `bulk` |
 | `recommendation_ads_pushed` | `/recommendations` | "Add n ads to this ad set" finished (creatives copied in, paused) | `rule_id`, `selected`, `added`, `failed` |
+| `recommendation_applied_ad_paused` (`source: starved_ads`) | `/recommendations` (starved-ads list) | also fires once per starved ad paused, same event as the Pause-ad recommendation | `source`, `entity_id`, `rule_id`, `bulk` |
 | `recommendation_starved_ads_paused` | `/recommendations` | "Pause n ads" in the starved-ads list finished | `rule_id`, `selected`, `paused`, `failed` |
 | `partnership_tab_opened` | `/partnership-ads` | tab switched | `tab` |
 | `partnership_launch_started` | `/partnership-ads` (Code tab), `/partnership-ads/queue` | partnership launch wizard confirmed | — |
@@ -117,6 +119,7 @@ The endpoint lists come from a grep of the code and are a guide, not a guarantee
 
 ## Changelog
 
+- **2026-11-12** — Added `recommendation_applied_ad_added` (per ad pushed into an ad set) and per-ad `recommendation_applied_ad_paused` for the starved-ads list, alongside the existing summary events `recommendation_ads_pushed` / `recommendation_starved_ads_paused`.
 - **2026-11-11** — Added `recommendation_ads_pushed` and `recommendation_starved_ads_paused` (ad-push suggestions on "Add a creative" recommendations); new endpoint `rules/creative-pool` behind the card's reasoning panel.
 - **2026-11-11** — Added `recommendation_applied_ad_paused`, `recommendation_applied_budget_increased`, `recommendation_applied_budget_decreased` (single and bulk applies, from Recommendations and Custom Views) and `recommendation_bulk_applied`.
 - **2026-11-10** — Copy Ads result: "Retry failed ads" button re-calls `/api/fb/copy-ads/copy`; tracked automatically as a `click_copy-ads-copy__retry-failed-ads`-style click event (no new named event).

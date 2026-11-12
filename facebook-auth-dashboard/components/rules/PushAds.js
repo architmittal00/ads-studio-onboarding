@@ -124,6 +124,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
           const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
           if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
           out[c.creativeId] = { ok: true, text: "Added, paused" };
+          // One event per ad added, in the same family as the other recommendation_applied_* events.
+          track("recommendation_applied_ad_added", { screen: window.location.pathname, entity_type: "ad", entity_id: c.sourceAdId, creative_id: c.creativeId, destination_adset_id: adsetId, rule_id: flag.matchedRules?.[0]?.id, score: c.score, bulk: chosen.length > 1 });
         } catch (err) {
           out[c.creativeId] = { ok: false, error: err.message };
         }
@@ -151,6 +153,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     for (const id of ids) out[id] = results.get(id)?.ok ? { ok: true, text: "Paused" } : { ok: false, error: results.get(id)?.error || "Not paused" };
     setDone((d) => ({ ...d, ...out }));
     const paused = Object.values(out).filter((o) => o.ok).length;
+    for (const id of ids) if (out[id].ok) track("recommendation_applied_ad_paused", { screen: window.location.pathname, entity_type: "ad", entity_id: id, rule_id: "new-creative-01", source: "starved_ads", bulk: ids.length > 1 });
     track("recommendation_starved_ads_paused", { screen: window.location.pathname, rule_id: "new-creative-01", selected: ids.length, paused, failed: ids.length - paused });
     if (paused > 0) {
       invalidateCachedGets();
