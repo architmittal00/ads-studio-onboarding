@@ -86,6 +86,14 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: creative type and language in the score (2026-11-12)
+New weights. **No language** (default): landing page 25 · type 20 · ROAS 20 · CTR 5 · CPC 5 · consistency 10 · freshness 10 · evidence 5. **With language** (a candidate that has a language, in an ad set whose ads have a most-spending language): landing 20 · type 15 · ROAS 15 · **language 15** · CTR 5 · CPC 5 · consistency 10 · freshness 10 · evidence 5. A candidate with no language always uses the first set; a different language just gets ~0 of the 15 points (no exclusion).
+- **Language** = the text between `ces…cee` or `les…lee` in the ad name (markers may carry digits; the LAST such pair; trailing digits dropped; must be a single word ≤ 20 letters). Any word counts — a creator name sitting in the last pair (e.g. `ces_midhun_cee` when it's the only pair) would be read as a language. Ad set language = the one with the most 14-day spend across its ads' names, falling back to the ad set's own name.
+- **Creative type** (one label): Partnership (branded-content flag) > Catalog (product set) > Carousel (several cards / CAROUSEL format) > Video > Image. Promotes the types the ad set already spends on.
+- Type, language and landing page all use "share of the ad set's 14-day spend relative to its top one, **cubed**".
+- New `POST /api/fb/ad-creative-info` returns name / landing / kind / thumbnail for the ad set's own ads (replaces the two small calls); `fetchAdDetails` now also returns `name` and `kind`. The "Why push this?" table has Creative type and Language rows; the header line says what the ad set mostly spends on.
+- Checked with a stub (names from the examples parse to tamil / tamil / malayalam / malayalam; scoring orders as intended). Not run on real data.
+
 ### Activity log read in parallel time slices (2026-11-12)
 The 48-hour budget-change read (Recommendations cool-down, Custom Views lean check) and the Recent changes page both walked the account's activity log as one strictly sequential chain of pages. `lib/activityLog.js` `fetchActivities` now splits the window into disjoint slices (24h → 2, 48h → 4, 72h/7d → 6, newest first) fetched at the same time and concatenates them. Same result shape; any failed slice fails the read as before. Slicing logic checked with a stub; the speed-up itself is **not measured** (needs a real account — time `/api/fb/rules/check?stream=1` before/after).
 

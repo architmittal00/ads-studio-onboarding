@@ -150,7 +150,7 @@ export default async function handler(req, res) {
     const ads = light.map((a) => {
       if (!sourceSet.has(a.id)) return a;
       const d = details[a.id] || {};
-      return { ...a, landing: d.landingUrl || (d.postId ? postUrls[d.postId] : null) || null, thumbnailUrl: d.thumbnailUrl || null, format: d.creativeType || null };
+      return { ...a, landing: d.landingUrl || (d.postId ? postUrls[d.postId] : null) || null, thumbnailUrl: d.thumbnailUrl || null, format: d.creativeType || null, kind: d.kind || null };
     });
 
     res.setHeader("Cache-Control", "private, max-age=300");
