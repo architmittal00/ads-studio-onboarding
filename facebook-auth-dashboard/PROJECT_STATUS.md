@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: choose paused or active before launching (2026-11-12)
+
+"Add n ads to this ad set" now opens an inline confirmation ("Launch n ads as… Paused | Active", default Paused, with a one-line note on what each means) and only creates the ads after "Launch as paused/active". `/api/fb/duplicate-ad` already took `status` (anything but ACTIVE = paused), so no server change. `recommendation_applied_ad_added` and `recommendation_ads_pushed` carry `status`. Lint/build only — not previewed.
+
 ### Push-ads: "Slight edge" instead of "Weak" for metrics that beat the account (2026-11-12)
 
 A CTR 8% above the account showed a red "Weak" because the label came from the share of points earned (full CTR/CPC marks need +30%, ROAS +50%), not from the comparison with the account. A factor that earns under 30% of its points but still beats the account (ROAS, CTR, CPC) is now "Slight edge" (blue badge, own line in the verdict); "Weak" is kept for ones at or below the account and for non-comparative factors. Scores are unchanged. Lint/build only.

@@ -71,6 +71,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   const [whyOpen, setWhyOpen] = useState(() => new Set());
   // Both lists start folded so the card stays readable; the header says what's inside.
   const [tab, setTab] = useState("push");
+  const [confirming, setConfirming] = useState(false); // asking paused or active before adding
+  const [launchAs, setLaunchAs] = useState("PAUSED");
 
   const load = useCallback(
     (force = false) => {
@@ -124,7 +126,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
       return next;
     });
 
-  async function pushPicked() {
+  async function pushPicked(status) {
+    setConfirming(false);
     const chosen = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok);
     if (chosen.length === 0) return;
     setBusy("push");
@@ -137,13 +140,13 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
           const res = await fetch("/api/fb/duplicate-ad", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ accountId, sourceAdId: c.sourceAdId, destinationAdsetId: adsetId }),
+            body: JSON.stringify({ accountId, sourceAdId: c.sourceAdId, destinationAdsetId: adsetId, status }),
           });
           const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
           if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
-          out[c.creativeId] = { ok: true, text: "Added, paused" };
+          out[c.creativeId] = { ok: true, text: status === "ACTIVE" ? "Added, active" : "Added, paused" };
           // One event per ad added, in the same family as the other recommendation_applied_* events.
-          track("recommendation_applied_ad_added", { screen: window.location.pathname, entity_type: "ad", entity_id: c.sourceAdId, creative_id: c.creativeId, destination_adset_id: adsetId, rule_id: flag.matchedRules?.[0]?.id, score: c.score, bulk: chosen.length > 1 });
+          track("recommendation_applied_ad_added", { screen: window.location.pathname, entity_type: "ad", entity_id: c.sourceAdId, creative_id: c.creativeId, destination_adset_id: adsetId, rule_id: flag.matchedRules?.[0]?.id, score: c.score, status, bulk: chosen.length > 1 });
         } catch (err) {
           out[c.creativeId] = { ok: false, error: err.message };
         }
@@ -152,7 +155,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, chosen.length) }, worker));
     const added = Object.values(out).filter((o) => o.ok).length;
-    track("recommendation_ads_pushed", { screen: window.location.pathname, rule_id: flag.matchedRules?.[0]?.id, selected: chosen.length, added, failed: chosen.length - added });
+    track("recommendation_ads_pushed", { screen: window.location.pathname, rule_id: flag.matchedRules?.[0]?.id, selected: chosen.length, added, failed: chosen.length - added, status });
     if (added > 0) {
       invalidateCachedGets();
       clearRuleCaches(accountId);
@@ -387,12 +390,41 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
         )}
         {ranked.candidates.length > 0 && (
           <div className={styles.pushFoot}>
-            <button type="button" className={styles.btnPrimary} disabled={pushPending === 0 || !!busy} onClick={pushPicked}>
-              {busy === "push" ? "Adding…" : pushPending ? `Add ${pushPending} ad${pushPending === 1 ? "" : "s"} to this ad set` : "Select ads to add"}
-            </button>
-            <span className={styles.muted} style={{ fontWeight: 400 }}>
-              Added as paused copies that reuse the same creative — review them in Ads Manager before turning them on.
-            </span>
+            {confirming && pushPending > 0 ? (
+              <div className={styles.pushConfirm}>
+                <strong>
+                  Launch {pushPending} ad{pushPending === 1 ? "" : "s"} as…
+                </strong>
+                <div className={styles.tabGroup} role="radiogroup" aria-label="Launch as">
+                  <button type="button" role="radio" aria-checked={launchAs === "PAUSED"} className={`${styles.tab} ${launchAs === "PAUSED" ? styles.tabActive : ""}`} onClick={() => setLaunchAs("PAUSED")}>
+                    Paused
+                  </button>
+                  <button type="button" role="radio" aria-checked={launchAs === "ACTIVE"} className={`${styles.tab} ${launchAs === "ACTIVE" ? styles.tabActive : ""}`} onClick={() => setLaunchAs("ACTIVE")}>
+                    Active
+                  </button>
+                </div>
+                <span className={styles.muted} style={{ fontWeight: 400 }}>
+                  {launchAs === "ACTIVE" ? "Active ads start spending right away." : "Paused copies don't spend until you turn them on in Ads Manager."}
+                </span>
+                <div className={styles.pushConfirmActions}>
+                  <button type="button" className={styles.btnPrimary} onClick={() => pushPicked(launchAs)}>
+                    Launch as {launchAs === "ACTIVE" ? "active" : "paused"}
+                  </button>
+                  <button type="button" className={styles.btnSecondary} onClick={() => setConfirming(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button type="button" className={styles.btnPrimary} disabled={pushPending === 0 || !!busy} onClick={() => setConfirming(true)}>
+                  {busy === "push" ? "Adding…" : pushPending ? `Add ${pushPending} ad${pushPending === 1 ? "" : "s"} to this ad set` : "Select ads to add"}
+                </button>
+                <span className={styles.muted} style={{ fontWeight: 400 }}>
+                  Each one reuses the same creative; you choose paused or active before anything is created.
+                </span>
+              </>
+            )}
           </div>
         )}
         </>
