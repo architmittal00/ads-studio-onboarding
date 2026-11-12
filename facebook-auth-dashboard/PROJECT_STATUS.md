@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Landing page: URL list beats the creative's button link (2026-11-12)
+Checked on a real ad (id 120251260212850425, "Day&Night Combo"): Explore showed `/collections/hair-color` while View details showed `/products/day-night-cream-duo`. The ad has both a creative-level call-to-action link (hair-color) and a dynamic-creative URL list (the product page, matching the ad's name). After the previous fix both screens agreed — on the wrong one. Priority in `deriveLanding` is now: ad link → video button → **URL list first entry** → creative-level button (last resort, for boosted video posts with nothing else). Applies to Explore, View details and push-ads scoring alike.
+
 ### Landing page: one resolution everywhere (2026-11-12)
 Explore's Landing Page metric, the ad's View details link and the push-ads scoring could show different links for the same ad. Verified cause in code: View details read the ad with the *edit* field list, which has no creative-level `call_to_action` (where many ads keep their destination), and had no Page-post fallback — Explore had both. Now `lib/adCreativeDetails.js` exports `deriveLanding` / `LANDING_CREATIVE_FIELDS` (link → video CTA → creative CTA → first dynamic-creative URL), `fetchAdCopyDetails` requests the missing field and uses the same post fallback, and View details says where the link came from ("Taken from the creative's call-to-action button"). Push-ads scoring uses the Explore resolver, so it now matches too. **Not confirmed on the reporter's ad** — if a mismatch remains, send the ad id plus both URLs.
 

@@ -54,8 +54,12 @@ export function deriveLanding(creative) {
   const candidates = [
     [creative.object_story_spec?.link_data?.link, "the ad's link"],
     [creative.object_story_spec?.video_data?.call_to_action?.value?.link, "the video's call-to-action button"],
-    [creative.call_to_action?.value?.link, "the creative's call-to-action button"],
+    // The ad's own list of destinations beats the creative-level button link: an ad that has a URL list (dynamic /
+    // Advantage+ creative) delivers to it, and the leftover button link can point at an older page (found on an ad
+    // whose list said /products/day-night-cream-duo while the button still said /collections/hair-color).
     [creative.asset_feed_spec?.link_urls?.[0]?.website_url, "the first URL of its dynamic creative list"],
+    // Last resort: ads with no link_data, video button or URL list (boosted video posts) keep it here.
+    [creative.call_to_action?.value?.link, "the creative's call-to-action button"],
   ];
   const hit = candidates.find(([url]) => url);
   return hit ? { url: hit[0], source: hit[1] } : { url: null, source: null };
