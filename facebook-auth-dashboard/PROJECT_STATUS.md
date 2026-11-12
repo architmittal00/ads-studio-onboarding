@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: the 48-hour budget-change read can no longer hang the page (2026-11-12)
+
+"Still reading budget changes from the last 48 hours…" went on for minutes. Timed on the live site (big account, 266 ads): the early result arrived at 21 s, but the 48-hour activity-log read only ended at **110 s, with "couldn't be read — skipped"** — i.e. it was failing, so the cool-down never worked there, and the wait sat just under the 120 s function limit (past which the page retried the whole check). Now `fetchRecentBudgetChanges` (a) asks Meta for `category=BUDGET` events only (falls back to the full log if Meta rejects the filter) and (b) gives up after 40 s, treated as "couldn't be read" (the existing notice shows and nothing is held back). `fetchActivities` takes an optional `category`; Recent changes still reads the full log. To confirm after deploy: the check's final result time and the "N budget edits found" detail.
+
 ### Push-ads: a failed creative lookup no longer crashes Recommendations (2026-11-12)
 
 After the background-prefetch change, a `creative-pool` response with an error body (one 400 was seen on the live site; it did not reproduce on three later runs, so the exact Meta message is unknown) was cached as if it were the pool, and the next card read `.ads.filter` on it in a `useState` initializer → "Application error: a client-side exception". `loadCreativePool` / `loadAdsetExtras` now use `readApiResponse` (a failed response throws with the server's own message, the failure is not cached and the card shows it with "Try again"), the lookup retries once after 2 seconds, and `peekCreativePool` only returns a value that has an `ads` array. Measured on a real account: the lookup takes about 30–35 s (735 ads).
