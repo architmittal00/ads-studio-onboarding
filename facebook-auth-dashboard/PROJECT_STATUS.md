@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: "7-day share, at least __ %" filter on the Pause section (2026-11-12)
+
+A number box in the board's toolbar (next to Sort): "Pause · ad's 7-day share of its ad set, at least __ %". It keeps only Pause cards whose ad takes at least that share of its ad set's 7-day spend (`flag.adContext.spendShare[7]`, the same figure the "Push new ads" button shows; an ad with no figure is hidden while the box is filled). Other sections are untouched. The section title shows "· 5 of 17", "Select all" covers only the visible cards, ads ticked and then hidden by the filter are un-ticked so a bulk pause can't include them, and an empty result says so. (The earlier "at most" box lives on the Pause ads tab inside an Add a creative card — a different list.) Lint/build only.
+
 ### Recommendations: the 48-hour budget-change read can no longer hang the page (2026-11-12)
 
 "Still reading budget changes from the last 48 hours…" went on for minutes. Timed on the live site (big account, 266 ads): the early result arrived at 21 s, but the 48-hour activity-log read only ended at **110 s, with "couldn't be read — skipped"** — i.e. it was failing, so the cool-down never worked there, and the wait sat just under the 120 s function limit (past which the page retried the whole check). Now `fetchRecentBudgetChanges` (a) asks Meta for `category=BUDGET` events only (falls back to the full log if Meta rejects the filter) and (b) gives up after 40 s, treated as "couldn't be read" (the existing notice shows and nothing is held back). `fetchActivities` takes an optional `category`; Recent changes still reads the full log. To confirm after deploy: the check's final result time and the "N budget edits found" detail.

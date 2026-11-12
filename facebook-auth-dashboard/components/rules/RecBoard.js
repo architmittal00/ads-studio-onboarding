@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Thumb from "@/components/Thumb";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
 import { WhyChecks } from "@/components/rules/FlagWhy";
@@ -288,6 +288,11 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState("spend7");
   const [expanded, setExpanded] = useState({}); // action -> shown beyond the first page
+  // Pause section only: keep ads that take at least this % of their ad set's 7-day spend (empty = no filter).
+  const [minShare, setMinShare] = useState("");
+  const minShareCap = minShare.trim() === "" || !Number.isFinite(Number(minShare)) ? null : Number(minShare);
+  const shareOf = (f) => f.adContext?.spendShare?.[7] ?? null;
+  const passesShare = (f) => minShareCap == null || f.action !== "PAUSE_AD" || (shareOf(f) != null && shareOf(f) >= minShareCap);
   const bench = { roas: baseline?.roas ?? null, cpp: baseline?.cpr ?? null };
   const sort = SORTS.find((s) => s.key === sortKey);
   // Ads a Pause rule flagged: their creatives are never suggested for pushing into another ad set.
@@ -298,9 +303,18 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
     const match = (f) => !q || `${f.name} ${f.campaignName || ""} ${f.adsetName || ""} ${f.matchedRules.map((m) => m.name).join(" ")}`.toLowerCase().includes(q);
     return SECTIONS.filter((s) => filter === "all" || filter === s.action).map((s) => ({
       section: s,
-      items: flags.filter((f) => f.action === s.action && match(f)).sort((a, b) => sort.get(b) - sort.get(a)),
+      items: flags.filter((f) => f.action === s.action && match(f) && passesShare(f)).sort((a, b) => sort.get(b) - sort.get(a)),
     }));
-  }, [flags, filter, query, sort]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- passesShare only reads minShareCap
+  }, [flags, filter, query, sort, minShareCap]);
+
+  // A ticked ad the share filter now hides must not be paused by a bulk action.
+  useEffect(() => {
+    if (minShareCap == null) return;
+    const hidden = flags.filter((f) => !passesShare(f)).map((f) => f.key);
+    if (hidden.length > 0) onToggleAll(hidden, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the filter value changes
+  }, [minShareCap]);
 
   return (
     <div className={styles.recBoard}>
@@ -316,8 +330,18 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
             ))}
           </select>
         </label>
+        <label className={styles.recSort}>
+          <span className={styles.recMetricLabel}>Pause · ad&apos;s 7-day share of its ad set, at least</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input className={styles.select} type="number" min="0" max="100" step="any" inputMode="decimal" placeholder="e.g. 40" value={minShare} onChange={(e) => setMinShare(e.target.value)} style={{ width: 84 }} />
+            <span className={styles.sub}>%</span>
+          </span>
+        </label>
       </div>
-      {grouped.every((g) => g.items.length === 0) && <p className={styles.sub}>Nothing matches.</p>}
+      {minShareCap != null && grouped.some((g) => g.section.action === "PAUSE_AD") && grouped.find((g) => g.section.action === "PAUSE_AD").items.length === 0 && flags.some((f) => f.action === "PAUSE_AD") && (
+        <p className={styles.sub}>No pause suggestion is for an ad taking {minShareCap}% or more of its ad set&apos;s 7-day spend — lower the number to see more.</p>
+      )}
+      {grouped.every((g) => g.items.length === 0) && minShareCap == null && <p className={styles.sub}>Nothing matches.</p>}
       {grouped.map(({ section, items }) => {
         if (items.length === 0) return null;
         const limit = expanded[section.action] ? items.length : INITIAL_PER_SECTION;
@@ -328,7 +352,11 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
             <header className={styles.recSectionHead}>
               <span className={styles.recDot} style={{ background: section.color }} />
               <h2 className={styles.h2} style={{ margin: 0 }}>
-                {section.title} <span className={styles.muted}>· {items.length}</span>
+                {section.title}{" "}
+                <span className={styles.muted}>
+                  · {items.length}
+                  {section.action === "PAUSE_AD" && minShareCap != null ? ` of ${flags.filter((f) => f.action === "PAUSE_AD").length}` : ""}
+                </span>
               </h2>
               <span className={styles.recBlurb}>{section.blurb}</span>
               {selectable.length > 0 && (
