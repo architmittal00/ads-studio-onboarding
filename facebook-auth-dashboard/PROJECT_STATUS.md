@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: data is warmed in the background (2026-11-12)
+
+"Finding proven creatives…" showed because the pool only started once the check finished, and each ad set's own-ads lookup only when its card was opened. Now the creative pool starts as soon as the Recommendations page knows the account and time zone (in parallel with the check), and once the check shows which ad sets have an "Add a creative" card, each one's own-ads lookup (`prefetchPushData`) is warmed too. `PushAds` reads already-arrived data synchronously (`peekCreativePool` / `peekAdsetExtras`), so a card opened after that renders with no loader. Cost: the pool's ad-level insights jobs now run on every desktop visit to Recommendations, even for accounts with no such card (cached 30 min per account). Lint/build only — not timed on a real account.
+
 ### Push-ads: Push ads / Pause ads are tabs (2026-11-12)
 
 The two fold headers are replaced by the app's `.tabGroup` / `.tab` segmented control: "Push ads · n" (default) and "Pause ads · n", side by side. Only one list shows at a time; the tab bar is hidden when there is nothing to pause. Fold state and the `.pushToggle*` styles are gone. Lint/build only — not previewed.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import Thumb from "@/components/Thumb";
-import { loadCreativePool, clearCreativePool, loadAdsetExtras } from "@/lib/rules/creativePool";
+import { loadCreativePool, clearCreativePool, loadAdsetExtras, peekCreativePool, peekAdsetExtras } from "@/lib/rules/creativePool";
 import { rankPushCandidates, starvedAds, MAX_PUSH_OPTIONS, MIN_SCORE } from "@/lib/rules/pushRank";
 import { pauseInBatches } from "@/lib/batchPause";
 import { parseJsonResponse } from "@/lib/fetchJson";
@@ -58,13 +58,16 @@ function StatsRow({ stats, symbol }) {
 }
 
 export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOpenThumb }) {
-  const [pool, setPool] = useState(null);
+  const [pool, setPool] = useState(() => peekCreativePool(accountId));
   const [error, setError] = useState(null);
   const [pickedPush, setPickedPush] = useState(() => new Set());
   const [pickedPause, setPickedPause] = useState(() => new Set());
   const [busy, setBusy] = useState(null); // "push" | "pause"
   const [done, setDone] = useState({}); // creativeId / adId -> { ok, text?, error? }
-  const [extras, setExtras] = useState(null); // this ad set's own ads: landing pages + thumbnails
+  const [extras, setExtras] = useState(() => {
+    const p = peekCreativePool(accountId);
+    return p ? peekAdsetExtras(p.ads.filter((a) => a.adsetId === flag.entityId).map((a) => a.id)) : null;
+  }); // this ad set's own ads: landing pages + thumbnails
   const [whyOpen, setWhyOpen] = useState(() => new Set());
   // Both lists start folded so the card stays readable; the header says what's inside.
   const [tab, setTab] = useState("push");
