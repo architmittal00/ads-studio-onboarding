@@ -57,6 +57,9 @@ export default async function handler(req, res) {
       ).then((r) => r.data || []);
     };
 
+    // Which creative has spent in which ad set over the last 30 days (a push must never repeat one that did).
+    const spent30P = insightsFor(30).then((rows) => rows.filter((r) => r.ad_id && r.adset_id && parseFloat(r.spend) > 0).map((r) => [r.ad_id, r.adset_id]));
+
     const activeAdsP = graphGetAllPages(`/${accountId}/ads`, token, { fields: "id,name,adset_id,campaign_id,created_time", filtering: ACTIVE_FILTER, limit: 500 });
     const activeAdsetsP = graphGetAllPages(`/${accountId}/adsets`, token, { fields: `id,name,campaign_id,${ADSET_OPTIMIZATION_FIELDS}`, filtering: ACTIVE_FILTER, limit: 500 });
     const activeCampaignsP = graphGetAllPages(`/${accountId}/campaigns`, token, { fields: "id,name", filtering: ACTIVE_FILTER, limit: 500 });
@@ -66,7 +69,7 @@ export default async function handler(req, res) {
       return fetchCreativeIds((ads.data || []).filter((a) => eligibleSets.has(a.adset_id)).map((a) => a.id), token);
     });
 
-    const [activeAds, activeAdsets, activeCampaigns, activeCreatives, ...windowRows] = await Promise.all([activeAdsP, activeAdsetsP, activeCampaignsP, activeCreativesP, ...POOL_WINDOWS.map(insightsFor)]);
+    const [activeAds, activeAdsets, activeCampaigns, activeCreatives, spent30, ...windowRows] = await Promise.all([activeAdsP, activeAdsetsP, activeCampaignsP, activeCreativesP, spent30P, ...POOL_WINDOWS.map(insightsFor)]);
     const rowsByWindow = Object.fromEntries(POOL_WINDOWS.map((w, i) => [w, windowRows[i]]));
 
     // Account totals (the benchmark every creative is compared with), summed from the same rows.
@@ -112,8 +115,18 @@ export default async function handler(req, res) {
 
     // Creative ids: the active ones are already here; only ads that have since been paused still need one.
     const creativeOf = new Map(activeCreatives);
-    const pausedFetched = await fetchCreativeIds(ids.filter((id) => !creativeOf.has(id)), token);
+    // Ads that spent only in days 15–30 (in a currently active ad set) need one too, for the 30-day "already in this ad set" check.
+    const liveSets = new Set((activeAdsets.data || []).map((a) => a.id));
+    const spent30Live = spent30.filter(([, setId]) => liveSets.has(setId));
+    const wanted = [...new Set([...ids, ...spent30Live.map(([adId]) => adId)])].filter((id) => !creativeOf.has(id));
+    const pausedFetched = await fetchCreativeIds(wanted, token);
     for (const [id, c] of pausedFetched) creativeOf.set(id, c);
+    const adsetCreatives30 = {};
+    for (const [adId, setId] of spent30Live) {
+      const c = creativeOf.get(adId);
+      if (c) (adsetCreatives30[setId] ||= new Set()).add(c);
+    }
+    for (const k of Object.keys(adsetCreatives30)) adsetCreatives30[k] = [...adsetCreatives30[k]];
 
     const campaignName = new Map((activeCampaigns.data || []).map((c) => [c.id, c.name]));
     const light = ids.map((id) => {
@@ -154,7 +167,7 @@ export default async function handler(req, res) {
     });
 
     res.setHeader("Cache-Control", "private, max-age=300");
-    res.status(200).json({ generatedAt: Date.now(), accountId, baseline, ads });
+    res.status(200).json({ generatedAt: Date.now(), accountId, baseline, adsetCreatives30, ads });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message || "Request failed" });
   }

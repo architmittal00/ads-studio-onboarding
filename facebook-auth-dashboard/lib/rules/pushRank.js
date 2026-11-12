@@ -8,7 +8,7 @@ import { derive, emptyAgg } from "./metrics";
 // ROAS / link CTR / link CPC are worked out from the pooled totals — not averaged per ad. Only ads from
 // purchase-optimized ad sets are in the pool. Everything is compared over the last 14 days (3 and 7 days for trend).
 //
-// A creative qualifies when it has at least 10 purchases in the last 14 days and beats the account's 14-day ROAS; it is skipped when it already runs in the target ad set, no ad using it is
+// A creative qualifies when it has at least 10 purchases in the last 14 days and beats the account's 14-day ROAS; it is skipped when it already runs in the target ad set (or spent there in the last 30 days), no ad using it is
 // active, or one of its ads is flagged by a Pause rule. Qualifiers are scored 0–100 and only those scoring
 // MIN_SCORE (60) or more are shown:
 //   without a language (WEIGHTS):      landing page 25 · type 20 · ROAS 20 · CTR 5 · CPC 5 · consistency 10 · freshness 10 · evidence 5
@@ -150,7 +150,8 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
   if (!b14) return { candidates: [], qualified: 0, mainLanding: null };
   const creatives = groupCreatives(pool.ads);
   const adsetAds = pool.ads.filter((a) => a.adsetId === adsetId);
-  const inAdset = new Set(adsetAds.map((a) => a.creativeId).filter(Boolean));
+  // Already in the ad set: any ad using it, whatever its status, or any that spent in the last 30 days (pool.adsetCreatives30).
+  const inAdset = new Set([...adsetAds.map((a) => a.creativeId).filter(Boolean), ...(pool.adsetCreatives30?.[adsetId] || [])]);
   const landing = spendBy(adsetAds, (a) => normalizeLandingUrl(a.landing));
   const types = spendBy(adsetAds, (a) => a.kind || null);
   let langs = spendBy(adsetAds, (a) => languageFromName(a.name));

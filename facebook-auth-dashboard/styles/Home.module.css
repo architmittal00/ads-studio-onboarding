@@ -3288,24 +3288,39 @@ button.stat:hover {
 .pushToggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 6px 0;
-  border: 0;
-  background: none;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
   text-align: left;
   cursor: pointer;
   font: inherit;
-}
-.pushToggle:hover .pushChevron {
   color: var(--t1);
+  transition: background 0.15s, border-color 0.15s;
+}
+.pushToggle:hover {
+  background: var(--card2);
+  border-color: var(--border2);
+}
+.pushToggle:focus-visible {
+  outline: none;
+  border-color: var(--purple);
 }
 .pushChevron {
-  width: 14px;
-  font-size: 12px;
-  color: var(--t3);
+  display: inline-flex;
+  flex: none;
+  color: var(--t2);
+}
+.pushToggleTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t1);
 }
 .pushToggleHint {
+  margin-left: auto;
   font-size: 12px;
   color: var(--t3);
+  text-align: right;
 }
