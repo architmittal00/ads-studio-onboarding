@@ -326,6 +326,7 @@ export function starvedAds({ pool, adsetId }) {
   const creatives = groupCreatives(pool.ads);
   const own = pool.ads.filter((a) => a.adsetId === adsetId && a.status === "ACTIVE").sort((a, b) => (a.m?.[3]?.spend || 0) - (b.m?.[3]?.spend || 0));
   const total3 = own.reduce((t, a) => t + (a.m?.[3]?.spend || 0), 0);
+  const total7 = own.reduce((t, a) => t + (a.m?.[7]?.spend || 0), 0);
   const rows = own.slice(0, Math.floor(own.length / 2)).map((a) => {
     const s14 = creatives.get(a.creativeId)?.stats[14] || statsOf([a])[14];
     const beats = s14.roas != null && b14?.roas != null && s14.roas > b14.roas && s14.purchases >= 5;
@@ -335,6 +336,7 @@ export function starvedAds({ pool, adsetId }) {
       thumbnailUrl: a.thumbnailUrl || null,
       format: a.format || null,
       spendShare3: total3 > 0 ? ((a.m?.[3]?.spend || 0) / total3) * 100 : null,
+      spendShare7: total7 > 0 ? ((a.m?.[7]?.spend || 0) / total7) * 100 : null, // share of the ad set's active ads' 7-day spend
       stats: {
         purchases: s14.purchases,
         roas: s14.roas,

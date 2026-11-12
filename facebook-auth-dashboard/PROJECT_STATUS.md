@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: 7-day spend share filter on the Pause tab (2026-11-12)
+
+The Pause tab has a number box, "Only ads with a 7-day spend share of at most __ % of this ad set". Share = the ad's 7-day spend ÷ the 7-day spend of the ad set's active ads (`spendShare7` from `starvedAds`; no spend counts as 0%). Empty box = no filter; filtering narrows the existing list (the lowest-spending half over 3 days), it does not add ads from outside it; the count shows "Showing n of m"; each row also says "x% over 7 days"; "Pause n ads" only acts on ticked ads still visible. Lint/build only.
+
 ### Push-ads: paused/active choice is a pop-up (2026-11-12)
 
 The inline "Launch n ads as…" panel under the list is now a modal like the other confirmations (`BulkDuplicateAdsModal` pattern: scrim, `.card`, close button, Cancel / primary right-aligned): "Launch n ads into <ad set>", the selected ads' names, the Paused | Active toggle (default Paused) with its one-line note, and "Launch as paused/active". Clicking outside or Cancel closes it without creating anything. Lint/build only — not previewed.
