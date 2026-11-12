@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Pause cards for a dominant ad also offer new ads to push (2026-11-12)
+
+On a Pause card whose ad takes **more than 40%** of its ad set's 7-day spend (`flag.adContext.spendShare[7]`, `DOMINANT_SHARE` in `RecBoard.js`; only existing pause rules, no new rule), the action column shows two buttons — "Pause ad" and "Push new ads" (plus "x% of its ad set's 7-day spend") — and the card's detail has the same ranked push list as "Add a creative" (`PushAds` now takes `adsetId`/`adsetName`/`source="pause_card"`, so the scoring, paused/active pop-up and duplicate-ad calls are shared). Other cards are unchanged. Pushing from a pause card hides that ad set's "Add a creative" card for the rest of that read (`hiddenAdsets` in `pages/recommendations.js`; cleared on the next fresh check, where the 24-hour new-ad gate takes over for ads launched active — ads launched paused are not covered by that gate). After any push the list shows a green "n new ads just pushed into <ad set>" block with each ad's thumbnail, name and Paused/Active badge. The events carry `source`. Lint/build only — not checked on a real account.
+
 ### Push-ads: 7-day spend share filter on the Pause tab (2026-11-12)
 
 The Pause tab has a number box, "Only ads with a 7-day spend share of at most __ % of this ad set". Share = the ad's 7-day spend ÷ the 7-day spend of the ad set's active ads (`spendShare7` from `starvedAds`; no spend counts as 0%). Empty box = no filter; filtering narrows the existing list (the lowest-spending half over 3 days), it does not add ads from outside it; the count shows "Showing n of m"; each row also says "x% over 7 days"; "Pause n ads" only acts on ticked ads still visible. Lint/build only.

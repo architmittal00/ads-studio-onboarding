@@ -115,11 +115,16 @@ function Context({ flag, symbol }) {
   );
 }
 
-function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds, holdBudget }) {
+// A pause suggestion for an ad that takes more than this share of its ad set's 7-day spend also offers new ads to push.
+export const DOMINANT_SHARE = 40;
+
+function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds, holdBudget, onAdsPushed }) {
   const [open, setOpen] = useState(false);
   const where = [flag.campaignName, flag.adsetName].filter(Boolean).join("  ›  ");
   const t = flag.budgetTarget;
   const actionable = isActionable(flag) && !applied;
+  const share7 = flag.action === "PAUSE_AD" && flag.entityType === "ad" && flag.adsetId ? flag.adContext?.spendShare?.[7] ?? null : null;
+  const dominant = share7 != null && share7 > DOMINANT_SHARE;
   const waiting = holdBudget && !!flag.budgetTarget; // budget change: wait for the 48-hour cool-down read
   const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
   return (
@@ -177,6 +182,12 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
               >
                 {t ? `${section.verb} ${STEP_PCT}%` : section.verb}
               </button>
+              {dominant && (
+                <button type="button" onClick={() => setOpen(true)} className={styles.recActBtn} style={{ color: "var(--blue)", background: "rgba(var(--blue-rgb), 0.12)", border: "1px solid rgba(var(--blue-rgb), 0.35)" }}>
+                  Push new ads
+                </button>
+              )}
+              {dominant && <span className={styles.recActSub}>{share7.toFixed(0)}% of its ad set&apos;s 7-day spend</span>}
               {t && (
                 <span className={styles.recActSub}>
                   {money(t.current, symbol)} → <strong>{money(next, symbol)}</strong>
@@ -197,7 +208,15 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
           <Context flag={flag} symbol={symbol} />
           {flag.action === "ADD_CREATIVE" && flag.entityType === "adset" && accountId && (
             <div className={styles.pushWrap}>
-              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} />
+              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} onPushed={onAdsPushed} />
+            </div>
+          )}
+          {dominant && accountId && (
+            <div className={styles.pushWrap}>
+              <div className={styles.recContextTitle}>
+                Push new ads into {flag.adsetName || "its ad set"} · this ad takes {share7.toFixed(0)}% of its 7-day spend
+              </div>
+              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} adsetId={flag.adsetId} adsetName={flag.adsetName} source="pause_card" onPushed={onAdsPushed} />
             </div>
           )}
         </div>
@@ -265,7 +284,7 @@ export function RecSummary({ result, counts, flags, filter, setFilter, checkedTe
   );
 }
 
-export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb, accountId, tz, holdBudget }) {
+export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb, accountId, tz, holdBudget, onAdsPushed }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState("spend7");
   const [expanded, setExpanded] = useState({}); // action -> shown beyond the first page
@@ -337,6 +356,7 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
                   tz={tz}
                   pausedAdIds={pausedAdIds}
                   holdBudget={holdBudget}
+                  onAdsPushed={onAdsPushed}
                 />
               ))}
             </div>

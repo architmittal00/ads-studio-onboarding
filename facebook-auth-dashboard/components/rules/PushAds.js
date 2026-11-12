@@ -58,7 +58,8 @@ function StatsRow({ stats, symbol }) {
   );
 }
 
-export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOpenThumb }) {
+// `adsetId` / `adsetName` / `source` let the same list serve a pause card (where `flag` is an ad, not the ad set).
+export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOpenThumb, adsetId: adsetIdProp, adsetName, source = "add_creative", onPushed }) {
   const [pool, setPool] = useState(() => peekCreativePool(accountId));
   const [error, setError] = useState(null);
   const [pickedPush, setPickedPush] = useState(() => new Set());
@@ -67,12 +68,13 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   const [done, setDone] = useState({}); // creativeId / adId -> { ok, text?, error? }
   const [extras, setExtras] = useState(() => {
     const p = peekCreativePool(accountId);
-    return p ? peekAdsetExtras(p.ads.filter((a) => a.adsetId === flag.entityId).map((a) => a.id)) : null;
+    return p ? peekAdsetExtras(p.ads.filter((a) => a.adsetId === (adsetIdProp || flag.entityId)).map((a) => a.id)) : null;
   }); // this ad set's own ads: landing pages + thumbnails
   const [whyOpen, setWhyOpen] = useState(() => new Set());
   // Both lists start folded so the card stays readable; the header says what's inside.
   const [tab, setTab] = useState("push");
   const [maxShare7, setMaxShare7] = useState(""); // Pause tab filter: only ads at or below this 7-day spend share (%)
+  const [pushedNow, setPushedNow] = useState([]); // ads created from this list, newest first
   const [confirming, setConfirming] = useState(false); // asking paused or active before adding
   const [launchAs, setLaunchAs] = useState("PAUSED");
 
@@ -90,7 +92,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     load();
   }, [load]);
 
-  const adsetId = flag.entityId;
+  const adsetId = adsetIdProp || flag.entityId;
   // The ad set's own ads need their landing pages to learn which page it spends on.
   useEffect(() => {
     if (!pool) return;
@@ -135,6 +137,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     setBusy("push");
     let next = 0;
     const out = {};
+    const created = [];
     async function worker() {
       while (next < chosen.length) {
         const c = chosen[next++];
@@ -147,8 +150,9 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
           const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
           if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
           out[c.creativeId] = { ok: true, text: status === "ACTIVE" ? "Added, active" : "Added, paused" };
+          created.push({ id: json.id || c.sourceAdId, name: c.name, thumbnailUrl: c.thumbnailUrl, format: c.format, status: status === "ACTIVE" ? "Active" : "Paused" });
           // One event per ad added, in the same family as the other recommendation_applied_* events.
-          track("recommendation_applied_ad_added", { screen: window.location.pathname, entity_type: "ad", entity_id: c.sourceAdId, creative_id: c.creativeId, destination_adset_id: adsetId, rule_id: flag.matchedRules?.[0]?.id, score: c.score, status, bulk: chosen.length > 1 });
+          track("recommendation_applied_ad_added", { screen: window.location.pathname, entity_type: "ad", entity_id: c.sourceAdId, creative_id: c.creativeId, destination_adset_id: adsetId, rule_id: flag.matchedRules?.[0]?.id, score: c.score, status, source, bulk: chosen.length > 1 });
         } catch (err) {
           out[c.creativeId] = { ok: false, error: err.message };
         }
@@ -157,8 +161,10 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, chosen.length) }, worker));
     const added = Object.values(out).filter((o) => o.ok).length;
-    track("recommendation_ads_pushed", { screen: window.location.pathname, rule_id: flag.matchedRules?.[0]?.id, selected: chosen.length, added, failed: chosen.length - added, status });
+    track("recommendation_ads_pushed", { screen: window.location.pathname, rule_id: flag.matchedRules?.[0]?.id, selected: chosen.length, added, failed: chosen.length - added, status, source });
     if (added > 0) {
+      setPushedNow((prev) => [...created, ...prev]);
+      onPushed?.(adsetId, source);
       invalidateCachedGets();
       clearRuleCaches(accountId);
       clearCreativePool(accountId); // the ad set's ads changed, so the next card re-reads the pool
@@ -302,6 +308,22 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
               )}
             </div>
 
+        {pushedNow.length > 0 && (
+          <div className={styles.pushResult}>
+            <strong>
+              ✓ {pushedNow.length} new ad{pushedNow.length === 1 ? "" : "s"} just pushed into {adsetName || flag.name}
+            </strong>
+            {pushedNow.map((a) => (
+              <div key={a.id} className={styles.pushResultRow}>
+                <Thumb size={32} src={a.thumbnailUrl} isVideo={a.format === "Video"} />
+                <span className={styles.pushResultName} title={a.name}>
+                  {a.name}
+                </span>
+                <span className={a.status === "Active" ? styles.badgeGood : styles.badgeWarn}>{a.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {ranked.candidates.length === 0 ? (
           <p className={styles.sub}>
             {ranked.belowBar > 0
@@ -439,7 +461,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
                 <h2 className={styles.h2} style={{ marginBottom: 2 }}>
                   Launch {pushPending} ad{pushPending === 1 ? "" : "s"}
                 </h2>
-                <p className={styles.sub}>into {flag.name}</p>
+                <p className={styles.sub}>into {adsetName || flag.name}</p>
               </div>
               <button type="button" onClick={() => setConfirming(false)} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6 }}>
                 <CloseIcon size={14} />
