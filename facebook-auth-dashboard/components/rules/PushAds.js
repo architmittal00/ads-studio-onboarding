@@ -93,7 +93,20 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
       cancelled = true;
     };
   }, [pool, adsetId]);
-  const readyPool = useMemo(() => (pool && extras ? { ...pool, ads: pool.ads.map((a) => (a.adsetId === adsetId ? { ...a, landing: extras.landings[a.id] || a.landing || null, thumbnailUrl: extras.thumbnails[a.id]?.thumbnailUrl || a.thumbnailUrl || null, format: a.format || (extras.thumbnails[a.id]?.isVideo ? "Video" : null) } : a)) } : null), [pool, extras, adsetId]);
+  const readyPool = useMemo(
+    () =>
+      pool && extras
+        ? {
+            ...pool,
+            ads: pool.ads.map((a) => {
+              if (a.adsetId !== adsetId) return a;
+              const i = extras.info[a.id] || {};
+              return { ...a, name: i.name || a.name, landing: i.landing || a.landing || null, kind: i.kind || a.kind || null, thumbnailUrl: i.thumbnailUrl || a.thumbnailUrl || null, format: a.format || (i.isVideo ? "Video" : null) };
+            }),
+          }
+        : null,
+    [pool, extras, adsetId]
+  );
   const ranked = useMemo(() => (readyPool ? rankPushCandidates({ pool: readyPool, adsetId, pausedAdIds, symbol }) : null), [readyPool, adsetId, pausedAdIds, symbol]);
   const isStarvedRule = flag.matchedRules.some((r) => r.id === "new-creative-01");
   const starved = useMemo(() => (readyPool && isStarvedRule ? starvedAds({ pool: readyPool, adsetId }) : []), [readyPool, adsetId, isStarvedRule]);
@@ -181,6 +194,11 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     );
   }
 
+  const spendsOn = [
+    ranked.mainLanding ? `landing page ${ranked.mainLanding.key}${ranked.mainLanding.share != null ? ` (${ranked.mainLanding.share.toFixed(0)}% of spend)` : ""}` : null,
+    ranked.profile?.type ? `${ranked.profile.type.label} ads (${ranked.profile.type.share.toFixed(0)}%)` : null,
+    ranked.profile?.language ? `${ranked.profile.language.label} (${ranked.profile.language.share.toFixed(0)}%)` : null,
+  ].filter(Boolean);
   const pushPending = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok).length;
   const pausePending = starved.filter((a) => pickedPause.has(a.adId) && !done[a.adId]?.ok).length;
   const allPush = ranked.candidates.length > 0 && ranked.candidates.every((c) => done[c.creativeId]?.ok || pickedPush.has(c.creativeId));
@@ -236,9 +254,9 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
               Ads to push into this ad set{ranked.candidates.length > 0 ? ` · top ${ranked.candidates.length}` : ""}
             </div>
             <p className={styles.sub} style={{ margin: "4px 0 0" }}>
-              {ranked.mainLanding
-                ? `Most of this ad set's spend${ranked.mainLanding.share != null ? ` (${ranked.mainLanding.share.toFixed(0)}%)` : ""} goes to ${ranked.mainLanding.key}, and that page counts far more than the others. Ranked by landing page, ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative. Only creatives scoring ${MIN_SCORE}+ are shown.`
-                : `Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative. Only creatives scoring ${MIN_SCORE}+ are shown.`}
+              {spendsOn.length > 0
+                ? `This ad set mostly spends on ${spendsOn.join(", ")}, and creatives that match count far more. Ranked over the last 14 days across every ad that uses the creative.`
+                : "Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative."}
               {ranked.qualified > MAX_PUSH_OPTIONS ? ` Showing the best ${MAX_PUSH_OPTIONS} of ${ranked.qualified}.` : ""}
             </p>
           </div>

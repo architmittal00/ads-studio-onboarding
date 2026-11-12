@@ -11,20 +11,41 @@ import { derive, emptyAgg } from "./metrics";
 // A creative qualifies when it has at least 10 purchases in the last 14 days and beats the account's 14-day ROAS; it is skipped when it already runs in the target ad set, no ad using it is
 // active, or one of its ads is flagged by a Pause rule. Qualifiers are scored 0–100 and only those scoring
 // MIN_SCORE (60) or more are shown:
-//   landing page 30 · ROAS 25 · CTR 10 · CPC 10 · consistency 10 · evidence 10 · freshness 5
-// Landing page = the share of the TARGET ad set's 14-day spend that goes to the candidate's page, relative to the
-// ad set's top page, raised to a power so the top page counts far more than the rest.
+//   without a language (WEIGHTS):      landing page 25 · type 20 · ROAS 20 · CTR 5 · CPC 5 · consistency 10 · freshness 10 · evidence 5
+//   with a language (WEIGHTS_LANG):     landing page 20 · type 15 · ROAS 15 · language 15 · CTR 5 · CPC 5 · consistency 10 · freshness 10 · evidence 5
+// The language weights are used for a candidate only when the target ad set has a most-spending language AND the
+// candidate's name has one; every other candidate uses the first set. A different language just loses its points.
+// Landing page, creative type and language are all "the share of the TARGET ad set's 14-day spend that goes to the
+// candidate's page / type / language, relative to the ad set's top one, cubed" — so the top one counts far more.
+// Language is read from the ad name: the text between ces…cee or les…lee (the last such pair), any token, digits dropped.
+// Creative type is one of Partnership / Catalog / Carousel / Video / Image (lib/adCreativeDetails.js deriveCreativeKind).
 
 export const MAX_PUSH_OPTIONS = 20;
 export const MIN_SCORE = 60; // creatives scoring below this are not shown
-export const WEIGHTS = { landing: 30, roas: 25, ctr: 10, cpc: 10, consistency: 10, evidence: 10, freshness: 5 };
-export const FACTOR_LABELS = { landing: "Landing page", roas: "ROAS", ctr: "CTR", cpc: "CPC", consistency: "Consistency", evidence: "Evidence", freshness: "Freshness" };
+export const WEIGHTS = { landing: 25, type: 20, roas: 20, ctr: 5, cpc: 5, consistency: 10, freshness: 10, evidence: 5 };
+export const WEIGHTS_LANG = { landing: 20, type: 15, roas: 15, language: 15, ctr: 5, cpc: 5, consistency: 10, freshness: 10, evidence: 5 };
+export const FACTOR_LABELS = { landing: "Landing page", type: "Creative type", roas: "ROAS", language: "Language", ctr: "CTR", cpc: "CPC", consistency: "Consistency", freshness: "Freshness", evidence: "Evidence" };
 export const POOL_WINDOWS = [3, 7, 14];
-export const LANDING_EXPONENT = 3; // 100% of the top page's spend → 1.0, 60% → 0.22, 30% → 0.03
+export const SHARE_EXPONENT = 3; // landing page, type and language: 100% of the top one's spend → 1.0, 60% → 0.22, 30% → 0.03
 const HOLDING = 0.9; // recent ROAS / CTR must be at least 90% of the 14-day figure to count as "holding"
 const MIN_PURCHASES = 10;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const DAY_MS = 86400000;
+
+// The language in an ad's name: the text between ces…cee or les…lee (markers may carry digits, e.g. ces1…cee1), the
+// LAST such pair when there are several. Any token counts; trailing digits and symbols are dropped (malayalam1 →
+// malayalam). Returns lower case, or null.
+export function languageFromName(name) {
+  if (!name) return null;
+  let last = null;
+  for (const m of String(name).matchAll(/(?:^|[_\s-])(?:ces|les)\d*[_\s-]+(.+?)[_\s-]+(?:cee|lee)\d*(?=[_\s-]|$)/gi)) last = m[1];
+  if (!last) return null;
+  const token = last.replace(/\d+$/, "").replace(/[^\p{L}]+/gu, " ").trim().toLowerCase();
+  // A language is one word: a multi-word or very long token (e.g. a creative title that happens to sit between the
+  // markers) is not read as one.
+  return token && !/\s/.test(token) && token.length <= 20 ? token : null;
+}
+const titleCase = (s) => (s ? s.replace(/\b\p{L}/gu, (c) => c.toUpperCase()) : s);
 
 // "Same landing page" = same host and path. Tracking parameters, capitalisation, `www.` and a trailing slash don't count.
 export function normalizeLandingUrl(url) {
@@ -89,14 +110,14 @@ const pctVs = (value, base) => (value != null && base ? (value / base - 1) * 100
 
 // Landing-page weight is dropped (the rest re-scaled) when there is nothing to compare — the ad set's ads have no
 // links we could read, or the candidate has none (catalog ads).
-function weighted(parts) {
+function weighted(parts, weights) {
   let weight = 0;
-  for (const [k, v] of Object.entries(parts)) if (v != null) weight += WEIGHTS[k];
+  for (const [k, v] of Object.entries(parts)) if (v != null) weight += weights[k];
   const points = {};
   let total = 0;
   for (const [k, v] of Object.entries(parts)) {
     if (v == null) continue;
-    points[k] = { points: (WEIGHTS[k] * v * 100) / weight, max: (WEIGHTS[k] * 100) / weight };
+    points[k] = { points: (weights[k] * v * 100) / weight, max: (weights[k] * 100) / weight };
     total += points[k].points;
   }
   return { total, points };
@@ -106,20 +127,22 @@ const money = (v, symbol) => (v == null ? "—" : `${symbol}${v < 100 ? v.toFixe
 const pct = (v) => (v == null ? "—" : `${v.toFixed(2)}%`);
 const signed = (v) => (v == null ? "" : ` (${v >= 0 ? "+" : "−"}${Math.abs(Math.round(v))}% vs account)`);
 
-// How the target ad set's spend splits across landing pages (14 days, every ad that delivered in it, any status).
-function landingSpend(adsetAds) {
+// How the target ad set's 14-day spend splits by some key (landing page, creative type, language) across every ad that
+// delivered in it, any status.
+function spendBy(adsetAds, keyOf) {
   const byKey = new Map();
   let total = 0;
   for (const a of adsetAds) {
     const spend = a.m?.[14]?.spend || 0;
     total += spend;
-    const key = normalizeLandingUrl(a.landing);
+    const key = keyOf(a);
     if (key) byKey.set(key, (byKey.get(key) || 0) + spend);
   }
   const top = Math.max(0, ...byKey.values());
   const topKey = top > 0 ? [...byKey.entries()].find(([, s]) => s === top)[0] : null;
   return { byKey, total, top, topKey };
 }
+const shareOfTop = (spend, top) => (top > 0 ? (spend || 0) / top : null);
 
 export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now = Date.now(), symbol = "₹" }) {
   const base = pool.baseline;
@@ -128,7 +151,14 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
   const creatives = groupCreatives(pool.ads);
   const adsetAds = pool.ads.filter((a) => a.adsetId === adsetId);
   const inAdset = new Set(adsetAds.map((a) => a.creativeId).filter(Boolean));
-  const landing = landingSpend(adsetAds);
+  const landing = spendBy(adsetAds, (a) => normalizeLandingUrl(a.landing));
+  const types = spendBy(adsetAds, (a) => a.kind || null);
+  let langs = spendBy(adsetAds, (a) => languageFromName(a.name));
+  if (langs.top === 0) {
+    // No ad carries a language: fall back to the ad set's own name.
+    const fromSet = languageFromName(adsetAds.find((a) => a.adsetName)?.adsetName);
+    if (fromSet) langs = { byKey: new Map([[fromSet, 1]]), total: 1, top: 1, topKey: fromSet };
+  }
 
   const scored = [];
   let belowBar = 0;
@@ -144,15 +174,25 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
 
     const key = normalizeLandingUrl(c.source?.landing);
     const share = landing.top > 0 && key ? (landing.byKey.get(key) || 0) / landing.top : null; // relative to the top page
-    const landingScore = share == null ? null : Math.pow(share, LANDING_EXPONENT);
+    const landingScore = share == null ? null : Math.pow(share, SHARE_EXPONENT);
     const ctrRatio = s14.ctr != null && b14.ctr ? s14.ctr / b14.ctr : null;
     const cpcRatio = s14.cpc != null && b14.cpc ? s14.cpc / b14.cpc : null;
     const roasTrend = s7.roas != null && s14.roas ? s7.roas / s14.roas : null;
     const ctrTrend = s3.ctr != null && s14.ctr ? s3.ctr / s14.ctr : null;
     const ageDays = c.createdAt ? (now - c.createdAt) / DAY_MS : null;
 
+    // Creative type and language, compared with what this ad set spends on (cubed, like the landing page).
+    const kind = c.source?.kind || c.ads.find((a) => a.kind)?.kind || null;
+    const typeShare = types.top > 0 && kind ? shareOfTop(types.byKey.get(kind), types.top) : null;
+    const lang = [c.source, ...c.ads].map((a) => languageFromName(a?.name)).find(Boolean) || null;
+    const useLang = langs.top > 0 && !!lang; // language weights only for a candidate that has a language, in an ad set that has one
+    const langShare = useLang ? shareOfTop(langs.byKey.get(lang), langs.top) : null;
+    const weights = useLang ? WEIGHTS_LANG : WEIGHTS;
+
     const parts = {
       landing: landingScore,
+      type: typeShare == null ? null : Math.pow(typeShare, SHARE_EXPONENT),
+      ...(useLang ? { language: Math.pow(langShare, SHARE_EXPONENT) } : {}),
       roas: clamp01((roasRatio - 1) / 0.5),
       ctr: ctrRatio == null ? 0 : clamp01((ctrRatio - 1) / 0.3),
       cpc: cpcRatio == null ? 0 : clamp01((1 - cpcRatio) / 0.3),
@@ -161,7 +201,7 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       evidence: clamp01(Math.log10(Math.max(1, s14.purchases)) / 2),
       freshness: ageDays == null ? 0.5 : clamp01(1 - (ageDays - 14) / 106),
     };
-    const { total, points } = weighted(parts);
+    const { total, points } = weighted(parts, weights);
 
     const beaten = POOL_WINDOWS.filter((w) => c.stats[w].roas != null && base[w]?.roas != null && c.stats[w].roas > base[w].roas);
     const withData = POOL_WINDOWS.filter((w) => c.stats[w].spend > 0);
@@ -200,6 +240,16 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
         against: landing.top <= 0 ? "This ad set's links couldn't be read" : inSet ? `${adsetShare.toFixed(0)}% of this ad set's spend${isTop ? " — its top page" : ""}` : "No ad in this ad set uses this page",
         short: inSet ? `landing page (${adsetShare.toFixed(0)}% of this ad set's spend)` : "landing page (not used by this ad set)",
       },
+      type: {
+        value: kind || "Unknown",
+        against: types.top <= 0 ? "This ad set's ad types couldn't be read" : (types.byKey.get(kind) || 0) > 0 ? `${((types.byKey.get(kind) / types.total) * 100).toFixed(0)}% of this ad set's spend${typeShare === 1 ? " — its top type" : ""}` : "No ad of this type in this ad set",
+        short: (types.byKey.get(kind) || 0) > 0 ? `creative type (${kind}, ${((types.byKey.get(kind) / types.total) * 100).toFixed(0)}% of this ad set's spend)` : `creative type (${kind || "unknown"}, not used by this ad set)`,
+      },
+      language: {
+        value: titleCase(lang) || "—",
+        against: useLang ? ((langs.byKey.get(lang) || 0) > 0 ? `${((langs.byKey.get(lang) / (langs.total || 1)) * 100).toFixed(0)}% of this ad set's spend${langShare === 1 ? " — its top language" : ""}` : `Not used by this ad set (it spends on ${titleCase(langs.topKey)})`) : "",
+        short: useLang ? ((langs.byKey.get(lang) || 0) > 0 ? `language (${titleCase(lang)})` : `language (${titleCase(lang)}, not ${titleCase(langs.topKey)})`) : "language",
+      },
       roas: { value: s14.roas.toFixed(2), against: `Account ${b14.roas.toFixed(2)}${vs(pctVs(s14.roas, b14.roas))}`, short: `ROAS ${dir(pctVs(s14.roas, b14.roas))} than the account` },
       ctr: { value: pct(s14.ctr), against: ctrRatio != null ? `Account ${pct(b14.ctr)}${vs(pctVs(s14.ctr, b14.ctr))}` : "No clicks to compare", short: `CTR ${dir(pctVs(s14.ctr, b14.ctr))} than the account` },
       cpc: { value: money(s14.cpc, symbol), against: cpcRatio != null ? `Account ${money(b14.cpc, symbol)}${vs(pctVs(s14.cpc, b14.cpc))}, lower is better` : "No clicks to compare", short: `CPC ${dir(pctVs(s14.cpc, b14.cpc), true)} than the account` },
@@ -211,7 +261,7 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       evidence: { value: `${Math.round(s14.purchases)} purchases`, against: `Needs ${MIN_PURCHASES}+ · ${money(s14.spend, symbol)} spent over ${c.ads.length} ad${c.ads.length === 1 ? "" : "s"}`, short: `${Math.round(s14.purchases)} purchases` },
       freshness: { value: days != null ? `${days} day${days === 1 ? "" : "s"} old` : "Unknown", against: "14 days or newer scores full", short: days != null ? `${days} days old` : "age unknown" },
     };
-    const breakdown = Object.keys(WEIGHTS)
+    const breakdown = Object.keys(weights)
       .filter((k) => points[k])
       .map((k) => {
         const ratio = points[k].max > 0 ? points[k].points / points[k].max : 0;
@@ -255,6 +305,11 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
     qualified: shown.length,
     belowBar,
     mainLanding: landing.topKey ? { key: landing.topKey, share: landing.total > 0 ? (landing.top / landing.total) * 100 : null } : null,
+    // What the ad set mostly spends on, for the header line.
+    profile: {
+      language: langs.topKey ? { label: titleCase(langs.topKey), share: langs.total > 0 ? (langs.top / langs.total) * 100 : null } : null,
+      type: types.topKey ? { label: types.topKey, share: types.total > 0 ? (types.top / types.total) * 100 : null } : null,
+    },
   };
 }
 

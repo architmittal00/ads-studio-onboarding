@@ -65,6 +65,17 @@ export function deriveLanding(creative) {
   return hit ? { url: hit[0], source: hit[1] } : { url: null, source: null };
 }
 
+// One label per creative for "which kind of ad does this ad set spend on": Partnership (branded content) beats Catalog
+// (product set), then Carousel, then Video, otherwise Image.
+export function deriveCreativeKind(creative) {
+  if (!creative) return null;
+  if (creative.facebook_branded_content || creative.instagram_branded_content || creative.branded_content) return "Partnership";
+  if (creative.product_set_id) return "Catalog";
+  if ((creative.object_story_spec?.link_data?.child_attachments?.length || 0) > 1 || (creative.asset_feed_spec?.ad_formats || []).includes("CAROUSEL")) return "Carousel";
+  if (creative.video_id || creative.object_story_spec?.video_data?.video_id || creative.asset_feed_spec?.videos?.length) return "Video";
+  return "Image";
+}
+
 export function deriveLandingUrl(creative) {
   return deriveLanding(creative).url;
 }
@@ -87,7 +98,7 @@ export async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "effective_status,creative{id,thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,body,call_to_action,object_story_spec{link_data{link,message},video_data{video_id,message,call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},bodies{text}}}",
+          "name,effective_status,creative{id,thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,facebook_branded_content,instagram_branded_content,branded_content,body,call_to_action,object_story_spec{link_data{link,message,child_attachments{link}},video_data{video_id,message,call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},bodies{text},videos{video_id},ad_formats}}",
       })
     )
   );
@@ -115,6 +126,8 @@ export async function fetchAdDetails(adIds, token) {
         null;
       const ctaType = creative.call_to_action?.type || creative.object_story_spec?.video_data?.call_to_action?.type || null;
       detailsByAdId[id] = {
+        name: obj.name || null,
+        kind: deriveCreativeKind(creative),
         status: normalizeStatus(obj.effective_status) || null,
         thumbnailUrl: creative.thumbnail_url || creative.image_url || null,
         videoId,

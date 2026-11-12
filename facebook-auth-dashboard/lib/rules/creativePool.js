@@ -22,19 +22,18 @@ export function clearCreativePool(accountId) {
   cache.delete(accountId);
 }
 
-// The target ad set's own ads need their landing pages (to learn which page it spends on) and thumbnails (for the
-// pause list). A few ads, so one small call each, kept per set of ads.
+// The target ad set's own ads need their names (language), landing pages, creative kinds and thumbnails to learn what
+// that ad set spends on. A few ads, so one small call, kept per set of ads.
 const extras = new Map();
 export function loadAdsetExtras(adIds) {
   const key = [...adIds].sort().join(",");
-  if (!key) return Promise.resolve({ landings: {}, thumbnails: {} });
+  if (!key) return Promise.resolve({ info: {} });
   const hit = extras.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.promise;
-  const post = (url) =>
-    fetchWithTimeout(url, { idempotent: true, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adIds }) }, 60000)
-      .then((res) => parseJsonResponse(res))
-      .catch(() => ({}));
-  const promise = Promise.all([post("/api/fb/ad-landing-pages"), post("/api/fb/ad-thumbnails")]).then(([l, t]) => ({ landings: l.landingPages || {}, thumbnails: t.thumbnails || {} }));
+  const promise = fetchWithTimeout("/api/fb/ad-creative-info", { idempotent: true, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adIds }) }, 60000)
+    .then((res) => parseJsonResponse(res))
+    .then((json) => ({ info: json.info || {} }))
+    .catch(() => ({ info: {} }));
   extras.set(key, { at: Date.now(), promise });
   return promise;
 }
