@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: a failed creative lookup no longer crashes Recommendations (2026-11-12)
+
+After the background-prefetch change, a `creative-pool` response with an error body (one 400 was seen on the live site; it did not reproduce on three later runs, so the exact Meta message is unknown) was cached as if it were the pool, and the next card read `.ads.filter` on it in a `useState` initializer → "Application error: a client-side exception". `loadCreativePool` / `loadAdsetExtras` now use `readApiResponse` (a failed response throws with the server's own message, the failure is not cached and the card shows it with "Try again"), the lookup retries once after 2 seconds, and `peekCreativePool` only returns a value that has an `ads` array. Measured on a real account: the lookup takes about 30–35 s (735 ads).
+
 ### Vercel: Pro plan, and the two side projects no longer build on dashboard commits (2026-11-12)
 
 Builds were refused with "Deployment rate limited — retry in 24 hours" (Hobby plan; every push built the dashboard plus `party-games` and `fastrr-ads-pitch-deck`). The team is now on **Pro**, and both side projects have an Ignored Build Step ("Only build if there are changes in a folder") with `git diff HEAD^ HEAD --quiet -- ':/party-games'` / `':/fastrr-ads-pitch-deck'` — they build only when their own folder changes (Vercel project → Settings → Build and Deployment to undo). The dashboard project is unchanged. Production deployments are still staged: a successful build of `main` needs promoting in Vercel to go live.
