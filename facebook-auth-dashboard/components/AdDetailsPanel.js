@@ -398,6 +398,11 @@ export default function AdDetailsPanel({ adId, data, onNavigate, onSaved }) {
           ) : (
             <span className={styles.dtEmpty}>No landing page detected for this ad.</span>
           )}
+          {data.landingUrl && data.landingSource && (
+            <div className={styles.muted} style={{ fontWeight: 400, marginTop: 4 }}>
+              Taken from {data.landingSource}.
+            </div>
+          )}
         </Row>
       </Card>
     </div>

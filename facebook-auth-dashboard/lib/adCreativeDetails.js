@@ -42,15 +42,27 @@ export function chunk(array, size) {
 // destination here. Catalog ads have no single fixed URL — their real
 // destination is generated per-product by Facebook at serve time — so this
 // stays null for them.
+//
+// Every screen that shows an ad's landing page (Explore's Landing Page metric, the ad's View details, the
+// Recommendations push list) goes through this, and fetches the SAME creative fields (LANDING_CREATIVE_FIELDS), so
+// they can't disagree. `landingSource` names the field the link came from, shown in View details.
+export const LANDING_CREATIVE_FIELDS =
+  "call_to_action,object_story_spec{link_data{link},video_data{call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url}},effective_object_story_id";
+
+export function deriveLanding(creative) {
+  if (!creative) return { url: null, source: null };
+  const candidates = [
+    [creative.object_story_spec?.link_data?.link, "the ad's link"],
+    [creative.object_story_spec?.video_data?.call_to_action?.value?.link, "the video's call-to-action button"],
+    [creative.call_to_action?.value?.link, "the creative's call-to-action button"],
+    [creative.asset_feed_spec?.link_urls?.[0]?.website_url, "the first URL of its dynamic creative list"],
+  ];
+  const hit = candidates.find(([url]) => url);
+  return hit ? { url: hit[0], source: hit[1] } : { url: null, source: null };
+}
+
 export function deriveLandingUrl(creative) {
-  if (!creative) return null;
-  return (
-    creative.object_story_spec?.link_data?.link ||
-    creative.object_story_spec?.video_data?.call_to_action?.value?.link ||
-    creative.call_to_action?.value?.link ||
-    creative.asset_feed_spec?.link_urls?.[0]?.website_url ||
-    null
-  );
+  return deriveLanding(creative).url;
 }
 
 // Fetches per-ad details (status, thumbnail, video id) for an exact list of
@@ -85,7 +97,7 @@ export async function fetchAdDetails(adIds, token) {
       // Ads / Advantage+ catalog ads) rather than being a single fixed
       // image or video creative.
       const creativeType = creative.product_set_id ? "Catalog" : videoId ? "Video" : "Static";
-      const landingUrl = deriveLandingUrl(creative);
+      const { url: landingUrl, source: landingSource } = deriveLanding(creative);
       // Primary ad text, checked across the shapes it can show up in — plain
       // image/video ads carry it on `body`, link/video-post ads carry it on
       // their object_story_spec instead, and Advantage+/dynamic-creative ads
@@ -105,6 +117,7 @@ export async function fetchAdDetails(adIds, token) {
         creativeId: creative.id || null,
         creativeType,
         landingUrl,
+        landingSource,
         caption,
         ctaLabel: ctaType ? titleCaseSnake(ctaType.toLowerCase()) : null,
         // Set only when none of the structured creative fields above had a
