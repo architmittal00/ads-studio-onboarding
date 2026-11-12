@@ -21,8 +21,10 @@ export function activitySlices(sinceUnix, untilUnix, count) {
   return slices;
 }
 
-export async function fetchActivities(accountId, token, { sinceUnix, untilUnix, fields, limit = 500 }) {
+// `category` (e.g. "BUDGET") has Meta filter the log itself, which on a busy account is the difference between a few
+// hundred events and tens of thousands.
+export async function fetchActivities(accountId, token, { sinceUnix, untilUnix, fields, limit = 500, category }) {
   const slices = activitySlices(sinceUnix, untilUnix, sliceCountFor((untilUnix - sinceUnix) / 3600));
-  const parts = await Promise.all(slices.map((s) => graphGetAllPages(`/${accountId}/activities`, token, { since: s.since, until: s.until, limit, fields })));
+  const parts = await Promise.all(slices.map((s) => graphGetAllPages(`/${accountId}/activities`, token, { since: s.since, until: s.until, limit, fields, ...(category ? { category } : {}) })));
   return { data: parts.flatMap((p) => p.data || []) };
 }

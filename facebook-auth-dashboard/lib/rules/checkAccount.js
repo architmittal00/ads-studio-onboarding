@@ -32,15 +32,27 @@ export function validTimeZone(tz) {
 
 // Map of object id -> ISO time of its latest budget edit in the last COOLDOWN_HOURS. The activity
 // log reports an ad set's or campaign's own budget change against that entity's id.
+// The whole read is capped: the page shows the early result while it runs, so an unbounded wait here is minutes of
+// "still reading" (a busy account's log once took ~110 s and then failed anyway). Past the cap it counts as "couldn't be
+// read", the same soft-fail as any other error.
+const CHANGES_WAIT_MS = 40000;
+
 async function fetchRecentBudgetChanges(accountId, token) {
   const nowUnix = Math.floor(Date.now() / 1000);
-  try {
-    // Read as parallel time slices (lib/activityLog.js): on a busy account this log is the slowest call by far.
-    const activity = await fetchActivities(accountId, token, {
-      sinceUnix: nowUnix - COOLDOWN_HOURS * 3600,
-      untilUnix: nowUnix,
-      fields: "event_type,event_time,object_id,translated_event_type",
-    });
+  const range = {
+    sinceUnix: nowUnix - COOLDOWN_HOURS * 3600,
+    untilUnix: nowUnix,
+    fields: "event_type,event_time,object_id,translated_event_type",
+  };
+  const read = async () => {
+    // Read as parallel time slices (lib/activityLog.js), and only the budget events: that is all this needs. If Meta
+    // rejects the category filter, fall back to the full log.
+    let activity;
+    try {
+      activity = await fetchActivities(accountId, token, { ...range, category: "BUDGET" });
+    } catch {
+      activity = await fetchActivities(accountId, token, range);
+    }
     const changed = {};
     for (const e of activity.data || []) {
       if (!`${e.event_type || ""} ${e.translated_event_type || ""}`.toLowerCase().includes("budget")) continue;
@@ -49,8 +61,14 @@ async function fetchRecentBudgetChanges(accountId, token) {
       if (!changed[e.object_id] || at > new Date(changed[e.object_id])) changed[e.object_id] = at.toISOString();
     }
     return { ok: true, changed };
+  };
+  let timer;
+  try {
+    return await Promise.race([read(), new Promise((_, reject) => (timer = setTimeout(() => reject(new Error("timed out")), CHANGES_WAIT_MS)))]);
   } catch {
     return { ok: false, changed: {} };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
