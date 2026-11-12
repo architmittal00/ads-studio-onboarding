@@ -2,6 +2,7 @@ import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGrap
 import { todayInTimeZone } from "@/lib/dateRanges";
 import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
 import { WINDOWS } from "@/lib/rules/metrics";
+import { fetchActivities } from "@/lib/activityLog";
 import { evaluateAccount } from "@/lib/rules/engine";
 import { toLeanFlag, currencySymbolOf } from "@/lib/rules/leanFlag";
 import { ADSET_OPTIMIZATION_FIELDS, ADSET_LEARNING_FIELDS } from "@/lib/rules/optimization";
@@ -34,10 +35,10 @@ export function validTimeZone(tz) {
 async function fetchRecentBudgetChanges(accountId, token) {
   const nowUnix = Math.floor(Date.now() / 1000);
   try {
-    const activity = await graphGetAllPages(`/${accountId}/activities`, token, {
-      since: nowUnix - COOLDOWN_HOURS * 3600,
-      until: nowUnix,
-      limit: 500,
+    // Read as parallel time slices (lib/activityLog.js): on a busy account this log is the slowest call by far.
+    const activity = await fetchActivities(accountId, token, {
+      sinceUnix: nowUnix - COOLDOWN_HOURS * 3600,
+      untilUnix: nowUnix,
       fields: "event_type,event_time,object_id,translated_event_type",
     });
     const changed = {};
