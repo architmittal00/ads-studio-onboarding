@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import Thumb from "@/components/Thumb";
-import { ChevronIcon } from "@/components/icons";
 import { loadCreativePool, clearCreativePool, loadAdsetExtras } from "@/lib/rules/creativePool";
 import { rankPushCandidates, starvedAds, MAX_PUSH_OPTIONS, MIN_SCORE } from "@/lib/rules/pushRank";
 import { pauseInBatches } from "@/lib/batchPause";
@@ -68,8 +67,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   const [extras, setExtras] = useState(null); // this ad set's own ads: landing pages + thumbnails
   const [whyOpen, setWhyOpen] = useState(() => new Set());
   // Both lists start folded so the card stays readable; the header says what's inside.
-  const [openPause, setOpenPause] = useState(false);
-  const [openPush, setOpenPush] = useState(false);
+  const [tab, setTab] = useState("push");
 
   const load = useCallback(
     (force = false) => {
@@ -207,18 +205,22 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   const pausePending = starved.filter((a) => pickedPause.has(a.adId) && !done[a.adId]?.ok).length;
   const allPush = ranked.candidates.length > 0 && ranked.candidates.every((c) => done[c.creativeId]?.ok || pickedPush.has(c.creativeId));
 
+  const showPause = starved.length > 0 && tab === "pause";
   return (
     <div className={styles.pushBox}>
       {starved.length > 0 && (
-        <section className={styles.pushSection}>
-          <button type="button" className={styles.pushToggle} onClick={() => setOpenPause((o) => !o)} aria-expanded={openPause}>
-            <span className={styles.pushChevron}><ChevronIcon direction={openPause ? "down" : "right"} size={14} /></span>
-            <span className={styles.pushToggleTitle}>Pause these — they aren&apos;t getting served</span>
-            <span className={styles.pill}>{starved.length}</span>
-            {!openPause && <span className={styles.pushToggleHint}>the lowest-spending half of this ad set&apos;s ads</span>}
+        <div className={styles.tabGroup} role="tablist">
+          <button type="button" role="tab" aria-selected={!showPause} className={`${styles.tab} ${!showPause ? styles.tabActive : ""}`} onClick={() => setTab("push")}>
+            Push ads{ranked.candidates.length > 0 ? ` · ${ranked.candidates.length}` : ""}
           </button>
-          {openPause && (
-            <>
+          <button type="button" role="tab" aria-selected={showPause} className={`${styles.tab} ${showPause ? styles.tabActive : ""}`} onClick={() => setTab("pause")}>
+            Pause ads · {starved.length}
+          </button>
+        </div>
+      )}
+      {showPause && (
+        <section className={styles.pushSection}>
+          <>
               <p className={styles.sub} style={{ margin: 0 }}>
                 This ad set&apos;s lowest-spending half of ads over the last 3 days, worst performers first. Nothing is ticked for you.
               </p>
@@ -249,24 +251,13 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
               {busy === "pause" ? "Pausing…" : `Pause ${pausePending || ""} ad${pausePending === 1 ? "" : "s"}`.replace("  ", " ")}
             </button>
           </div>
-            </>
-          )}
+          </>
         </section>
       )}
 
+      {!showPause && (
       <section className={styles.pushSection}>
-        <button type="button" className={styles.pushToggle} onClick={() => setOpenPush((o) => !o)} aria-expanded={openPush}>
-          <span className={styles.pushChevron}><ChevronIcon direction={openPush ? "down" : "right"} size={14} /></span>
-          <span className={styles.pushToggleTitle}>Ads to push into this ad set</span>
-          {ranked.candidates.length > 0 && <span className={styles.pill}>{ranked.candidates.length}</span>}
-          {!openPush && (
-            <span className={styles.pushToggleHint}>
-              {ranked.candidates.length > 0 ? `best score ${ranked.candidates[0].score}/100` : "none good enough yet"}
-            </span>
-          )}
-        </button>
-        {openPush && (
-          <>
+        <>
             <div className={styles.pushHead}>
               <p className={styles.sub} style={{ margin: 0 }}>
                 {spendsOn.length > 0
@@ -396,9 +387,9 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
             </span>
           </div>
         )}
-          </>
-        )}
+        </>
       </section>
+      )}
     </div>
   );
 }
