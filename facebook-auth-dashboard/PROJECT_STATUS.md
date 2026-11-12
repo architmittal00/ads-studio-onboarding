@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Landing page: one resolution everywhere (2026-11-12)
+Explore's Landing Page metric, the ad's View details link and the push-ads scoring could show different links for the same ad. Verified cause in code: View details read the ad with the *edit* field list, which has no creative-level `call_to_action` (where many ads keep their destination), and had no Page-post fallback — Explore had both. Now `lib/adCreativeDetails.js` exports `deriveLanding` / `LANDING_CREATIVE_FIELDS` (link → video CTA → creative CTA → first dynamic-creative URL), `fetchAdCopyDetails` requests the missing field and uses the same post fallback, and View details says where the link came from ("Taken from the creative's call-to-action button"). Push-ads scoring uses the Explore resolver, so it now matches too. **Not confirmed on the reporter's ad** — if a mismatch remains, send the ad id plus both URLs.
+
 ### Analytics: per-ad events for pushed / starved ads (2026-11-12)
 Pushing ads into an ad set only sent the summary `recommendation_ads_pushed`, which didn't match the `recommendation_applied_*` family. Now each ad successfully added also fires `recommendation_applied_ad_added`, and each starved ad paused fires `recommendation_applied_ad_paused` (`source: starved_ads`); the summaries stay. See `ANALYTICS_EVENTS.md`.
 

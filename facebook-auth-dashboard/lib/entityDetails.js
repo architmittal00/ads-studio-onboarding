@@ -1,7 +1,7 @@
 import { graphGet } from "./facebookGraph";
 import { searchTargeting } from "./metaInterestSearch";
 import { titleCaseSnake } from "./reportShared";
-import { deriveLandingUrl } from "./adCreativeDetails";
+import { deriveLanding, fetchPostLandingUrls } from "./adCreativeDetails";
 import { normalizeStatus } from "./statusNormalize";
 import { EDIT_AD_FIELDS, describeEditability } from "./adEdit";
 import { fetchAdSetFull, BID_STRATEGIES } from "./adsetEdit";
@@ -134,10 +134,26 @@ export async function fetchAdSetDetails(id, token) {
   };
 }
 
+// Same resolution as Explore: the creative's own link, else (boosted posts) the link on the underlying Page post.
+async function landingOf(creative, token) {
+  const { url, source } = deriveLanding(creative);
+  if (url) return { landingUrl: url, landingSource: source };
+  if (creative.effective_object_story_id) {
+    try {
+      const posts = await fetchPostLandingUrls([creative.effective_object_story_id], token);
+      const postUrl = posts[creative.effective_object_story_id];
+      if (postUrl) return { landingUrl: postUrl, landingSource: "the link on the ad's Page post" };
+    } catch {}
+  }
+  return { landingUrl: null, landingSource: null };
+}
+
 export async function fetchAdCopyDetails(id, token) {
   // Same field list the ad-edit flow reads (lib/adEdit.js), so what's shown
   // here and what an edit rebuilds from are the same data.
-  const data = await graphGet(`/${id}`, token, { fields: EDIT_AD_FIELDS });
+  // The edit field list has no creative-level call_to_action (where many ads keep their destination), so it is added
+  // here — otherwise this screen and Explore's Landing Page column could resolve different links for the same ad.
+  const data = await graphGet(`/${id}`, token, { fields: EDIT_AD_FIELDS.replace("creative{id,", "creative{id,call_to_action,") });
   const creative = data.creative || {};
   const asset = creative.asset_feed_spec || {};
   const linkData = creative.object_story_spec?.link_data;
@@ -174,7 +190,7 @@ export async function fetchAdCopyDetails(id, token) {
     descriptions,
     ctaType,
     ctaLabel: ctaType ? titleCaseSnake(ctaType.toLowerCase()) : null,
-    landingUrl: deriveLandingUrl(creative),
+    ...(await landingOf(creative, token)),
     editable: describeEditability(data),
   };
 }
