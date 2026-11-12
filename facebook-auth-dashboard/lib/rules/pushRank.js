@@ -4,7 +4,7 @@ import { derive, emptyAgg } from "./metrics";
 // Pure functions over the account's creative pool (pages/api/fb/rules/creative-pool.js), so the same pool serves every
 // ad set and the ranking runs instantly in the browser.
 //
-// The unit is the CREATIVE: every ad that uses it (copies in other ad sets share one creative id) is pooled, and
+// The unit is the CREATIVE: every ad that uses it is pooled — "uses it" means the same asset (lib/rules/creativeIdentity.js), since a duplicated ad gets a new creative id; `creativeId` on a pool ad is that group key, and
 // ROAS / link CTR / link CPC are worked out from the pooled totals — not averaged per ad. Only ads from
 // purchase-optimized ad sets are in the pool. Everything is compared over the last 14 days (3 and 7 days for trend).
 //

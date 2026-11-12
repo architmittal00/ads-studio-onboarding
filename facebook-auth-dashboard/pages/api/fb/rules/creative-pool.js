@@ -6,6 +6,7 @@ import { lastNDaysRange, chunk, fetchAdDetails, fetchPostLandingUrls } from "@/l
 import { derive, emptyAgg, addInsightsRow } from "@/lib/rules/metrics";
 import { ADSET_OPTIMIZATION_FIELDS, isPurchaseOptimized } from "@/lib/rules/optimization";
 import { validTimeZone } from "@/lib/rules/checkAccount";
+import { IDENTITY_FIELDS, hardIdentity, groupKeys } from "@/lib/rules/creativeIdentity";
 import { POOL_WINDOWS, groupCreatives, qualifiesCreative } from "@/lib/rules/pushRank";
 
 // GET /api/fb/rules/creative-pool?accountId=act_123[&tz=…] — what's needed to suggest which existing ads to push
@@ -23,13 +24,29 @@ const ACTIVE_FILTER = [{ field: "effective_status", operator: "IN", value: ["ACT
 
 const compact = (agg) => ({ spend: agg.spend, impressions: agg.impressions, linkClicks: agg.linkClicks, purchases: agg.purchases, revenue: agg.revenue });
 
-// adId -> creative id, 50 ads per Graph call, all calls at once.
-async function fetchCreativeIds(adIds, token) {
+// adId -> { creativeId, hard, name }, 50 ads per Graph call, all calls at once. `hard` is the asset-based identity
+// (lib/rules/creativeIdentity.js). If Graph rejects the rich field list the chunk is retried with the bare creative id, so a
+// field problem can only cost the duplicate matching, never the whole pool. The partnership code is asked for on its own
+// for the same reason.
+async function fetchCreativeInfo(adIds, token) {
   const out = new Map();
-  const results = await Promise.allSettled(chunk(adIds, 50).map((ids) => graphGet("", token, { ids: ids.join(","), fields: "creative{id}" })));
-  for (const r of results) {
+  const groups = chunk(adIds, 50);
+  const rich = await Promise.allSettled(
+    groups.map((ids) =>
+      graphGet("", token, { ids: ids.join(","), fields: `name,creative{${IDENTITY_FIELDS}}` }).catch(() => graphGet("", token, { ids: ids.join(","), fields: "name,creative{id}" }))
+    )
+  );
+  const codes = await Promise.allSettled(groups.map((ids) => graphGet("", token, { ids: ids.join(","), fields: "creative{partnership_ad_ad_code}" })));
+  const codeOf = new Map();
+  for (const r of codes) {
     if (r.status !== "fulfilled") continue;
-    for (const [id, obj] of Object.entries(r.value || {})) if (obj?.creative?.id) out.set(id, obj.creative.id);
+    for (const [id, obj] of Object.entries(r.value || {})) if (obj?.creative?.partnership_ad_ad_code) codeOf.set(id, obj.creative.partnership_ad_ad_code);
+  }
+  for (const r of rich) {
+    if (r.status !== "fulfilled") continue;
+    for (const [id, obj] of Object.entries(r.value || {})) {
+      if (obj?.creative?.id) out.set(id, { creativeId: obj.creative.id, hard: hardIdentity(obj.creative, codeOf.get(id)), name: obj.name || null });
+    }
   }
   return out;
 }
@@ -66,7 +83,7 @@ export default async function handler(req, res) {
     // Creative ids of the active ads start loading the moment the lists are back — while the insights jobs are still running.
     const activeCreativesP = Promise.all([activeAdsP, activeAdsetsP]).then(([ads, adsets]) => {
       const eligibleSets = new Set((adsets.data || []).filter(isPurchaseOptimized).map((a) => a.id));
-      return fetchCreativeIds((ads.data || []).filter((a) => eligibleSets.has(a.adset_id)).map((a) => a.id), token);
+      return fetchCreativeInfo((ads.data || []).filter((a) => eligibleSets.has(a.adset_id)).map((a) => a.id), token);
     });
 
     const [activeAds, activeAdsets, activeCampaigns, activeCreatives, pausedAds, ...windowRows] = await Promise.all([activeAdsP, activeAdsetsP, activeCampaignsP, activeCreativesP, pausedAdsP, ...POOL_WINDOWS.map(insightsFor)]);
@@ -114,13 +131,14 @@ export default async function handler(req, res) {
     }
 
     // Creative ids: the active ones are already here; only ads that have since been paused still need one.
-    const creativeOf = new Map(activeCreatives);
-    // Paused ads in the purchase-optimized ad sets: only their creative ids matter (the "already in this ad set" check).
+    const infoOf = new Map(activeCreatives);
+    // Paused ads in the purchase-optimized ad sets: only their creative matter (the "already in this ad set" check).
     const eligibleSets = new Set([...adsetInfo.values()].filter(isPurchaseOptimized).map((a) => a.id));
     const heldAds = (pausedAds.data || []).filter((a) => eligibleSets.has(a.adset_id));
-    const wanted = [...new Set([...ids, ...heldAds.map((a) => a.id)])].filter((id) => !creativeOf.has(id));
-    const pausedFetched = await fetchCreativeIds(wanted, token);
-    for (const [id, c] of pausedFetched) creativeOf.set(id, c);
+    const wanted = [...new Set([...ids, ...heldAds.map((a) => a.id)])].filter((id) => !infoOf.has(id));
+    for (const [id, i] of await fetchCreativeInfo(wanted, token)) infoOf.set(id, i);
+    // Copies made with Ads Manager's duplicate carry a new creative id; they are grouped under the asset they share.
+    const creativeOf = groupKeys(infoOf);
     const pausedCreatives = {};
     for (const a of heldAds) {
       const c = creativeOf.get(a.id);
@@ -135,7 +153,7 @@ export default async function handler(req, res) {
       const adset = adsetInfo.get(e.adsetId);
       return {
         id,
-        name: active?.name || id,
+        name: active?.name || infoOf.get(id)?.name || id,
         adsetId: e.adsetId,
         adsetName: adset?.name || null,
         campaignName: campaignName.get(active?.campaign_id || adset?.campaign_id) || null,
