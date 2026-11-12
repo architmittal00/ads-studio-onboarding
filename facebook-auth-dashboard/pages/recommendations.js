@@ -20,7 +20,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
-import { loadCreativePool } from "@/lib/rules/creativePool";
+import { loadCreativePool, prefetchPushData } from "@/lib/rules/creativePool";
 import styles from "@/styles/Home.module.css";
 
 // A finished check is saved in the browser for 30 minutes (shared cache, survives reloads), so
@@ -312,12 +312,17 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
     };
   }, [result]);
 
-  // "Add a creative" cards need the account's creative pool (a few seconds on a big account) — start it as soon as
-  // the check shows there are such cards, so it is ready by the time one is opened.
+  // "Add a creative" cards need the account's creative pool (a few seconds on a big account). It is the same for every
+  // ad set and does not depend on the check, so it starts as soon as the page knows the account — in parallel with the
+  // check — and each ad set's own-ads lookup follows once the check shows which ad sets have such a card.
+  useEffect(() => {
+    if (isMobile || !selectedAccountId || !tz) return;
+    loadCreativePool(selectedAccountId, tz).catch(() => {});
+  }, [selectedAccountId, tz, isMobile]);
   useEffect(() => {
     if (isMobile || !result || !selectedAccountId) return;
-    if (!result.flags.some((f) => f.action === "ADD_CREATIVE" && f.entityType === "adset")) return;
-    loadCreativePool(selectedAccountId, tz).catch(() => {});
+    const adsetIds = result.flags.filter((f) => f.action === "ADD_CREATIVE" && f.entityType === "adset").map((f) => f.entityId);
+    if (adsetIds.length > 0) prefetchPushData(selectedAccountId, tz, adsetIds);
   }, [result, selectedAccountId, tz, isMobile]);
 
   const counts = useMemo(() => {
