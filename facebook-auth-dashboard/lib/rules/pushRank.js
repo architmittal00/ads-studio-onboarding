@@ -266,11 +266,16 @@ export function rankPushCandidates({ pool, adsetId, pausedAdIds = new Set(), now
       .filter((k) => points[k])
       .map((k) => {
         const ratio = points[k].max > 0 ? points[k].points / points[k].max : 0;
-        return { key: k, label: FACTOR_LABELS[k], points: points[k].points, max: points[k].max, level: ratio >= 0.7 ? "strong" : ratio >= 0.3 ? "fair" : "weak", ...rows[k] };
+        // "Weak" is for a real problem. A metric that beats the account but only by a little earns few points (full marks
+        // take +30% on CTR/CPC, +50% on ROAS) — that is a "slight edge", not weak.
+        const beatsAccount = { roas: roasRatio > 1, ctr: ctrRatio != null && ctrRatio > 1, cpc: cpcRatio != null && cpcRatio < 1 }[k];
+        const level = ratio >= 0.7 ? "strong" : ratio >= 0.3 ? "fair" : beatsAccount ? "slight" : "weak";
+        return { key: k, label: FACTOR_LABELS[k], points: points[k].points, max: points[k].max, level, ...rows[k] };
       });
     const summary = {
       grade: total >= 80 ? "Strong fit" : total >= 70 ? "Good fit" : "Decent fit",
       strong: breakdown.filter((r) => r.level === "strong").map((r) => r.short),
+      slight: breakdown.filter((r) => r.level === "slight").map((r) => r.short),
       weak: breakdown.filter((r) => r.level === "weak").map((r) => r.short),
     };
 

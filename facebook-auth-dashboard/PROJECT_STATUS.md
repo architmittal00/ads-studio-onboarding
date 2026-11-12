@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: "Slight edge" instead of "Weak" for metrics that beat the account (2026-11-12)
+
+A CTR 8% above the account showed a red "Weak" because the label came from the share of points earned (full CTR/CPC marks need +30%, ROAS +50%), not from the comparison with the account. A factor that earns under 30% of its points but still beats the account (ROAS, CTR, CPC) is now "Slight edge" (blue badge, own line in the verdict); "Weak" is kept for ones at or below the account and for non-comparative factors. Scores are unchanged. Lint/build only.
+
 ### Push-ads: data is warmed in the background (2026-11-12)
 
 "Finding proven creatives…" showed because the pool only started once the check finished, and each ad set's own-ads lookup only when its card was opened. Now the creative pool starts as soon as the Recommendations page knows the account and time zone (in parallel with the check), and once the check shows which ad sets have an "Add a creative" card, each one's own-ads lookup (`prefetchPushData`) is warmed too. `PushAds` reads already-arrived data synchronously (`peekCreativePool` / `peekAdsetExtras`), so a card opened after that renders with no loader. Cost: the pool's ad-level insights jobs now run on every desktop visit to Recommendations, even for accounts with no such card (cached 30 min per account). Lint/build only — not timed on a real account.
