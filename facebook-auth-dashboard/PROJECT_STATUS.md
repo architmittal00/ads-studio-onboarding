@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: Push ads / Pause ads are tabs (2026-11-12)
+
+The two fold headers are replaced by the app's `.tabGroup` / `.tab` segmented control: "Push ads · n" (default) and "Pause ads · n", side by side. Only one list shows at a time; the tab bar is hidden when there is nothing to pause. Fold state and the `.pushToggle*` styles are gone. Lint/build only — not previewed.
+
 ### Push-ads: duplicated ads count as one creative (2026-11-12)
 
 Ads Manager's duplicate gives a copy a new creative id, so copies were treated as different creatives (and could be suggested into an ad set that already ran the same ad). `lib/rules/creativeIdentity.js` groups ads by the asset underneath: partnership ad code → video id → image hash → Instagram media / permalink → Page post id; ads with none of these (carousel, catalog) fall back to their name with the " – Copy N" suffix removed, but only when that name is shared with a copy. `creative-pool` reads those fields (`fetchCreativeInfo`; the partnership code in its own call, and a failed rich call falls back to the bare creative id, so a field error can only lose the matching) and sets each ad's `creativeId` to the group key, so pooled stats, "already in this ad set", "Running in N ad sets" and the 10-purchase bar all follow. Verified on two real ads (120251347476550425 / 120251593254380425: same image thumbnail, same landing page, names differ only by "– Copy"/"– Copy 3"); the Graph field list itself is **not** verified against a real account. The name fallback does not check the landing page (it is only known for stand-in ads).
