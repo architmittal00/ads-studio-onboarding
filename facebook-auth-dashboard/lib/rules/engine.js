@@ -74,7 +74,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
   });
   const adsetById = new Map(adsets.map((a) => [a.id, a]));
   // An ad follows its ad set (unknown ad set → skipped).
-  const ads = structure.ads.map((a) => ({ type: "ad", id: a.id, name: a.name, adsetId: a.adset_id, campaignId: a.campaign_id, eligible: !!adsetById.get(a.adset_id)?.eligible, m: metricsOf(adAgg, a.id) }));
+  const ads = structure.ads.map((a) => ({ type: "ad", id: a.id, name: a.name, adsetId: a.adset_id, campaignId: a.campaign_id, createdAt: a.created_time ? Date.parse(a.created_time) : null, eligible: !!adsetById.get(a.adset_id)?.eligible, m: metricsOf(adAgg, a.id) }));
 
   const adsByAdset = new Map();
   for (const ad of ads) {
@@ -104,6 +104,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     acc,
     currency,
     currencySymbol,
+    now: Date.now(),
     // Rankings ("top 30% by spend") compare like with like: only purchase-optimized ad sets.
     activeAdsets: eligibleAdsets,
     adsetsOfCampaign: (id) => adsetsByCampaign.get(id) || [],

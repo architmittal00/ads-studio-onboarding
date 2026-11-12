@@ -81,6 +81,15 @@ function adSpend3(ctx, adset) {
   return { spends, total: total > 0 ? total : null };
 }
 
+// Gate on the "New creative" rules: an ad set that was given a new ad in the last 24 hours is still finding out how that ad
+// does, so it is not asked for another. Read from the active ads' creation time (already in the check's ads list).
+const NEW_AD_HOURS = 24;
+function noNewAds(ctx, adset) {
+  const since = ctx.now - NEW_AD_HOURS * 3600 * 1000;
+  const added = ctx.adsOfAdset(adset.id).filter((a) => a.createdAt != null && a.createdAt >= since).length;
+  return cond(ctx, "New ads added in the last 24 hours", added, "lte", 0, "int", "An ad set that just got a new ad is left alone until that ad has had a day to run.");
+}
+
 // Extra gate on the "New creative" rules: the ad set is slipping — its last 3 days cost at least 10% more per link click, or
 // click through at least 10% less, than the days just before them (4–7 days ago). Either one is enough.
 function recentVsPrior(ctx, s) {
@@ -122,7 +131,7 @@ export const RULES = [
     name: "New creative -01",
     level: "adset",
     action: "ADD_CREATIVE",
-    text: "Ad set has more than 5 active ads, its lowest-spending half takes less than 30% of the ad set's 3-day spend, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7.",
+    text: "Ad set has more than 5 active ads, its lowest-spending half takes less than 30% of the ad set's 3-day spend, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7, and no ad was added to it in the last 24 hours.",
     check: (s, ctx) => {
       const { spends, total } = adSpend3(ctx, s);
       const n = spends.length;
@@ -132,6 +141,7 @@ export const RULES = [
           cond(ctx, "Active ads > 5", n, "gt", 5, "int"),
           cond(ctx, "Lowest 50% of ads take < 30% of 3-day spend", total ? (lowest / total) * 100 : null, "lt", 30, "pct"),
           recentVsPrior(ctx, s),
+          noNewAds(ctx, s),
         ],
       };
     },
@@ -141,7 +151,7 @@ export const RULES = [
     name: "New creative -02",
     level: "adset",
     action: "ADD_CREATIVE",
-    text: "Ad set has 2 to 5 active ads, its top 2 ads take more than 70% of the ad set's 3-day spend, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7.",
+    text: "Ad set has 2 to 5 active ads, its top 2 ads take more than 70% of the ad set's 3-day spend, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7, and no ad was added to it in the last 24 hours.",
     check: (s, ctx) => {
       const { spends, total } = adSpend3(ctx, s);
       const top2 = spends.slice(0, 2).reduce((t, v) => t + v, 0);
@@ -151,6 +161,7 @@ export const RULES = [
           cond(ctx, "Active ads ≤ 5", spends.length, "lte", 5, "int"),
           cond(ctx, "Top 2 ads take > 70% of 3-day spend", total ? (top2 / total) * 100 : null, "gt", 70, "pct"),
           recentVsPrior(ctx, s),
+          noNewAds(ctx, s),
         ],
       };
     },
@@ -160,10 +171,10 @@ export const RULES = [
     name: "New creative -03",
     level: "adset",
     action: "ADD_CREATIVE",
-    text: "Ad set has only 1 active ad, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7.",
+    text: "Ad set has only 1 active ad, and its 3-day CPC is at least 10% higher or its 3-day CTR at least 10% lower than in days 4–7, and no ad was added to it in the last 24 hours.",
     check: (s, ctx) => {
       const n = ctx.adsOfAdset(s.id).length;
-      return { conditions: [cond(ctx, "Active ads = 1", n, "gte", 1, "int"), cond(ctx, "Only 1 active ad", n, "lte", 1, "int"), recentVsPrior(ctx, s)] };
+      return { conditions: [cond(ctx, "Active ads = 1", n, "gte", 1, "int"), cond(ctx, "Only 1 active ad", n, "lte", 1, "int"), recentVsPrior(ctx, s), noNewAds(ctx, s)] };
     },
   },
   {
