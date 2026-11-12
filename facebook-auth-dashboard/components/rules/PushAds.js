@@ -66,6 +66,9 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   const [done, setDone] = useState({}); // creativeId / adId -> { ok, text?, error? }
   const [extras, setExtras] = useState(null); // this ad set's own ads: landing pages + thumbnails
   const [whyOpen, setWhyOpen] = useState(() => new Set());
+  // Both lists start folded so the card stays readable; the header says what's inside.
+  const [openPause, setOpenPause] = useState(false);
+  const [openPush, setOpenPush] = useState(false);
 
   const load = useCallback(
     (force = false) => {
@@ -207,16 +210,18 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     <div className={styles.pushBox}>
       {starved.length > 0 && (
         <section className={styles.pushSection}>
-          <div className={styles.pushHead}>
-            <div>
-              <div className={styles.recContextTitle} style={{ margin: 0 }}>
-                Pause these — they aren&apos;t getting served
-              </div>
-              <p className={styles.sub} style={{ margin: "4px 0 0" }}>
+          <button type="button" className={styles.pushToggle} onClick={() => setOpenPause((o) => !o)} aria-expanded={openPause}>
+            <span className={styles.pushChevron}>{openPause ? "▾" : "▸"}</span>
+            <span className={styles.recContextTitle} style={{ margin: 0 }}>
+              Pause these — they aren&apos;t getting served · {starved.length}
+            </span>
+            {!openPause && <span className={styles.pushToggleHint}>the lowest-spending half of this ad set&apos;s ads</span>}
+          </button>
+          {openPause && (
+            <>
+              <p className={styles.sub} style={{ margin: 0 }}>
                 This ad set&apos;s lowest-spending half of ads over the last 3 days, worst performers first. Nothing is ticked for you.
               </p>
-            </div>
-          </div>
           <div className={styles.pushList}>
             {starved.map((a) => {
               const r = done[a.adId];
@@ -244,33 +249,43 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
               {busy === "pause" ? "Pausing…" : `Pause ${pausePending || ""} ad${pausePending === 1 ? "" : "s"}`.replace("  ", " ")}
             </button>
           </div>
+            </>
+          )}
         </section>
       )}
 
       <section className={styles.pushSection}>
-        <div className={styles.pushHead}>
-          <div>
-            <div className={styles.recContextTitle} style={{ margin: 0 }}>
-              Ads to push into this ad set{ranked.candidates.length > 0 ? ` · top ${ranked.candidates.length}` : ""}
-            </div>
-            <p className={styles.sub} style={{ margin: "4px 0 0" }}>
-              {spendsOn.length > 0
-                ? `This ad set mostly spends on ${spendsOn.join(", ")}, and creatives that match count far more. Ranked over the last 14 days across every ad that uses the creative.`
-                : "Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative."}
-              {ranked.qualified > MAX_PUSH_OPTIONS ? ` Showing the best ${MAX_PUSH_OPTIONS} of ${ranked.qualified}.` : ""}
-            </p>
-          </div>
-          {ranked.candidates.length > 0 && (
-            <div className={styles.pushLinks}>
-              <button type="button" className={styles.recWhyBtn} onClick={() => setPickedPush(new Set(ranked.candidates.filter((c) => !done[c.creativeId]?.ok).map((c) => c.creativeId)))} disabled={!!busy || allPush}>
-                Select all
-              </button>
-              <button type="button" className={styles.recWhyBtn} onClick={() => setPickedPush(new Set())} disabled={!!busy || pickedPush.size === 0}>
-                Clear
-              </button>
-            </div>
+        <button type="button" className={styles.pushToggle} onClick={() => setOpenPush((o) => !o)} aria-expanded={openPush}>
+          <span className={styles.pushChevron}>{openPush ? "▾" : "▸"}</span>
+          <span className={styles.recContextTitle} style={{ margin: 0 }}>
+            Ads to push into this ad set{ranked.candidates.length > 0 ? ` · ${ranked.candidates.length}` : ""}
+          </span>
+          {!openPush && (
+            <span className={styles.pushToggleHint}>
+              {ranked.candidates.length > 0 ? `best score ${ranked.candidates[0].score}/100` : "none good enough yet"}
+            </span>
           )}
-        </div>
+        </button>
+        {openPush && (
+          <>
+            <div className={styles.pushHead}>
+              <p className={styles.sub} style={{ margin: 0 }}>
+                {spendsOn.length > 0
+                  ? `This ad set mostly spends on ${spendsOn.join(", ")}, and creatives that match count far more. Ranked over the last 14 days across every ad that uses the creative.`
+                  : "Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative."}
+                {ranked.qualified > MAX_PUSH_OPTIONS ? ` Showing the best ${MAX_PUSH_OPTIONS} of ${ranked.qualified}.` : ""}
+              </p>
+              {ranked.candidates.length > 0 && (
+                <div className={styles.pushLinks}>
+                  <button type="button" className={styles.recWhyBtn} onClick={() => setPickedPush(new Set(ranked.candidates.filter((c) => !done[c.creativeId]?.ok).map((c) => c.creativeId)))} disabled={!!busy || allPush}>
+                    Select all
+                  </button>
+                  <button type="button" className={styles.recWhyBtn} onClick={() => setPickedPush(new Set())} disabled={!!busy || pickedPush.size === 0}>
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
 
         {ranked.candidates.length === 0 ? (
           <p className={styles.sub}>
@@ -381,6 +396,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
               Added as paused copies that reuse the same creative — review them in Ads Manager before turning them on.
             </span>
           </div>
+        )}
+          </>
         )}
       </section>
     </div>

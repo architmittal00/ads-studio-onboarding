@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: "Pause these" and "Ads to push" fold open/closed (2026-11-12)
+Both lists start folded behind a chevron header (▸ / ▾) so the card reads at a glance: the header shows the count plus a one-line hint ("best score 83/100", "the lowest-spending half of this ad set's ads"). Click to open; the description, Select all / Clear, the rows and the action button live inside.
+
 ### Push-ads: creative type and language in the score (2026-11-12)
 New weights. **No language** (default): landing page 25 · type 20 · ROAS 20 · CTR 5 · CPC 5 · consistency 10 · freshness 10 · evidence 5. **With language** (a candidate that has a language, in an ad set whose ads have a most-spending language): landing 20 · type 15 · ROAS 15 · **language 15** · CTR 5 · CPC 5 · consistency 10 · freshness 10 · evidence 5. A candidate with no language always uses the first set; a different language just gets ~0 of the 15 points (no exclusion).
 - **Language** = the text between `ces…cee` or `les…lee` in the ad name (markers may carry digits; the LAST such pair; trailing digits dropped; must be a single word ≤ 20 letters). Any word counts — a creator name sitting in the last pair (e.g. `ces_midhun_cee` when it's the only pair) would be read as a language. Ad set language = the one with the most 14-day spend across its ads' names, falling back to the ad set's own name.
