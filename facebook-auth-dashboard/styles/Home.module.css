@@ -3284,3 +3284,28 @@ button.stat:hover {
   font-size: 11px;
   color: var(--t3);
 }
+
+.pushToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.pushToggle:hover .pushChevron {
+  color: var(--t1);
+}
+.pushChevron {
+  width: 14px;
+  font-size: 12px;
+  color: var(--t3);
+}
+.pushToggleHint {
+  font-size: 12px;
+  color: var(--t3);
+}
