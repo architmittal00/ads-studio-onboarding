@@ -6,7 +6,7 @@ import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import ViewTabs from "@/components/ViewTabs";
 import AccountSelect from "@/components/AccountSelect";
-import RecBoard, { RecSummary } from "@/components/rules/RecBoard";
+import RecBoard, { RecSummary, DOMINANT_SHARE } from "@/components/rules/RecBoard";
 import FlagCards from "@/components/rules/FlagCards";
 import { MobileContextBar, MobileIconBtn, MobileChips, PickerSheet } from "@/components/mobile/MobileChrome";
 import { useIsMobile } from "@/lib/useIsMobile";
@@ -176,6 +176,12 @@ function RecommendationTabs() {
 function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: setSelectedAccountId, onLoadingChange }) {
   const { adAccounts, accountsLoading } = useAccounts();
   const [result, setResult] = useState(null);
+  // Ad sets that just got new ads from a pause card: their "Add a creative" card is hidden until the next fresh read
+  // (the 24-hour new-ad check then keeps it away on its own).
+  const [hiddenAdsets, setHiddenAdsets] = useState(() => new Set());
+  const onAdsPushed = useCallback((adsetId, source) => {
+    if (source === "pause_card") setHiddenAdsets((prev) => new Set(prev).add(adsetId));
+  }, []);
   const [loading, setLoading] = useState(false);
   // True while the 48-hour budget cool-down is still being read: the flags are on screen already, but budget
   // suggestions may still move to "Held back", so their buttons wait.
@@ -219,6 +225,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
     setLoading(true);
     setError(null);
     setResult(null);
+    setHiddenAdsets(new Set());
     try {
       setRetryNote(null);
       // The check streams for up to a minute, so the connection can drop mid-way; that is retried a couple
@@ -321,21 +328,26 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
   }, [selectedAccountId, tz, isMobile]);
   useEffect(() => {
     if (isMobile || !result || !selectedAccountId) return;
-    const adsetIds = result.flags.filter((f) => f.action === "ADD_CREATIVE" && f.entityType === "adset").map((f) => f.entityId);
+    const adsetIds = [
+      ...result.flags.filter((f) => f.action === "ADD_CREATIVE" && f.entityType === "adset").map((f) => f.entityId),
+      // a pause card for an ad that takes over 40% of its ad set's 7-day spend also lists ads to push into that ad set
+      ...result.flags.filter((f) => f.action === "PAUSE_AD" && f.entityType === "ad" && f.adsetId && (f.adContext?.spendShare?.[7] ?? 0) > DOMINANT_SHARE).map((f) => f.adsetId),
+    ];
     if (adsetIds.length > 0) prefetchPushData(selectedAccountId, tz, adsetIds);
   }, [result, selectedAccountId, tz, isMobile]);
 
+  const visibleFlags = useMemo(() => (result?.flags || []).filter((f) => !(f.action === "ADD_CREATIVE" && hiddenAdsets.has(f.entityId))), [result, hiddenAdsets]);
   const counts = useMemo(() => {
     const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0 };
-    for (const f of result?.flags || []) {
+    for (const f of visibleFlags) {
       c.all++;
       c[f.action]++;
     }
     return c;
-  }, [result]);
-  const shown = (result?.flags || []).filter((f) => filter === "all" || f.action === filter);
+  }, [visibleFlags]);
+  const shown = visibleFlags.filter((f) => filter === "all" || f.action === filter);
   const base7 = result?.baseline?.find((b) => b.days === 7);
-  const selectedFlags = (result?.flags || []).filter((f) => selected.has(f.key));
+  const selectedFlags = visibleFlags.filter((f) => selected.has(f.key));
 
   return (
     <>
@@ -419,7 +431,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               </div>
             </>
           ) : (
-            <RecSummary result={result} counts={counts} flags={result.flags} filter={filter} setFilter={setFilter} checkedText={`Checked ${new Date(result.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${savedNote ? ` (saved, ${savedNote})` : ""}`} />
+            <RecSummary result={result} counts={counts} flags={visibleFlags} filter={filter} setFilter={setFilter} checkedText={`Checked ${new Date(result.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${savedNote ? ` (saved, ${savedNote})` : ""}`} />
           )}
 
           {isMobile && (
@@ -448,7 +460,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
             </div>
           )}
 
-          {result.flags.length === 0 ? (
+          {visibleFlags.length === 0 ? (
             <div className={styles.card}>
               <p style={{ fontWeight: 700, marginBottom: 4 }}>Nothing flagged ✓</p>
               <p className={styles.sub}>No active campaign, ad set or ad matches any rule right now.</p>
@@ -470,7 +482,8 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               />
             ) : (
             <RecBoard
-              flags={result.flags}
+              onAdsPushed={onAdsPushed}
+              flags={visibleFlags}
               filter={filter}
               currencySymbol={result.currencySymbol}
               baseline={base7}
