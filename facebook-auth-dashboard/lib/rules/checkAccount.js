@@ -130,32 +130,27 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
     );
   };
 
-  const [account, [campaigns, adsets, ads], recentBudgetChanges, extraNames, ...windowRows] = await Promise.all([accountP, listsP, changesP, namesP, ...WINDOWS.map(insightsFor)]);
+  // The 48-hour activity log is by far the slowest call on a busy account (it pages through every event, often 25+ s
+  // after everything else is done). A full check doesn't wait for it: the rules run without the cool-down first and
+  // that result is sent straight away ("partial"), then re-run once the log arrives. The light Custom Views check
+  // has no screen to show a partial result on, so it still waits.
+  const [account, [campaigns, adsets, ads], earlyChanges, extraNames, ...windowRows] = await Promise.all([accountP, listsP, lean ? changesP : Promise.resolve(null), namesP, ...WINDOWS.map(insightsFor)]);
   const insightsByWindow = Object.fromEntries(WINDOWS.map((w, i) => [w, windowRows[i]]));
 
   const currencySymbol = currencySymbolOf(account.currency);
 
   emit({ type: "step", id: "rules", pending: true });
-  const result = evaluateAccount({
-    structure: { campaigns: campaigns.data || [], adsets: adsets.data || [], ads: ads.data || [] },
-    insightsByWindow,
-    currency: account.currency,
-    currencySymbol,
-    recentBudgetChanges,
-    extraNames,
-    levels: wanted,
-  });
-  emit({ type: "step", id: "rules", detail: `${result.rulesChecked.length} rules · ${result.flags.length} flagged` });
-
-  if (lean) {
-    return {
-      accountId,
-      generatedAt: Date.now(),
-      heldChecked: result.heldChecked,
-      flags: result.flags.map(toLeanFlag),
-    };
-  }
-  return {
+  const evaluate = (recentBudgetChanges) =>
+    evaluateAccount({
+      structure: { campaigns: campaigns.data || [], adsets: adsets.data || [], ads: ads.data || [] },
+      insightsByWindow,
+      currency: account.currency,
+      currencySymbol,
+      recentBudgetChanges,
+      extraNames,
+      levels: wanted,
+    });
+  const fullBody = (result) => ({
     accountId,
     accountName: account.name,
     currency: account.currency,
@@ -163,5 +158,22 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
     generatedAt: Date.now(),
     windowEnd: lastNDaysRange(1, today).until,
     ...result,
+  });
+
+  if (!lean) {
+    emit({ type: "partial", data: fullBody(evaluate(null)) });
+    const recentBudgetChanges = await changesP;
+    const result = evaluate(recentBudgetChanges);
+    emit({ type: "step", id: "rules", detail: `${result.rulesChecked.length} rules · ${result.flags.length} flagged` });
+    return fullBody(result);
+  }
+
+  const result = evaluate(earlyChanges);
+  emit({ type: "step", id: "rules", detail: `${result.rulesChecked.length} rules · ${result.flags.length} flagged` });
+  return {
+    accountId,
+    generatedAt: Date.now(),
+    heldChecked: result.heldChecked,
+    flags: result.flags.map(toLeanFlag),
   };
 }

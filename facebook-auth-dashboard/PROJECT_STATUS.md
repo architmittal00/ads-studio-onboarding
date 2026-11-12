@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Recommendations: results show before the 48-hour cool-down is read (2026-11-12)
+Measured on a real account (40 s total): everything finished by 15 s except the activity-log read (`changes`, pages through every event of the last 48 h) which ended at 40 s and held up the rules step. The full check now **streams a "partial" result** (rules run without the cool-down) as soon as the insights are in, then re-runs the rules when the log arrives and sends the final result (this is the only one cached). While the log is pending: a banner says so, budget Apply buttons (and the bulk budget buttons) wait, Pause suggestions are usable, the creative-pool prefetch already starts. Budget suggestions that turn out to be recently changed move to "Held back" when the final result lands. Custom Views' light check is unchanged (still waits). Everything else in the check already ran in parallel.
+
 ### Landing page: URL list beats the creative's button link (2026-11-12)
 Checked on a real ad (id 120251260212850425, "Day&Night Combo"): Explore showed `/collections/hair-color` while View details showed `/products/day-night-cream-duo`. The ad has both a creative-level call-to-action link (hair-color) and a dynamic-creative URL list (the product page, matching the ad's name). After the previous fix both screens agreed — on the wrong one. Priority in `deriveLanding` is now: ad link → video button → **URL list first entry** → creative-level button (last resort, for boosted video posts with nothing else). Applies to Explore, View details and push-ads scoring alike.
 

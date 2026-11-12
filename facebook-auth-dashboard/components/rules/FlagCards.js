@@ -27,7 +27,7 @@ const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`
 // toolbar + search + sort sheet, rowCard head / metric grid / drill button): one card per flagged item with
 // its name, where it lives, spend / ROAS / purchases, then one action button. "Why was this flagged?"
 // opens inline. 30 at a time so 100+ flags stay light.
-export default function FlagCards({ flags, currencySymbol, accountRoas7, accountCpp7, applied, thumbs, onAct, onOpenThumb }) {
+export default function FlagCards({ flags, currencySymbol, accountRoas7, accountCpp7, holdBudget, applied, thumbs, onAct, onOpenThumb }) {
   const [open, setOpen] = useState({});
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
@@ -145,7 +145,8 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, account
                     <button
                       type="button"
                       onClick={() => onAct(f)}
-                      style={{ width: "100%", minHeight: 40, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", color: meta.color, background: `rgba(${meta.rgb}, 0.12)`, border: `1px solid rgba(${meta.rgb}, 0.35)` }}
+                      disabled={holdBudget && !!t}
+                      style={{ opacity: holdBudget && t ? 0.5 : 1, width: "100%", minHeight: 40, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", color: meta.color, background: `rgba(${meta.rgb}, 0.12)`, border: `1px solid rgba(${meta.rgb}, 0.35)` }}
                     >
                       {t ? `${meta.label} ${STEP_PCT}%` : meta.label}
                     </button>

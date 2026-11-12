@@ -115,11 +115,12 @@ function Context({ flag, symbol }) {
   );
 }
 
-function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds }) {
+function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds, holdBudget }) {
   const [open, setOpen] = useState(false);
   const where = [flag.campaignName, flag.adsetName].filter(Boolean).join("  ›  ");
   const t = flag.budgetTarget;
   const actionable = isActionable(flag) && !applied;
+  const waiting = holdBudget && !!flag.budgetTarget; // budget change: wait for the 48-hour cool-down read
   const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
   return (
     <article className={open ? `${styles.recCard} ${styles.recCardOpen}` : styles.recCard} style={{ "--rec-rgb": section.rgb }}>
@@ -169,7 +170,9 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
               <button
                 type="button"
                 onClick={() => onAct(flag)}
-                style={{ color: section.color, background: `rgba(${section.rgb}, 0.12)`, border: `1px solid rgba(${section.rgb}, 0.35)` }}
+                disabled={waiting}
+                title={waiting ? "Checking recent budget changes first…" : undefined}
+                style={{ opacity: waiting ? 0.5 : 1, color: section.color, background: `rgba(${section.rgb}, 0.12)`, border: `1px solid rgba(${section.rgb}, 0.35)` }}
                 className={styles.recActBtn}
               >
                 {t ? `${section.verb} ${STEP_PCT}%` : section.verb}
@@ -262,7 +265,7 @@ export function RecSummary({ result, counts, flags, filter, setFilter, checkedTe
   );
 }
 
-export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb, accountId, tz }) {
+export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb, accountId, tz, holdBudget }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState("spend7");
   const [expanded, setExpanded] = useState({}); // action -> shown beyond the first page
@@ -333,6 +336,7 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
                   accountId={accountId}
                   tz={tz}
                   pausedAdIds={pausedAdIds}
+                  holdBudget={holdBudget}
                 />
               ))}
             </div>
