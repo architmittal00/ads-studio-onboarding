@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push-ads: roomier "Why push this?" table (2026-11-12)
+
+The reasoning table now takes about two-thirds of the panel (the "already running" list keeps the rest; below 1100px they stack), rows have more padding and gap, and the old combined Result cell is split into **Result** (the Strong / Fair / Slight edge / Weak badge) and **Points** (right-aligned, tabular figures, e.g. 17/20). Lint/build only — not previewed.
+
 ### Push-ads: choose paused or active before launching (2026-11-12)
 
 "Add n ads to this ad set" now opens an inline confirmation ("Launch n ads as… Paused | Active", default Paused, with a one-line note on what each means) and only creates the ads after "Launch as paused/active". `/api/fb/duplicate-ad` already took `status` (anything but ACTIVE = paused), so no server change. `recommendation_applied_ad_added` and `recommendation_ads_pushed` carry `status`. Lint/build only — not previewed.

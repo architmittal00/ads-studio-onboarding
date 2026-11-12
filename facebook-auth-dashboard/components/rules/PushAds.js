@@ -345,20 +345,21 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
                             <span>What we checked</span>
                             <span>This creative</span>
                             <span>Compared with</span>
-                            <span style={{ textAlign: "right" }}>Result</span>
+                            <span>Result</span>
+                            <span style={{ textAlign: "right" }}>Points</span>
                           </div>
                           {c.breakdown.map((b) => (
                             <div key={b.key} className={styles.pushWhyRow}>
                               <span>{b.label}</span>
                               <strong>{b.value}</strong>
                               <span className={styles.pushWhyAgainst}>{b.against}</span>
-                              <span style={{ textAlign: "right" }}>
+                              <span>
                                 <span className={b.level === "strong" ? styles.badgeGood : b.level === "fair" ? styles.badgeWarn : b.level === "slight" ? styles.badgeInfo : styles.badgeDanger}>
                                   {b.level === "strong" ? "Strong" : b.level === "fair" ? "Fair" : b.level === "slight" ? "Slight edge" : "Weak"}
                                 </span>
-                                <span className={styles.pushWhyPoints}>
-                                  {b.points.toFixed(0)}/{b.max.toFixed(0)}
-                                </span>
+                              </span>
+                              <span className={styles.pushWhyPoints}>
+                                {b.points.toFixed(0)}/{b.max.toFixed(0)}
                               </span>
                             </div>
                           ))}
