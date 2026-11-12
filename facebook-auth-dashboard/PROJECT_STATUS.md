@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Explore: row actions pinned to the right edge as a ⋯ menu (2026-11-12)
+
+The "Actions" column was the last column of a table that scrolls sideways, so it was off-screen on wide queries. It is now a ~48px column pinned to the right edge (`stickyRight` column option in `SortableTable`: sticky body and header cells, left-edge shadow, no sort/drag/resize) holding a ⋯ button (`RowActions variant="icon"`, `.rowActionIconBtn`); clicking it opens the same dropdown (View Details, Pause/Activate, Change Budget, Duplicate — even when there is only one). Drill-down child rows and date rows in Explore use the same pinned cell. Checked in a throwaway preview page: stays visible at every horizontal scroll position, header stays pinned to the top, dropdown opens. Not yet seen on the real Explore page.
+
 ### Recommendations toolbar: tidier Sort and share filter (2026-11-12)
 
 Search, Sort and the Pause share filter now sit on one row at the same 40px height, each Sort/filter as a bordered pill with its label inside it ("Sort  Most spend", "Pause · ad's 7-day share ≥ [40] %", with a × to clear) — replacing the small uppercase labels above the boxes, the clipped placeholder and the stray "%". New `.recField` / `.recFieldInput` / `.recFieldClear` classes. Lint/build only.

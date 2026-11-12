@@ -218,6 +218,25 @@
    z-index) — `position: fixed`, positioned from the trigger button's own
    getBoundingClientRect(), paints relative to the viewport instead and is
    never clipped by it. */
+.rowActionIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--t2);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.rowActionIconBtn:hover,
+.rowActionIconBtn[aria-expanded="true"] {
+  background: var(--card2);
+  border-color: var(--border);
+  color: var(--t1);
+}
 .rowActionMenu {
   z-index: 50;
   min-width: 140px;
