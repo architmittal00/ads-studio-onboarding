@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### "Push new ads" opens a pop-up (2026-11-12)
+
+On a Pause card for a dominant ad (over 40% of its ad set's 7-day spend), "Push new ads" now opens a wide modal (scrim, `.card`, close X, click-outside and Esc close) with the ranked push list inside — header says which ad set and which ad takes the share. The inline panel under "See reasoning" is gone. The paused/active confirmation still opens on top of it. Lint/build only.
+
 ### Recommendations: "7-day share, at least __ %" filter on the Pause section (2026-11-12)
 
 A number box in the board's toolbar (next to Sort): "Pause · ad's 7-day share of its ad set, at least __ %". It keeps only Pause cards whose ad takes at least that share of its ad set's 7-day spend (`flag.adContext.spendShare[7]`, the same figure the "Push new ads" button shows; an ad with no figure is hidden while the box is filled). Other sections are untouched. The section title shows "· 5 of 17", "Select all" covers only the visible cards, ads ticked and then hidden by the filter are un-ticked so a bulk pause can't include them, and an empty result says so. (The earlier "at most" box lives on the Pause ads tab inside an Add a creative card — a different list.) Lint/build only.

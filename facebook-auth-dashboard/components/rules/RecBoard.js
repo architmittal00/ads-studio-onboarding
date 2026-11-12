@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Thumb from "@/components/Thumb";
+import { CloseIcon } from "@/components/icons";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
 import { WhyChecks } from "@/components/rules/FlagWhy";
 import PushAds from "@/components/rules/PushAds";
@@ -120,6 +121,13 @@ export const DOMINANT_SHARE = 40;
 
 function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds, holdBudget, onAdsPushed }) {
   const [open, setOpen] = useState(false);
+  const [pushModal, setPushModal] = useState(false); // "Push new ads" pop-up (pause card of a dominant ad)
+  useEffect(() => {
+    if (!pushModal) return;
+    const onKey = (e) => e.key === "Escape" && setPushModal(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pushModal]);
   const where = [flag.campaignName, flag.adsetName].filter(Boolean).join("  ›  ");
   const t = flag.budgetTarget;
   const actionable = isActionable(flag) && !applied;
@@ -183,7 +191,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
                 {t ? `${section.verb} ${STEP_PCT}%` : section.verb}
               </button>
               {dominant && (
-                <button type="button" onClick={() => setOpen(true)} className={styles.recActBtn} style={{ color: "var(--blue)", background: "rgba(var(--blue-rgb), 0.12)", border: "1px solid rgba(var(--blue-rgb), 0.35)" }}>
+                <button type="button" onClick={() => setPushModal(true)} className={styles.recActBtn} style={{ color: "var(--blue)", background: "rgba(var(--blue-rgb), 0.12)", border: "1px solid rgba(var(--blue-rgb), 0.35)" }}>
                   Push new ads
                 </button>
               )}
@@ -211,14 +219,33 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
               <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} onPushed={onAdsPushed} />
             </div>
           )}
-          {dominant && accountId && (
-            <div className={styles.pushWrap}>
-              <div className={styles.recContextTitle}>
-                Push new ads into {flag.adsetName || "its ad set"} · this ad takes {share7.toFixed(0)}% of its 7-day spend
+        </div>
+      )}
+      {pushModal && dominant && accountId && (
+        <div onClick={() => setPushModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Push new ads"
+            onClick={(e) => e.stopPropagation()}
+            className={styles.card}
+            style={{ background: "var(--bg)", width: "min(1120px, 100%)", maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <h2 className={styles.h2} style={{ marginBottom: 2 }}>
+                  Push new ads into {flag.adsetName || "this ad set"}
+                </h2>
+                <p className={styles.sub}>
+                  <strong>{flag.name}</strong> takes {share7.toFixed(0)}% of this ad set&apos;s 7-day spend. Add fresh ads here, then pause it from the card.
+                </p>
               </div>
-              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} adsetId={flag.adsetId} adsetName={flag.adsetName} source="pause_card" onPushed={onAdsPushed} />
+              <button type="button" onClick={() => setPushModal(false)} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6, flexShrink: 0 }}>
+                <CloseIcon size={14} />
+              </button>
             </div>
-          )}
+            <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} adsetId={flag.adsetId} adsetName={flag.adsetName} source="pause_card" onPushed={onAdsPushed} />
+          </div>
         </div>
       )}
     </article>
