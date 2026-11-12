@@ -177,6 +177,9 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
   const { adAccounts, accountsLoading } = useAccounts();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  // True while the 48-hour budget cool-down is still being read: the flags are on screen already, but budget
+  // suggestions may still move to "Held back", so their buttons wait.
+  const [heldPending, setHeldPending] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
   const [applied, setApplied] = useState({}); // flag key -> short outcome text
@@ -208,9 +211,11 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
       setApplied({});
       setSelected(new Set());
       setError(null);
+      setHeldPending(false);
       return;
     }
     setSavedNote(null);
+    setHeldPending(false);
     setLoading(true);
     setError(null);
     setResult(null);
@@ -241,7 +246,14 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               if (!line.trim()) continue;
               const event = JSON.parse(line);
               if (event.type === "step" && !event.pending) setSteps((prev) => ({ ...prev, [event.id]: { done: true, detail: event.detail } }));
-              else if (event.type === "error") throw Object.assign(new Error(event.error), { noRetry: true });
+              else if (event.type === "partial") {
+                // The flags without the 48-hour cool-down: show them now, the final result follows.
+                setResult(event.data);
+                setApplied({});
+                setSelected(new Set());
+                setHeldPending(true);
+                setLoading(false);
+              } else if (event.type === "error") throw Object.assign(new Error(event.error), { noRetry: true });
               else if (event.type === "result") result = event.data;
             }
           }
@@ -258,6 +270,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
     } catch (err) {
       setError(err.message);
     } finally {
+      setHeldPending(false);
       setLoading(false);
     }
   }
@@ -407,13 +420,19 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
           {isMobile && (
             <MobileChips tabs={FILTERS.map((f) => ({ key: f.key, label: `${f.label} (${counts[f.key]})`, short: `${f.key === "all" ? "All" : f.label.replace(" budget", "").replace(" ads", "")} ${counts[f.key]}` }))} active={filter} onChange={setFilter} label="Filter flags" />
           )}
+          {heldPending && (
+            <div className={styles.recStrip} style={{ justifyContent: "flex-start", gap: 8 }}>
+              <span className={`${styles.spinner} ${styles.spinnerSm}`} />
+              Still reading budget changes from the last 48 hours — budget suggestions may move to “Held back”, so their buttons wait a moment.
+            </div>
+          )}
           {!isMobile && selected.size > 0 && (
             <div className={styles.card} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 14px" }}>
               <strong style={{ fontSize: 13 }}>{selected.size} selected</strong>
               {BULK_ACTIONS.map((a) => {
                 const flags = selectedFlags.filter((f) => f.action === a.action);
                 return flags.length > 0 ? (
-                  <button key={a.action} type="button" className={styles.btnSecondary} style={{ color: a.color }} onClick={() => setBulk({ action: a.action, flags })}>
+                  <button key={a.action} type="button" className={styles.btnSecondary} style={{ color: a.color }} disabled={heldPending && a.action !== "PAUSE_AD"} onClick={() => setBulk({ action: a.action, flags })}>
                     {a.label(flags.length)}
                   </button>
                 ) : null;
@@ -438,6 +457,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
                 currencySymbol={result.currencySymbol}
                 accountRoas7={base7?.roas ?? null}
                 accountCpp7={base7?.cpr ?? null}
+                holdBudget={heldPending}
                 applied={applied}
                 thumbs={thumbs}
                 onAct={setActing}
@@ -449,6 +469,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
               filter={filter}
               currencySymbol={result.currencySymbol}
               baseline={base7}
+              holdBudget={heldPending}
               accountId={selectedAccountId}
               tz={tz}
               applied={applied}
@@ -478,7 +499,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
             )
           )}
 
-          {!result.heldChecked && (
+          {!result.heldChecked && !heldPending && (
             <p className={styles.muted} style={{ marginTop: 14, fontWeight: 400 }}>
               Couldn&apos;t read the account&apos;s recent changes, so the 48-hour budget cool-down wasn&apos;t applied this time — hard refresh to try again.
             </p>
