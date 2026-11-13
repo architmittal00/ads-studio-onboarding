@@ -135,11 +135,11 @@ export default function Dashboard({ user }) {
   return (
     <Layout>
       <Head>
-        <title>Dashboard · Facebook Auth Dashboard</title>
+        <title>Your Accounts · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Raw Data</h1>
+          <h1 className={styles.h1}>Your Accounts</h1>
 
           {/* Reported by the user: a newly-connected Meta ad account didn't
               show up in the Ad Accounts list below even after several
