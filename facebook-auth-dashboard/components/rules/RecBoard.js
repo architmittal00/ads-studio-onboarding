@@ -333,7 +333,9 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
   const [minShare, setMinShare] = useState("");
   const minShareCap = minShare.trim() === "" || !Number.isFinite(Number(minShare)) ? null : Number(minShare);
   const shareOf = (f) => f.adContext?.spendShare?.[7] ?? null;
-  const passesShare = (f) => minShareCap == null || f.action !== "PAUSE_AD" || (shareOf(f) != null && shareOf(f) >= minShareCap);
+  // The share filter only means something where Pause cards are listed: the Everything and Pause views.
+  const showShareFilter = (filter === "all" || filter === "PAUSE_AD") && flags.some((f) => f.action === "PAUSE_AD");
+  const passesShare = (f) => minShareCap == null || !showShareFilter || f.action !== "PAUSE_AD" || (shareOf(f) != null && shareOf(f) >= minShareCap);
   const bench = { roas: baseline?.roas ?? null, cpp: baseline?.cpr ?? null };
   const sort = SORTS.find((s) => s.key === sortKey);
   // Ads a Pause rule flagged: their creatives are never suggested for pushing into another ad set.
@@ -371,18 +373,20 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
             ))}
           </select>
         </label>
-        <label className={styles.recField} title="Pause cards only: keep ads that take at least this share of their ad set's 7-day spend">
-          <span>Pause · ad&apos;s 7-day share ≥</span>
-          <input className={styles.recFieldInput} type="number" min="0" max="100" step="any" inputMode="decimal" placeholder="40" value={minShare} onChange={(e) => setMinShare(e.target.value)} style={{ width: 52 }} />
-          <span>%</span>
-          {minShare !== "" && (
-            <button type="button" className={styles.recFieldClear} aria-label="Clear share filter" onClick={(e) => (e.preventDefault(), setMinShare(""))}>
-              ×
-            </button>
-          )}
-        </label>
+        {showShareFilter && (
+          <label className={styles.recField} title="Pause cards only: keep ads that take at least this share of their ad set's 7-day spend">
+            <span>Pause · ad&apos;s 7-day share ≥</span>
+            <input className={styles.recFieldInput} type="number" min="0" max="100" step="any" inputMode="decimal" placeholder="40" value={minShare} onChange={(e) => setMinShare(e.target.value)} style={{ width: 52 }} />
+            <span>%</span>
+            {minShare !== "" && (
+              <button type="button" className={styles.recFieldClear} aria-label="Clear share filter" onClick={(e) => (e.preventDefault(), setMinShare(""))}>
+                ×
+              </button>
+            )}
+          </label>
+        )}
       </div>
-      {minShareCap != null && grouped.some((g) => g.section.action === "PAUSE_AD") && grouped.find((g) => g.section.action === "PAUSE_AD").items.length === 0 && flags.some((f) => f.action === "PAUSE_AD") && (
+      {minShareCap != null && showShareFilter && grouped.some((g) => g.section.action === "PAUSE_AD") && grouped.find((g) => g.section.action === "PAUSE_AD").items.length === 0 && flags.some((f) => f.action === "PAUSE_AD") && (
         <p className={styles.sub}>No pause suggestion is for an ad taking {minShareCap}% or more of its ad set&apos;s 7-day spend — lower the number to see more.</p>
       )}
       {grouped.every((g) => g.items.length === 0) && minShareCap == null && <p className={styles.sub}>Nothing matches.</p>}

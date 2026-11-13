@@ -11,6 +11,7 @@ import CacheStatus from "@/components/CacheStatus";
 import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
 import RowActions from "@/components/RowActions";
+import EntityInvestigateDrawer from "@/components/EntityInvestigateDrawer";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import EntityDetailDrawer from "@/components/EntityDetailDrawer";
@@ -3532,6 +3533,7 @@ function ExploreResultsTable({
   }, [rangeKey]);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [detailEntity, setDetailEntity] = useState(null);
+  const [investigateEntity, setInvestigateEntity] = useState(null); // row picked for "Investigate" (right-hand drawer)
 
   // Pivot mode: Level + "Group by time" together, e.g. Campaign level with
   // Daily grouping. The backend already returns one row per (entity, date)
@@ -4003,6 +4005,7 @@ function ExploreResultsTable({
                   currency={currencyByAccountId.get(row.accountId)}
                   onActionApplied={onActionApplied}
                   onViewDetails={setDetailEntity}
+                  onInvestigate={setInvestigateEntity}
                 />
               ) : null,
           },
@@ -4076,6 +4079,7 @@ function ExploreResultsTable({
                   currency={currencyByAccountId.get(row.accountId)}
                   onActionApplied={applyChildActionPatch}
                   onViewDetails={setDetailEntity}
+                  onInvestigate={setInvestigateEntity}
                 />
               </td>
             );
@@ -4415,6 +4419,7 @@ function ExploreResultsTable({
               currency={currencyFor(row)}
               onActionApplied={onApplied}
               onViewDetails={setDetailEntity}
+              onInvestigate={setInvestigateEntity}
             />
           )}
           onViewDetails={setDetailEntity}
@@ -4424,6 +4429,7 @@ function ExploreResultsTable({
         />
         {bulkButtons}
         <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+        <EntityInvestigateDrawer entity={investigateEntity} onClose={() => setInvestigateEntity(null)} currency={investigateEntity?.currency} />
         <EntityDetailDrawer
           entity={detailEntity}
           onClose={() => setDetailEntity(null)}
@@ -4577,6 +4583,7 @@ function ExploreResultsTable({
         />
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      <EntityInvestigateDrawer entity={investigateEntity} onClose={() => setInvestigateEntity(null)} currency={investigateEntity?.currency} />
       <EntityDetailDrawer
           entity={detailEntity}
           onClose={() => setDetailEntity(null)}
