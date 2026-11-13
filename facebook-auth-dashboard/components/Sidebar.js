@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import styles from "@/styles/Home.module.css";
 import { getSidebarCollapsed, setSidebarCollapsed, setThemePreference } from "@/lib/clientStorage";
 import { clearCachedEntry } from "@/lib/clientCache";
+import { clearSavedCreativePools } from "@/lib/rules/creativePool";
 import { track } from "@/lib/analytics";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { ACCOUNT_DATA_CACHE_KEY } from "./AccountProvider";
@@ -102,6 +103,7 @@ export default function Sidebar() {
     // to reflect whatever changed on Meta's side, same as the user
     // would expect.
     clearCachedEntry(ACCOUNT_DATA_CACHE_KEY);
+    clearSavedCreativePools(); // the saved Recommendations creative lookup is one user's ad data
     signOut({ callbackUrl: "/" });
   }
 

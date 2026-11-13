@@ -12,11 +12,31 @@ const MAX_STORED_CHARS = 2_500_000;
 const MAX_STORED_ACCOUNTS = 3;
 const cache = new Map(); // accountId -> { at, promise, value }
 
+// The saved copy belongs to ONE signed-in user: it is only read or written while the page has told us who that is
+// (setCreativePoolUser), it carries that user's id, and sign-out removes every saved copy — so another person signing
+// in on the same browser never sees someone else's ad numbers.
+let poolUser = null;
+export function setCreativePoolUser(userId) {
+  const next = userId ? String(userId) : null;
+  if (next === poolUser) return;
+  poolUser = next;
+  cache.clear();
+}
+
+export function clearSavedCreativePools() {
+  cache.clear();
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith(STORE_PREFIX)) localStorage.removeItem(key);
+  } catch {}
+}
+
 function readStored(accountId) {
+  if (!poolUser) return null;
   try {
     const raw = localStorage.getItem(STORE_PREFIX + accountId);
     if (!raw) return null;
-    const { at, value } = JSON.parse(raw);
+    const { at, u, value } = JSON.parse(raw);
+    if (u !== poolUser) return null;
     if (!Array.isArray(value?.ads) || !Number.isFinite(at) || Date.now() - at > STALE_MAX_MS) return null;
     return { at, value };
   } catch {
@@ -25,8 +45,9 @@ function readStored(accountId) {
 }
 
 function writeStored(accountId, value) {
+  if (!poolUser) return;
   try {
-    const raw = `{"at":${Date.now()},"value":${JSON.stringify(value)}}`; // `at` first, so pruning can read it without parsing
+    const raw = `{"at":${Date.now()},"u":${JSON.stringify(poolUser)},"value":${JSON.stringify(value)}}`; // `at` first, so pruning can read it without parsing
     if (raw.length > MAX_STORED_CHARS) return;
     localStorage.setItem(STORE_PREFIX + accountId, raw);
     // Keep only the most recently saved few accounts.
