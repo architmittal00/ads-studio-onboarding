@@ -86,6 +86,11 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Custom Views: "Investigate" row action, and the share filter only where Pause is shown (2026-11-13)
+
+- **Investigate:** a new action in the row menu (⋯) of **campaign and ad set** rows in Explore (not ads; it is not offered where a screen does not pass `onInvestigate`, so Recent Changes' own menus are unchanged). It opens a right-hand drawer (`components/EntityInvestigateDrawer.js`): pick a date, then it is the Recent Changes investigation anchored on that day — metric chips, the before/after comparison windows (`/api/fb/recent-changes/investigate`, same cache), and "View Ads in this …" drill-down (`EntityDrillDown`). The one difference: Recent Changes' day comes from a logged change and also lists "Changes that day"; here the user picks the date and there is no changes list. Opens empty until a date is chosen (max = today). Checked in a throwaway page with mocked data (menu item present for ad sets and absent for ads, drawer opens, picking a date requests the investigation for that day and renders the table); not seen with real data.
+- **Share filter:** the Recommendations toolbar's "Pause · ad's 7-day share ≥" box now shows only on the Everything and Pause views (and only when there are Pause cards); on Scale up, Reduce budget and Add a creative it is hidden and does not filter anything.
+
 ### Push pop-up: saved creative lookup, roomier and shorter table, fixed tabs (2026-11-13)
 
 - **Security note (Vercel Security Review finding on this PR):** the saved copy is ad data, so it is tagged with the signed-in user's id and only read or written once the session is known (`setCreativePoolUser`), and `handleSignOut` removes every saved copy (`clearSavedCreativePools`). Sign-out also clears the saved Recommendations tabs (`recs-tabs:v1`) and last check results (`fb-dashboard:cache:rules-check:*`), which used to survive it. Other caches (Explore etc.) are still only keyed by account, not user — not touched here.
