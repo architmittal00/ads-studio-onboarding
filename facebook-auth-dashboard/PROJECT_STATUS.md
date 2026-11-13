@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### "Add a creative" cards get a "Push ads" button that opens the pop-up (2026-11-13)
+
+Instead of the ranked list sitting inline under "See reasoning", an Add a creative card now shows a blue "Push ads" button (with "Pick ads to push, or pause the weakest") in its action column; it opens the same wide pop-up as "Push new ads" on a dominant ad's Pause card, with the Push ads / Pause ads tabs inside (Pause ads only for ad sets from the "more than 5 ads" rule, as before). "See reasoning" now shows only the why-it-was-flagged checks and context. Lint/build only.
+
 ### Recommendations: arriving from another page sometimes showed "Nothing flagged" (2026-11-13)
 
 Cause: moving to Recommendations from another page (client-side, the app-wide account already known) rendered the tab before its saved account was restored from `recs-tabs:v1`, so a check started for the app-wide account (a small account with 22 ads and nothing flagged) while the tab then switched to its saved account. With the saved account's result cached the right data appeared instantly and the slower wrong-account check then overwrote it ("Nothing flagged", "6 campaigns, 10 ad sets, 22 ads"); a reload skipped it because the app-wide account is not known yet at first render. Fix in `pages/recommendations.js`: tabs are not mounted until the saved tabs are restored (`tabsRestored`), and `run()` drops every event, result, error and loader change for an account the tab no longer shows (`accountRef` / `stale()`), so switching accounts mid-check is safe too. Reproduced by reading the code only; not yet seen fixed on the live page.

@@ -121,7 +121,7 @@ export const DOMINANT_SHARE = 40;
 
 function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds, holdBudget, onAdsPushed }) {
   const [open, setOpen] = useState(false);
-  const [pushModal, setPushModal] = useState(false); // "Push new ads" pop-up (pause card of a dominant ad)
+  const [pushModal, setPushModal] = useState(false); // the pop-up behind "Push new ads" (pause card of a dominant ad) / "Push ads" (Add a creative card)
   useEffect(() => {
     if (!pushModal) return;
     const onKey = (e) => e.key === "Escape" && setPushModal(false);
@@ -133,6 +133,10 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
   const actionable = isActionable(flag) && !applied;
   const share7 = flag.action === "PAUSE_AD" && flag.entityType === "ad" && flag.adsetId ? flag.adContext?.spendShare?.[7] ?? null : null;
   const dominant = share7 != null && share7 > DOMINANT_SHARE;
+  // An "Add a creative" card: its CTA opens the same pop-up as a dominant ad's "Push new ads" (push ranked ads, or pause the weakest).
+  const addCreative = flag.action === "ADD_CREATIVE" && flag.entityType === "adset" && !!accountId;
+  const popupAdsetId = addCreative ? flag.entityId : flag.adsetId;
+  const popupAdsetName = addCreative ? flag.name : flag.adsetName;
   const waiting = holdBudget && !!flag.budgetTarget; // budget change: wait for the 48-hour cool-down read
   const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
   return (
@@ -202,6 +206,13 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
                 </span>
               )}
             </>
+          ) : addCreative ? (
+            <>
+              <button type="button" onClick={() => setPushModal(true)} className={styles.recActBtn} style={{ color: section.color, background: `rgba(${section.rgb}, 0.12)`, border: `1px solid rgba(${section.rgb}, 0.35)` }}>
+                Push ads
+              </button>
+              <span className={styles.recActSub}>Pick ads to push, or pause the weakest</span>
+            </>
           ) : (
             <span className={styles.recActSub}>Add one in Ads Manager</span>
           )}
@@ -214,19 +225,14 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
             <WhyChecks flag={flag} />
           </div>
           <Context flag={flag} symbol={symbol} />
-          {flag.action === "ADD_CREATIVE" && flag.entityType === "adset" && accountId && (
-            <div className={styles.pushWrap}>
-              <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} onPushed={onAdsPushed} />
-            </div>
-          )}
         </div>
       )}
-      {pushModal && dominant && accountId && (
+      {pushModal && (dominant || addCreative) && accountId && (
         <div onClick={() => setPushModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}>
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Push new ads"
+            aria-label={addCreative ? "Push ads" : "Push new ads"}
             onClick={(e) => e.stopPropagation()}
             className={styles.card}
             style={{ background: "var(--bg)", width: "min(1120px, 100%)", maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}
@@ -234,17 +240,23 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div style={{ minWidth: 0 }}>
                 <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-                  Push new ads into {flag.adsetName || "this ad set"}
+                  {addCreative ? "Push ads into" : "Push new ads into"} {popupAdsetName || "this ad set"}
                 </h2>
                 <p className={styles.sub}>
-                  <strong>{flag.name}</strong> takes {share7.toFixed(0)}% of this ad set&apos;s 7-day spend. Add fresh ads here, then pause it from the card.
+                  {addCreative ? (
+                    "Pick proven creatives to add to this ad set, or pause its weakest ads."
+                  ) : (
+                    <>
+                      <strong>{flag.name}</strong> takes {share7.toFixed(0)}% of this ad set&apos;s 7-day spend. Add fresh ads here, then pause it from the card.
+                    </>
+                  )}
                 </p>
               </div>
               <button type="button" onClick={() => setPushModal(false)} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6, flexShrink: 0 }}>
                 <CloseIcon size={14} />
               </button>
             </div>
-            <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} adsetId={flag.adsetId} adsetName={flag.adsetName} source="pause_card" onPushed={onAdsPushed} />
+            <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} adsetId={popupAdsetId} adsetName={popupAdsetName} source={addCreative ? "add_creative" : "pause_card"} onPushed={onAdsPushed} />
           </div>
         </div>
       )}
