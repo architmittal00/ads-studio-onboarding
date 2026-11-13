@@ -12,6 +12,7 @@ import SortableTable from "@/components/SortableTable";
 import AccountSelect from "@/components/AccountSelect";
 import RowActions from "@/components/RowActions";
 import EntityInvestigateDrawer from "@/components/EntityInvestigateDrawer";
+import EntityHistoryDrawer from "@/components/EntityHistoryDrawer";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import EntityDetailDrawer from "@/components/EntityDetailDrawer";
@@ -3533,6 +3534,7 @@ function ExploreResultsTable({
   }, [rangeKey]);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [detailEntity, setDetailEntity] = useState(null);
+  const [historyEntity, setHistoryEntity] = useState(null); // row picked for "Change history" (right-hand drawer)
   const [investigateEntity, setInvestigateEntity] = useState(null); // row picked for "Investigate" (right-hand drawer)
 
   // Pivot mode: Level + "Group by time" together, e.g. Campaign level with
@@ -4006,6 +4008,7 @@ function ExploreResultsTable({
                   onActionApplied={onActionApplied}
                   onViewDetails={setDetailEntity}
                   onInvestigate={setInvestigateEntity}
+                  onHistory={setHistoryEntity}
                 />
               ) : null,
           },
@@ -4080,6 +4083,7 @@ function ExploreResultsTable({
                   onActionApplied={applyChildActionPatch}
                   onViewDetails={setDetailEntity}
                   onInvestigate={setInvestigateEntity}
+                  onHistory={setHistoryEntity}
                 />
               </td>
             );
@@ -4420,6 +4424,7 @@ function ExploreResultsTable({
               onActionApplied={onApplied}
               onViewDetails={setDetailEntity}
               onInvestigate={setInvestigateEntity}
+                  onHistory={setHistoryEntity}
             />
           )}
           onViewDetails={setDetailEntity}
@@ -4430,6 +4435,7 @@ function ExploreResultsTable({
         {bulkButtons}
         <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
         <EntityInvestigateDrawer entity={investigateEntity} onClose={() => setInvestigateEntity(null)} currency={investigateEntity?.currency} />
+        <EntityHistoryDrawer entity={historyEntity} onClose={() => setHistoryEntity(null)} />
         <EntityDetailDrawer
           entity={detailEntity}
           onClose={() => setDetailEntity(null)}
@@ -4584,6 +4590,7 @@ function ExploreResultsTable({
       </div>
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       <EntityInvestigateDrawer entity={investigateEntity} onClose={() => setInvestigateEntity(null)} currency={investigateEntity?.currency} />
+        <EntityHistoryDrawer entity={historyEntity} onClose={() => setHistoryEntity(null)} />
       <EntityDetailDrawer
           entity={detailEntity}
           onClose={() => setDetailEntity(null)}
