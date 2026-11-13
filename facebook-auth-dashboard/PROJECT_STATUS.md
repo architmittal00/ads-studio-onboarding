@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push ads from the "!" pop-up in Custom Views and Monitor (2026-11-13)
+For an ad set flagged "Room for a new creative", the `AttentionPopover` (`components/rules/RuleAttention.js`) now has a **Push ads** button that opens the same `PushAds` pop-up as the Recommendations card. It takes a new `tz` prop (passed from `pages/explore.js` and `MonitorAccountTab.js`); the ad set's account comes from `flag.accountId`. Lint/build checked only, not exercised against a real account or looked at in the UI.
+
 ### Calendar: no repeated dates (2026-11-13)
 The shared `Month` calendar (`components/DateRangeMenu.js`, also used by `DatePicker`) no longer fills its first/last week with the neighbouring months' dates; those cells are blank, so with two months side by side each date appears once. Lint/build checked only, not looked at in the UI.
 
