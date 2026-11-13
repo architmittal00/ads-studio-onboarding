@@ -2,7 +2,8 @@
 // treats copies as different creatives. What survives a duplicate is the asset underneath, so an ad's identity is the
 // first of these it has: partnership code → video → image → Instagram post / permalink → Page post. An ad with none of
 // them (carousels, catalog) falls back to its name with the " – Copy N" Ads Manager appends removed — but only when
-// that name is shared with a copy, so two unrelated ads are never merged on a plain name.
+// that name is shared with a copy, so two unrelated ads are never merged on a plain name. The name match is also applied to ads
+// that have an identity (see groupKeys), since a copy can come with its own video.
 
 // Fields to read from `creative{…}` (the partnership code is requested separately, see creative-pool.js).
 export const IDENTITY_FIELDS =
@@ -38,13 +39,55 @@ export function copyBaseName(name) {
 }
 
 // infos: Map adId → { creativeId, hard, name }. Returns Map adId → the id the ad is grouped under.
+//
+// Two signals join ads into one group, and they work together (union–find):
+//   1. the same asset identity (`hard`: partnership code / video / image / Instagram post / Page post);
+//   2. names that are the same once " – Copy N" is removed, when at least one of them carries the suffix — checked even for
+//      ads that DO have an identity, because Meta can give a copy its own video and post (copying an ad into another ad
+//      set re-creates the video: same picture and name, different video id).
+// An ad that joins nothing keeps its own key (its identity, else its creative id).
 export function groupKeys(infos) {
-  const copied = new Set();
-  for (const i of infos.values()) if (!i.hard && hasCopySuffix(i.name)) copied.add(copyBaseName(i.name));
-  const out = new Map();
-  for (const [adId, i] of infos) {
-    const base = !i.hard && i.name ? copyBaseName(i.name) : null;
-    out.set(adId, i.hard || (base && copied.has(base) ? `n:${base}` : i.creativeId));
+  const parent = new Map();
+  const find = (x) => {
+    while (parent.get(x) !== x) {
+      parent.set(x, parent.get(parent.get(x)));
+      x = parent.get(x);
+    }
+    return x;
+  };
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  for (const id of infos.keys()) parent.set(id, id);
+
+  const ownKey = (i) => i.hard || i.creativeId;
+  const copiedBases = new Set();
+  for (const i of infos.values()) if (hasCopySuffix(i.name)) copiedBases.add(copyBaseName(i.name));
+
+  const firstByHard = new Map();
+  const firstByBase = new Map();
+  for (const [id, i] of infos) {
+    if (i.hard) {
+      if (firstByHard.has(i.hard)) union(id, firstByHard.get(i.hard));
+      else firstByHard.set(i.hard, id);
+    }
+    const base = i.name ? copyBaseName(i.name) : null;
+    if (base && copiedBases.has(base)) {
+      if (firstByBase.has(base)) union(id, firstByBase.get(base));
+      else firstByBase.set(base, id);
+    }
   }
+
+  // A group's key: its smallest member key, so it is the same whichever ad is looked at first.
+  const keyOfRoot = new Map();
+  for (const [id, i] of infos) {
+    const root = find(id);
+    const k = ownKey(i);
+    if (!keyOfRoot.has(root) || k < keyOfRoot.get(root)) keyOfRoot.set(root, k);
+  }
+  const out = new Map();
+  for (const id of infos.keys()) out.set(id, keyOfRoot.get(find(id)));
   return out;
 }

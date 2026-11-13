@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push list: a copy that has its own video is now grouped with the original (2026-11-13)
+
+Reported: ads 120250152117310173 ("… Hook 2_cee_6Nov - Copy") and 120250151350780173 ("… Hook 2_cee_6Nov") are the same ad but were listed separately. Read through a new diagnostic route (`GET /api/fb/ad-identity?adIds=…`, read-only: the identity fields the push list groups on and what it grouped each under): Meta had given each its **own video id** (1603877914362861 vs 1093028156973397), Page post and Instagram media — copying an ad into another ad set re-created the video — so grouping by video id kept them apart, and the " – Copy" name match only ran for ads with no identity at all. `groupKeys` (`lib/rules/creativeIdentity.js`) now joins ads by **either** signal together (union–find): the same asset identity, or names equal once " – Copy N" is removed when one of them carries the suffix — also for ads that have an identity. A group's key is its smallest member key. Unrelated ads with the same plain name (no "Copy" anywhere) and ads with different videos and different names stay separate. Checked with the reported pair's real identity fields.
+
 ### Colour scale: new colours, and "Export Excel" keeps them (2026-11-13)
 
 - **Colours:** the scale used the theme's amber as its middle, which went muddy brown/olive. `lib/colorScale.js` now blends spreadsheet-style red → yellow → green (`scaleRgb`), shown translucent on screen with a per-theme strength (`--scale-alpha` in `globals.css`: 0.42 light, 0.62 dark, so the yellow stays yellow on a dark page). The legend swatches use the same colours.
