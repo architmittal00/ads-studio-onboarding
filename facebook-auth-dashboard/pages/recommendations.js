@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
@@ -76,8 +76,13 @@ function RecommendationTabs() {
   const [activeId, setActiveId] = useState("t1");
   const [visited, setVisited] = useState(() => new Set(["t1"])); // tabs shown at least once stay mounted
   const [loadingIds, setLoadingIds] = useState(() => new Set());
+  // The saved tabs are read after the first render (localStorage is not there during server render). Until then no
+  // tab is mounted: the first render only knows the app-wide account, and a check started for that one (possibly not
+  // the account this tab was saved with) would race the real one.
+  const [tabsRestored, setTabsRestored] = useState(false);
 
   useEffect(() => {
+    setTabsRestored(true); // marks the one-time restore below as done
     try {
       const saved = JSON.parse(localStorage.getItem(TABS_KEY) || "null");
       if (!saved?.tabs?.length) return;
@@ -153,7 +158,7 @@ function RecommendationTabs() {
           addTitle="New recommendations tab"
           sticky={false}
         />
-        {tabs.map((t) =>
+        {tabsRestored && tabs.map((t) =>
           visited.has(t.id) || t.id === activeId ? (
             <div key={t.id} hidden={t.id !== activeId} style={{ display: t.id === activeId ? "flex" : "none", flexDirection: "column", gap: 14, minWidth: 0 }}>
               <RulesContent
@@ -203,6 +208,12 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
     onLoadingChange?.(tabId, loading);
   }, [loading, tabId, onLoadingChange]);
 
+  // The account this tab shows right now; a check that finishes for any other account must not touch the screen.
+  const accountRef = useRef(selectedAccountId);
+  useEffect(() => {
+    accountRef.current = selectedAccountId;
+  }, [selectedAccountId]);
+
   const isMobile = useIsMobile();
   const [pickingAccount, setPickingAccount] = useState(false);
   const selectedAccount = adAccounts.find((a) => a.id === selectedAccountId);
@@ -226,6 +237,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
     setError(null);
     setResult(null);
     setHiddenAdsets(new Set());
+    const stale = () => accountRef.current !== accountId; // the tab has since moved to another account
     try {
       setRetryNote(null);
       // The check streams for up to a minute, so the connection can drop mid-way; that is retried a couple
@@ -252,6 +264,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
             for (const line of lines) {
               if (!line.trim()) continue;
               const event = JSON.parse(line);
+              if (stale()) continue;
               if (event.type === "step" && !event.pending) setSteps((prev) => ({ ...prev, [event.id]: { done: true, detail: event.detail } }));
               else if (event.type === "partial") {
                 // The flags without the 48-hour cool-down: show them now, the final result follows.
@@ -271,14 +284,18 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
       );
       // A result missing its 48-hour cool-down check isn't worth keeping for half an hour.
       if (json.heldChecked) setCachedEntry(cacheKey(accountId), json, { prefix: "rules-check:", maxEntriesForPrefix: 15 });
+      if (stale()) return; // still cached for that account above, just not shown here
       setApplied({});
       setSelected(new Set());
       setResult(json);
     } catch (err) {
-      setError(err.message);
+      if (!stale()) setError(err.message);
     } finally {
-      setHeldPending(false);
-      setLoading(false);
+      // A newer check for the account now shown owns the loader; a stale one must not switch it off.
+      if (!stale()) {
+        setHeldPending(false);
+        setLoading(false);
+      }
     }
   }
 
