@@ -1,5 +1,6 @@
 import { readApiResponse } from "@/lib/fetchJson";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "@/styles/Home.module.css";
 import { formatMetricValue, LEVEL_OPTIONS } from "@/lib/insightsMetrics";
 import { CloseIcon, ChevronIcon, PauseIcon, PlayIcon, CopyIcon, InfoIcon, MoreIcon } from "./icons";
@@ -178,15 +179,19 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
           >
             <MoreIcon size={16} />
           </button>
-          {menuOpen && menuPos && (
-            <div className={styles.rowActionMenu} role="menu" style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}>
-              {actions.map((action) => (
-                <button key={action.key} type="button" role="menuitem" className={styles.rowActionMenuItem} onMouseDown={() => openAction(action)}>
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* In the page body, not the table cell: a pinned column makes its own layer, and the rows below painted over a menu left inside it. */}
+          {menuOpen &&
+            menuPos &&
+            createPortal(
+              <div className={styles.rowActionMenu} role="menu" style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 900 }}>
+                {actions.map((action) => (
+                  <button key={action.key} type="button" role="menuitem" className={styles.rowActionMenuItem} onMouseDown={() => openAction(action)}>
+                    {action.label}
+                  </button>
+                ))}
+              </div>,
+              document.body
+            )}
         </>
       ) : actions.length === 1 ? (
         <ActionTriggerButton action={actions[0]} onClick={() => openAction(actions[0])} />
@@ -202,20 +207,18 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
             Take Action
             <ChevronIcon direction={menuOpen ? "up" : "down"} size={10} />
           </button>
-          {menuOpen && menuPos && (
-            <div className={styles.rowActionMenu} style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}>
-              {actions.map((action) => (
-                <button
-                  key={action.key}
-                  type="button"
-                  className={styles.rowActionMenuItem}
-                  onMouseDown={() => openAction(action)}
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {menuOpen &&
+            menuPos &&
+            createPortal(
+              <div className={styles.rowActionMenu} style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 900 }}>
+                {actions.map((action) => (
+                  <button key={action.key} type="button" className={styles.rowActionMenuItem} onMouseDown={() => openAction(action)}>
+                    {action.label}
+                  </button>
+                ))}
+              </div>,
+              document.body
+            )}
         </>
       )}
       {pendingAction && (
