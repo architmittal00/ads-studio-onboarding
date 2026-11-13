@@ -20,10 +20,25 @@ const ROW_CAP_THRESHOLD = 250;
 // How long typing in the search box waits before the table is re-filtered.
 const SEARCH_DEBOUNCE_MS = 200;
 
+// ── Conditional formatting (red → green colour scale on a column) ──
+// A cost-like column reads better the lower it is, so that is the default direction for those.
+const COST_LIKE = /cost|cpc|cpm|cpp|cpa|cpr|cpl|per (purchase|result|click|lead)|frequency/i;
+const SCALE_ALPHA = 30;
+function numericOf(col, row) {
+  const v = col.sortValue ? col.sortValue(row) : row[col.key];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+// t: 0 = worst (red) … 1 = best (green), through amber; drawn translucent so it works on either theme.
+function scaleColor(t) {
+  const mix = (a, b, pct) => `color-mix(in srgb, ${a} ${pct}%, ${b})`;
+  const base = t < 0.5 ? mix("rgb(var(--amber-rgb))", "rgb(var(--red-rgb))", Math.round(t * 200)) : mix("rgb(var(--green-rgb))", "rgb(var(--amber-rgb))", Math.round((t - 0.5) * 200));
+  return `color-mix(in srgb, ${base} ${SCALE_ALPHA}%, transparent)`;
+}
+
 // Shared by every real row and the optional pinned row below — a standalone
 // function (not a method closing over component state) since the pinned row
 // needs to render identically, just from a different row array.
-function renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted }) {
+function renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted, scaleBg }) {
   const content = col.render ? col.render(row) : row[col.key];
   const width = useFixedWidths ? columnWidth(col) : col.maxWidth;
   const isFrozen = col.key === activeFrozenKey;
@@ -47,16 +62,18 @@ function renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, hi
   const stickyRightStyle = col.stickyRight
     ? { position: "sticky", right: 0, zIndex: 1, background: highlighted ? HIGHLIGHT_BG : "var(--bg)", boxShadow: "-1px 0 0 var(--border2)", textAlign: "center", paddingLeft: 6, paddingRight: 6 }
     : null;
+  const bg = scaleBg ? scaleBg(col, row) : null;
+  const scaleStyle = bg ? { backgroundImage: `linear-gradient(${bg}, ${bg})` } : null; // over whatever background the cell already has
   if (!width) {
     return (
-      <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle, ...stickyRightStyle }}>
+      <td key={col.key} style={{ textAlign: col.align || "left", ...frozenStyle, ...stickyRightStyle, ...scaleStyle }}>
         {content}
       </td>
     );
   }
   const title = col.title ? col.title(row) : typeof row[col.key] === "string" ? row[col.key] : undefined;
   return (
-    <td key={col.key} style={{ textAlign: col.align || "left", width: useFixedWidths ? width : undefined, ...frozenStyle, ...stickyRightStyle }}>
+    <td key={col.key} style={{ textAlign: col.align || "left", width: useFixedWidths ? width : undefined, ...frozenStyle, ...stickyRightStyle, ...scaleStyle }}>
       <div title={title} className={styles.clamp3} style={{ maxWidth: width }}>
         {content}
       </div>
@@ -140,6 +157,109 @@ function renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, hi
 // scroll entirely and with its own horizontal scroll silently mirrored from
 // the first (see `handleMainScroll`), reproduces "frozen footer, scrollable
 // body" properly instead.
+// "Color scale" button + popover: pick a numeric column and which end is green; the table colours that column red → green.
+function ColorScaleMenu({ columns, scales, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [draftKey, setDraftKey] = useState("");
+  const [draftDir, setDraftDir] = useState("high");
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => !ref.current?.contains(e.target) && setOpen(false);
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const labelOf = (key) => columns.find((c) => c.key === key)?.label;
+  const active = Object.entries(scales).filter(([key]) => labelOf(key));
+  const pickColumn = (key) => {
+    setDraftKey(key);
+    const col = columns.find((c) => c.key === key);
+    if (col) setDraftDir(COST_LIKE.test(`${col.key} ${col.label}`) ? "low" : "high");
+  };
+  const apply = () => {
+    if (!draftKey) return;
+    onChange({ ...scales, [draftKey]: draftDir });
+    setDraftKey("");
+  };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" className={styles.btnSecondary} onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+        <span aria-hidden style={{ width: 28, height: 8, borderRadius: 4, background: "linear-gradient(90deg, rgb(var(--red-rgb)), rgb(var(--amber-rgb)), rgb(var(--green-rgb)))" }} />
+        Color scale{active.length > 0 ? ` · ${active.length}` : ""}
+      </button>
+      {open && (
+        <div className={styles.card} style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", width: 320, zIndex: 60, background: "var(--bg)", padding: 14, display: "flex", flexDirection: "column", gap: 10, boxShadow: "var(--shadow-md)" }}>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>Color a column red to green</p>
+          {columns.length === 0 ? (
+            <p className={styles.sub} style={{ margin: 0 }}>
+              No numeric columns to color yet.
+            </p>
+          ) : (
+            <>
+              <select className={styles.select} value={draftKey} onChange={(e) => pickColumn(e.target.value)} aria-label="Column">
+                <option value="">Choose a column…</option>
+                {columns.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <div className={styles.tabGroup} role="radiogroup" aria-label="Which end is green">
+                <button type="button" role="radio" aria-checked={draftDir === "high"} className={`${styles.tab} ${draftDir === "high" ? styles.tabActive : ""}`} onClick={() => setDraftDir("high")}>
+                  Highest is green
+                </button>
+                <button type="button" role="radio" aria-checked={draftDir === "low"} className={`${styles.tab} ${draftDir === "low" ? styles.tabActive : ""}`} onClick={() => setDraftDir("low")}>
+                  Lowest is green
+                </button>
+              </div>
+              <button type="button" className={styles.btnPrimary} disabled={!draftKey} onClick={apply}>
+                {draftKey && scales[draftKey] ? "Update" : "Apply"}
+              </button>
+            </>
+          )}
+          {active.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+              {active.map(([key, dir]) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+                  <span aria-hidden style={{ width: 22, height: 8, borderRadius: 4, flexShrink: 0, background: dir === "low" ? "linear-gradient(90deg, rgb(var(--green-rgb)), rgb(var(--amber-rgb)), rgb(var(--red-rgb)))" : "linear-gradient(90deg, rgb(var(--red-rgb)), rgb(var(--amber-rgb)), rgb(var(--green-rgb)))" }} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={labelOf(key)}>
+                    {labelOf(key)}
+                  </span>
+                  <span className={styles.muted} style={{ fontWeight: 400 }}>
+                    {dir === "low" ? "lowest green" : "highest green"}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove color scale from ${labelOf(key)}`}
+                    onClick={() => {
+                      const next = { ...scales };
+                      delete next[key];
+                      onChange(next);
+                    }}
+                    style={{ border: 0, background: "none", color: "var(--t3)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button type="button" className={styles.recWhyBtn} style={{ alignSelf: "flex-start" }} onClick={() => onChange({})}>
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SortableTable({
   columns,
   rows,
@@ -173,6 +293,10 @@ export default function SortableTable({
   initialColOrder,
   initialFirstColFrozen = true,
   pinnedRow,
+  // { [columnKey]: "high" | "low" } — which columns get a red → green colour scale, and which end is green.
+  // The colour control is shown only when `onColorScalesChange` is given.
+  colorScales = null,
+  onColorScalesChange,
 }) {
   const [sortKey, setSortKey] = useState(defaultSortKey || columns[0]?.key);
   const [sortDir, setSortDir] = useState(defaultSortDir);
@@ -267,6 +391,51 @@ export default function SortableTable({
   const activeFrozenKey = firstColFrozen
     ? (orderedColumns.find((c) => !c.freezeExempt) || orderedColumns[0])?.key ?? null
     : null;
+  // Columns a colour scale makes sense on: a text label and at least two different numbers in the rows.
+  const numericColumns = useMemo(
+    () =>
+      columns
+        .filter((c) => typeof c.label === "string" && c.label && !String(c.key).startsWith("__"))
+        .filter((c) => {
+          const seen = new Set();
+          for (const r of rows) {
+            const v = numericOf(c, r);
+            if (v != null) seen.add(v);
+            if (seen.size > 1) return true;
+          }
+          return false;
+        })
+        .map((c) => ({ key: c.key, label: c.label })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `columns` is rebuilt every render; its keys are what matter
+    [columnsSignature, rows]
+  );
+  const scaleStats = useMemo(() => {
+    const out = {};
+    for (const [key, dir] of Object.entries(colorScales || {})) {
+      const col = columns.find((c) => c.key === key);
+      if (!col) continue;
+      let min = Infinity;
+      let max = -Infinity;
+      for (const r of rows) {
+        const v = numericOf(col, r);
+        if (v == null) continue;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      if (max > min) out[key] = { min, max, dir };
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- as above
+  }, [colorScales, columnsSignature, rows]);
+  const scaleBg = (col, row) => {
+    const st = scaleStats[col.key];
+    if (!st) return null;
+    const v = numericOf(col, row);
+    if (v == null) return null;
+    const t = (v - st.min) / (st.max - st.min);
+    return scaleColor(st.dir === "low" ? 1 - t : t);
+  };
+
   // `resizableColumns` already needs every column to have a definite width
   // for dragging to work at all, so it implies this too — `fixedColumnWidths`
   // is the standalone opt-in for a caller that wants the same definite-width
@@ -414,17 +583,20 @@ export default function SortableTable({
           ) : (
             <span />
           )}
-          {orderedColumns.length > 1 && (
-            <button
-              type="button"
-              className={styles.btnSecondary}
-              onClick={() => setFirstColFrozen((f) => !f)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
-            >
-              <PinIcon size={12} />
-              {firstColFrozen ? "Unfreeze column" : "Freeze first column"}
-            </button>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {onColorScalesChange && <ColorScaleMenu columns={numericColumns} scales={colorScales || {}} onChange={onColorScalesChange} />}
+            {orderedColumns.length > 1 && (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setFirstColFrozen((f) => !f)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+              >
+                <PinIcon size={12} />
+                {firstColFrozen ? "Unfreeze column" : "Freeze first column"}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -583,7 +755,7 @@ export default function SortableTable({
                         className={classes || undefined}
                         style={onRowClick ? { cursor: "pointer" } : undefined}
                       >
-                        {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted }))}
+                        {orderedColumns.map((col) => renderCell(col, row, { activeFrozenKey, useFixedWidths, columnWidth, highlighted, scaleBg }))}
                       </tr>
                       {renderRowExtra ? renderRowExtra(row) : null}
                     </Fragment>
