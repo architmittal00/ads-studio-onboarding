@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
@@ -20,7 +21,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
-import { loadCreativePool, prefetchPushData } from "@/lib/rules/creativePool";
+import { loadCreativePool, prefetchPushData, setCreativePoolUser } from "@/lib/rules/creativePool";
 import styles from "@/styles/Home.module.css";
 
 // A finished check is saved in the browser for 30 minutes (shared cache, survives reloads), so
@@ -339,10 +340,17 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
   // "Add a creative" cards need the account's creative pool (a few seconds on a big account). It is the same for every
   // ad set and does not depend on the check, so it starts as soon as the page knows the account — in parallel with the
   // check — and each ad set's own-ads lookup follows once the check shows which ad sets have such a card.
+  // The saved copy of the lookup is tied to the signed-in user, so it waits until the session is known (declared first:
+  // effects run in order).
+  const { data: session, status: sessionStatus } = useSession();
+  const userId = session?.user?.id || null;
   useEffect(() => {
-    if (isMobile || !selectedAccountId || !tz) return;
+    setCreativePoolUser(userId);
+  }, [userId]);
+  useEffect(() => {
+    if (isMobile || !selectedAccountId || !tz || sessionStatus === "loading") return;
     loadCreativePool(selectedAccountId, tz).catch(() => {});
-  }, [selectedAccountId, tz, isMobile]);
+  }, [selectedAccountId, tz, isMobile, sessionStatus, userId]);
   useEffect(() => {
     if (isMobile || !result || !selectedAccountId) return;
     const adsetIds = [

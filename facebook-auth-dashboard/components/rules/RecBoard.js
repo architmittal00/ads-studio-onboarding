@@ -235,7 +235,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
             aria-label={addCreative ? "Push ads" : "Push new ads"}
             onClick={(e) => e.stopPropagation()}
             className={styles.card}
-            style={{ background: "var(--bg)", width: "min(1120px, 100%)", maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}
+            style={{ background: "var(--bg)", width: "min(1240px, 100%)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", gap: 12 }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div style={{ minWidth: 0 }}>
@@ -256,7 +256,9 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
                 <CloseIcon size={14} />
               </button>
             </div>
+            <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
             <PushAds flag={flag} accountId={accountId} tz={tz} symbol={symbol} pausedAdIds={pausedAdIds} onOpenThumb={onOpenThumb} adsetId={popupAdsetId} adsetName={popupAdsetName} source={addCreative ? "add_creative" : "pause_card"} onPushed={onAdsPushed} />
+            </div>
           </div>
         </div>
       )}

@@ -212,8 +212,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   }
 
   const spendsOn = [
-    ranked.mainLanding ? `landing page ${ranked.mainLanding.key}${ranked.mainLanding.share != null ? ` (${ranked.mainLanding.share.toFixed(0)}% of spend)` : ""}` : null,
-    ranked.profile?.type ? `${ranked.profile.type.label} ads (${ranked.profile.type.share.toFixed(0)}%)` : null,
+    ranked.mainLanding ? `${ranked.mainLanding.key.includes("/") ? ranked.mainLanding.key.slice(ranked.mainLanding.key.indexOf("/")) : ranked.mainLanding.key}${ranked.mainLanding.share != null ? ` (${ranked.mainLanding.share.toFixed(0)}%)` : ""}` : null,
+    ranked.profile?.type ? `${ranked.profile.type.label} (${ranked.profile.type.share.toFixed(0)}%)` : null,
     ranked.profile?.language ? `${ranked.profile.language.label} (${ranked.profile.language.share.toFixed(0)}%)` : null,
   ].filter(Boolean);
   const pickedCandidates = ranked.candidates.filter((c) => pickedPush.has(c.creativeId) && !done[c.creativeId]?.ok);
@@ -228,6 +228,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
   return (
     <div className={styles.pushBox}>
       {starved.length > 0 && (
+        <div className={styles.pushStickyBar}>
         <div className={styles.tabGroup} role="tablist">
           <button type="button" role="tab" aria-selected={!showPause} className={`${styles.tab} ${!showPause ? styles.tabActive : ""}`} onClick={() => setTab("push")}>
             Push ads{ranked.candidates.length > 0 ? ` · ${ranked.candidates.length}` : ""}
@@ -236,12 +237,13 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
             Pause ads · {starved.length}
           </button>
         </div>
+        </div>
       )}
       {showPause && (
         <section className={styles.pushSection}>
           <>
               <p className={styles.sub} style={{ margin: 0 }}>
-                This ad set&apos;s lowest-spending half of ads over the last 3 days, worst performers first. Nothing is ticked for you.
+                Lowest-spending half of this ad set&apos;s ads over the last 3 days, worst first.
               </p>
           <div className={styles.pushFilter}>
             <label htmlFor={`share7-${adsetId}`}>Only ads with a 7-day spend share of at most</label>
@@ -291,10 +293,8 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
         <>
             <div className={styles.pushHead}>
               <p className={styles.sub} style={{ margin: 0 }}>
-                {spendsOn.length > 0
-                  ? `This ad set mostly spends on ${spendsOn.join(", ")}, and creatives that match count far more. Ranked over the last 14 days across every ad that uses the creative.`
-                  : "Ranked by ROAS, CTR, CPC, consistency, evidence and freshness over the last 14 days — across every ad that uses the creative."}
-                {ranked.qualified > MAX_PUSH_OPTIONS ? ` Showing the best ${MAX_PUSH_OPTIONS} of ${ranked.qualified}.` : ""}
+                {spendsOn.length > 0 ? `This ad set spends mostly on ${spendsOn.join(" · ")}. ` : ""}
+                Ranked on the last 14 days{ranked.qualified > MAX_PUSH_OPTIONS ? `; best ${MAX_PUSH_OPTIONS} of ${ranked.qualified} shown` : ""}.
               </p>
               {ranked.candidates.length > 0 && (
                 <div className={styles.pushLinks}>
@@ -360,68 +360,40 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
                   </div>
                   {whyOpen.has(c.creativeId) && (
                     <div className={styles.pushWhy}>
-                      <div>
-                        <div className={styles.pushVerdict}>
-                          <strong>
-                            {c.score}/100 · {c.summary.grade} for this ad set
-                          </strong>
-                          {c.summary.strong.length > 0 && (
-                            <p>
-                              <span className={styles.badgeGood}>Strong</span> {c.summary.strong.join(" · ")}
-                            </p>
-                          )}
-                          {c.summary.slight.length > 0 && (
-                            <p>
-                              <span className={styles.badgeInfo}>Slight edge</span> {c.summary.slight.join(" · ")}
-                            </p>
-                          )}
-                          {c.summary.weak.length > 0 && (
-                            <p>
-                              <span className={styles.badgeDanger}>Weak</span> {c.summary.weak.join(" · ")}
-                            </p>
-                          )}
-                        </div>
-                        <div className={styles.pushWhyTable}>
-                          <div className={`${styles.pushWhyRow} ${styles.pushWhyHead}`}>
-                            <span>What we checked</span>
-                            <span>This creative</span>
-                            <span>Compared with</span>
-                            <span>Result</span>
-                            <span style={{ textAlign: "right" }}>Points</span>
-                          </div>
-                          {c.breakdown.map((b) => (
-                            <div key={b.key} className={styles.pushWhyRow}>
-                              <span>{b.label}</span>
-                              <strong>{b.value}</strong>
-                              <span className={styles.pushWhyAgainst}>{b.against}</span>
-                              <span>
-                                <span className={b.level === "strong" ? styles.badgeGood : b.level === "fair" ? styles.badgeWarn : b.level === "slight" ? styles.badgeInfo : styles.badgeDanger}>
-                                  {b.level === "strong" ? "Strong" : b.level === "fair" ? "Fair" : b.level === "slight" ? "Slight edge" : "Weak"}
-                                </span>
-                              </span>
-                              <span className={styles.pushWhyPoints}>
-                                {b.points.toFixed(0)}/{b.max.toFixed(0)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                      <div className={styles.pushWhyTop}>
+                        <strong>
+                          {c.score}/100 · {c.summary.grade}
+                        </strong>
+                        <span className={styles.pushWhyRunning} title={c.runningIn.map((r) => r.adsetName || r.adsetId).join(", ")}>
+                          Running in {c.runningIn.length} ad set{c.runningIn.length === 1 ? "" : "s"}
+                          {c.runningIn.length > 0 ? `: ${c.runningIn.map((r) => `${r.adsetName || r.adsetId}${r.roas != null ? ` (${r.roas.toFixed(2)} ROAS, ${Math.round(r.purchases)} purchases)` : ""}`).join(" · ")}` : ""}
+                        </span>
                       </div>
-                      <div>
-                        <div className={styles.recContextTitle} style={{ marginTop: 0 }}>
-                          Already running in {c.runningIn.length} ad set{c.runningIn.length === 1 ? "" : "s"} · last 14 days
+                      <div className={styles.pushWhyTable}>
+                        <div className={`${styles.pushWhyRow} ${styles.pushWhyHead}`}>
+                          <span>Check</span>
+                          <span>This creative</span>
+                          <span>Compared with</span>
+                          <span>Result</span>
+                          <span style={{ textAlign: "right" }}>Points</span>
                         </div>
-                        <dl className={styles.recContextList}>
-                          {c.runningIn.map((r) => (
-                            <div key={r.adsetId} className={styles.recContextRow}>
-                              <dt title={[r.campaignName, r.adsetName].filter(Boolean).join(" › ")}>
-                                <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>{r.adsetName || r.adsetId}</span>
-                              </dt>
-                              <dd>
-                                {r.roas != null ? `${r.roas.toFixed(2)} ROAS` : "—"} · {Math.round(r.purchases)} purchases
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
+                        {c.breakdown.map((b) => (
+                          <div key={b.key} className={styles.pushWhyRow}>
+                            <span>{b.label}</span>
+                            <strong className={styles.pushWhyValue} title={b.value}>
+                              {b.value}
+                            </strong>
+                            <span className={styles.pushWhyAgainst}>{b.against}</span>
+                            <span>
+                              <span className={b.level === "strong" ? styles.badgeGood : b.level === "fair" ? styles.badgeWarn : b.level === "slight" ? styles.badgeInfo : styles.badgeDanger}>
+                                {b.level === "strong" ? "Strong" : b.level === "fair" ? "Fair" : b.level === "slight" ? "Slight edge" : "Weak"}
+                              </span>
+                            </span>
+                            <span className={styles.pushWhyPoints}>
+                              {b.points.toFixed(0)}/{b.max.toFixed(0)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -436,7 +408,7 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
               {busy === "push" ? "Adding…" : pushPending ? `Add ${pushPending} ad${pushPending === 1 ? "" : "s"} to this ad set` : "Select ads to add"}
             </button>
             <span className={styles.muted} style={{ fontWeight: 400 }}>
-              Each one reuses the same creative; you choose paused or active before anything is created.
+              You choose paused or active next.
             </span>
           </div>
         )}
