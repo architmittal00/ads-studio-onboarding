@@ -32,16 +32,16 @@ import {
 const LINKS = [
   { href: "/report", label: "Audit Report", icon: FileTextIcon },
   { href: "/explore", label: "Custom Views", icon: ChartIcon },
+  { href: "/recommendations", label: "Recommendations", icon: RulesIcon },
   { href: "/recent-changes", label: "Recent Changes", icon: HistoryIcon },
   { href: "/copy-ads", label: "Copy Ads", icon: CopyIcon },
-  { href: "/launch", label: "Launch", icon: RocketIcon },
-  { href: "/catalog-ads", label: "Catalog Ads", icon: TagIcon },
-  { href: "/launch-ad", label: "Launch Ad", icon: PlayIcon },
-  { href: "/recommendations", label: "Recommendations", icon: RulesIcon },
-  { href: "/pixel", label: "Check your pixel", icon: PixelIcon },
-  { href: "/strategy", label: "Figure Out Strategy", icon: TargetIcon },
   { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },
-  { href: "/dashboard", label: "Raw Data", icon: DatabaseIcon },
+  { href: "/catalog-ads", label: "Catalog Ads", icon: TagIcon },
+  { href: "/launch", label: "Launch Campaign", icon: RocketIcon },
+  { href: "/launch-ad", label: "Launch Ad", icon: PlayIcon },
+  { href: "/pixel", label: "Check your pixel", icon: PixelIcon },
+  { href: "/strategy", label: "Quick Launch", icon: TargetIcon },
+  { href: "/dashboard", label: "Your Accounts", icon: DatabaseIcon },
   { href: "/logs", label: "API Logs", icon: ListIcon },
 ];
 

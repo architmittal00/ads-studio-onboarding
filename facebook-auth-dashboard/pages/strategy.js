@@ -195,11 +195,11 @@ export default function Strategy() {
   return (
     <Layout>
       <Head>
-        <title>Figure Out Strategy · Facebook Auth Dashboard</title>
+        <title>Quick Launch · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 820, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Figure Out Strategy</h1>
+          <h1 className={styles.h1}>Quick Launch</h1>
           <p className={styles.sub} style={{ marginTop: -8 }}>
             Answer a few questions about the account and we&apos;ll recommend a campaign structure from the
             agency&apos;s playbook — and you can launch it straight to the ad account from here.

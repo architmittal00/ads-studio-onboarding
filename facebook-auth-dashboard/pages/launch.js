@@ -277,11 +277,11 @@ export default function Launch() {
   return (
     <Layout>
       <Head>
-        <title>Launch · Facebook Auth Dashboard</title>
+        <title>Launch Campaign · Facebook Auth Dashboard</title>
       </Head>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 900, margin: "0 auto" }}>
-          <h1 className={styles.h1}>Launch</h1>
+          <h1 className={styles.h1}>Launch Campaign</h1>
           <p className={styles.sub} style={{ marginTop: -8, marginBottom: 20 }}>
             Launch a campaign and ad set straight to Facebook — pre-filled for Indian D2C, every field editable.
           </p>
