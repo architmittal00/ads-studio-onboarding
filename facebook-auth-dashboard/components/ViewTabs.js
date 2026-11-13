@@ -89,7 +89,7 @@ export default function ViewTabs({ tabs, activeId, onSelect, onAdd, onClose, onR
                 {tab.title}
               </span>
             )}
-            {tabs.length > 1 && !isRenaming && (
+            {onClose && tabs.length > 1 && !isRenaming && (
               <button
                 type="button"
                 aria-label={`Close ${tab.title}`}
@@ -106,9 +106,11 @@ export default function ViewTabs({ tabs, activeId, onSelect, onAdd, onClose, onR
           </div>
         );
       })}
+      {onAdd && (
       <button type="button" onClick={onAdd} title={addTitle} aria-label={addTitle} className={styles.btnSecondary} style={{ padding: "6px 12px", borderRadius: "10px 10px 0 0" }}>
         +
       </button>
+      )}
     </div>
   );
 }

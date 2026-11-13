@@ -14,6 +14,7 @@ import RowActions from "@/components/RowActions";
 import EntityInvestigateDrawer from "@/components/EntityInvestigateDrawer";
 import EntityHistoryDrawer from "@/components/EntityHistoryDrawer";
 import { buildXlsx, downloadXlsx } from "@/lib/xlsxWriter";
+import { useMonitor } from "@/lib/monitorStore";
 import { scaleHex } from "@/lib/colorScale";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
@@ -3568,6 +3569,23 @@ function ExploreResultsTable({
   }, [rangeKey]);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [detailEntity, setDetailEntity] = useState(null);
+  const monitor = useMonitor();
+  // What a row's "Add to monitor" does: one watchlist entry for this campaign / ad set / ad.
+  const monitorFor = (row, level) => {
+    const entityId = row.entityId;
+    const isMonitored = monitor.isMonitored(level, entityId);
+    return {
+      isMonitored,
+      onToggle: () => {
+        if (isMonitored) {
+          monitor.remove(`${level}:${entityId}`);
+          track("monitor_removed", { screen: "/explore", level });
+        } else if (monitor.add({ level, entityId, name: row.entityLabel || row.label || entityId, accountId: row.accountId, campaignName: row.campaignName || null, adsetName: row.adsetName || null })) {
+          track("monitor_added", { screen: "/explore", level });
+        }
+      },
+    };
+  };
   const [historyEntity, setHistoryEntity] = useState(null); // row picked for "Change history" (right-hand drawer)
   const [investigateEntity, setInvestigateEntity] = useState(null); // row picked for "Investigate" (right-hand drawer)
 
@@ -4043,6 +4061,7 @@ function ExploreResultsTable({
                   onViewDetails={setDetailEntity}
                   onInvestigate={setInvestigateEntity}
                   onHistory={setHistoryEntity}
+                  monitor={monitorFor(row, meta.level)}
                 />
               ) : null,
           },
@@ -4118,6 +4137,7 @@ function ExploreResultsTable({
                   onViewDetails={setDetailEntity}
                   onInvestigate={setInvestigateEntity}
                   onHistory={setHistoryEntity}
+                  monitor={monitorFor(row, level)}
                 />
               </td>
             );
@@ -4459,6 +4479,7 @@ function ExploreResultsTable({
               onViewDetails={setDetailEntity}
               onInvestigate={setInvestigateEntity}
                   onHistory={setHistoryEntity}
+              monitor={monitorFor(row, rowLevel)}
             />
           )}
           onViewDetails={setDetailEntity}

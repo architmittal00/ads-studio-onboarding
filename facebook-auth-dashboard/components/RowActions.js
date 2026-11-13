@@ -39,10 +39,12 @@ const BUDGET_PRESETS = [-50, -20, -10, 10, 20, 50];
 //    reason to change anything, so it's offered unconditionally whenever
 //    there's a real entity to show, listed first since it's the one every
 //    row can always use.
-function determineActions(row, level, canInvestigate, canShowHistory) {
+function determineActions(row, level, canInvestigate, canShowHistory, monitor) {
   const actions = [{ key: "details", kind: "details", label: "View Details" }];
   // Campaigns and ad sets only (what the investigation compares), and only where the screen can open it.
   if (canInvestigate && (level === "campaign" || level === "adset")) actions.push({ key: "investigate", kind: "investigate", label: "Investigate" });
+  // Add to / remove from the Monitor watchlist (the screen passes `monitor` = { isMonitored, onToggle }).
+  if (monitor && (level === "campaign" || level === "adset" || level === "ad")) actions.push({ key: "monitor", kind: "monitor", label: monitor.isMonitored ? "Remove from monitor" : "Add to monitor" });
   // Last 72 hours of changes to this campaign / ad set / ad and what is below it.
   if (canShowHistory && (level === "campaign" || level === "adset" || level === "ad")) actions.push({ key: "history", kind: "history", label: "Change history" });
   if (row.status === "ACTIVE") {
@@ -68,7 +70,7 @@ function determineActions(row, level, canInvestigate, canShowHistory) {
 // `variant="sheet"` (phone cards): a ⋯ button that lists every action in a
 // bottom sheet instead of the anchored desktop dropdown — same actions, same
 // confirm/duplicate modals underneath.
-export default function RowActions({ row, level, currency, onActionApplied, onViewDetails, onInvestigate, onHistory, variant }) {
+export default function RowActions({ row, level, currency, onActionApplied, onViewDetails, onInvestigate, onHistory, monitor, variant }) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Viewport-relative {top, right} for the open menu, computed from the
   // trigger button's own getBoundingClientRect() at open time — see the
@@ -96,7 +98,7 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
   }, [menuOpen, variant]);
 
   if (!row.entityId) return null;
-  const actions = determineActions(row, level, !!onInvestigate, !!onHistory);
+  const actions = determineActions(row, level, !!onInvestigate, !!onHistory, monitor);
   if (variant === "icon" && actions.length === 0) return null;
 
   function openAction(action) {
@@ -107,6 +109,10 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
     }
     if (action.kind === "details") {
       onViewDetails({ level, id: row.entityId, name: row.entityLabel || row.label });
+      return;
+    }
+    if (action.kind === "monitor") {
+      monitor.onToggle();
       return;
     }
     if (action.kind === "history") {

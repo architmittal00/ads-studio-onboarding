@@ -4,6 +4,8 @@ import { CloseIcon } from "@/components/icons";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
 import { WhyChecks } from "@/components/rules/FlagWhy";
 import PushAds from "@/components/rules/PushAds";
+import { useMonitor } from "@/lib/monitorStore";
+import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
 
 // The desktop Recommendations screen, laid out the way a media buyer works through it: how the account is doing,
@@ -121,6 +123,16 @@ export const DOMINANT_SHARE = 40;
 
 function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds, holdBudget, onAdsPushed }) {
   const [open, setOpen] = useState(false);
+  const monitor = useMonitor();
+  const monitored = monitor.isMonitored(flag.entityType, flag.entityId);
+  function toggleMonitor() {
+    if (monitored) {
+      monitor.remove(`${flag.entityType}:${flag.entityId}`);
+      track("monitor_removed", { screen: "/recommendations", level: flag.entityType });
+    } else if (monitor.add({ level: flag.entityType, entityId: flag.entityId, name: flag.name, accountId, campaignName: flag.campaignName || null, adsetName: flag.adsetName || null })) {
+      track("monitor_added", { screen: "/recommendations", level: flag.entityType, action: flag.action });
+    }
+  }
   const [pushModal, setPushModal] = useState(false); // the pop-up behind "Push new ads" (pause card of a dominant ad) / "Push ads" (Add a creative card)
   useEffect(() => {
     if (!pushModal) return;
@@ -215,6 +227,11 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
             </>
           ) : (
             <span className={styles.recActSub}>Add one in Ads Manager</span>
+          )}
+          {accountId && (
+            <button type="button" className={styles.recWhyBtn} onClick={toggleMonitor} title={monitored ? "Remove from the Monitor list" : "Keep an eye on this without acting yet — it goes to the Monitor page"}>
+              {monitored ? "✓ Monitoring" : "+ Monitor"}
+            </button>
           )}
         </div>
       </div>
