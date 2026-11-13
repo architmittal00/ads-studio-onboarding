@@ -137,6 +137,7 @@ export default function EntityHistoryDrawer({ entity, onClose }) {
           {error && <div className={styles.error}>{error}</div>}
           {!loading && !error && data && events.length === 0 && <p className={styles.sub}>No changes recorded in the last 72 hours.</p>}
           {data?.truncated && <p className={styles.sub}>Showing the latest {events.length} changes.</p>}
+          {data?.partial && <p className={styles.sub}>This is a very large item, so part of the history below it may be missing.</p>}
           {days.map((day) => (
             <section key={day.key} style={{ marginTop: 6 }}>
               <p className={styles.muted} style={{ margin: "10px 0 6px" }}>
