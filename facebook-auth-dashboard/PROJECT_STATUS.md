@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Calendar: no repeated dates (2026-11-13)
+The shared `Month` calendar (`components/DateRangeMenu.js`, also used by `DatePicker`) no longer fills its first/last week with the neighbouring months' dates; those cells are blank, so with two months side by side each date appears once. Lint/build checked only, not looked at in the UI.
+
 ### Monitor: performance showed dashes — the data route streams, and an error was swallowed (2026-11-13)
 
 Reported with a screenshot: a monitored campaign showed "—" for status and every metric. Replaying the request on the live site: `/api/fb/explore-insights` streams newline-delimited JSON (progress lines, then a final `done` line with the rows), never one JSON body, and the Monitor tab parsed it with `parseJsonResponse`, which failed; a precedence slip in the result loop (an `else` bound to the wrong `if`) then dropped that failure, so the tab showed dashes with no error. Fix: `lib/exploreStream.js` (`readExploreInsightsStream`, the same reader Custom Views and the drill-down use) and a failure now shows in the red error box. My earlier check used a mock that returned plain JSON — it could not have caught this; this time the reader was run against the real route for both monitored items (a campaign: ₹9.19 L spend, 3,545 purchases, ROAS 2.38; an ad set: ₹33.7 K, 197 purchases, ROAS 2.29).
