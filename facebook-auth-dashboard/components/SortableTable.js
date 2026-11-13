@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon, GripIcon, PinIcon } from "./icons";
+import { scaleCss, scaleGradient } from "@/lib/colorScale";
 import styles from "@/styles/Home.module.css";
 
 // Same color a highlighted row's non-frozen cells get from `.highlightedRow
@@ -23,16 +24,9 @@ const SEARCH_DEBOUNCE_MS = 200;
 // ── Conditional formatting (red → green colour scale on a column) ──
 // A cost-like column reads better the lower it is, so that is the default direction for those.
 const COST_LIKE = /cost|cpc|cpm|cpp|cpa|cpr|cpl|per (purchase|result|click|lead)|frequency/i;
-const SCALE_ALPHA = 30;
 function numericOf(col, row) {
   const v = col.sortValue ? col.sortValue(row) : row[col.key];
   return typeof v === "number" && Number.isFinite(v) ? v : null;
-}
-// t: 0 = worst (red) … 1 = best (green), through amber; drawn translucent so it works on either theme.
-function scaleColor(t) {
-  const mix = (a, b, pct) => `color-mix(in srgb, ${a} ${pct}%, ${b})`;
-  const base = t < 0.5 ? mix("rgb(var(--amber-rgb))", "rgb(var(--red-rgb))", Math.round(t * 200)) : mix("rgb(var(--green-rgb))", "rgb(var(--amber-rgb))", Math.round((t - 0.5) * 200));
-  return `color-mix(in srgb, ${base} ${SCALE_ALPHA}%, transparent)`;
 }
 
 // Shared by every real row and the optional pinned row below — a standalone
@@ -191,7 +185,7 @@ function ColorScaleMenu({ columns, scales, onChange }) {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button type="button" className={styles.btnSecondary} onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
-        <span aria-hidden style={{ width: 28, height: 8, borderRadius: 4, background: "linear-gradient(90deg, rgb(var(--red-rgb)), rgb(var(--amber-rgb)), rgb(var(--green-rgb)))" }} />
+        <span aria-hidden style={{ width: 28, height: 8, borderRadius: 4, background: scaleGradient() }} />
         Color scale{active.length > 0 ? ` · ${active.length}` : ""}
       </button>
       {open && (
@@ -228,7 +222,7 @@ function ColorScaleMenu({ columns, scales, onChange }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
               {active.map(([key, dir]) => (
                 <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
-                  <span aria-hidden style={{ width: 22, height: 8, borderRadius: 4, flexShrink: 0, background: dir === "low" ? "linear-gradient(90deg, rgb(var(--green-rgb)), rgb(var(--amber-rgb)), rgb(var(--red-rgb)))" : "linear-gradient(90deg, rgb(var(--red-rgb)), rgb(var(--amber-rgb)), rgb(var(--green-rgb)))" }} />
+                  <span aria-hidden style={{ width: 22, height: 8, borderRadius: 4, flexShrink: 0, background: scaleGradient(dir === "low") }} />
                   <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={labelOf(key)}>
                     {labelOf(key)}
                   </span>
@@ -433,7 +427,7 @@ export default function SortableTable({
     const v = numericOf(col, row);
     if (v == null) return null;
     const t = (v - st.min) / (st.max - st.min);
-    return scaleColor(st.dir === "low" ? 1 - t : t);
+    return scaleCss(st.dir === "low" ? 1 - t : t);
   };
 
   // `resizableColumns` already needs every column to have a definite width
