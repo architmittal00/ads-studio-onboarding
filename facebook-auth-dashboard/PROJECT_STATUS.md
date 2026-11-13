@@ -86,6 +86,12 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push pop-up: saved creative lookup, roomier and shorter table, fixed tabs (2026-11-13)
+
+- **Faster open:** the creative lookup (30–35 s on a big account) was already started in the background when Recommendations opens, but a card opened in those first seconds still waited, and every new visit started from zero. `lib/rules/creativePool.js` now also saves the last result in this browser (`creative-pool:v1:<account>` in localStorage, up to 2 hours old, at most 3 accounts, skipped above ~2.5 MB): a visit starts from that copy instantly and refreshes it quietly (a copy under 5 minutes old is not re-read); a push clears it, since the ad set's ads changed. A saved copy can be a little stale (up to 2 h) until the refresh lands for the next card opened.
+- **Pop-up layout:** wider (1240px), the Push ads / Pause ads switcher is pinned at the top of the scrolling area while the header stays fixed. In "Why push this?" the table now has the full width (landing page on one line with hover for the full path), the old Strong / Slight edge / Weak paragraph is gone (the table has it), "Already running in…" is one line above the table, and the intro, pause and footer lines are shortened.
+- Lint/build only; not seen on the real page.
+
 ### Side menu: new order and three renames (2026-11-13)
 
 Order is now Audit Report, Custom Views, **Recommendations** (moved up from below Launch Ad), Recent Changes, Copy Ads, Partnership Ads, Catalog Ads, Launch Campaign, Launch Ad, Check your pixel, Quick Launch, Your Accounts, API Logs. Renamed (menu label, page title and page heading): **Launch → Launch Campaign** (`/launch`), **Figure Out Strategy → Quick Launch** (`/strategy`), **Raw Data → Your Accounts** (`/dashboard`). Routes are unchanged. The sidebar's click tracking (`data-track-item`) uses the label, so those three items now report under their new names. Recent Changes was not in the requested list; it was kept (right after Recommendations) rather than dropped. The phone tab bar is unchanged.
