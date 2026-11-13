@@ -8,18 +8,18 @@ import styles from "@/styles/Home.module.css";
 
 const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTH_LABEL_FMT = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-const DAY_LABEL_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+export const DAY_LABEL_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
 // `monthKey` is a plain `{year, month}` (month 0-11, UTC) rather than a Date
 // — a Date carrying a day-of-month gets silently normalized (walking into a
 // shorter month, e.g. day 31 + one month, can jump an extra month) the
 // moment you only ever meant "go to the 1st of the next/previous month".
-function shiftMonth({ year, month }, delta) {
+export function shiftMonth({ year, month }, delta) {
   const total = year * 12 + month + delta;
   return { year: Math.floor(total / 12), month: ((total % 12) + 12) % 12 };
 }
 
-function monthKeyOf(iso) {
+export function monthKeyOf(iso) {
   const [year, month] = iso.split("-").map(Number);
   return { year, month: month - 1 };
 }
@@ -44,7 +44,7 @@ function buildMonthMatrix({ year, month }) {
   return cells;
 }
 
-function Month({ monthKey, selStart, selEnd, hoverEnd, maxIso, onPick, onHover }) {
+export function Month({ monthKey, selStart, selEnd, hoverEnd, maxIso, onPick, onHover }) {
   const cells = buildMonthMatrix(monthKey);
   const todayIso = isoDate(new Date());
   const previewEnd = selStart && !selEnd ? hoverEnd : null;

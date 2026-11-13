@@ -86,6 +86,12 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Row-actions menu above the table; themed date picker for Investigate (2026-11-13)
+
+- **Menu:** the ⋯ dropdown of the pinned actions column was drawn inside its table cell; a pinned cell is its own layer, so the rows below painted over the menu (a second ⋯ showing through, hover highlight cut at the column edge). `RowActions` now renders the menu in the page body (`createPortal`, `z-index: 900`), for both the icon and the old "Take Action" variants.
+- **Date picker:** the Investigate drawer used the browser's own `<input type="date">`, which ignores the theme. New `components/DatePicker.js`: a button (calendar icon + date) opening a popover with the same calendar the date-range menu uses (`Month`, `shiftMonth`, `monthKeyOf`, `DAY_LABEL_FMT` are now exported from `DateRangeMenu.js`) — month arrows, today outlined, future days disabled, a "Yesterday" shortcut and Clear; Esc/outside click/scroll close it (Esc closes only the picker, not the drawer). The drawer also has quick chips next to it: Yesterday, 3, 7 and 14 days ago.
+- Checked in a throwaway page (menu over a pinned column; picker open, pick a date, trigger shows it, investigation requested); not yet seen on the real Custom Views page.
+
 ### Custom Views: "Change history" row action (2026-11-13)
 
 New ⋯ menu item on campaign, ad set and ad rows in Explore: a right-hand drawer (`components/EntityHistoryDrawer.js`) listing every Activity Log change from the **last 72 hours** for that one item **and what is below it** — a campaign: itself, its ad sets and its ads; an ad set: itself and its ads; an ad: itself. Grouped by day (newest first) with All / Campaign / Ad Set / Ad chips; each line has the time, level badge, object name ("This ad set" for the item itself), Meta's wording of the change, what changed (a budget shows `₹1,500/day → ₹1,650/day`, a status change `→ Paused`) and who did it. Unlike Recent Changes it is **not limited to the six tracked actions** — any change is listed — and only the requested item is read, not the whole account.

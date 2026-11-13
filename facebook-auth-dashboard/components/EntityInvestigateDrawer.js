@@ -3,6 +3,7 @@ import EntityDrillDown from "./EntityDrillDown";
 import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowComparisonTable";
 import CopyIdButton from "./CopyIdButton";
 import { CloseIcon } from "./icons";
+import DatePicker from "./DatePicker";
 import { buildEffectiveCatalog, humanizeStatus } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { getCustomMetrics } from "@/lib/clientStorage";
@@ -15,6 +16,14 @@ import styles from "@/styles/Home.module.css";
 const CACHE_PREFIX = "recent-changes-investigate:";
 const CACHE_MAX_ENTRIES = 40;
 const LEVEL_LABEL = { campaign: "Campaign", adset: "Ad Set" };
+
+const QUICK_DAYS = [
+  { days: 1, label: "Yesterday" },
+  { days: 3, label: "3 days ago" },
+  { days: 7, label: "7 days ago" },
+  { days: 14, label: "14 days ago" },
+];
+const daysBefore = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
 
 const pad = (n) => String(n).padStart(2, "0");
 const localDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -136,7 +145,17 @@ export default function EntityInvestigateDrawer({ entity, onClose, currency }) {
             <label htmlFor="investigate-date" style={{ fontWeight: 700, fontSize: 13 }}>
               Date to investigate
             </label>
-            <input id="investigate-date" className={styles.select} type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 200 }} />
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              <DatePicker id="investigate-date" value={date} onChange={setDate} maxIso={today} />
+              {QUICK_DAYS.map((q) => {
+                const iso = daysBefore(today, q.days);
+                return (
+                  <button key={q.days} type="button" onClick={() => setDate(iso)} className={date === iso ? `${styles.tab} ${styles.tabActive}` : styles.tab} style={{ padding: "6px 12px", fontSize: 11.5 }}>
+                    {q.label}
+                  </button>
+                );
+              })}
+            </div>
             <p className={styles.sub} style={{ margin: 0 }}>
               Pick the day something changed. The 1, 3 and 7 days before it are compared with what came after.
             </p>
