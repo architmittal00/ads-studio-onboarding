@@ -86,6 +86,10 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Push pop-up: the Add / Pause button is pinned to the bottom (2026-11-13)
+
+The "Add n ads to this ad set" (and "Pause n ads") bar sat after the last row of a long list, so it was out of sight until you scrolled to the end. `.pushFoot` is now `position: sticky; bottom: 0` with a solid background and a top border, so it stays at the bottom edge of the pop-up's scrolling area (the Push / Pause tab switcher is pinned at the top the same way). CSS only; not seen on the real page.
+
 ### Row-actions menu above the table; themed date picker for Investigate (2026-11-13)
 
 - **Menu:** the ⋯ dropdown of the pinned actions column was drawn inside its table cell; a pinned cell is its own layer, so the rows below painted over the menu (a second ⋯ showing through, hover highlight cut at the column edge). `RowActions` now renders the menu in the page body (`createPortal`, `z-index: 900`), for both the icon and the old "Take Action" variants.

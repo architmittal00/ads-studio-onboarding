@@ -3289,6 +3289,13 @@ button.stat:hover {
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+  /* Pinned to the bottom of the pop-up's scrolling area, so the Add / Pause button is always in view. */
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  padding: 12px 0 4px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
 }
 @media (max-width: 1180px) {
   .pushRow {
