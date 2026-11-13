@@ -14,7 +14,7 @@ import { buildEffectiveCatalog, formatMetricValue, humanizeStatus } from "@/lib/
 import { computeRange } from "@/lib/dateRanges";
 import { getCustomMetrics } from "@/lib/clientStorage";
 import { fetchCustomEvents } from "@/lib/customEvents";
-import { parseJsonResponse } from "@/lib/fetchJson";
+import { readExploreInsightsStream } from "@/lib/exploreStream";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
 
@@ -95,11 +95,8 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
               idFilter: { field: idField, value: group.join(",") },
             }),
           })
-            .then(parseJsonResponse)
-            .then((json) => {
-              if (json.error) throw new Error(json.error);
-              return json.rows || [];
-            })
+            .then(readExploreInsightsStream)
+            .then((json) => json.rows || [])
         );
       }
     }
@@ -108,8 +105,11 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
       const rows = {};
       let failed = null;
       for (const r of results) {
-        if (r.status === "fulfilled") for (const row of r.value) if (row.entityId) rows[String(row.entityId)] = row;
-        else if (r.status === "rejected") failed = r.reason?.message || "Request failed";
+        if (r.status === "fulfilled") {
+          for (const row of r.value) if (row.entityId) rows[String(row.entityId)] = row;
+        } else {
+          failed = r.reason?.message || "Request failed";
+        }
       }
       setData({ rows, fetchedAt: Date.now() });
       setPatches({});
