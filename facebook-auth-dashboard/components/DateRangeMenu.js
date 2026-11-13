@@ -26,9 +26,8 @@ export function monthKeyOf(iso) {
 
 // One calendar month's day cells, Sunday-first, padded with the trailing
 // days of the previous month and leading days of the next so every week row
-// is a full 7 — `inMonth: false` cells are still real, clickable dates (so
-// picking a range that crosses a month boundary doesn't require navigating
-// first), just dimmed to show they belong to a neighboring month.
+// is a full 7 — `inMonth: false` cells are rendered blank (not as the
+// neighbouring month's dates) so a date never appears twice on screen.
 function buildMonthMatrix({ year, month }) {
   const first = new Date(Date.UTC(year, month, 1));
   const startOffset = first.getUTCDay();
@@ -63,6 +62,8 @@ export function Month({ monthKey, selStart, selEnd, hoverEnd, maxIso, onPick, on
           </div>
         ))}
         {cells.map((cell) => {
+          // Days of the neighbouring months stay blank so no date shows twice.
+          if (!cell.inMonth) return <div key={cell.iso} aria-hidden="true" />;
           const disabled = cell.iso > maxIso;
           const inRange = rangeLo && rangeHi && cell.iso > rangeLo && cell.iso < rangeHi;
           const isEndpoint = cell.iso === selStart || cell.iso === selEnd;
