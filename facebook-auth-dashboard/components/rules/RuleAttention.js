@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "@/components/icons";
+import PushAds from "@/components/rules/PushAds";
 import FlagWhy from "@/components/rules/FlagWhy";
 import RuleActionModal, { STEP_PCT } from "@/components/rules/RuleActionModal";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
@@ -203,8 +204,11 @@ export function AttentionStatus({ state }) {
 // What the "!" opens: a short summary of why the row was flagged and the one-click action, without
 // leaving the view. `currency` is the ad account's currency code; `onApplied(entityId, patch)` lets the
 // view update the row.
-export function AttentionPopover({ flag, currency, onClose, onApplied }) {
+export function AttentionPopover({ flag, currency, tz, onClose, onApplied }) {
   const [acting, setActing] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false); // the "Push ads" pop-up behind an "Add a creative" flag
+  const pushAccountId = flag.accountId;
+  const canPush = flag.action === "ADD_CREATIVE" && flag.entityType === "adset" && !!pushAccountId;
   const symbol = currencySymbolOf(currency);
   const [tone, rgb] = TONE[flag.action] || TONE.DECREASE_BUDGET;
   const t = flag.budgetTarget;
@@ -213,11 +217,11 @@ export function AttentionPopover({ flag, currency, onClose, onApplied }) {
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape" && !acting) onClose();
+      if (e.key === "Escape" && !acting && !pushOpen) onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [acting, onClose]);
+  }, [acting, pushOpen, onClose]);
 
   return (
     <>
@@ -275,8 +279,17 @@ export function AttentionPopover({ flag, currency, onClose, onApplied }) {
                 </div>
               )}
               {!actionable && flag.budgetNote && <div className={styles.sub}>{flag.budgetNote}</div>}
-              {flag.action === "ADD_CREATIVE" && <div className={styles.sub}>Upload a fresh ad to this ad set.</div>}
+              {flag.action === "ADD_CREATIVE" && <div className={styles.sub}>{canPush ? "Pick proven ads to push, or pause the weakest." : "Upload a fresh ad to this ad set."}</div>}
             </div>
+            {canPush && (
+              <button
+                type="button"
+                onClick={() => setPushOpen(true)}
+                style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", color: tone, background: `rgba(${rgb}, 0.14)`, border: `1px solid rgba(${rgb}, 0.4)` }}
+              >
+                Push ads
+              </button>
+            )}
             {actionable && (
               <button
                 type="button"
@@ -294,6 +307,24 @@ export function AttentionPopover({ flag, currency, onClose, onApplied }) {
           <FlagWhy flag={flag} />
         </div>
       </div>
+      {pushOpen && canPush && (
+        <div onClick={() => setPushOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 800, padding: 24 }}>
+          <div role="dialog" aria-modal="true" aria-label="Push ads" onClick={(e) => e.stopPropagation()} className={styles.card} style={{ background: "var(--bg)", width: "min(1240px, 100%)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <h2 className={styles.h2} style={{ marginBottom: 2 }}>Push ads into {flag.name}</h2>
+                <p className={styles.sub}>Pick proven creatives to add to this ad set, or pause its weakest ads.</p>
+              </div>
+              <button type="button" onClick={() => setPushOpen(false)} aria-label="Close" className={styles.btnSecondary} style={{ padding: 6, flexShrink: 0 }}>
+                <CloseIcon size={14} />
+              </button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
+              <PushAds flag={flag} accountId={pushAccountId} tz={tz} symbol={symbol} pausedAdIds={new Set()} adsetId={flag.entityId} adsetName={flag.name} source="add_creative" />
+            </div>
+          </div>
+        </div>
+      )}
       {acting && (
         <RuleActionModal
           flag={flag}

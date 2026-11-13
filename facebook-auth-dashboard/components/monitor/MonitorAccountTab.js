@@ -287,6 +287,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
         <AttentionPopover
           flag={attentionOpen}
           currency={currency}
+          tz={timeZone}
           onClose={() => setAttentionOpen(null)}
           onApplied={(entityId, patch) => {
             setAttentionOpen(null);

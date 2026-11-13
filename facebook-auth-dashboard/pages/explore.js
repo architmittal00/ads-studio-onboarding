@@ -3316,6 +3316,7 @@ export default function Explore() {
         <AttentionPopover
           flag={attentionOpen}
           currency={currencyByAccountId.get(attentionOpen.accountId)}
+          tz={adAccounts.find((a) => a.id === attentionOpen.accountId)?.timezone_name}
           onClose={() => setAttentionOpen(null)}
           onApplied={(entityId, patch) => {
             setAttentionOpen(null);
