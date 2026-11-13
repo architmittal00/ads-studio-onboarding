@@ -60,6 +60,7 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | `date_range_applied` | `/explore`, `/pixel`, `/partnership-ads`, `/copy-ads` | date range menu applied | `preset`, `compare` |
 | `explore_query_run` | `/explore`, `/partnership-ads` (Explore tab) | a Custom View query runs | `level`, `metric_count`, `account_count`, `forced` |
 | `explore_export_csv` | `/explore`, `/partnership-ads` (Explore tab) | CSV export | `row_count` |
+| `explore_export_xlsx` | `/explore` (Export Excel clicked) | the Excel file is downloaded | `row_count`, `color_scales` (how many columns had a colour scale) |
 | `explore_view_added` / `explore_view_duplicated` / `explore_view_closed` | `/explore`, `/partnership-ads` (Explore tab) | Custom View tab opened / duplicated / closed | — |
 | `explore_bulk_pause` | `/explore` | bulk pause of ads confirmed | `count` |
 | `bulk_duplicate_ads_started` | `/explore` (also from row actions) | bulk duplicate confirmed | `ad_count`, `adset_count` |

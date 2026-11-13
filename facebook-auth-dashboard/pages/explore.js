@@ -13,6 +13,8 @@ import AccountSelect from "@/components/AccountSelect";
 import RowActions from "@/components/RowActions";
 import EntityInvestigateDrawer from "@/components/EntityInvestigateDrawer";
 import EntityHistoryDrawer from "@/components/EntityHistoryDrawer";
+import { buildXlsx, downloadXlsx } from "@/lib/xlsxWriter";
+import { scaleHex } from "@/lib/colorScale";
 import Thumb from "@/components/Thumb";
 import CreativeLightbox from "@/components/CreativeLightbox";
 import EntityDetailDrawer from "@/components/EntityDetailDrawer";
@@ -1744,16 +1746,30 @@ export default function Explore() {
     }));
   }, [result, filteredRows, adAccounts]);
 
-  function handleExportCsv() {
-    if (!result) return;
-    track("explore_export_csv", { row_count: filteredRows.length });
-    const csv = toCsvString(buildCsvTable(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
+  // The download name: view title, then the date range.
+  function exportFileBase() {
     const viewIndex = views.findIndex((v) => v.id === activeView.id);
     const slug = viewTitle(activeView, adAccounts, viewIndex === -1 ? 0 : viewIndex)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-    downloadCsv(`explore-${slug || "report"}-${result.meta.since}-to-${result.meta.until}.csv`, csv);
+    return `explore-${slug || "report"}-${result.meta.since}-to-${result.meta.until}`;
+  }
+
+  function handleExportCsv() {
+    if (!result) return;
+    track("explore_export_csv", { row_count: filteredRows.length });
+    const csv = toCsvString(buildCsvTable(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
+    downloadCsv(`${exportFileBase()}.csv`, csv);
+  }
+
+  // Excel keeps what a CSV cannot: numbers as numbers with their formats, and the colour scales set on the table.
+  function handleExportXlsx() {
+    if (!result) return;
+    const scales = activeView.tableColorScales || {};
+    track("explore_export_xlsx", { row_count: filteredRows.length, color_scales: Object.keys(scales).length });
+    const sheet = buildXlsxSheet(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog, scales);
+    downloadXlsx(`${exportFileBase()}.xlsx`, buildXlsx({ sheetName: "Custom Views", ...sheet }));
   }
 
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
@@ -2099,6 +2115,17 @@ export default function Explore() {
               <CopyIcon size={16} />
               Export CSV
             </button>
+            <button
+              type="button"
+              className={styles.sheetListItem}
+              onClick={() => {
+                setMobileMoreOpen(false);
+                handleExportXlsx();
+              }}
+            >
+              <CopyIcon size={16} />
+              Export Excel
+            </button>
           </div>
         </BottomSheet>
       </>
@@ -2264,6 +2291,9 @@ export default function Explore() {
               {showAttention && <AttentionStatus state={attention} />}
               <button type="button" className={styles.btnSecondary} onClick={handleExportCsv}>
                 Export CSV
+              </button>
+              <button type="button" className={styles.btnSecondary} onClick={handleExportXlsx} title="Excel file with number formats and your color scales">
+                Export Excel
               </button>
               <div className={styles.tabGroup}>
                 <button
@@ -4659,6 +4689,89 @@ function buildCsvTable(rows, meta, adAccounts, currencyByAccountId, effectiveCat
     lines.push(line);
   }
   return lines;
+}
+
+// Excel version of buildCsvTable: the same columns and rows, but metric values stay numbers (with an Excel number format
+// for their kind) and the columns that have a colour scale get each cell's fill, worked out the way the on-screen table
+// does it (min to max over the exported rows). Returns the { widths, rows } buildXlsx takes.
+const EXCEL_HEADER_FILL = "EFEAE4";
+const currencySymbolCache = new Map();
+function currencySymbolOf(currency) {
+  if (!currency) return "";
+  if (!currencySymbolCache.has(currency)) {
+    let sym = currency;
+    try {
+      sym = new Intl.NumberFormat("en-IN", { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value || currency;
+    } catch {}
+    currencySymbolCache.set(currency, sym);
+  }
+  return currencySymbolCache.get(currency);
+}
+function excelFormatFor(format, currency) {
+  if (format === "currency") {
+    const sym = currencySymbolOf(currency);
+    return sym ? `"${sym}"#,##0.00` : "#,##0.00";
+  }
+  if (format === "percent") return '0.00"%"';
+  if (format === "decimal") return "0.00";
+  if (format === "number") return "#,##0";
+  return undefined;
+}
+
+function buildXlsxSheet(rows, meta, adAccounts, currencyByAccountId, effectiveCatalog, colorScales) {
+  const leading = leadingColumnDefs(meta);
+  const metricKeysAndFields = [...meta.metricKeys, ...meta.customFields];
+  const head = (v) => ({ v, bold: true, fill: EXCEL_HEADER_FILL });
+
+  const header = leading.map((c) => head(c.label));
+  if (meta.statusAvailable) header.push(head("Status"));
+  for (const key of metricKeysAndFields) {
+    const label = effectiveCatalog.find((m) => m.key === key)?.label || key;
+    header.push(head(label));
+    if (meta.compareToPrevious) header.push(head(`${label} Δ%`));
+  }
+
+  // min / max per coloured column, over the rows being exported
+  const stats = {};
+  for (const key of metricKeysAndFields) {
+    const dir = colorScales?.[key];
+    if (dir !== "high" && dir !== "low") continue;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const r of rows) {
+      const v = r[key];
+      if (typeof v !== "number" || !Number.isFinite(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    if (max > min) stats[key] = { min, max, dir };
+  }
+
+  const body = rows.map((row) => {
+    const currency = currencyByAccountId.get(row.accountId);
+    const line = leading.map((c) => (c.key === "accountId" ? adAccounts.find((a) => a.id === row.accountId)?.name || row.accountId : row[c.key] ?? ""));
+    if (meta.statusAvailable) line.push(humanizeStatus(row.status));
+    for (const key of metricKeysAndFields) {
+      const metric = effectiveCatalog.find((m) => m.key === key);
+      const format = metric?.format || "number";
+      const value = row[key];
+      if (format === "text" || typeof value !== "number" || !Number.isFinite(value)) {
+        line.push(value == null ? "" : String(value));
+      } else {
+        const st = stats[key];
+        const t = st ? (value - st.min) / (st.max - st.min) : null;
+        line.push({ v: value, fmt: excelFormatFor(format, currency), ...(st ? { fill: scaleHex(st.dir === "low" ? 1 - t : t) } : null) });
+      }
+      if (meta.compareToPrevious) {
+        const delta = row._deltaPct?.[key];
+        line.push(typeof delta === "number" ? { v: delta, fmt: '0.0"%"' } : "");
+      }
+    }
+    return line;
+  });
+
+  const widths = header.map((h, i) => Math.min(40, Math.max(11, String(h.v).length + 4, i < leading.length ? 26 : 0)));
+  return { widths, rows: [header, ...body] };
 }
 
 function escapeCsvCell(value) {
