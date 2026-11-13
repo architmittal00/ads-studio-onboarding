@@ -27,6 +27,7 @@ import {
   TagIcon,
   PlayIcon,
   RulesIcon,
+  EyeIcon,
   PixelIcon,
 } from "./icons";
 
@@ -34,6 +35,7 @@ const LINKS = [
   { href: "/report", label: "Audit Report", icon: FileTextIcon },
   { href: "/explore", label: "Custom Views", icon: ChartIcon },
   { href: "/recommendations", label: "Recommendations", icon: RulesIcon },
+  { href: "/monitor", label: "Monitor", icon: EyeIcon },
   { href: "/recent-changes", label: "Recent Changes", icon: HistoryIcon },
   { href: "/copy-ads", label: "Copy Ads", icon: CopyIcon },
   { href: "/partnership-ads", label: "Partnership Ads", icon: HandshakeIcon },
