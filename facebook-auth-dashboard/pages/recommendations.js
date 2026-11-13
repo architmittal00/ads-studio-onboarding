@@ -82,13 +82,13 @@ function RecommendationTabs() {
   const [tabsRestored, setTabsRestored] = useState(false);
 
   useEffect(() => {
-    setTabsRestored(true); // marks the one-time restore below as done
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restores the saved tabs once in the browser (not available during server render), and marks that done
+    setTabsRestored(true);
     try {
       const saved = JSON.parse(localStorage.getItem(TABS_KEY) || "null");
       if (!saved?.tabs?.length) return;
       const restored = saved.tabs.map((t) => ({ id: String(t.id), accountId: t.accountId || null, name: t.name || "" }));
       const active = restored.some((t) => t.id === saved.activeId) ? saved.activeId : restored[0].id;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- restores the saved tabs once in the browser (not available during server render)
       setTabs(restored);
       setActiveId(active);
       setVisited(new Set([active]));
