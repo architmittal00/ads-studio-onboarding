@@ -369,6 +369,7 @@ function createBlankView(seedAccountId = "") {
     tableSearch: "",
     tableColOrder: null,
     tableFirstColFrozen: true,
+    tableColorScales: {}, // { columnKey: "high" | "low" } red → green colour scales on the results table
     // Which tab group (if any) this tab belongs to — see `groups` state in
     // the Explore component and GROUP_COLORS below. Null means ungrouped.
     groupId: null,
@@ -1173,6 +1174,7 @@ export default function Explore() {
         tableSearch: v.tableSearch || "",
         tableColOrder: v.tableColOrder || null,
         tableFirstColFrozen: v.tableFirstColFrozen !== false,
+        tableColorScales: v.tableColorScales && typeof v.tableColorScales === "object" ? v.tableColorScales : {},
         groupId: v.groupId ?? null,
       };
       delete migrated.accountId;
@@ -2447,6 +2449,7 @@ export default function Explore() {
               tableSearch={activeView.tableSearch}
               tableColOrder={activeView.tableColOrder}
               tableFirstColFrozen={activeView.tableFirstColFrozen}
+              tableColorScales={activeView.tableColorScales}
               onTableViewChange={updateActive}
             />
           ) : activeView.chartMetricKey ? (
@@ -3438,6 +3441,7 @@ function ExploreResultsTable({
   tableSearch,
   tableColOrder,
   tableFirstColFrozen,
+  tableColorScales,
   onTableViewChange,
 }) {
   const isMobile = useIsMobile();
@@ -4584,6 +4588,8 @@ function ExploreResultsTable({
             onTableViewChange?.({ tableColOrder: order });
           }}
           onFirstColFrozenChange={(frozen) => onTableViewChange?.({ tableFirstColFrozen: frozen })}
+          colorScales={tableColorScales}
+          onColorScalesChange={(scales) => onTableViewChange?.({ tableColorScales: scales })}
           pinnedRow={showTotalsRow ? totalsRow || undefined : undefined}
           highlightRow={(row) => !!row.entityId && selectedIds.has(row.entityId)}
         />
