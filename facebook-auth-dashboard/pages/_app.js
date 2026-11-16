@@ -10,6 +10,7 @@ import ApiLogsFab from "@/components/ApiLogsFab";
 import { getThemePreference } from "@/lib/clientStorage";
 import { sweepAllKnownCaches } from "@/lib/clientCache";
 import { CLARITY_PROJECT_ID, identifyClarityUser } from "@/lib/clarity";
+import UserViewsSync from "@/components/UserViewsSync";
 import { initAnalytics, installAutoTracking, identifyUser, resetAnalytics, trackPageview } from "@/lib/analytics";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -173,7 +174,9 @@ export default function App({
       <GoogleStepGate />
       <AccountProvider>
         <main className={plusJakartaSans.variable} style={{ fontFamily: "var(--font-studio)" }}>
-          <Component {...pageProps} />
+          <UserViewsSync>
+            <Component {...pageProps} />
+          </UserViewsSync>
           <ApiLogsFab />
         </main>
       </AccountProvider>

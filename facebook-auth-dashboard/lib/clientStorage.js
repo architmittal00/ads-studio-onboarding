@@ -1,3 +1,5 @@
+import { saveView } from "./userViews";
+
 const LAST_ACCOUNT_KEY = "fb-dashboard:last-account-id";
 const DEFAULT_RANGE_KEY = "fb-dashboard:default-range-preset";
 const VALID_DEFAULT_RANGES = ["today", "last_7d", "last_30d"];
@@ -211,11 +213,8 @@ export function getExploreViews() {
 }
 
 export function setExploreViews(data) {
-  try {
-    localStorage.setItem(EXPLORE_VIEWS_KEY, JSON.stringify(data));
-  } catch {
-    // Private browsing / blocked storage / quota exceeded — silently ignore.
-  }
+  // Also saved to the person's account (lib/userViews.js) when signed in with Google.
+  saveView("explore_views", data);
 }
 
 const RECENT_CHANGES_TABS_KEY = "fb-dashboard:recent-changes-tabs";
@@ -235,11 +234,7 @@ export function getRecentChangesTabs() {
 }
 
 export function setRecentChangesTabs(data) {
-  try {
-    localStorage.setItem(RECENT_CHANGES_TABS_KEY, JSON.stringify(data));
-  } catch {
-    // Private browsing / blocked storage / quota exceeded — silently ignore.
-  }
+  saveView("recent_changes_tabs", data);
 }
 
 const RECENT_CHANGES_QUERY_PANEL_COLLAPSED_KEY = "fb-dashboard:recent-changes-query-panel-collapsed";
@@ -282,11 +277,7 @@ export function getCustomMetrics() {
 }
 
 export function setCustomMetrics(metrics) {
-  try {
-    localStorage.setItem(CUSTOM_METRICS_KEY, JSON.stringify(metrics));
-  } catch {
-    // Private browsing / blocked storage / quota exceeded — silently ignore.
-  }
+  saveView("custom_metrics", metrics);
 }
 
 // Explicit light/dark override, set via the Sidebar's theme toggle. `null`
