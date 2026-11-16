@@ -7,6 +7,13 @@ import { useRouter } from "next/router";
 import { useEffect } from "react";
 import styles from "@/styles/Home.module.css";
 
+const DENIED_TEXT = {
+  domain: "That Google account isn't on an allowed domain. Sign in with a company account, or ask for yours to be added.",
+  unverified: "Google says that email address isn't verified.",
+  no_email: "Google didn't share an email address.",
+  not_configured: "No allowed domains are set up yet (GOOGLE_AUTH_DOMAINS), so nobody can sign in.",
+};
+
 export default function Home({ googleTest = false }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -18,6 +25,7 @@ export default function Home({ googleTest = false }) {
     }
   }, [status, router, googleTest, session?.fbConnected]);
   const googleEmail = googleTest ? session?.googleEmail : null;
+  const denied = googleTest ? DENIED_TEXT[router.query.google_denied] : null;
 
   return (
     <>
@@ -37,6 +45,12 @@ export default function Home({ googleTest = false }) {
               <p className={styles.sub} style={{ maxWidth: 360 }}>
                 Test sign-in. {googleEmail ? `Signed in as ${googleEmail}. Now connect the Facebook login for ad access.` : "Sign in with Google first, then connect Facebook for ad access."}
               </p>
+              {denied && (
+                <p className={styles.error} role="alert">
+                  {denied}
+                  {router.query.d ? ` (account domain: ${router.query.d})` : ""}
+                </p>
+              )}
               {!googleEmail ? (
                 <button className={styles.btnPrimary} data-track="login_clicked" onClick={() => signIn("google", { callbackUrl: "/" })}>
                   Continue with Google

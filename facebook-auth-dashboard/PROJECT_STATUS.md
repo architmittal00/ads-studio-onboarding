@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Google sign-in: say why a sign-in is refused (2026-11-16)
+A refused Google sign-in used to end on NextAuth's bare "Access Denied" page. The `signIn` callback now redirects to `/?google_denied=<reason>&d=<domain>` and the sign-in page shows the reason (not on an allowed domain / unverified / no email / `GOOGLE_AUTH_DOMAINS` not set). Lint/build checked.
+
 ### Google sign-in: allow whole domains (2026-11-16)
 `GOOGLE_AUTH_DOMAINS` (comma-separated, e.g. two company domains) now decides who may sign in with Google: a verified email on any listed domain. `GOOGLE_AUTH_ALLOWLIST` stays as an optional list of single extra emails. Same rule guards `/identity-links`. Checked in a script (domain match, case, look-alike domains, subdomains, list exception); lint/build clean.
 

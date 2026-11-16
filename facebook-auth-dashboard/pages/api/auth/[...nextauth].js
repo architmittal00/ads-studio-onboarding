@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import FacebookProvider from "next-auth/providers/facebook";
 import GoogleProvider from "next-auth/providers/google";
 import { getToken } from "next-auth/jwt";
-import { isTestRequest, isAllowedGoogleEmail } from "@/lib/googleTest";
+import { isTestRequest, googleDenialReason } from "@/lib/googleTest";
 import { recordIdentityLink } from "@/lib/identityDb";
 
 export const authOptions = {
@@ -78,7 +78,11 @@ export function buildAuthOptions(req, existing) {
     callbacks: {
       ...authOptions.callbacks,
       async signIn({ account, profile }) {
-        if (account?.provider === "google") return !!profile?.email_verified && isAllowedGoogleEmail(profile.email);
+        if (account?.provider === "google") {
+          // A refused sign-in returns to the sign-in page with the reason (and the email's domain) instead of a bare "Access Denied".
+          const reason = googleDenialReason(profile);
+          return reason ? `/?google_denied=${reason}&d=${encodeURIComponent(String(profile?.email || "").split("@")[1] || "")}` : true;
+        }
         // Google comes first: a Facebook connection is only accepted on top of a Google sign-in.
         if (account?.provider === "facebook") return !!existing?.googleEmail;
         return true;
