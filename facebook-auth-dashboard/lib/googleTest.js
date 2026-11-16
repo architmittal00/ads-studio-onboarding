@@ -32,11 +32,18 @@ export function hasTestCookie(req) {
 // True only for a browser that opted in AND when the server is configured for Google sign-in.
 export const isTestRequest = (req) => hasTestCookie(req) && googleConfigured();
 
-// GOOGLE_AUTH_ALLOWLIST: comma-separated Google emails allowed to sign in during the test.
-export function isAllowedGoogleEmail(email) {
-  const allowed = String(process.env.GOOGLE_AUTH_ALLOWLIST || "")
+const csv = (value) =>
+  String(value || "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return !!email && allowed.includes(String(email).toLowerCase());
+
+// Who may sign in with Google during the test: any email on one of GOOGLE_AUTH_DOMAINS (comma-separated, e.g.
+// "pickrr.com,shiprocket.in"), plus any single email listed in GOOGLE_AUTH_ALLOWLIST for exceptions. The caller has
+// already required Google to say the email is verified.
+export function isAllowedGoogleEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  const at = value.lastIndexOf("@");
+  if (at < 1) return false;
+  return csv(process.env.GOOGLE_AUTH_DOMAINS).includes(value.slice(at + 1)) || csv(process.env.GOOGLE_AUTH_ALLOWLIST).includes(value);
 }
