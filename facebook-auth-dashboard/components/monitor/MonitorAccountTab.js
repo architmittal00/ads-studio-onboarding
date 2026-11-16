@@ -246,8 +246,13 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
         <span className={styles.muted} style={{ fontWeight: 400 }}>
           {range.since} → {range.until}
           {data.fetchedAt ? ` · updated ${new Date(data.fetchedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""}
-          {attention.loading ? " · checking recommendations…" : ""}
         </span>
+        {(attention.loading || attention.belowLoading) && (
+          <span className={styles.muted} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }} title="Checking these items against your rules in the background; flags appear as a ! beside the name">
+            <span className={`${styles.spinner} ${styles.spinnerSm}`} />
+            Checking recommendations…
+          </span>
+        )}
       </div>
 
       {showMetrics && (
