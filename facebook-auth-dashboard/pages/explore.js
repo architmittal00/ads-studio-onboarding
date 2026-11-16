@@ -3727,7 +3727,12 @@ function ExploreResultsTable({
     }
     return byEntity;
   }, [timePivotEnabled, rows]);
-  const pivotParentRows = timePivotEnabled ? meta.pivotRows || [] : null;
+  // The parents come from the server unfiltered, while the date rows (`rows`) already obey the result filters (status, needs
+  // attention, metric conditions). With a filter on, only parents that still have a date row are listed; otherwise every
+  // parent whose dates were filtered away showed an empty "No dates match the current filters." line.
+  const pivotParentRows = timePivotEnabled
+    ? (meta.pivotRows || []).filter((p) => rows.length === meta.rowCount || pivotChildrenByEntity?.has(p.entityId))
+    : null;
 
   // What the top-level table actually renders and what "N selected"/"Select
   // all" operate over — the pivoted, one-row-per-entity rows in pivot mode

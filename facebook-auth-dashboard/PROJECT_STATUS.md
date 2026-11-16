@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Custom Views: time-grouped rows no longer show empty "No dates match" parents (2026-11-16)
+With a time grouping (daily/weekly/monthly) the parent rows (`meta.pivotRows`, from the server) ignored the result filters while their date rows obeyed them. With "Needs attention" (or a status / metric filter) on, most parents had all their dates filtered away and showed "No dates match the current filters." under them. `pivotParentRows` in `pages/explore.js` now lists only parents that still have a date row when a filter is active. Note: a parent's own figures are still the totals over all its dates (not just the matching ones). Lint/build checked; confirmed on the live Custom Views tab after deploy.
+
 ### Monitor loading state redesigned (2026-11-16)
 The first read on `/monitor` no longer shows a lone spinner above tables full of dashes. `components/monitor/MonitorSkeleton.js` draws each level's table as it will look (real column headings for the chosen metrics, one shimmering row per monitored item, up to four), with a small "Reading performance…" line; nothing jumps when the numbers arrive. Refresh / a new date range keeps the current numbers on screen, dimmed, under a thin sliding progress line (`.loadLine`). Respects reduced motion. Checked in light and dark in the Browser pane with a throwaway preview page (not committed); lint clean; not yet seen on the live page with real loading.
 
