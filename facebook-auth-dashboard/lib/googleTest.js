@@ -47,3 +47,11 @@ export function isAllowedGoogleEmail(email) {
   if (at < 1) return false;
   return csv(process.env.GOOGLE_AUTH_DOMAINS).includes(value.slice(at + 1)) || csv(process.env.GOOGLE_AUTH_ALLOWLIST).includes(value);
 }
+
+// Why a Google sign-in would be refused, for the message on the sign-in page; null means it is allowed.
+export function googleDenialReason(profile) {
+  if (!profile?.email) return "no_email";
+  if (!profile.email_verified) return "unverified";
+  if (!csv(process.env.GOOGLE_AUTH_DOMAINS).length && !csv(process.env.GOOGLE_AUTH_ALLOWLIST).length) return "not_configured";
+  return isAllowedGoogleEmail(profile.email) ? null : "domain";
+}
