@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### View details: ads made from an existing post (2026-11-16)
+Primary text, headline, description, button and landing page were blank for ads built with "Use existing post" (no `object_story_spec`; the content lives on the Page post). `fetchAdCopyDetails` (`lib/entityDetails.js`) now reads the post (`message`, `call_to_action`, attachment title/description) when the creative carries none of those, falling back to the Instagram media caption; `video_id` is also read so the video flag is right. Checked against ad 52608622587086 after deploy (see below).
+
 ### Monitor: visible "Checking recommendations…" loader (2026-11-16)
 The recommendation check on `/monitor` was only a faint suffix on the date line. It is now its own spinner + "Checking recommendations…" next to Refresh, shown while the rule check runs (`attention.loading || attention.belowLoading`). Lint/build checked only, not looked at in the UI.
 

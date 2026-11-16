@@ -148,12 +148,30 @@ async function landingOf(creative, token) {
   return { landingUrl: null, landingSource: null };
 }
 
+// An ad built from an existing Page post ("Use existing post") has no object_story_spec: its text, headline, description,
+// button and link all live on the post itself, which is what Ads Manager shows. Soft-fails (e.g. no access to that Page).
+async function fetchPostCopy(postId, token) {
+  try {
+    const post = await graphGet(`/${postId}`, token, { fields: "message,call_to_action,link,name,description,attachments{title,description,url,unshimmed_url,media_type,type}" });
+    const att = post.attachments?.data?.[0] || {};
+    return {
+      text: post.message || null,
+      headline: att.title || post.name || null,
+      description: att.description || post.description || null,
+      ctaType: post.call_to_action?.type || null,
+      isVideo: /video/i.test(`${att.media_type || ""} ${att.type || ""}`),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchAdCopyDetails(id, token) {
   // Same field list the ad-edit flow reads (lib/adEdit.js), so what's shown
   // here and what an edit rebuilds from are the same data.
   // The edit field list has no creative-level call_to_action (where many ads keep their destination), so it is added
   // here — otherwise this screen and Explore's Landing Page column could resolve different links for the same ad.
-  const data = await graphGet(`/${id}`, token, { fields: EDIT_AD_FIELDS.replace("creative{id,", "creative{id,call_to_action,") });
+  const data = await graphGet(`/${id}`, token, { fields: EDIT_AD_FIELDS.replace("creative{id,", "creative{id,call_to_action,video_id,effective_instagram_media_id,") });
   const creative = data.creative || {};
   const asset = creative.asset_feed_spec || {};
   const linkData = creative.object_story_spec?.link_data;
@@ -175,6 +193,21 @@ export async function fetchAdCopyDetails(id, token) {
     : [linkData?.description || videoData?.link_description].filter(Boolean);
   const ctaType = creative.call_to_action?.type || linkData?.call_to_action?.type || videoData?.call_to_action?.type || asset.call_to_action_types?.[0] || null;
 
+  // Existing-post ad: whatever the creative itself didn't carry comes from the post.
+  const needsPost = !primaryTexts.length && !headlines.length && !descriptions.length && !ctaType && !!creative.effective_object_story_id;
+  let post = needsPost ? await fetchPostCopy(creative.effective_object_story_id, token) : null;
+  // The Page post may be unreadable with this login; an Instagram-sourced ad still has its caption on the media.
+  if (needsPost && !post?.text && creative.effective_instagram_media_id) {
+    try {
+      const media = await graphGet(`/${creative.effective_instagram_media_id}`, token, { fields: "caption" });
+      if (media.caption) post = { ...(post || {}), text: media.caption };
+    } catch {}
+  }
+  if (post?.text) primaryTexts.push(post.text);
+  if (post?.headline) headlines.push(post.headline);
+  if (post?.description) descriptions.push(post.description);
+  const finalCtaType = ctaType || post?.ctaType || null;
+
   return {
     name: data.name,
     status: data.status || null,
@@ -182,14 +215,14 @@ export async function fetchAdCopyDetails(id, token) {
     accountId: data.account_id || null,
     creativeId: creative.id || null,
     thumbnailUrl: creative.thumbnail_url || null,
-    isVideo: !!(videoData?.video_id || creative.video_id),
+    isVideo: !!(videoData?.video_id || creative.video_id || post?.isVideo),
     campaign: data.campaign ? { id: data.campaign.id, name: data.campaign.name } : null,
     adset: data.adset ? { id: data.adset.id, name: data.adset.name } : null,
     primaryTexts,
     headlines,
     descriptions,
-    ctaType,
-    ctaLabel: ctaType ? titleCaseSnake(ctaType.toLowerCase()) : null,
+    ctaType: finalCtaType,
+    ctaLabel: finalCtaType ? titleCaseSnake(finalCtaType.toLowerCase()) : null,
     ...(await landingOf(creative, token)),
     editable: describeEditability(data),
   };
