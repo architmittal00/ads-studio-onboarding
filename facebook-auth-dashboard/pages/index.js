@@ -5,14 +5,8 @@ import { authOptions } from "./api/auth/[...nextauth]";
 import { isTestRequest } from "@/lib/googleTest";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
+import TwoStepSignIn from "@/components/onboarding/TwoStepSignIn";
 import styles from "@/styles/Home.module.css";
-
-const DENIED_TEXT = {
-  domain: "That Google account isn't on an allowed domain. Sign in with a company account, or ask for yours to be added.",
-  unverified: "Google says that email address isn't verified.",
-  no_email: "Google didn't share an email address.",
-  not_configured: "No allowed domains are set up yet (GOOGLE_AUTH_DOMAINS), so nobody can sign in.",
-};
 
 export default function Home({ googleTest = false }) {
   const { data: session, status } = useSession();
@@ -25,7 +19,18 @@ export default function Home({ googleTest = false }) {
     }
   }, [status, router, googleTest, session?.fbConnected]);
   const googleEmail = googleTest ? session?.googleEmail : null;
-  const denied = googleTest ? DENIED_TEXT[router.query.google_denied] : null;
+
+  if (googleTest) {
+    return (
+      <>
+        <Head>
+          <title>Get started · Facebook Auth Dashboard</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </Head>
+        <TwoStepSignIn googleEmail={googleEmail} denied={router.query.google_denied} deniedDomain={router.query.d} signedInLoading={status === "loading"} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -40,42 +45,12 @@ export default function Home({ googleTest = false }) {
         >
           <div className={styles.logoMark}>f</div>
           <h1 className={styles.h1}>Facebook Auth Dashboard</h1>
-          {googleTest ? (
-            <>
-              <p className={styles.sub} style={{ maxWidth: 360 }}>
-                Test sign-in. {googleEmail ? `Signed in as ${googleEmail}. Now connect the Facebook login for ad access.` : "Sign in with Google first, then connect Facebook for ad access."}
-              </p>
-              {denied && (
-                <p className={styles.error} role="alert">
-                  {denied}
-                  {router.query.d ? ` (account domain: ${router.query.d})` : ""}
-                </p>
-              )}
-              {!googleEmail ? (
-                <button className={styles.btnPrimary} data-track="login_clicked" onClick={() => signIn("google", { callbackUrl: "/" })}>
-                  Continue with Google
-                </button>
-              ) : (
-                <button className={styles.btnPrimary} data-track="login_clicked" onClick={() => signIn("facebook", { callbackUrl: "/report" })}>
-                  Connect Facebook
-                </button>
-              )}
-              <form action="/api/google-test/disable">
-                <button type="submit" className={styles.btnSecondary} style={{ fontSize: 12 }}>
-                  Leave the test and use the normal sign-in
-                </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <p className={styles.sub} style={{ maxWidth: 360 }}>
-                Sign in with Facebook to view your profile, Pages, and Ad Account performance.
-              </p>
-              <button className={styles.btnPrimary} data-track="login_clicked" onClick={() => signIn("facebook", { callbackUrl: "/report" })}>
-                Continue with Facebook
-              </button>
-            </>
-          )}
+          <p className={styles.sub} style={{ maxWidth: 360 }}>
+            Sign in with Facebook to view your profile, Pages, and Ad Account performance.
+          </p>
+          <button className={styles.btnPrimary} data-track="login_clicked" onClick={() => signIn("facebook", { callbackUrl: "/report" })}>
+            Continue with Facebook
+          </button>
         </main>
       </div>
     </>

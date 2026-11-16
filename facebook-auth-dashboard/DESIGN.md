@@ -137,6 +137,9 @@ Same rules as Custom Views, applied to a six-tab screen (`pages/partnership-ads.
 - **Modals become bottom sheets** with `pvModalOverlay` / `pvModalCard` / `pvModalMedia` classes (they are inline-styled, so the mobile CSS overrides with `!important`). `.main { z-index: auto }` on phones — its `z-index: 1` stacking context otherwise keeps inline `z-index: 800` modals under the top and tab bars.
 - Empty states drop the numbered steps (`.pvEmpty`): the point plus one full-width action.
 
+## Sign-in (two-step, Google test flow)
+`components/onboarding/TwoStepSignIn.js` + `styles/Onboarding.module.css` (own module: it is a full-page, pre-login screen outside `Layout`). Hero left, step card right (stacked under 900px). Steps show state by tint: active = purple, done = green + tick, locked = dimmed with a lock. Provider buttons are the one place literal colours are allowed: Google = white with its multicolour mark, Facebook = `#1877F2` with a white mark (`GoogleLogo` / `FacebookLogo` in `components/icons.js`).
+
 ## Adding or changing a component
 
 1. Check the list above and `components/` for something reusable.
