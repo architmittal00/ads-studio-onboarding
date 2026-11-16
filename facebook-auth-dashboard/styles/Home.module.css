@@ -709,6 +709,104 @@ button.stat:hover {
   height: 13px;
   border-width: 2px;
 }
+/* ── Skeleton loading (table-shaped placeholder) + thin progress line ── */
+@keyframes skelShimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes loadSlide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(350%);
+  }
+}
+.skelCard {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.skelCard::-webkit-scrollbar {
+  display: none;
+}
+.skelRow {
+  display: grid;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+.skelRowHead {
+  border-top: none;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+.skelHeadCell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skelBar {
+  display: block;
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(var(--surface-tint-rgb), 0.07) 30%, rgba(var(--surface-tint-rgb), 0.16) 50%, rgba(var(--surface-tint-rgb), 0.07) 70%);
+  background-size: 200% 100%;
+  animation: skelShimmer 1.6s ease-in-out infinite;
+}
+.skelBarTall {
+  height: 12px;
+}
+.skelPill {
+  height: 20px;
+  border-radius: 20px;
+}
+.skelRight {
+  justify-self: end;
+}
+.skelNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--t2);
+}
+.loadLine {
+  position: relative;
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(var(--purple-rgb), 0.12);
+}
+.loadLine::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  border-radius: 3px;
+  background: var(--grad);
+  animation: loadSlide 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skelBar,
+  .loadLine::after {
+    animation: none;
+  }
+}
 .loaderBox {
   display: flex;
   flex-direction: column;
