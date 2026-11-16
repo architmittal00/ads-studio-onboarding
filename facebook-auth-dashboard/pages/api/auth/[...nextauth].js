@@ -1,5 +1,9 @@
 import NextAuth from "next-auth";
 import FacebookProvider from "next-auth/providers/facebook";
+import GoogleProvider from "next-auth/providers/google";
+import { getToken } from "next-auth/jwt";
+import { isTestRequest, isAllowedGoogleEmail } from "@/lib/googleTest";
+import { recordIdentityLink } from "@/lib/identityDb";
 
 export const authOptions = {
   providers: [
@@ -46,10 +50,73 @@ export const authOptions = {
     async session({ session, token }) {
       session.accessToken = token.accessToken;
       // Facebook user id (token.sub) — the stable unique-user key for analytics.
-      if (session.user) session.user.id = token.sub;
+      if (session.user) session.user.id = token.fbUserId || token.sub;
+      // Google sign-in test flow (see lib/googleTest.js): only present for a browser that went through it.
+      if (token.googleEmail) {
+        session.googleEmail = token.googleEmail;
+        session.fbConnected = !!token.accessToken;
+        session.fbUserId = token.fbUserId || null;
+        if (session.user) {
+          session.user.fbEmail = token.fbEmail || null;
+          session.user.email = token.googleEmail;
+          if (token.googleName) session.user.name = token.googleName;
+        }
+      }
       return session;
     },
   },
 };
 
-export default NextAuth(authOptions);
+// The Google sign-in test flow, layered on top of the options above. Only for a request carrying the test cookie (see
+// lib/googleTest.js); everyone else gets `authOptions` untouched. `existing` is the session's current token: NextAuth
+// starts a fresh token on every sign-in, so connecting Facebook after Google would otherwise drop the Google identity.
+export function buildAuthOptions(req, existing) {
+  if (!isTestRequest(req)) return authOptions;
+  return {
+    ...authOptions,
+    providers: [...authOptions.providers, GoogleProvider({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })],
+    callbacks: {
+      ...authOptions.callbacks,
+      async signIn({ account, profile }) {
+        if (account?.provider === "google") return !!profile?.email_verified && isAllowedGoogleEmail(profile.email);
+        // Google comes first: a Facebook connection is only accepted on top of a Google sign-in.
+        if (account?.provider === "facebook") return !!existing?.googleEmail;
+        return true;
+      },
+      async jwt({ token, account, profile }) {
+        if (account?.provider === "google") {
+          const next = {
+            ...token,
+            sub: profile.sub,
+            googleSub: profile.sub,
+            googleEmail: String(profile.email).toLowerCase(),
+            googleName: profile.name || null,
+            // A Facebook connection already in this session survives signing in with Google again.
+            ...(existing?.accessToken ? { accessToken: existing.accessToken, fbUserId: existing.fbUserId, fbEmail: existing.fbEmail } : {}),
+          };
+          if (next.fbUserId) await recordIdentityLink({ googleSub: next.googleSub, googleEmail: next.googleEmail, googleName: next.googleName, fbUserId: next.fbUserId, fbEmail: next.fbEmail, fbName: null });
+          return next;
+        }
+        if (account?.provider === "facebook") {
+          const next = {
+            ...token,
+            accessToken: account.access_token,
+            fbUserId: String(account.providerAccountId),
+            fbEmail: token.email || null,
+            googleSub: existing.googleSub,
+            googleEmail: existing.googleEmail,
+            googleName: existing.googleName,
+          };
+          await recordIdentityLink({ googleSub: next.googleSub, googleEmail: next.googleEmail, googleName: next.googleName, fbUserId: next.fbUserId, fbEmail: next.fbEmail, fbName: token.name || null });
+          return next;
+        }
+        return token;
+      },
+    },
+  };
+}
+
+export default async function auth(req, res) {
+  const existing = isTestRequest(req) ? await getToken({ req }).catch(() => null) : null;
+  return NextAuth(req, res, buildAuthOptions(req, existing));
+}
