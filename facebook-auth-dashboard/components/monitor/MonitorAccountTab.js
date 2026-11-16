@@ -3,7 +3,7 @@ import SortableTable from "@/components/SortableTable";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import MetricPicker from "@/components/MetricPicker";
 import RowActions from "@/components/RowActions";
-import Loader from "@/components/Loader";
+import MonitorSkeleton from "@/components/monitor/MonitorSkeleton";
 import EntityDetailDrawer from "@/components/EntityDetailDrawer";
 import EntityInvestigateDrawer from "@/components/EntityInvestigateDrawer";
 import EntityHistoryDrawer from "@/components/EntityHistoryDrawer";
@@ -221,6 +221,8 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
   };
 
   const colorScales = prefs.colorScales || {};
+  const firstLoad = loading && !data.fetchedAt;
+  const metricLabelsFor = () => metricKeys.map((k) => catalog.find((m) => m.key === k)?.label).filter(Boolean);
   const presentLevels = LEVELS.filter((l) => items.some((i) => i.level === l.level));
 
   return (
@@ -266,26 +268,37 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
       )}
 
       {error && <div className={styles.error}>{error}</div>}
-      {loading && !data.fetchedAt && <Loader label="Reading performance…" />}
+      {/* First read: table-shaped placeholders. Later reads (Refresh, new range): a thin progress line, and the current numbers stay on screen, dimmed. */}
+      {firstLoad && (
+        <span className={styles.skelNote} role="status">
+          <span className={`${styles.spinner} ${styles.spinnerSm}`} />
+          Reading performance…
+        </span>
+      )}
+      {loading && !firstLoad && <div className={styles.loadLine} role="progressbar" aria-label="Refreshing performance" />}
 
       {presentLevels.map(({ level, title }) => {
         const rows = rowsFor(level);
         return (
-          <section key={level} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+          <section key={level} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, opacity: loading && !firstLoad ? 0.55 : 1, transition: "opacity 0.2s ease" }}>
             <h2 className={styles.h2} style={{ margin: 0 }}>
               {title} <span className={styles.muted}>· {rows.length}</span>
             </h2>
-            <SortableTable
-              columns={columnsFor(level)}
-              rows={rows}
-              rowKey={(row) => row._item.key}
-              defaultSortKey="addedAt"
-              defaultSortDir="desc"
-              maxHeight={520}
-              resizableColumns
-              colorScales={colorScales}
-              onColorScalesChange={(next) => onPrefs({ colorScales: next })}
-            />
+            {firstLoad ? (
+              <MonitorSkeleton rows={rows.length} metricLabels={metricLabelsFor()} />
+            ) : (
+              <SortableTable
+                columns={columnsFor(level)}
+                rows={rows}
+                rowKey={(row) => row._item.key}
+                defaultSortKey="addedAt"
+                defaultSortDir="desc"
+                maxHeight={520}
+                resizableColumns
+                colorScales={colorScales}
+                onColorScalesChange={(next) => onPrefs({ colorScales: next })}
+              />
+            )}
           </section>
         );
       })}
