@@ -51,6 +51,8 @@ const VALID_NAME_FILTER_FIELDS = Object.keys(NAME_FILTER_FIELD_LEVEL);
 // applied while viewing Account totals fetches at the campaign level, keeps
 // only the matching campaigns, and rolls the rest back up.
 const ID_FILTER_FIELD_LEVEL = { campaignId: "campaign", adsetId: "adset", adId: "ad" };
+// Meta's own name for each id filter field, so the filter can be sent with the insights request.
+const ID_FILTER_GRAPH_FIELD = { campaignId: "campaign.id", adsetId: "adset.id", adId: "ad.id" };
 const ID_FILTER_RAW_FIELD = { campaignId: "campaign_id", adsetId: "adset_id", adId: "ad_id" };
 const VALID_ID_FILTER_FIELDS = Object.keys(ID_FILTER_FIELD_LEVEL);
 const MAX_ID_FILTER_VALUES = 50;
@@ -360,24 +362,35 @@ const ZERO_ROW_FIELDS = {
   ad: "id,name,adset_id,adset{name},campaign_id,campaign{name}",
 };
 const ZERO_ROW_MAX = 5000;
+// Same rows as the listing below, but for a handful of known ids: one lookup by id instead of paging through every
+// entity of the account. Entities of another account are skipped.
+async function fetchZeroSpendEntitiesByIds(accountId, level, ids, token) {
+  const entities = [];
+  const results = await Promise.all(chunk(ids, 50).map((batch) => graphGet("", token, { ids: batch.join(","), fields: `${ZERO_ROW_FIELDS[level]},account_id` })));
+  for (const found of results) for (const e of Object.values(found || {})) if (String(e.account_id) === String(accountId).replace(/^act_/, "")) entities.push(e);
+  return entities.map((e) => zeroRowOf(level, e));
+}
+
+function zeroRowOf(level, e) {
+  const row = { spend: "0", impressions: "0" };
+  row[`${level}_id`] = e.id;
+  row[`${level}_name`] = e.name;
+  if (level !== "campaign") row.campaign_id = e.campaign_id;
+  if (level !== "campaign") row.campaign_name = e.campaign?.name;
+  if (level === "ad") {
+    row.adset_id = e.adset_id;
+    row.adset_name = e.adset?.name;
+  }
+  return row;
+}
+
 async function fetchZeroSpendEntities(accountId, level, token) {
   const json = await graphGetAllPages(`/${accountId}/${ZERO_ROW_EDGE[level]}`, token, {
     fields: ZERO_ROW_FIELDS[level],
     limit: 200, // smaller pages: nested fields on big ad lists can trip Meta's "reduce the amount of data"
     effective_status: ["ACTIVE", "PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "PENDING_REVIEW", "DISAPPROVED", "WITH_ISSUES", "IN_PROCESS"],
   });
-  return (json.data || []).slice(0, ZERO_ROW_MAX).map((e) => {
-    const row = { spend: "0", impressions: "0" };
-    row[`${level}_id`] = e.id;
-    row[`${level}_name`] = e.name;
-    if (level !== "campaign") row.campaign_id = e.campaign_id;
-    if (level !== "campaign") row.campaign_name = e.campaign?.name;
-    if (level === "ad") {
-      row.adset_id = e.adset_id;
-      row.adset_name = e.adset?.name;
-    }
-    return row;
-  });
+  return (json.data || []).slice(0, ZERO_ROW_MAX).map((e) => zeroRowOf(level, e));
 }
 
 export default async function handler(req, res) {
@@ -582,6 +595,8 @@ export default async function handler(req, res) {
     time_range: { since, until },
     limit: 500,
   };
+  // With an id filter, ask Meta for just those entities instead of the whole account (applyIdFilter below stays as a safety net).
+  if (cleanIdFilter) baseParams.filtering = [{ field: ID_FILTER_GRAPH_FIELD[cleanIdFilter.field], operator: "IN", value: cleanIdFilter.values }];
   if (group.breakdowns.length > 0) baseParams.breakdowns = group.breakdowns.join(",");
   if (validTimeIncrement) baseParams.time_increment = validTimeIncrement;
 
@@ -676,7 +691,10 @@ export default async function handler(req, res) {
   const zeroRowsPromise = canAddZeroRows
     ? Promise.all(
         accountIds.map((accountId) =>
-          fetchZeroSpendEntities(accountId, fetchLevel, token).catch((err) => {
+          (cleanIdFilter && ID_FILTER_FIELD_LEVEL[cleanIdFilter.field] === fetchLevel
+            ? fetchZeroSpendEntitiesByIds(accountId, fetchLevel, cleanIdFilter.values, token)
+            : fetchZeroSpendEntities(accountId, fetchLevel, token)
+          ).catch((err) => {
             zeroSpendFailure = err?.message || "Request failed";
             return [];
           })
@@ -733,6 +751,17 @@ export default async function handler(req, res) {
       }
     )
   );
+
+  // When the ids are already known (an id filter at the level being shown), status and budget are looked up while the
+  // insights are still loading instead of after them. Used below only if the rows that come back are within those ids.
+  const earlyIds = cleanIdFilter && ID_FILTER_FIELD_LEVEL[cleanIdFilter.field] === level && !needsRollup && level !== "account" ? cleanIdFilter.values : null;
+  const earlyLookups = earlyIds
+    ? {
+        ids: new Set(earlyIds),
+        status: fetchEntityStatuses(earlyIds, token).catch(() => ({})),
+        budget: level === "campaign" || level === "adset" ? fetchEntityBudgets(earlyIds, token).catch(() => ({})) : Promise.resolve({}),
+      }
+    : null;
 
   const settled = await Promise.allSettled(calls);
 
@@ -959,9 +988,10 @@ export default async function handler(req, res) {
   // "Set Budget" at Campaign level also needs each ABO campaign's active ad sets' budgets: one listing per
   // account (not one call per campaign), and only when that metric was asked for.
   const wantsSetBudget = canHaveBudget && effectiveMetricKeys.includes("set_budget");
+  const useEarly = !!earlyLookups && lookupIds.every((id) => earlyLookups.ids.has(String(id)));
   const [statusById, budgetById, detailsByAdId, adsetBudgetSums] = await Promise.all([
-    canHaveStatus ? softFail(fetchEntityStatuses(lookupIds, token), {}) : {},
-    canHaveBudget ? softFail(fetchEntityBudgets(lookupIds, token), {}) : {},
+    canHaveStatus ? (useEarly ? earlyLookups.status : softFail(fetchEntityStatuses(lookupIds, token), {})) : {},
+    canHaveBudget ? (useEarly ? earlyLookups.budget : softFail(fetchEntityBudgets(lookupIds, token), {})) : {},
     includeCreative && level === "ad" ? softFail(fetchAdDetails(lookupIds, token), {}) : {},
     wantsSetBudget && level === "campaign" ? softFail(fetchActiveAdsetBudgetSums(accountIds, token), {}) : {},
   ]);
