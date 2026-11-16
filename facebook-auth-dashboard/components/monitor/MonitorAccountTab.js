@@ -63,6 +63,8 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
   const [attentionOpen, setAttentionOpen] = useState(null);
 
   // Items of each level, as a stable string so the read only reruns when the list itself changes.
+  // Only the custom events that are actually picked matter: loading the rest must not trigger a second read.
+  const pickedEventsKey = customEvents.filter((ce) => metricKeys.includes(ce.id)).map((ce) => ce.id).sort().join(",");
   const idsKey = items.map((i) => i.key).sort().join(",");
   useEffect(() => {
     if (accountsLoading) return;
@@ -120,7 +122,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reruns on the list, range, metrics or a manual refresh
-  }, [accountId, accountsLoading, idsKey, range.since, range.until, metricKeys.join(","), customEvents.length, reload]);
+  }, [accountId, accountsLoading, idsKey, range.since, range.until, metricKeys.join(","), pickedEventsKey, reload]);
 
   // Recommendations: the same rule check Custom Views runs, for this account, covering campaigns, ad sets and ads.
   const attention = useRuleAttention({ accounts: [{ id: accountId, timezone_name: timeZone }], level: "campaign", ready: !accountsLoading, refreshKey: reload });
