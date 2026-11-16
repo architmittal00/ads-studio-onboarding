@@ -161,8 +161,8 @@ async function fetchPostCopy(postId, token) {
       ctaType: post.call_to_action?.type || null,
       isVideo: /video/i.test(`${att.media_type || ""} ${att.type || ""}`),
     };
-  } catch {
-    return null;
+  } catch (err) {
+    return { error: err?.message || "Could not read the post" };
   }
 }
 
@@ -226,6 +226,7 @@ export async function fetchAdCopyDetails(id, token) {
     ctaType: finalCtaType,
     ctaLabel: finalCtaType ? titleCaseSnake(finalCtaType.toLowerCase()) : null,
     ...(await landingOf(creative, token)),
+    ...(post?.error ? { postReadError: post.error } : {}),
     editable: describeEditability(data),
   };
 }
