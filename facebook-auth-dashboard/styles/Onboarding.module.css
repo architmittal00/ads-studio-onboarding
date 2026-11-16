@@ -1,0 +1,378 @@
+/* Two-step sign-in (Google, then Facebook). Tokens from globals.css only; the Google / Facebook buttons keep their
+   brand colours (white / #1877F2), as brand guidelines require. */
+.shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.glow {
+  position: absolute;
+  inset: -20% -10% auto auto;
+  width: 70vw;
+  height: 70vw;
+  max-width: 900px;
+  max-height: 900px;
+  background: radial-gradient(closest-side, rgba(var(--purple-rgb), 0.18), transparent);
+  pointer-events: none;
+}
+
+.layout {
+  position: relative;
+  width: 100%;
+  max-width: 1020px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+  gap: 56px;
+  align-items: center;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.brand {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t2);
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--purple);
+  background: rgba(var(--purple-rgb), 0.12);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--t1);
+  text-wrap: balance;
+}
+
+.lead {
+  margin: 0;
+  max-width: 440px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--t2);
+}
+
+.points {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--t2);
+}
+
+.points li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.points strong {
+  color: var(--t1);
+}
+
+.pointDot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--purple);
+  background: rgba(var(--purple-rgb), 0.12);
+  flex-shrink: 0;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: rise 0.4s ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.progress {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progressBar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--grad);
+  transition: width 0.4s ease;
+}
+
+.stepCount {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.denied {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--red);
+  background: rgba(var(--red-rgb), 0.1);
+  border: 1px solid rgba(var(--red-rgb), 0.3);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  transition: border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+}
+
+.stepActive {
+  border-color: rgba(var(--purple-rgb), 0.45);
+  background: rgba(var(--purple-rgb), 0.06);
+}
+
+.stepDone {
+  border-color: rgba(var(--green-rgb), 0.35);
+  background: rgba(var(--green-rgb), 0.06);
+}
+
+.stepLocked {
+  opacity: 0.6;
+}
+
+.badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--t2);
+  background: var(--card2);
+  border: 1px solid var(--border2);
+}
+
+.stepActive .badge {
+  color: #fff;
+  background: var(--grad);
+  border-color: transparent;
+}
+
+.stepDone .badge {
+  color: #fff;
+  background: var(--green);
+  border-color: transparent;
+}
+
+.stepBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t1);
+}
+
+.stepNote {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--t2);
+  overflow-wrap: anywhere;
+}
+
+.stepNote strong {
+  color: var(--t1);
+}
+
+.googleBtn,
+.fbBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.googleBtn {
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #dadce0;
+}
+
+.fbBtn {
+  background: #1877f2;
+  color: #fff;
+  border: 1px solid #1877f2;
+}
+
+.googleBtn:hover:not(:disabled),
+.fbBtn:hover:not(:disabled) {
+  filter: brightness(0.96);
+  box-shadow: var(--shadow-sm);
+}
+
+.googleBtn:active:not(:disabled),
+.fbBtn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.googleBtn:focus-visible,
+.fbBtn:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.googleBtn:disabled,
+.fbBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.linkBtn {
+  display: inline;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--purple);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.leave {
+  margin: 4px 0 0;
+  text-align: center;
+}
+
+.leave .linkBtn {
+  margin: 0;
+  color: var(--t3);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    max-width: 480px;
+  }
+  .title {
+    font-size: 26px;
+  }
+  .lead {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+  .progressBar,
+  .step,
+  .googleBtn,
+  .fbBtn {
+    transition: none;
+  }
+}

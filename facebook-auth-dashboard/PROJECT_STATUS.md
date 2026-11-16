@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Two-step sign-in screen (2026-11-16)
+The Google test flow's sign-in page (`components/onboarding/TwoStepSignIn.js`, `styles/Onboarding.module.css`) now says up front that setup is two steps: a hero ("Let's get you set up in two steps", why each step exists) beside a card with a progress bar, "Step N of 2", and two step cards. Step 1 = **Continue with Google** (white Google-branded button); step 2 = **Continue with Facebook** (Facebook-blue button), locked until Google is done. A finished step shows a green tick and the signed-in email with "Use a different account" (signs out). The refusal reason (wrong domain etc.) shows above the steps. Light/dark and phone layouts checked in the Browser pane with a throwaway preview page (not committed); real sign-in clicks not exercised. The normal (non-test) sign-in page is unchanged. New brand icons `GoogleLogo` / `FacebookLogo` in `components/icons.js` (keep their official colours). Events: `login_google_clicked`, `login_facebook_clicked` (see `ANALYTICS_EVENTS.md`).
+
 ### Google sign-in: google_email / fb_email on every PostHog event (2026-11-16)
 Only the distinct id showed the Google email; `google_email`, `fb_email` and `fb_user_id` were person properties only. They are now also registered as super properties (`lib/analytics.js`), so every event carries them (and they are cleared on sign-out). The live session already held all three values (checked via `/api/auth/session`). Events sent before this deploy don't have them as event properties.
 

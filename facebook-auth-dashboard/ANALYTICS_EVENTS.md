@@ -54,6 +54,8 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | Event | Page(s) (`screen`) | Fires when | Properties |
 |---|---|---|---|
 | `login_clicked` | `/` | Facebook login button (Google test flow: the Google / Connect Facebook button) | `screen` |
+| `login_google_clicked` | `/` | Google test flow: Continue with Google | `screen` |
+| `login_facebook_clicked` | `/` | Google test flow: Continue with Facebook (step 2) | `screen` |
 | `identity_linked` | any (once per browser session) | Google test flow: Google and Facebook are both connected | `google_email`, `fb_user_id`, `fb_email` |
 | `nav_clicked` | all (sidebar on desktop, bottom bar on mobile) | nav item clicked | `item`, `surface` (`sidebar` / `bottom_bar`) |
 | `theme_toggled` | all (sidebar) | light/dark toggle | `to` |
