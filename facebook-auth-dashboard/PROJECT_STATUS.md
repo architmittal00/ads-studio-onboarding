@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Monitor: visible "Checking recommendations…" loader (2026-11-16)
+The recommendation check on `/monitor` was only a faint suffix on the date line. It is now its own spinner + "Checking recommendations…" next to Refresh, shown while the rule check runs (`attention.loading || attention.belowLoading`). Lint/build checked only, not looked at in the UI.
+
 ### Monitor: faster performance read (2026-11-16)
 `/api/fb/explore-insights` applied an `idFilter` only after fetching, so Monitor's handful of ids still pulled insights for the whole ad account at that level, plus a listing of every entity for the zero-spend rows. Now (1) the id filter goes to Meta as `filtering` (`campaign.id`/`adset.id`/`ad.id` IN), (2) zero-spend rows come from one `ids=` lookup instead of paging the account (when the filter level is the shown level), (3) status and budget lookups start in parallel with the insights call when the ids are known, (4) Monitor no longer re-reads when unrelated custom events finish loading (`pickedEventsKey`). Custom Views without an id filter are unchanged. Timing to be confirmed on the live account.
 
