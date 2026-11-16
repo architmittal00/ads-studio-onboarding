@@ -111,20 +111,35 @@ function Analytics() {
   const userId = session?.user?.id;
   const email = session?.user?.email;
   const name = session?.user?.name;
+  const googleEmail = session?.googleEmail;
+  const fbUserId = session?.fbUserId;
+  const fbEmail = session?.user?.fbEmail;
   useEffect(() => {
     initAnalytics();
     installAutoTracking();
   }, []);
   useEffect(() => {
-    if (userId) identifyUser({ id: userId, email, name });
+    if (googleEmail) identifyUser({ id: userId, email, name, googleEmail, fbUserId, fbEmail });
+    else if (userId) identifyUser({ id: userId, email, name });
     else if (status === "unauthenticated") resetAnalytics();
-  }, [userId, email, name, status]);
+  }, [userId, email, name, status, googleEmail, fbUserId, fbEmail]);
   useEffect(() => {
     trackPageview();
     router.events.on("routeChangeComplete", trackPageview);
     return () => router.events.off("routeChangeComplete", trackPageview);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe once; router object identity is stable enough for events
   }, []);
+  return null;
+}
+
+// Google test flow: a Google session that hasn't connected Facebook yet has no ad access, so any page other than the
+// sign-in page sends it back there to finish the "Connect Facebook" step.
+function GoogleStepGate() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  useEffect(() => {
+    if (status === "authenticated" && session?.googleEmail && !session.fbConnected && router.pathname !== "/") router.replace("/");
+  }, [status, session?.googleEmail, session?.fbConnected, router]);
   return null;
 }
 
@@ -152,6 +167,7 @@ export default function App({
       )}
       <ClarityIdentify />
       <Analytics />
+      <GoogleStepGate />
       <AccountProvider>
         <main className={plusJakartaSans.variable} style={{ fontFamily: "var(--font-studio)" }}>
           <Component {...pageProps} />

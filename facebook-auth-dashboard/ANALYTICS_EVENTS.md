@@ -8,6 +8,7 @@ Last reviewed: 2026-11-05.
 
 - **Page** = the `screen` property (the URL path, e.g. `/explore`, `/partnership-ads`). The `tab` property is added when the URL has `?tab=`. `$pathname` / `$current_url` also exist on every event.
 - **Unique pair** = `event` + `screen`. For click-driven API events the property `event_key` is that pair pre-joined: `<screen>::<event>`. Break down or filter by it to count one action on one page.
+- **User (Google test flow only)** = the Google email (distinct id). Person properties `google_email`, `fb_user_id`, `fb_email`, `auth_mode=google`; every event carries `auth_test=true`. Only browsers opted into the test flow (see PROJECT_STATUS.md) are identified this way; everyone else is as below.
 - **User** = Facebook user id + per-browser device id, distinct id `<fbId>:<deviceId>`. Person properties: `fb_user_id`, `device_id`, `email`, `name`. Same person on two browsers = two users; filter by `fb_user_id` to group a whole Facebook login.
 - **Device** = every custom event has `device` = `mobile` / `desktop`.
 - **Typical queries**
@@ -52,7 +53,8 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 
 | Event | Page(s) (`screen`) | Fires when | Properties |
 |---|---|---|---|
-| `login_clicked` | `/` | Facebook login button | `screen` |
+| `login_clicked` | `/` | Facebook login button (Google test flow: the Google / Connect Facebook button) | `screen` |
+| `identity_linked` | any (once per browser session) | Google test flow: Google and Facebook are both connected | `google_email`, `fb_user_id`, `fb_email` |
 | `nav_clicked` | all (sidebar on desktop, bottom bar on mobile) | nav item clicked | `item`, `surface` (`sidebar` / `bottom_bar`) |
 | `theme_toggled` | all (sidebar) | light/dark toggle | `to` |
 | `signed_out` | all (sidebar) | sign out | — |

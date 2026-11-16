@@ -58,9 +58,35 @@ export function initAnalytics() {
   });
 }
 
-export function identifyUser({ id, email, name }) {
-  if (!started || !id) return;
+export function identifyUser({ id, email, name, googleEmail, fbUserId, fbEmail }) {
+  if (!started) return;
   const deviceId = getDeviceId();
+  // Google sign-in test flow: the person is their Google email, so a shared Facebook login no longer merges or hides
+  // who did what. The Facebook identity rides along as properties (fb_user_id / fb_email) for the Google<>Facebook mapping,
+  // and every event is tagged auth_test so it is easy to separate from normal traffic.
+  if (googleEmail) {
+    posthog.identify(googleEmail, {
+      email: googleEmail,
+      google_email: googleEmail,
+      fb_user_id: fbUserId ? String(fbUserId) : undefined,
+      fb_email: fbEmail || undefined,
+      device_id: deviceId,
+      name: name || undefined,
+      auth_mode: "google",
+    });
+    posthog.register({ auth_test: true });
+    if (fbUserId) {
+      try {
+        const key = `fb-dashboard:identity-linked:${googleEmail}:${fbUserId}`;
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, "1");
+          posthog.capture("identity_linked", { google_email: googleEmail, fb_user_id: String(fbUserId), fb_email: fbEmail || undefined });
+        }
+      } catch {}
+    }
+    return;
+  }
+  if (!id) return;
   posthog.identify(`${id}:${deviceId}`, {
     fb_user_id: String(id),
     device_id: deviceId,
@@ -71,6 +97,7 @@ export function identifyUser({ id, email, name }) {
 
 export function resetAnalytics() {
   if (!started) return;
+  posthog.unregister("auth_test");
   posthog.reset();
 }
 
