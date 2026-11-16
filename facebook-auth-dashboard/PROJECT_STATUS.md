@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Existing-post ads: button, headline and link from creative-level fields (2026-11-16)
+After #549 only the primary text came back for ad 52608622587086. `deriveLanding` now also tries the creative's `link_url` / `object_url`, and View details falls back to `creative.title` and `call_to_action_type` (all added to the field lists). Verified against that ad after deploy (see the PR).
+
 ### View details: ads made from an existing post (2026-11-16)
 Primary text, headline, description, button and landing page were blank for ads built with "Use existing post" (no `object_story_spec`; the content lives on the Page post). `fetchAdCopyDetails` (`lib/entityDetails.js`) now reads the post (`message`, `call_to_action`, attachment title/description) when the creative carries none of those, falling back to the Instagram media caption; `video_id` is also read so the video flag is right. Checked against ad 52608622587086 after deploy (see below).
 
