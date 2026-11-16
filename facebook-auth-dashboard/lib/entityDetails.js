@@ -171,7 +171,7 @@ export async function fetchAdCopyDetails(id, token) {
   // here and what an edit rebuilds from are the same data.
   // The edit field list has no creative-level call_to_action (where many ads keep their destination), so it is added
   // here — otherwise this screen and Explore's Landing Page column could resolve different links for the same ad.
-  const data = await graphGet(`/${id}`, token, { fields: EDIT_AD_FIELDS.replace("creative{id,", "creative{id,call_to_action,video_id,effective_instagram_media_id,") });
+  const data = await graphGet(`/${id}`, token, { fields: EDIT_AD_FIELDS.replace("creative{id,", "creative{id,call_to_action,video_id,effective_instagram_media_id,title,link_url,object_url,call_to_action_type,") });
   const creative = data.creative || {};
   const asset = creative.asset_feed_spec || {};
   const linkData = creative.object_story_spec?.link_data;
@@ -206,7 +206,9 @@ export async function fetchAdCopyDetails(id, token) {
   if (post?.text) primaryTexts.push(post.text);
   if (post?.headline) headlines.push(post.headline);
   if (post?.description) descriptions.push(post.description);
-  const finalCtaType = ctaType || post?.ctaType || null;
+  // Creative-level fields Meta fills in for existing-post ads when the post itself can't be read.
+  if (!headlines.length && creative.title) headlines.push(creative.title);
+  const finalCtaType = ctaType || post?.ctaType || creative.call_to_action_type || null;
 
   return {
     name: data.name,

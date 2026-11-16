@@ -47,7 +47,7 @@ export function chunk(array, size) {
 // Recommendations push list) goes through this, and fetches the SAME creative fields (LANDING_CREATIVE_FIELDS), so
 // they can't disagree. `landingSource` names the field the link came from, shown in View details.
 export const LANDING_CREATIVE_FIELDS =
-  "call_to_action,object_story_spec{link_data{link},video_data{call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url}},effective_object_story_id";
+  "call_to_action,object_story_spec{link_data{link},video_data{call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url}},effective_object_story_id,link_url,object_url";
 
 export function deriveLanding(creative) {
   if (!creative) return { url: null, source: null };
@@ -60,6 +60,9 @@ export function deriveLanding(creative) {
     [creative.asset_feed_spec?.link_urls?.[0]?.website_url, "the first URL of its dynamic creative list"],
     // Last resort: ads with no link_data, video button or URL list (boosted video posts) keep it here.
     [creative.call_to_action?.value?.link, "the creative's call-to-action button"],
+    // Existing-post ads keep their destination on these creative-level fields.
+    [creative.link_url, "the creative's link"],
+    [creative.object_url, "the creative's link"],
   ];
   const hit = candidates.find(([url]) => url);
   return hit ? { url: hit[0], source: hit[1] } : { url: null, source: null };
@@ -98,7 +101,7 @@ export async function fetchAdDetails(adIds, token) {
       graphGet("", token, {
         ids: batch.join(","),
         fields:
-          "name,effective_status,creative{id,thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,facebook_branded_content,instagram_branded_content,branded_content,body,call_to_action,object_story_spec{link_data{link,message,child_attachments{link}},video_data{video_id,message,call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},bodies{text},videos{video_id},ad_formats}}",
+          "name,effective_status,creative{id,link_url,object_url,thumbnail_url,image_url,video_id,object_type,product_set_id,effective_object_story_id,facebook_branded_content,instagram_branded_content,branded_content,body,call_to_action,object_story_spec{link_data{link,message,child_attachments{link}},video_data{video_id,message,call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},bodies{text},videos{video_id},ad_formats}}",
       })
     )
   );
