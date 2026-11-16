@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import FacebookProvider from "next-auth/providers/facebook";
 import GoogleProvider from "next-auth/providers/google";
 import { getToken } from "next-auth/jwt";
-import { isTestRequest, googleDenialReason } from "@/lib/googleTest";
+import { googleAuthActive, googleAuthEverywhere, googleDenialReason } from "@/lib/googleTest";
 import { recordIdentityLink } from "@/lib/identityDb";
 
 export const authOptions = {
@@ -49,9 +49,15 @@ export const authOptions = {
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken;
+      // Google sign-in is required for everyone: a session that never signed in with Google (an old Facebook-only one)
+      // has no ad access until it does, which also shuts every API route for it.
+      if (googleAuthEverywhere()) {
+        session.googleRequired = true;
+        if (!token.googleEmail) session.accessToken = undefined;
+      }
       // Facebook user id (token.sub) — the stable unique-user key for analytics.
       if (session.user) session.user.id = token.fbUserId || token.sub;
-      // Google sign-in test flow (see lib/googleTest.js): only present for a browser that went through it.
+      // Google sign-in (see lib/googleTest.js): present once the person has signed in with Google.
       if (token.googleEmail) {
         session.googleEmail = token.googleEmail;
         session.fbConnected = !!token.accessToken;
@@ -67,11 +73,12 @@ export const authOptions = {
   },
 };
 
-// The Google sign-in test flow, layered on top of the options above. Only for a request carrying the test cookie (see
-// lib/googleTest.js); everyone else gets `authOptions` untouched. `existing` is the session's current token: NextAuth
-// starts a fresh token on every sign-in, so connecting Facebook after Google would otherwise drop the Google identity.
+// Google sign-in, layered on top of the options above. Only when it is active for this request (see
+// lib/googleTest.js); otherwise `authOptions` untouched. `existing` is the session's current token: NextAuth starts a
+// fresh token on every sign-in, so connecting Facebook after Google would otherwise drop the Google identity, and
+// signing in with Google would drop a Facebook connection the person already has.
 export function buildAuthOptions(req, existing) {
-  if (!isTestRequest(req)) return authOptions;
+  if (!googleAuthActive(req)) return authOptions;
   return {
     ...authOptions,
     providers: [...authOptions.providers, GoogleProvider({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })],
@@ -89,14 +96,22 @@ export function buildAuthOptions(req, existing) {
       },
       async jwt({ token, account, profile }) {
         if (account?.provider === "google") {
+          // A Facebook connection already in this session survives signing in with Google. A session from before Google
+          // sign-in existed (Facebook only: no googleSub) keeps its Facebook id and email in `sub` / `email`.
+          const legacyFb = existing?.accessToken && !existing.googleSub;
           const next = {
             ...token,
             sub: profile.sub,
             googleSub: profile.sub,
             googleEmail: String(profile.email).toLowerCase(),
             googleName: profile.name || null,
-            // A Facebook connection already in this session survives signing in with Google again.
-            ...(existing?.accessToken ? { accessToken: existing.accessToken, fbUserId: existing.fbUserId, fbEmail: existing.fbEmail } : {}),
+            ...(existing?.accessToken
+              ? {
+                  accessToken: existing.accessToken,
+                  fbUserId: legacyFb ? String(existing.sub) : existing.fbUserId,
+                  fbEmail: legacyFb ? existing.email || null : existing.fbEmail,
+                }
+              : {}),
           };
           if (next.fbUserId) await recordIdentityLink({ googleSub: next.googleSub, googleEmail: next.googleEmail, googleName: next.googleName, fbUserId: next.fbUserId, fbEmail: next.fbEmail, fbName: null });
           return next;
@@ -121,6 +136,6 @@ export function buildAuthOptions(req, existing) {
 }
 
 export default async function auth(req, res) {
-  const existing = isTestRequest(req) ? await getToken({ req }).catch(() => null) : null;
+  const existing = googleAuthActive(req) ? await getToken({ req }).catch(() => null) : null;
   return NextAuth(req, res, buildAuthOptions(req, existing));
 }

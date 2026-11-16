@@ -1,9 +1,8 @@
 import crypto from "crypto";
 
-// The Google sign-in test flow (see PROJECT_STATUS.md) is invisible to everyone except a browser that holds the
-// `gauth_test` cookie. The cookie is handed out by /api/google-test/enable only to whoever knows GOOGLE_TEST_KEY, and its
-// value is a digest of that key, so it can't be forged without the key. With the key unset (or the Google client not
-// configured) nothing here is active and sign-in behaves exactly as before.
+// Google sign-in settings (see PROJECT_STATUS.md). The rollout mode, who may sign in and the optional test cookie all live
+// here. The test cookie (`gauth_test`) is only used when GOOGLE_AUTH_MODE=test: it is handed out by
+// /api/google-test/enable to whoever knows GOOGLE_TEST_KEY, and its value is a digest of that key, so it can't be forged.
 export const TEST_COOKIE = "gauth_test";
 const sha = (s) => crypto.createHash("sha256").update(s).digest("hex");
 
@@ -29,16 +28,42 @@ export function hasTestCookie(req) {
   return !!digest && !!value && safeEqual(value, digest);
 }
 
-// True only for a browser that opted in AND when the server is configured for Google sign-in.
-export const isTestRequest = (req) => hasTestCookie(req) && googleConfigured();
-
 const csv = (value) =>
   String(value || "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
 
-// Who may sign in with Google during the test: any email on one of GOOGLE_AUTH_DOMAINS (comma-separated, e.g.
+// Google sign-in rollout, from GOOGLE_AUTH_MODE:
+//   "on" (default)  everyone signs in with Google first, then connects Facebook
+//   "test"          only browsers holding the test cookie (see enable route) — everyone else signs in as before
+//   "off"           the old Facebook-only sign-in for everyone (the kill switch)
+// It only takes effect when the Google client is configured AND someone is allowed to sign in (domains or emails);
+// otherwise the old sign-in stays, so a missing setting can never lock the whole team out.
+export function googleAuthMode() {
+  const mode = String(process.env.GOOGLE_AUTH_MODE || "on").trim().toLowerCase();
+  return mode === "off" || mode === "test" ? mode : "on";
+}
+const hasPeopleRule = () => csv(process.env.GOOGLE_AUTH_DOMAINS).length > 0 || csv(process.env.GOOGLE_AUTH_ALLOWLIST).length > 0;
+const googleReady = () => googleConfigured() && hasPeopleRule();
+
+// True when Google sign-in is required for everyone (not just test browsers).
+export const googleAuthEverywhere = () => googleAuthMode() === "on" && googleReady();
+
+// True when THIS request goes through the Google flow.
+export function googleAuthActive(req) {
+  const mode = googleAuthMode();
+  if (mode === "off" || !googleReady()) return false;
+  return mode === "on" ? true : hasTestCookie(req);
+}
+
+// Who may open /identity-links (who is mapped to which Facebook login): GOOGLE_AUTH_ADMINS, else the exception list.
+export function isGoogleAdmin(email) {
+  const admins = csv(process.env.GOOGLE_AUTH_ADMINS);
+  return !!email && (admins.length ? admins : csv(process.env.GOOGLE_AUTH_ALLOWLIST)).includes(String(email).toLowerCase());
+}
+
+// Who may sign in with Google: any email on one of GOOGLE_AUTH_DOMAINS (comma-separated, e.g.
 // "pickrr.com,shiprocket.in"), plus any single email listed in GOOGLE_AUTH_ALLOWLIST for exceptions. The caller has
 // already required Google to say the email is verified.
 export function isAllowedGoogleEmail(email) {

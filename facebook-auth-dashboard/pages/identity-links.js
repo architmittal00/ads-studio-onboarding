@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./api/auth/[...nextauth]";
-import { isTestRequest, isAllowedGoogleEmail } from "@/lib/googleTest";
+import { googleAuthActive, isGoogleAdmin } from "@/lib/googleTest";
 import { listIdentityLinks } from "@/lib/identityDb";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
@@ -9,8 +9,7 @@ import styles from "@/styles/Home.module.css";
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
 
-// Google test flow: who is signed in with which Google account on which Facebook login. Only for the test browser,
-// signed in with an allow-listed Google email.
+// Who is signed in with which Google account on which Facebook login. Only for the admins (GOOGLE_AUTH_ADMINS).
 export default function IdentityLinks({ configured, rows, error }) {
   const byFb = new Map();
   for (const r of rows) byFb.set(r.fb_user_id, (byFb.get(r.fb_user_id) || 0) + 1);
@@ -22,7 +21,7 @@ export default function IdentityLinks({ configured, rows, error }) {
       <div className={styles.page}>
         <main className={styles.main}>
           <h1 className={styles.h1}>Identity links</h1>
-          <p className={styles.sub}>Which Google account used which Facebook login (test sign-in).</p>
+          <p className={styles.sub}>Which Google account used which Facebook login .</p>
           {!configured && <p className={styles.error}>No database is connected: set DATABASE_URL.</p>}
           {error && <p className={styles.error}>{error}</p>}
           {configured && !error && rows.length === 0 && <p className={styles.muted}>Nothing linked yet. Sign in with Google and connect Facebook.</p>}
@@ -64,7 +63,7 @@ export default function IdentityLinks({ configured, rows, error }) {
 
 export async function getServerSideProps(context) {
   const session = await getServerSession(context.req, context.res, authOptions);
-  if (!isTestRequest(context.req) || !session?.googleEmail || !isAllowedGoogleEmail(session.googleEmail)) {
+  if (!googleAuthActive(context.req) || !session?.googleEmail || !isGoogleAdmin(session.googleEmail)) {
     return { redirect: { destination: "/", permanent: false } };
   }
   const { configured, rows, error } = await listIdentityLinks();

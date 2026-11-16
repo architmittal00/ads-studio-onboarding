@@ -8,8 +8,8 @@ Last reviewed: 2026-11-05.
 
 - **Page** = the `screen` property (the URL path, e.g. `/explore`, `/partnership-ads`). The `tab` property is added when the URL has `?tab=`. `$pathname` / `$current_url` also exist on every event.
 - **Unique pair** = `event` + `screen`. For click-driven API events the property `event_key` is that pair pre-joined: `<screen>::<event>`. Break down or filter by it to count one action on one page.
-- **User (Google test flow only)** = the Google email (distinct id). Person properties `google_email`, `fb_user_id`, `fb_email`, `auth_mode=google`; every event also carries `auth_test=true`, `google_email`, `fb_user_id` and `fb_email` as event properties (so they can be filtered/broken down per event, not only on the person). Only browsers opted into the test flow (see PROJECT_STATUS.md) are identified this way; everyone else is as below.
-- **User** = Facebook user id + per-browser device id, distinct id `<fbId>:<deviceId>`. Person properties: `fb_user_id`, `device_id`, `email`, `name`. Same person on two browsers = two users; filter by `fb_user_id` to group a whole Facebook login.
+- **User** = the Google email (distinct id) since Google sign-in went live for everyone (see PROJECT_STATUS.md). Person properties `google_email`, `fb_user_id`, `fb_email`, `auth_mode=google`; every event also carries `auth_mode`, `google_email`, `fb_user_id` and `fb_email` as event properties. Older history, and anyone while `GOOGLE_AUTH_MODE=off`, uses the Facebook identity below.
+- **Legacy user** = Facebook user id + per-browser device id, distinct id `<fbId>:<deviceId>`. Person properties: `fb_user_id`, `device_id`, `email`, `name`. Same person on two browsers = two users; filter by `fb_user_id` to group a whole Facebook login.
 - **Device** = every custom event has `device` = `mobile` / `desktop`.
 - **Typical queries**
   - "What was clicked on page X?" → events `cta_clicked`, `tab_changed`, `control_changed` where `screen = X`.
@@ -53,10 +53,10 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 
 | Event | Page(s) (`screen`) | Fires when | Properties |
 |---|---|---|---|
-| `login_clicked` | `/` | Facebook login button (Google test flow: the Google / Connect Facebook button) | `screen` |
-| `login_google_clicked` | `/` | Google test flow: Continue with Google | `screen` |
-| `login_facebook_clicked` | `/` | Google test flow: Continue with Facebook (step 2) | `screen` |
-| `identity_linked` | any (once per browser session) | Google test flow: Google and Facebook are both connected | `google_email`, `fb_user_id`, `fb_email` |
+| `login_clicked` | `/` | Facebook login button (normal sign-in page only) | `screen` |
+| `login_google_clicked` | `/` | Two-step sign-in: Continue with Google | `screen` |
+| `login_facebook_clicked` | `/` | Two-step sign-in: Continue with Facebook (step 2) | `screen` |
+| `identity_linked` | any (once per browser session) | Google and Facebook are both connected | `google_email`, `fb_user_id`, `fb_email` |
 | `nav_clicked` | all (sidebar on desktop, bottom bar on mobile) | nav item clicked | `item`, `surface` (`sidebar` / `bottom_bar`) |
 | `theme_toggled` | all (sidebar) | light/dark toggle | `to` |
 | `signed_out` | all (sidebar) | sign out | — |

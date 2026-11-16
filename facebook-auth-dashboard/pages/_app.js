@@ -132,14 +132,17 @@ function Analytics() {
   return null;
 }
 
-// Google test flow: a Google session that hasn't connected Facebook yet has no ad access, so any page other than the
-// sign-in page sends it back there to finish the "Connect Facebook" step.
+// Google sign-in: a session without Google (an old Facebook-only one) or without Facebook has no ad access, so any page
+// other than the sign-in page sends it back there to finish the steps.
 function GoogleStepGate() {
   const { data: session, status } = useSession();
   const router = useRouter();
   useEffect(() => {
-    if (status === "authenticated" && session?.googleEmail && !session.fbConnected && router.pathname !== "/") router.replace("/");
-  }, [status, session?.googleEmail, session?.fbConnected, router]);
+    if (status !== "authenticated" || router.pathname === "/") return;
+    const needsGoogle = session?.googleRequired && !session.googleEmail;
+    const needsFacebook = session?.googleEmail && !session.fbConnected;
+    if (needsGoogle || needsFacebook) router.replace("/");
+  }, [status, session?.googleRequired, session?.googleEmail, session?.fbConnected, router]);
   return null;
 }
 

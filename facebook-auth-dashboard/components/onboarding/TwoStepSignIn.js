@@ -9,9 +9,9 @@ const DENIED_TEXT = {
   not_configured: "No allowed domains are set up yet (GOOGLE_AUTH_DOMAINS), so nobody can sign in.",
 };
 
-// The two-step sign-in (Google test flow): who you are, then the shared Facebook login for ad access. The steps are
+// The two-step sign-in: who you are, then the shared Facebook login for ad access. The steps are
 // stated up front, the current one is lit, and a finished one shows what it holds.
-export default function TwoStepSignIn({ googleEmail, denied, deniedDomain, signedInLoading }) {
+export default function TwoStepSignIn({ googleEmail, denied, deniedDomain, signedInLoading, testMode = false }) {
   const step1Done = !!googleEmail;
   const deniedText = denied ? DENIED_TEXT[denied] : null;
   const current = step1Done ? 2 : 1;
@@ -100,11 +100,13 @@ export default function TwoStepSignIn({ googleEmail, denied, deniedDomain, signe
             </li>
           </ol>
 
-          <form action="/api/google-test/disable" className={styles.leave}>
-            <button type="submit" className={styles.linkBtn}>
-              Leave the test and use the normal sign-in
-            </button>
-          </form>
+          {testMode && (
+            <form action="/api/google-test/disable" className={styles.leave}>
+              <button type="submit" className={styles.linkBtn}>
+                Leave the test and use the normal sign-in
+              </button>
+            </form>
+          )}
         </section>
       </div>
     </div>

@@ -61,9 +61,9 @@ export function initAnalytics() {
 export function identifyUser({ id, email, name, googleEmail, fbUserId, fbEmail }) {
   if (!started) return;
   const deviceId = getDeviceId();
-  // Google sign-in test flow: the person is their Google email, so a shared Facebook login no longer merges or hides
+  // Google sign-in: the person is their Google email, so a shared Facebook login no longer merges or hides
   // who did what. The Facebook identity rides along as properties (fb_user_id / fb_email) for the Google<>Facebook mapping,
-  // and every event is tagged auth_test so it is easy to separate from normal traffic.
+  // and every event carries them too.
   if (googleEmail) {
     posthog.identify(googleEmail, {
       email: googleEmail,
@@ -76,7 +76,7 @@ export function identifyUser({ id, email, name, googleEmail, fbUserId, fbEmail }
     });
     // Person properties above only show on the person; as super properties they also ride on every event, so
     // google_email / fb_email / fb_user_id can be read, filtered and broken down per event.
-    posthog.register({ auth_test: true, google_email: googleEmail, fb_user_id: fbUserId ? String(fbUserId) : undefined, fb_email: fbEmail || undefined });
+    posthog.register({ auth_mode: "google", google_email: googleEmail, fb_user_id: fbUserId ? String(fbUserId) : undefined, fb_email: fbEmail || undefined });
     if (fbUserId) {
       try {
         const key = `fb-dashboard:identity-linked:${googleEmail}:${fbUserId}`;
@@ -99,7 +99,7 @@ export function identifyUser({ id, email, name, googleEmail, fbUserId, fbEmail }
 
 export function resetAnalytics() {
   if (!started) return;
-  for (const key of ["auth_test", "google_email", "fb_user_id", "fb_email"]) posthog.unregister(key);
+  for (const key of ["auth_mode", "auth_test", "google_email", "fb_user_id", "fb_email"]) posthog.unregister(key);
   posthog.reset();
 }
 
