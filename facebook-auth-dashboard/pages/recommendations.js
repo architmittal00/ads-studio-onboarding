@@ -21,6 +21,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
+import { readView, saveView } from "@/lib/userViews";
 import { loadCreativePool, prefetchPushData, setCreativePoolUser } from "@/lib/rules/creativePool";
 import styles from "@/styles/Home.module.css";
 
@@ -65,7 +66,6 @@ export default function Recommendations() {
   );
 }
 
-const TABS_KEY = "recs-tabs:v1";
 const newTabId = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 // Several recommendation views open at once, like Custom Views' tabs: each tab has its own ad account,
@@ -86,7 +86,7 @@ function RecommendationTabs() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- restores the saved tabs once in the browser (not available during server render), and marks that done
     setTabsRestored(true);
     try {
-      const saved = JSON.parse(localStorage.getItem(TABS_KEY) || "null");
+      const saved = readView("recs_tabs");
       if (!saved?.tabs?.length) return;
       const restored = saved.tabs.map((t) => ({ id: String(t.id), accountId: t.accountId || null, name: t.name || "" }));
       const active = restored.some((t) => t.id === saved.activeId) ? saved.activeId : restored[0].id;
@@ -96,9 +96,8 @@ function RecommendationTabs() {
     } catch {}
   }, []);
   useEffect(() => {
-    try {
-      localStorage.setItem(TABS_KEY, JSON.stringify({ activeId, tabs }));
-    } catch {}
+    // Saved in this browser and, when signed in with Google, to the person's account (lib/userViews.js).
+    saveView("recs_tabs", { activeId, tabs });
   }, [tabs, activeId]);
 
   // A tab opened before the accounts loaded has no account yet; pin it to the app-wide pick once there is

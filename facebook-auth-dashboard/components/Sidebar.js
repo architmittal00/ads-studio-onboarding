@@ -8,6 +8,7 @@ import { clearCachedEntry } from "@/lib/clientCache";
 import { clearSavedCreativePools } from "@/lib/rules/creativePool";
 import { track } from "@/lib/analytics";
 import { useIsMobile } from "@/lib/useIsMobile";
+import { clearLocalViews } from "@/lib/userViews";
 import { ACCOUNT_DATA_CACHE_KEY } from "./AccountProvider";
 import { mobileNavFor } from "./MobileTabBar";
 import {
@@ -113,6 +114,8 @@ export default function Sidebar() {
         if (key === "recs-tabs:v1" || key.startsWith("fb-dashboard:cache:rules-check:")) localStorage.removeItem(key);
       }
     } catch {}
+    // Views (open tabs and settings) stay safe in the person's account; this browser lets go of them.
+    clearLocalViews();
     signOut({ callbackUrl: "/" });
   }
 
