@@ -86,6 +86,9 @@ No open PRs. Everything described below is merged and live.
 
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
+### Google sign-in: google_email / fb_email on every PostHog event (2026-11-16)
+Only the distinct id showed the Google email; `google_email`, `fb_email` and `fb_user_id` were person properties only. They are now also registered as super properties (`lib/analytics.js`), so every event carries them (and they are cleared on sign-out). The live session already held all three values (checked via `/api/auth/session`). Events sent before this deploy don't have them as event properties.
+
 ### Google sign-in: say why a sign-in is refused (2026-11-16)
 A refused Google sign-in used to end on NextAuth's bare "Access Denied" page. The `signIn` callback now redirects to `/?google_denied=<reason>&d=<domain>` and the sign-in page shows the reason (not on an allowed domain / unverified / no email / `GOOGLE_AUTH_DOMAINS` not set). Lint/build checked.
 

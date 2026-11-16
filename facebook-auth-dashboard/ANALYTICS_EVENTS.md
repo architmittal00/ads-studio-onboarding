@@ -8,7 +8,7 @@ Last reviewed: 2026-11-05.
 
 - **Page** = the `screen` property (the URL path, e.g. `/explore`, `/partnership-ads`). The `tab` property is added when the URL has `?tab=`. `$pathname` / `$current_url` also exist on every event.
 - **Unique pair** = `event` + `screen`. For click-driven API events the property `event_key` is that pair pre-joined: `<screen>::<event>`. Break down or filter by it to count one action on one page.
-- **User (Google test flow only)** = the Google email (distinct id). Person properties `google_email`, `fb_user_id`, `fb_email`, `auth_mode=google`; every event carries `auth_test=true`. Only browsers opted into the test flow (see PROJECT_STATUS.md) are identified this way; everyone else is as below.
+- **User (Google test flow only)** = the Google email (distinct id). Person properties `google_email`, `fb_user_id`, `fb_email`, `auth_mode=google`; every event also carries `auth_test=true`, `google_email`, `fb_user_id` and `fb_email` as event properties (so they can be filtered/broken down per event, not only on the person). Only browsers opted into the test flow (see PROJECT_STATUS.md) are identified this way; everyone else is as below.
 - **User** = Facebook user id + per-browser device id, distinct id `<fbId>:<deviceId>`. Person properties: `fb_user_id`, `device_id`, `email`, `name`. Same person on two browsers = two users; filter by `fb_user_id` to group a whole Facebook login.
 - **Device** = every custom event has `device` = `mobile` / `desktop`.
 - **Typical queries**

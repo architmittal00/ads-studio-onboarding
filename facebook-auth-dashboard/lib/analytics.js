@@ -74,7 +74,9 @@ export function identifyUser({ id, email, name, googleEmail, fbUserId, fbEmail }
       name: name || undefined,
       auth_mode: "google",
     });
-    posthog.register({ auth_test: true });
+    // Person properties above only show on the person; as super properties they also ride on every event, so
+    // google_email / fb_email / fb_user_id can be read, filtered and broken down per event.
+    posthog.register({ auth_test: true, google_email: googleEmail, fb_user_id: fbUserId ? String(fbUserId) : undefined, fb_email: fbEmail || undefined });
     if (fbUserId) {
       try {
         const key = `fb-dashboard:identity-linked:${googleEmail}:${fbUserId}`;
@@ -97,7 +99,7 @@ export function identifyUser({ id, email, name, googleEmail, fbUserId, fbEmail }
 
 export function resetAnalytics() {
   if (!started) return;
-  posthog.unregister("auth_test");
+  for (const key of ["auth_test", "google_email", "fb_user_id", "fb_email"]) posthog.unregister(key);
   posthog.reset();
 }
 
