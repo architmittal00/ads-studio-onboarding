@@ -109,11 +109,11 @@ export default function Sidebar() {
     // would expect.
     clearCachedEntry(ACCOUNT_DATA_CACHE_KEY);
     clearSavedCreativePools(); // the saved Recommendations creative lookup is one user's ad data
-    // Same for the saved Recommendations tabs and their last results (flags, ad names, spend): another person signing in on
-    // this browser must not open them.
+    // Same for the saved Recommendations tabs and their last results (flags, ad names, spend, the names of a person's own
+    // custom rules), full and light: another person signing in on this browser must not open them.
     try {
       for (const key of Object.keys(localStorage)) {
-        if (key === "recs-tabs:v1" || key.startsWith("fb-dashboard:cache:rules-check:")) localStorage.removeItem(key);
+        if (key === "recs-tabs:v1" || key.startsWith("fb-dashboard:cache:rules-check:") || key.startsWith("fb-dashboard:cache:rules-attn2:")) localStorage.removeItem(key);
       }
     } catch {}
     // Views (open tabs and settings) stay safe in the person's account; this browser lets go of them.
