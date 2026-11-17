@@ -12,13 +12,15 @@ import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { describeRule, describeCondition, describeAction, validateSpec, requiredData, extraFetches, actionChoices, RULE_METRICS } from "@/lib/rules/customRule";
-import { ChevronIcon, EditIcon } from "@/components/icons";
+import { ChevronIcon, CloseIcon, EditIcon, PlusIcon, SlidersIcon } from "@/components/icons";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
 import { clearAllRuleCaches } from "@/lib/rules/useRuleAttention";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
 
 const MAX_TEXT = 600;
+// One-click starting points for the Conditions box (added to what is already typed, joined with "and").
+const CONDITION_EXAMPLES = ["Last 7 days ROAS is below 2", "Budget is greater than 20000", "Last 7 days spend is above 5000 and purchases are fewer than 3", "Last 3 days cost per purchase is 30% above the account's"];
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 const NOUN = { campaign: "campaign", adset: "ad set", ad: "ad" };
 const LEVEL_FOR_READS = { ad: "per ad", adset: "per ad set" };
@@ -394,6 +396,8 @@ function CustomRulesContent() {
   const [testOpen, setTestOpen] = useState(false); // the test controls stay hidden until "Test this rule" is clicked
   const [scope, setScope] = useState(""); // "" until the person chooses: "pick" | "all"
   const [ids, setIds] = useState([]);
+  const [creating, setCreating] = useState(false); // the create form is hidden until "New rule" is clicked
+  const [howOpen, setHowOpen] = useState(false); // "How rules are judged"
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
@@ -484,6 +488,7 @@ function CustomRulesContent() {
       setTestOpen(false);
       setIds([]);
       setScope("");
+      setCreating(false);
     } catch (err) {
       setSaveError(err.message);
     } finally {
@@ -496,12 +501,33 @@ function CustomRulesContent() {
   return (
     <div className={styles.page}>
       <main className={styles.main} style={{ maxWidth: 900, margin: "0 auto", minWidth: 0 }}>
-        <div>
-          <h1 className={styles.h1}>Custom Rules</h1>
-          <p className={styles.sub}>
-            Write your own rule. It runs with the built-in recommendations on the ad accounts you choose, and when it disagrees with a built-in rule, yours wins. The same safety checks apply as for the built-in rules: only purchase-optimised items outside Meta&apos;s learning phase are judged, and budget changes are not suggested for 48 hours after a budget edit. Nothing is ever changed on Meta without you clicking apply.
-          </p>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+            <h1 className={styles.h1}>Custom Rules</h1>
+            <p className={styles.sub}>Write your own recommendation rules in plain language. They run with the built-in ones on the ad accounts you choose, and yours win when they disagree.</p>
+            <button type="button" className={styles.btnSecondary} style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6 }} aria-expanded={howOpen} onClick={() => setHowOpen((o) => !o)}>
+              How rules are judged
+              <ChevronIcon direction={howOpen ? "up" : "down"} size={12} />
+            </button>
+          </div>
+          {googleEmail && (
+            <button type="button" className={creating ? styles.btnSecondary : styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setCreating((c) => !c)}>
+              {creating ? <CloseIcon size={13} /> : <PlusIcon size={14} />}
+              {creating ? "Close" : "New rule"}
+            </button>
+          )}
         </div>
+        {howOpen && (
+          <div className={styles.card}>
+            <ul className={styles.sub} style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+              <li>Only items optimised for purchases or purchase value are judged, and items still in Meta&apos;s learning phase are skipped.</li>
+              <li>Only items that spent in the last 7 days (up to yesterday) are checked, so paused or idle ones are left alone.</li>
+              <li>A budget change is not suggested for 48 hours after that budget was edited.</li>
+              <li>When one of your rules and a built-in rule both match an item, yours is shown.</li>
+              <li>Nothing is ever changed on Meta until you click apply.</li>
+            </ul>
+          </div>
+        )}
 
         {status !== "loading" && !googleEmail ? (
           <div className={styles.card}>
@@ -509,6 +535,7 @@ function CustomRulesContent() {
           </div>
         ) : (
           <>
+            {creating && (
             <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <h2 className={styles.h2} style={{ margin: 0 }}>Create a rule</h2>
@@ -585,6 +612,26 @@ function CustomRulesContent() {
                     stale();
                   }}
                 />
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+                  <span className={styles.muted}>Try:</span>
+                  {CONDITION_EXAMPLES.map((ex) => (
+                    <button
+                      key={ex}
+                      type="button"
+                      className={styles.btnSecondary}
+                      style={{ padding: "4px 10px", fontSize: 11.5 }}
+                      onClick={() => {
+                        setText((prev) => {
+                          const cur = prev.trim();
+                          return (cur ? `${cur} and ${ex.charAt(0).toLowerCase()}${ex.slice(1)}` : ex).slice(0, MAX_TEXT);
+                        });
+                        stale();
+                      }}
+                    >
+                      {ex}
+                    </button>
+                  ))}
+                </div>
               </LabeledPill>
 
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -680,15 +727,39 @@ function CustomRulesContent() {
                 </div>
               )}
             </div>
+            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <h2 className={styles.h2} style={{ margin: 0 }}>Your rules</h2>
+              <h2 className={styles.h2} style={{ margin: 0 }}>Your rules{rules && rules.length > 0 ? ` (${rules.length})` : ""}</h2>
               {loadError && <div className={styles.error}>{loadError}</div>}
               {!loadError && rules === null && <Loader label="Loading your rules…" />}
               {rules && rules.length === 0 && (
-                <div className={styles.card}>
-                  <p className={styles.sub} style={{ margin: 0 }}>No rules yet. Create one above and it will show here.</p>
-                </div>
+                <section className={styles.card}>
+                  <div className={styles.exploreEmptyState}>
+                    <div className={styles.exploreEmptyIcon}>
+                      <SlidersIcon size={26} />
+                    </div>
+                    <div>
+                      <h2 className={styles.h2} style={{ marginBottom: 6 }}>
+                        No custom rules yet
+                      </h2>
+                      <p className={styles.sub}>Turn what you already check by hand into a rule, and it shows up in Recommendations on the ad accounts you pick.</p>
+                    </div>
+                    <div className={styles.exploreEmptySteps}>
+                      {["Choose what it applies to and what it does", "Describe the conditions in plain language", "Review it, test it, and pick the ad accounts"].map((step, i) => (
+                        <div key={step} className={styles.exploreEmptyStep}>
+                          <span className={styles.exploreEmptyStepNum}>{i + 1}</span>
+                          {step}
+                        </div>
+                      ))}
+                    </div>
+                    {!creating && (
+                      <button type="button" className={styles.btnPrimary} onClick={() => setCreating(true)}>
+                        Create your first rule
+                      </button>
+                    )}
+                  </div>
+                </section>
               )}
               {rules && rules.length > 0 && (
                 <RulesList
