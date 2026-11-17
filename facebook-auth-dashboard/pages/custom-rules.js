@@ -11,7 +11,8 @@ import LabeledPill from "@/components/LabeledPill";
 import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
 import { parseJsonResponse } from "@/lib/fetchJson";
-import { describeRule, validateSpec, requiredData, extraFetches, actionChoices, RULE_METRICS } from "@/lib/rules/customRule";
+import { describeRule, describeCondition, describeAction, validateSpec, requiredData, extraFetches, actionChoices, RULE_METRICS } from "@/lib/rules/customRule";
+import { ChevronIcon, EditIcon } from "@/components/icons";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
 import { clearAllRuleCaches } from "@/lib/rules/useRuleAttention";
 import { track } from "@/lib/analytics";
@@ -135,14 +136,44 @@ function TestResults({ test, symbol }) {
   );
 }
 
-function RuleRow({ rule, accounts, accountsLoading, symbol, onChanged }) {
+const LEVEL_ORDER = ["campaign", "adset", "ad"];
+const LEVEL_TAB = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
+const LEVEL_HEAD = { campaign: "Campaign level", adset: "Ad set level", ad: "Ad level" };
+
+// The short label on a rule's row: what it does, e.g. "Increase budget by 20%".
+function actionBadge(spec) {
+  const noun = NOUN[spec.level];
+  switch (spec.action.type) {
+    case "PAUSE":
+      return [styles.badgeDanger, `Pause ${noun}`];
+    case "INCREASE_BUDGET":
+      return [styles.badgeGood, `Increase budget by ${spec.action.stepPct}%`];
+    case "DECREASE_BUDGET":
+      return [styles.badgeWarn, `Decrease budget by ${spec.action.stepPct}%`];
+    default:
+      return [styles.badgeInfo, "Flag only"];
+  }
+}
+
+function ruleScopeText(rule, nameOf) {
+  if (rule.allAccounts) return "All your ad accounts, including any you connect later";
+  const names = rule.accountIds.slice(0, 3).map(nameOf).join(", ");
+  return `${rule.accountIds.length} ad account${rule.accountIds.length === 1 ? "" : "s"}: ${names}${rule.accountIds.length > 3 ? ` +${rule.accountIds.length - 3}` : ""}`;
+}
+
+// One saved rule: a compact row (name, what it does, edit, on / off, expand) that opens to its conditions and what it does.
+function RuleItem({ rule, accounts, accountsLoading, symbol, open, onToggleOpen, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [name, setName] = useState(rule.name);
   const [scope, setScope] = useState(rule.allAccounts ? "all" : "pick");
   const [ids, setIds] = useState(rule.accountIds);
   const nameOf = (id) => accounts.find((a) => a.id === id)?.name || id;
+  const [badge, badgeText] = actionBadge(rule.spec);
+  const conds = rule.spec.conditions;
+  const joiner = rule.spec.match === "any" ? "OR" : "AND";
 
   async function patch(body, event) {
     setBusy(true);
@@ -174,60 +205,172 @@ function RuleRow({ rule, accounts, accountsLoading, symbol, onChanged }) {
       setBusy(false);
     }
   }
+  const stop = (e) => e.stopPropagation();
 
   return (
-    <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 8, opacity: rule.enabled ? 1 : 0.7 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span className={styles.h2} style={{ flex: 1, minWidth: 0 }}>{rule.name}</span>
-        <span className={rule.enabled ? styles.badgeGood : styles.badgeInfo}>{rule.enabled ? "On" : "Off"}</span>
-        <button type="button" className={styles.btnSecondary} disabled={busy} onClick={() => patch({ enabled: !rule.enabled }, "custom_rule_toggled")}>
-          {rule.enabled ? "Turn off" : "Turn on"}
+    <div className={open ? `${styles.ruleItem} ${styles.ruleItemOpen}` : styles.ruleItem} style={{ opacity: rule.enabled ? 1 : 0.7 }}>
+      <div className={styles.ruleItemHead} onClick={onToggleOpen}>
+        <div className={styles.ruleItemTitle}>
+          <span className={styles.h2} style={{ overflowWrap: "anywhere" }}>{rule.name}</span>
+          <span className={styles.sub}>
+            {conds.length} condition{conds.length === 1 ? "" : "s"} · {rule.allAccounts ? "all ad accounts" : `${rule.accountIds.length} ad account${rule.accountIds.length === 1 ? "" : "s"}`}
+          </span>
+        </div>
+        <span className={badge}>{badgeText}</span>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          style={{ padding: "6px 8px", display: "inline-flex" }}
+          aria-label="Edit name and accounts"
+          title="Edit name and accounts"
+          onClick={(e) => {
+            stop(e);
+            if (!open) onToggleOpen();
+            setEditing(true);
+          }}
+        >
+          <EditIcon size={14} />
+        </button>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={rule.enabled}
+          aria-label={rule.enabled ? "Turn this rule off" : "Turn this rule on"}
+          title={rule.enabled ? "On: click to turn off" : "Off: click to turn on"}
+          className={rule.enabled ? `${styles.switch} ${styles.switchOn}` : styles.switch}
+          disabled={busy}
+          onClick={(e) => {
+            stop(e);
+            patch({ enabled: !rule.enabled }, "custom_rule_toggled");
+          }}
+        />
+        <button type="button" className={styles.btnSecondary} style={{ padding: "6px 8px", display: "inline-flex" }} aria-label={open ? "Collapse" : "Expand"} aria-expanded={open} onClick={(e) => { stop(e); onToggleOpen(); }}>
+          <ChevronIcon direction={open ? "up" : "down"} size={14} />
         </button>
       </div>
-      <p style={{ margin: 0 }}>{describeRule(rule.spec, symbol)}</p>
-      <p className={styles.sub} style={{ margin: 0, overflowWrap: "anywhere" }}>
-        You wrote: &ldquo;{rule.originalText}&rdquo;
-      </p>
-      <p className={styles.sub} style={{ margin: 0 }}>
-        {rule.allAccounts ? "Applies to all your ad accounts, including any you connect later" : `Applies to ${rule.accountIds.length} ad account${rule.accountIds.length === 1 ? "" : "s"}: ${rule.accountIds.slice(0, 3).map(nameOf).join(", ")}${rule.accountIds.length > 3 ? ` +${rule.accountIds.length - 3}` : ""}`}
-        {" · "}added {new Date(rule.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-      </p>
-      {editing && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-          <ScopeChoice accounts={accounts} loading={accountsLoading} scope={scope} onScope={setScope} ids={ids} onIds={setIds} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className={styles.btnPrimary} disabled={busy || (scope === "pick" && ids.length === 0)} onClick={() => patch({ allAccounts: scope === "all", accountIds: scope === "all" ? [] : ids })}>
-              Save accounts
-            </button>
-            <button type="button" className={styles.btnSecondary} onClick={() => setEditing(false)} disabled={busy}>
-              Cancel
-            </button>
+
+      {open && (
+        <div className={styles.ruleItemBody}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+            <p className={styles.muted} style={{ margin: 0, textTransform: "uppercase", letterSpacing: ".06em" }}>
+              Conditions — {rule.spec.match === "any" ? "any one must be true" : "all must be true"}
+            </p>
+            {conds.map((c, i) => (
+              <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {i > 0 && <span className={styles.pill} style={{ alignSelf: "flex-start" }}>{joiner}</span>}
+                <div className={styles.ruleCond}>
+                  <span className={styles.ruleCondDot} />
+                  <span style={{ overflowWrap: "anywhere" }}>{describeCondition(c, symbol)}</span>
+                </div>
+              </div>
+            ))}
+            <p className={styles.sub} style={{ margin: "6px 0 0", overflowWrap: "anywhere" }}>
+              You wrote: &ldquo;{rule.originalText}&rdquo;
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+            <p className={styles.muted} style={{ margin: 0, textTransform: "uppercase", letterSpacing: ".06em" }}>Then</p>
+            <div className={styles.ruleThen}>
+              <span className={badge} style={{ alignSelf: "flex-start" }}>{badgeText}</span>
+              <span className={styles.sub}>{describeAction(rule.spec.action)} on {LEVEL_TAB[rule.spec.level].toLowerCase()}s that match.</span>
+            </div>
+            <p className={styles.sub} style={{ margin: 0, overflowWrap: "anywhere" }}>
+              Applies to: {ruleScopeText(rule, nameOf)}
+            </p>
+            <p className={styles.sub} style={{ margin: 0 }}>
+              Added {new Date(rule.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+            </p>
+          </div>
+
+          <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 10 }}>
+            {editing && (
+              <div className={styles.ruleThen}>
+                <LabeledPill label="Rule name">
+                  <input className={styles.select} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%", maxWidth: 420 }} />
+                </LabeledPill>
+                <LabeledPill label="Where it applies">
+                  <ScopeChoice accounts={accounts} loading={accountsLoading} scope={scope} onScope={setScope} ids={ids} onIds={setIds} />
+                </LabeledPill>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" className={styles.btnPrimary} disabled={busy || !name.trim() || (scope === "pick" && ids.length === 0)} onClick={() => patch({ name: name.trim(), allAccounts: scope === "all", accountIds: scope === "all" ? [] : ids })}>
+                    Save changes
+                  </button>
+                  <button type="button" className={styles.btnSecondary} onClick={() => setEditing(false)} disabled={busy}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {error && <div className={styles.error}>{error}</div>}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              {confirmDelete ? (
+                <>
+                  <span className={styles.sub}>Delete this rule?</span>
+                  <button type="button" className={styles.btnSecondary} style={{ color: "var(--red)" }} onClick={remove} disabled={busy}>
+                    Yes, delete
+                  </button>
+                  <button type="button" className={styles.btnSecondary} onClick={() => setConfirmDelete(false)} disabled={busy}>
+                    No
+                  </button>
+                </>
+              ) : (
+                <button type="button" className={styles.btnSecondary} onClick={() => setConfirmDelete(true)} disabled={busy}>
+                  Delete rule
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
-      {error && <div className={styles.error}>{error}</div>}
-      {!editing && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <button type="button" className={styles.btnSecondary} onClick={() => setEditing(true)} disabled={busy}>
-            Change accounts
+    </div>
+  );
+}
+
+// "Your rules": filter tabs with counts (All / Campaign / Ad set / Ad), the rules grouped by the level they judge, each as a row.
+function RulesList({ rules, accounts, accountsLoading, symbol, onChanged }) {
+  const [tab, setTab] = useState("all");
+  const [openId, setOpenId] = useState(null);
+  const counts = { all: rules.length, campaign: 0, adset: 0, ad: 0 };
+  for (const r of rules) counts[r.spec.level]++;
+  const groups = LEVEL_ORDER.filter((l) => (tab === "all" || tab === l) && counts[l] > 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className={styles.tabGroup} role="tablist" aria-label="Filter rules by level">
+        {[["all", "All"], ...LEVEL_ORDER.map((l) => [l, LEVEL_TAB[l]])].map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setTab(key)}>
+            {label}
+            <span className={styles.tabCount}>{counts[key]}</span>
           </button>
-          {confirmDelete ? (
-            <>
-              <span className={styles.sub}>Delete this rule?</span>
-              <button type="button" className={styles.btnSecondary} style={{ color: "var(--red)" }} onClick={remove} disabled={busy}>
-                Yes, delete
-              </button>
-              <button type="button" className={styles.btnSecondary} onClick={() => setConfirmDelete(false)} disabled={busy}>
-                No
-              </button>
-            </>
-          ) : (
-            <button type="button" className={styles.btnSecondary} onClick={() => setConfirmDelete(true)} disabled={busy}>
-              Delete
-            </button>
-          )}
+        ))}
+      </div>
+      {groups.length === 0 && (
+        <div className={styles.card}>
+          <p className={styles.sub} style={{ margin: 0 }}>No {LEVEL_TAB[tab]?.toLowerCase()} rules yet.</p>
         </div>
       )}
+      {groups.map((l) => (
+        <div key={l} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className={styles.ruleGroupHead}>
+            <span>{LEVEL_HEAD[l]}</span>
+            <span className={styles.tabCount} style={{ marginLeft: 0 }}>{counts[l]}</span>
+          </div>
+          {rules
+            .filter((r) => r.spec.level === l)
+            .map((r) => (
+              <RuleItem
+                key={r.id}
+                rule={r}
+                accounts={accounts}
+                accountsLoading={accountsLoading}
+                symbol={symbol}
+                open={openId === r.id}
+                onToggleOpen={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
+                onChanged={(next) => onChanged(r.id, next)}
+              />
+            ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -547,16 +690,15 @@ function CustomRulesContent() {
                   <p className={styles.sub} style={{ margin: 0 }}>No rules yet. Create one above and it will show here.</p>
                 </div>
               )}
-              {rules?.map((r) => (
-                <RuleRow
-                  key={r.id}
-                  rule={r}
+              {rules && rules.length > 0 && (
+                <RulesList
+                  rules={rules}
                   accounts={adAccounts}
                   accountsLoading={accountsLoading}
                   symbol={symbol}
-                  onChanged={(next) => setRules((prev) => (next ? prev.map((x) => (x.id === next.id ? next : x)) : prev.filter((x) => x.id !== r.id)))}
+                  onChanged={(id, next) => setRules((prev) => (next ? prev.map((x) => (x.id === next.id ? next : x)) : prev.filter((x) => x.id !== id)))}
                 />
-              ))}
+              )}
             </div>
           </>
         )}
