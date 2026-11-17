@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SortableTable from "@/components/SortableTable";
 import DateRangeMenu from "@/components/DateRangeMenu";
 import MetricPicker from "@/components/MetricPicker";
@@ -15,6 +15,7 @@ import { computeRange } from "@/lib/dateRanges";
 import { getCustomMetrics } from "@/lib/clientStorage";
 import { fetchCustomEvents } from "@/lib/customEvents";
 import { readExploreInsightsStream } from "@/lib/exploreStream";
+import { DEFAULT_CACHE_TTL_MS } from "@/lib/clientCache";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
 
@@ -26,6 +27,27 @@ const LEVELS = [
 const DEFAULT_METRICS = [...DEFAULT_COMPARISON_METRIC_KEYS, "ctr", "cpc"];
 const ID_CHUNK = 50; // the data route takes at most 50 ids per request
 const MAX_RANGE_DAYS = 365;
+
+// One cached row per monitored item, kept 30 minutes (like the rest of the app) and valid for the date range and metrics it
+// was read for. Per item rather than per request, so removing an item needs no read at all and adding one reads only the
+// new item. Held in memory only: these rows are a person's ad names, budgets and performance, so nothing is written to the
+// browser's storage, and a reload or sign-out starts clean.
+const rowCache = new Map(); // `${accountId}:${level}:${entityId}` -> { shape, row, fetchedAt }
+const rowCacheKey = (accountId, level, entityId) => `${accountId}:${level}:${entityId}`;
+const getCachedRow = (key) => {
+  const hit = rowCache.get(key);
+  if (hit && Date.now() - hit.fetchedAt > DEFAULT_CACHE_TTL_MS) {
+    rowCache.delete(key);
+    return null;
+  }
+  return hit || null;
+};
+const setCachedRow = (key, value) => {
+  rowCache.set(key, { ...value, fetchedAt: Date.now() });
+  if (rowCache.size > 700) rowCache.delete(rowCache.keys().next().value); // oldest first
+};
+
+const levelOfId = (items, entityId) => items.find((i) => String(i.entityId) === String(entityId))?.level;
 
 const chunk = (list, n) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
 const sinceLabel = (ms) => new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -55,6 +77,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reload, setReload] = useState(0);
+  const seenReload = useRef(0);
   const [patches, setPatches] = useState({}); // entityId -> fields changed by a row action since the last read
   const [showMetrics, setShowMetrics] = useState(false);
   const [detailEntity, setDetailEntity] = useState(null);
@@ -69,15 +92,41 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
   useEffect(() => {
     if (accountsLoading) return;
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the read for the monitored list, range and metrics
-    setLoading(true);
-    setError(null);
+    // Refresh (or a saved edit) bumps `reload`: read everything again. Any other change (the list, range, metrics) reuses
+    // what was read less than 30 minutes ago for the same range and metrics, and reads only the rest.
+    const force = reload !== seenReload.current;
+    seenReload.current = reload;
     const sortedKeys = [...metricKeys].sort();
     const pickedCustomMetrics = customMetrics.filter((cm) => sortedKeys.includes(cm.id)).map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey }));
     const pickedCustomEvents = customEvents.filter((ce) => sortedKeys.includes(ce.id)).map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
-    const jobs = [];
+    const shape = JSON.stringify([range.since, range.until, sortedKeys, pickedCustomMetrics, pickedCustomEvents]);
+    const cachedRows = {};
+    let oldest = Infinity;
+    const toRead = [];
     for (const { level, idField } of LEVELS) {
-      const ids = items.filter((i) => i.level === level).map((i) => i.entityId);
+      const missing = [];
+      for (const item of items.filter((i) => i.level === level)) {
+        const hit = force ? null : getCachedRow(rowCacheKey(accountId, level, item.entityId));
+        if (hit && hit.shape === shape) {
+          cachedRows[String(item.entityId)] = hit.row;
+          oldest = Math.min(oldest, hit.fetchedAt);
+        } else {
+          missing.push(item.entityId);
+        }
+      }
+      toRead.push({ level, idField, ids: missing });
+    }
+    if (toRead.every((t) => t.ids.length === 0)) {
+      // Everything is fresh: no request, no loading state.
+      setData({ rows: cachedRows, fetchedAt: oldest === Infinity ? Date.now() : oldest });
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const jobs = [];
+    for (const { level, idField, ids } of toRead) {
       for (const group of chunk(ids, ID_CHUNK)) {
         jobs.push(
           fetch("/api/fb/explore-insights", {
@@ -104,17 +153,22 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
     }
     Promise.allSettled(jobs).then((results) => {
       if (cancelled) return;
-      const rows = {};
+      const rows = { ...cachedRows };
       let failed = null;
       for (const r of results) {
         if (r.status === "fulfilled") {
-          for (const row of r.value) if (row.entityId) rows[String(row.entityId)] = row;
+          for (const row of r.value) {
+            if (!row.entityId) continue;
+            rows[String(row.entityId)] = row;
+            setCachedRow(rowCacheKey(accountId, levelOfId(items, row.entityId), row.entityId), { shape, row });
+          }
         } else {
           failed = r.reason?.message || "Request failed";
         }
       }
-      setData({ rows, fetchedAt: Date.now() });
-      setPatches({});
+      setData({ rows, fetchedAt: Math.min(oldest, Date.now()) });
+      // What a row action changed is now in the freshly read rows; rows served from the cache keep their patches.
+      setPatches((prev) => (Object.keys(cachedRows).length === 0 ? {} : Object.fromEntries(Object.entries(prev).filter(([id]) => cachedRows[id]))));
       setError(failed);
       setLoading(false);
     });
@@ -202,6 +256,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
             currency={currency}
             onActionApplied={(entityId, patch) => {
               clearRuleCaches(accountId);
+              rowCache.delete(rowCacheKey(accountId, level, entityId));
               setPatches((prev) => ({ ...prev, [entityId]: { ...(prev[entityId] || {}), ...patch } }));
             }}
             onViewDetails={setDetailEntity}
@@ -312,6 +367,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
           onApplied={(entityId, patch) => {
             setAttentionOpen(null);
             clearRuleCaches(accountId);
+            for (const lv of LEVELS) rowCache.delete(rowCacheKey(accountId, lv.level, entityId));
             setPatches((prev) => ({ ...prev, [entityId]: { ...(prev[entityId] || {}), ...patch } }));
           }}
         />
