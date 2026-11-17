@@ -19,7 +19,7 @@ const CHILD_LEVELS = { campaign: ["adset", "ad"], adset: ["ad"], ad: [] };
 // shows no "Checking rules…") and in localStorage (so a reload doesn't redo them). Hard refresh and any
 // action on a flagged row drop an account's entries.
 const memory = new Map(); // "<owner>accountId:level" -> { at, flags }
-const memKey = (accountId, level) => `${ownerKey()}${accountId}:${level}`;
+const memKey = (owner, accountId, level) => `${owner}${accountId}:${level}`;
 
 // Drops an account's saved checks (the Rules page's full one and Custom Views' light ones) — call after
 // a budget or status change or a hard refresh so a stale flag does not come back from the cache.
@@ -27,7 +27,7 @@ export function clearRuleCaches(accountId) {
   clearCachedEntry(`rules-check:${ownerKey()}${accountId}`);
   for (const level of RULE_LEVELS) {
     clearCachedEntry(`rules-attn2:${ownerKey()}${accountId}:${level}`);
-    memory.delete(memKey(accountId, level));
+    memory.delete(memKey(ownerKey(), accountId, level));
   }
 }
 
@@ -45,8 +45,8 @@ export function clearAllRuleCaches() {
 export const attentionKey = (accountId, entityType, entityId) => `${accountId}:${entityType}:${entityId}`;
 
 // A result the Rules page already saved (full variant) answers this without any request.
-function fromFullCache(accountId, level) {
-  const entry = getCachedEntry(`rules-check:${ownerKey()}${accountId}`, CHECK_TTL_MS);
+function fromFullCache(owner, accountId, level) {
+  const entry = getCachedEntry(`rules-check:${owner}${accountId}`, CHECK_TTL_MS);
   if (!entry?.data?.flags) return null;
   // Results saved before flags carried their parent ids can't feed the roll-up counts.
   if (entry.data.flags.some((f) => f.entityType !== "campaign" && !f.campaignId)) return null;
@@ -54,13 +54,13 @@ function fromFullCache(accountId, level) {
 }
 
 // Saved flags for one account and level, or null when there are none (or they are older than 30 minutes).
-function cachedFlags(accountId, level) {
-  const key = memKey(accountId, level);
+function cachedFlags(owner, accountId, level) {
+  const key = memKey(owner, accountId, level);
   const hit = memory.get(key);
   if (hit && Date.now() - hit.at < CHECK_TTL_MS) return hit.flags;
   // Keep the original fetch time so a result is never treated as younger than it is.
-  const light = getCachedEntry(`rules-attn2:${ownerKey()}${accountId}:${level}`, CHECK_TTL_MS);
-  const saved = fromFullCache(accountId, level) || (light ? { at: light.fetchedAt, flags: light.data } : null);
+  const light = getCachedEntry(`rules-attn2:${owner}${accountId}:${level}`, CHECK_TTL_MS);
+  const saved = fromFullCache(owner, accountId, level) || (light ? { at: light.fetchedAt, flags: light.data } : null);
   if (!saved) return null;
   memory.set(key, saved);
   return saved.flags;
@@ -68,8 +68,10 @@ function cachedFlags(accountId, level) {
 
 // Loads the flags for one or more levels of an account in a single request (the rules run once for all of
 // them), storing each level separately so views asking for a different mix still hit the saved results.
-async function loadFlags(account, levels) {
-  const saved = levels.map((lv) => cachedFlags(account.id, lv));
+// `owner` is captured when the check starts (see lib/rules/ruleCacheOwner.js): everything is read and saved under it, and if the
+// signed-in person changed while the request ran, the answer is dropped, never saved under someone else.
+async function loadFlags(owner, account, levels) {
+  const saved = levels.map((lv) => cachedFlags(owner, account.id, lv));
   if (saved.every(Boolean)) return saved.flat();
   const tz = account.timezone_name ? `&tz=${encodeURIComponent(account.timezone_name)}` : "";
   // Retried when the connection drops (including mid-response); a failure the server reports is not.
@@ -79,12 +81,13 @@ async function loadFlags(account, levels) {
     if (!res.ok || body.error) throw Object.assign(new Error(body.error || `Request failed (${res.status})`), { noRetry: true });
     return body;
   });
+  if (ownerKey() !== owner) throw Object.assign(new Error("The signed-in person changed"), { noRetry: true });
   // A result missing its 48-hour cool-down check isn't worth keeping.
   if (json.heldChecked) {
     for (const lv of levels) {
       const flags = json.flags.filter((f) => f.entityType === lv);
-      memory.set(memKey(account.id, lv), { at: Date.now(), flags });
-      setCachedEntry(`rules-attn2:${ownerKey()}${account.id}:${lv}`, flags, { prefix: "rules-attn2:", maxEntriesForPrefix: 60 });
+      memory.set(memKey(owner, account.id, lv), { at: Date.now(), flags });
+      setCachedEntry(`rules-attn2:${owner}${account.id}:${lv}`, flags, { prefix: "rules-attn2:", maxEntriesForPrefix: 60 });
     }
   }
   return json.flags;
@@ -115,10 +118,10 @@ const IDLE = { byKey: new Map(), loading: false, done: 0, total: 0, failed: 0 };
 // child list) on demand, so marks can also show on those rows without checking levels nobody opened.
 export function useRuleAttention({ accounts, level, ready: viewReady, refreshKey }) {
   // Saved results are scoped to the signed-in person (lib/rules/ruleCacheOwner.js): nothing is read or kept until the session is known.
-  const sessionKnown = useRuleCacheOwner();
+  const { known: sessionKnown, owner } = useRuleCacheOwner();
   const ready = viewReady && sessionKnown;
   const accountsKey = accounts.map((a) => a.id).join(",");
-  const baseKey = `${accountsKey}|${level}|${refreshKey}`;
+  const baseKey = `${owner}|${accountsKey}|${level}|${refreshKey}`;
   const [extra, setExtra] = useState({ baseKey: null, levels: [] });
   const [state, setState] = useState({ ...IDLE, key: null });
   const [dismissVersion, setDismissVersion] = useState(0);
@@ -136,7 +139,7 @@ export function useRuleAttention({ accounts, level, ready: viewReady, refreshKey
     const byTask = [];
     for (const lv of levels) {
       for (const a of list) {
-        const flags = cachedFlags(a.id, lv);
+        const flags = cachedFlags(owner, a.id, lv);
         if (!flags) return null;
         byTask.push([a.id, flags]);
       }
@@ -159,7 +162,7 @@ export function useRuleAttention({ accounts, level, ready: viewReady, refreshKey
     const byTask = [];
     const todo = [];
     for (const t of tasks) {
-      const saved = t.levels.map((lv) => cachedFlags(t.account.id, lv));
+      const saved = t.levels.map((lv) => cachedFlags(owner, t.account.id, lv));
       if (saved.every(Boolean)) byTask.push([t.account.id, saved.flat()]);
       else todo.push(t);
     }
@@ -176,7 +179,7 @@ export function useRuleAttention({ accounts, level, ready: viewReady, refreshKey
         const t = todo[next++];
         const isPrimary = t.levels[0] === level && t.levels.length === 1;
         try {
-          byTask.push([t.account.id, await loadFlags(t.account, t.levels)]);
+          byTask.push([t.account.id, await loadFlags(owner, t.account, t.levels)]);
         } catch {
           // A failed check of the levels below only means no roll-up counts; the view's own level counts as failed.
           if (isPrimary) failed++;

@@ -19,9 +19,12 @@ export function setRuleCacheOwner(email) {
 export const ownerKey = () => tag;
 
 // Call in any component that reads or writes those results. Sets the owner during render, before anything is read, and
-// reports whether the session is known yet (nothing should be read or saved until it is).
+// returns { known, owner }: whether the session is known yet (nothing should be read or saved until it is) and the owner
+// tag for THIS render. A check must capture `owner` when it starts, key everything it reads and writes by that captured
+// value, and drop its answer if `ownerKey()` is no longer the same when it finishes: the global can change underneath a
+// request that is still running (another tab signs in as someone else), and a result must never land under a different person.
 export function useRuleCacheOwner() {
   const { data: session, status } = useSession();
   setRuleCacheOwner(status === "authenticated" ? session?.googleEmail || null : null);
-  return status !== "loading";
+  return { known: status !== "loading", owner: ownerKey() };
 }
