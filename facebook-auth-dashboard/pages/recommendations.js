@@ -21,6 +21,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
+import { ownerKey, useRuleCacheOwner } from "@/lib/rules/ruleCacheOwner";
 import { readView, saveView } from "@/lib/userViews";
 import { loadCreativePool, prefetchPushData, setCreativePoolUser } from "@/lib/rules/creativePool";
 import styles from "@/styles/Home.module.css";
@@ -28,7 +29,7 @@ import styles from "@/styles/Home.module.css";
 // A finished check is saved in the browser for 30 minutes (shared cache, survives reloads), so
 // coming back or switching accounts doesn't re-run a heavy check; "Hard refresh" re-runs it now.
 const CACHE_MS = 30 * 60 * 1000;
-const cacheKey = (accountId) => `rules-check:${accountId}`;
+const cacheKey = (accountId) => `rules-check:${ownerKey()}${accountId}`;
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
 
@@ -180,6 +181,7 @@ function RecommendationTabs() {
 }
 
 function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: setSelectedAccountId, onLoadingChange }) {
+  const sessionKnown = useRuleCacheOwner(); // saved check results are scoped to the signed-in person
   const { adAccounts, accountsLoading } = useAccounts();
   const [result, setResult] = useState(null);
   // Ad sets that just got new ads from a pause card: their "Add a creative" card is hidden until the next fresh read
@@ -302,9 +304,9 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the check for the picked account
-    run(selectedAccountId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs only when the account changes
-  }, [selectedAccountId]);
+    if (sessionKnown) run(selectedAccountId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs when the account changes or the session becomes known
+  }, [selectedAccountId, sessionKnown]);
 
   // Ad previews load after the flags are already on screen: each ad card shows a small spinner
   // until its creative arrives (or settles on a blank tile when it has none / the lookup fails).

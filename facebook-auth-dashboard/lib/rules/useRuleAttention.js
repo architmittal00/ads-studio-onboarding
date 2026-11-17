@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
 import { toLeanFlag } from "@/lib/rules/leanFlag";
+import { ownerKey, useRuleCacheOwner } from "@/lib/rules/ruleCacheOwner";
 
 // Runs the Rules page's checks in the background for the accounts of a Custom View and reports which
 // rows need attention. It calls the same /api/fb/rules/check route (lean variant, narrowed to the level
@@ -17,15 +18,16 @@ const CHILD_LEVELS = { campaign: ["adset", "ad"], adset: ["ad"], ad: [] };
 // Rule results are kept 30 minutes: in memory (so switching between Custom View tabs is instant and
 // shows no "Checking rules…") and in localStorage (so a reload doesn't redo them). Hard refresh and any
 // action on a flagged row drop an account's entries.
-const memory = new Map(); // "accountId:level" -> { at, flags }
+const memory = new Map(); // "<owner>accountId:level" -> { at, flags }
+const memKey = (accountId, level) => `${ownerKey()}${accountId}:${level}`;
 
 // Drops an account's saved checks (the Rules page's full one and Custom Views' light ones) — call after
 // a budget or status change or a hard refresh so a stale flag does not come back from the cache.
 export function clearRuleCaches(accountId) {
-  clearCachedEntry(`rules-check:${accountId}`);
+  clearCachedEntry(`rules-check:${ownerKey()}${accountId}`);
   for (const level of RULE_LEVELS) {
-    clearCachedEntry(`rules-attn2:${accountId}:${level}`);
-    memory.delete(`${accountId}:${level}`);
+    clearCachedEntry(`rules-attn2:${ownerKey()}${accountId}:${level}`);
+    memory.delete(memKey(accountId, level));
   }
 }
 
@@ -44,7 +46,7 @@ export const attentionKey = (accountId, entityType, entityId) => `${accountId}:$
 
 // A result the Rules page already saved (full variant) answers this without any request.
 function fromFullCache(accountId, level) {
-  const entry = getCachedEntry(`rules-check:${accountId}`, CHECK_TTL_MS);
+  const entry = getCachedEntry(`rules-check:${ownerKey()}${accountId}`, CHECK_TTL_MS);
   if (!entry?.data?.flags) return null;
   // Results saved before flags carried their parent ids can't feed the roll-up counts.
   if (entry.data.flags.some((f) => f.entityType !== "campaign" && !f.campaignId)) return null;
@@ -53,11 +55,11 @@ function fromFullCache(accountId, level) {
 
 // Saved flags for one account and level, or null when there are none (or they are older than 30 minutes).
 function cachedFlags(accountId, level) {
-  const key = `${accountId}:${level}`;
+  const key = memKey(accountId, level);
   const hit = memory.get(key);
   if (hit && Date.now() - hit.at < CHECK_TTL_MS) return hit.flags;
   // Keep the original fetch time so a result is never treated as younger than it is.
-  const light = getCachedEntry(`rules-attn2:${accountId}:${level}`, CHECK_TTL_MS);
+  const light = getCachedEntry(`rules-attn2:${ownerKey()}${accountId}:${level}`, CHECK_TTL_MS);
   const saved = fromFullCache(accountId, level) || (light ? { at: light.fetchedAt, flags: light.data } : null);
   if (!saved) return null;
   memory.set(key, saved);
@@ -81,8 +83,8 @@ async function loadFlags(account, levels) {
   if (json.heldChecked) {
     for (const lv of levels) {
       const flags = json.flags.filter((f) => f.entityType === lv);
-      memory.set(`${account.id}:${lv}`, { at: Date.now(), flags });
-      setCachedEntry(`rules-attn2:${account.id}:${lv}`, flags, { prefix: "rules-attn2:", maxEntriesForPrefix: 60 });
+      memory.set(memKey(account.id, lv), { at: Date.now(), flags });
+      setCachedEntry(`rules-attn2:${ownerKey()}${account.id}:${lv}`, flags, { prefix: "rules-attn2:", maxEntriesForPrefix: 60 });
     }
   }
   return json.flags;
@@ -111,7 +113,10 @@ const IDLE = { byKey: new Map(), loading: false, done: 0, total: 0, failed: 0 };
 // Every entity is judged on its own: an ad can need attention while its ad set is fine and the other way
 // round. The view's own level is checked up front; `ensureLevel("ad")` adds another level (a drilled-into
 // child list) on demand, so marks can also show on those rows without checking levels nobody opened.
-export function useRuleAttention({ accounts, level, ready, refreshKey }) {
+export function useRuleAttention({ accounts, level, ready: viewReady, refreshKey }) {
+  // Saved results are scoped to the signed-in person (lib/rules/ruleCacheOwner.js): nothing is read or kept until the session is known.
+  const sessionKnown = useRuleCacheOwner();
+  const ready = viewReady && sessionKnown;
   const accountsKey = accounts.map((a) => a.id).join(",");
   const baseKey = `${accountsKey}|${level}|${refreshKey}`;
   const [extra, setExtra] = useState({ baseKey: null, levels: [] });
