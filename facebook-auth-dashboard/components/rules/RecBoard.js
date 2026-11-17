@@ -129,7 +129,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
     if (monitored) {
       monitor.remove(`${flag.entityType}:${flag.entityId}`);
       track("monitor_removed", { screen: "/recommendations", level: flag.entityType });
-    } else if (monitor.add({ level: flag.entityType, entityId: flag.entityId, name: flag.name, accountId, campaignName: flag.campaignName || null, adsetName: flag.adsetName || null })) {
+    } else if (monitor.add({ level: flag.entityType, entityId: flag.entityId, name: flag.name, accountId, campaignName: flag.campaignName || null, adsetName: flag.adsetName || null, source: "recommendations" })) {
       track("monitor_added", { screen: "/recommendations", level: flag.entityType, action: flag.action });
     }
   }

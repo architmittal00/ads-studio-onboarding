@@ -49,7 +49,9 @@ function MonitorContent() {
           </p>
         </div>
 
-        {!monitor.ready ? null : accountIds.length === 0 ? (
+        {monitor.error ? (
+          <div className={styles.error}>Couldn&apos;t load your Monitor list ({monitor.error}). Reload to try again.</div>
+        ) : !monitor.ready ? null : accountIds.length === 0 ? (
           <div className={styles.card} style={{ padding: 24 }}>
             <h2 className={styles.h2} style={{ marginBottom: 6 }}>
               Nothing monitored yet

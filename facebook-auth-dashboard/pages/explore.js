@@ -3581,7 +3581,7 @@ function ExploreResultsTable({
         if (isMonitored) {
           monitor.remove(`${level}:${entityId}`);
           track("monitor_removed", { screen: "/explore", level });
-        } else if (monitor.add({ level, entityId, name: row.entityLabel || row.label || entityId, accountId: row.accountId, campaignName: row.campaignName || null, adsetName: row.adsetName || null })) {
+        } else if (monitor.add({ level, entityId, name: row.entityLabel || row.label || entityId, accountId: row.accountId, campaignName: row.campaignName || null, adsetName: row.adsetName || null, source: "custom_views" })) {
           track("monitor_added", { screen: "/explore", level });
         }
       },
