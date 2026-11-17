@@ -103,6 +103,21 @@ const DAY_MS = 86400000;
 const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 const dayCount = (range) => Math.round((Date.parse(`${range.until}T00:00:00Z`) - Date.parse(`${range.since}T00:00:00Z`)) / DAY_MS) + 1;
 
+// Ad-level reads are the heavy ones (every ad × every day of the window), so any ad-level window longer than this is cut into
+// pieces of at most this many days up front, read in parallel and put together, instead of waiting for Meta to refuse the
+// whole thing. 26 days -> 14 + 12; 30 -> 14 + 14 + 2. Rows of the same ad from different pieces are summed by the engine.
+export const AD_LEVEL_CHUNK_DAYS = 14;
+
+// [{ since, until }] pieces of at most `maxDays` days, oldest first, the last one taking the remainder.
+export function chunkRange(range, maxDays = AD_LEVEL_CHUNK_DAYS) {
+  const out = [];
+  const endMs = Date.parse(`${range.until}T00:00:00Z`);
+  for (let startMs = Date.parse(`${range.since}T00:00:00Z`); startMs <= endMs; startMs += maxDays * DAY_MS) {
+    out.push({ since: isoDay(startMs), until: isoDay(Math.min(startMs + (maxDays - 1) * DAY_MS, endMs)) });
+  }
+  return out;
+}
+
 // What to show when Meta still refuses after the window was split as far as it goes: plain words, not Meta's error text.
 export function friendlyCheckError(message) {
   return TOO_MUCH_DATA.test(message || "")
@@ -176,21 +191,26 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
     const level = levelByWindow[days];
     return step(
       `insights${days}`,
-      readInsightsRows(
-        (r, limit) =>
-          graphGetInsights(
-            `/${accountId}/insights`,
-            token,
-            {
-              level,
-              fields: `${level === "ad" ? "ad_id," : ""}adset_id,campaign_id,spend,impressions,inline_link_clicks,actions,action_values`,
-              time_range: { since: r.since, until: r.until },
-              limit,
-            },
-            { timeoutMs: 60000 }
-          ).then((res) => res.data || []),
-        { since: range.since, until: range.until }
-      ),
+      // Ad-level windows over 14 days are read as parallel 14-day pieces; each piece can still be split further if Meta refuses it.
+      Promise.all(
+        (level === "ad" ? chunkRange(range) : [{ since: range.since, until: range.until }]).map((piece) =>
+          readInsightsRows(
+            (r, limit) =>
+              graphGetInsights(
+                `/${accountId}/insights`,
+                token,
+                {
+                  level,
+                  fields: `${level === "ad" ? "ad_id," : ""}adset_id,campaign_id,spend,impressions,inline_link_clicks,actions,action_values`,
+                  time_range: { since: r.since, until: r.until },
+                  limit,
+                },
+                { timeoutMs: 60000 }
+              ).then((res) => res.data || []),
+            piece
+          )
+        )
+      ).then((parts) => parts.flat()),
       (rows) => `${rows.length.toLocaleString("en-IN")} ${level === "ad" ? "ad" : "ad set"} rows`
     );
   };
