@@ -221,6 +221,18 @@ export function requiredData(spec) {
   return [...need.entries()].map(([window, level]) => ({ window, rowLevel: level })).sort((a, b) => a.window - b.window);
 }
 
+// The data points a spec reads, as sorted "metric:window" strings ("budget:-" for ones with no time frame). The translator
+// asks the model to list what it needs; the list is compared with this one (computed from the conditions) and a mismatch is
+// rejected, so a rule can never run on different numbers than the ones it says it needs.
+export function dataPoints(spec) {
+  const out = new Set();
+  for (const c of spec.conditions) {
+    out.add(`${c.metric}:${c.window ?? "-"}`);
+    if (c.value.kind === "account" || c.value.kind === "self") out.add(`${c.metric}:${c.value.window}`);
+  }
+  return [...out].sort();
+}
+
 // What is still missing from what the built-in rules already read (ad rows for 3 and 7 days, ad set rows for 14 and 30),
 // across a person's rules for one account: [{ window, rowLevel }], each once, the finer level winning.
 const BUILT_IN = { 3: "ad", 7: "ad", 14: "adset", 30: "adset" };
@@ -238,7 +250,9 @@ export function extraFetches(specs) {
 
 // ---- Engine hookup --------------------------------------------------------------------------------------------------------
 
-const engineAction = (spec) => (spec.action.type === "PAUSE" ? (spec.level === "ad" ? "PAUSE_AD" : "PAUSE_ENTITY") : spec.action.type === "FLAG" ? "NOTE" : spec.action.type);
+// Pausing keeps the built-in action name for every level (the apply route pauses any campaign / ad set / ad); the screens
+// word it by the item's type. "Flag it" is the one new action, NOTE: informational, nothing to apply.
+const engineAction = (spec) => (spec.action.type === "PAUSE" ? "PAUSE_AD" : spec.action.type === "FLAG" ? "NOTE" : spec.action.type);
 
 // Does the data for this window exist at a fine enough level to judge this item type?
 function haveData(ctx, level, window) {

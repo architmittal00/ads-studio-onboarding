@@ -21,6 +21,7 @@ import { useAccounts } from "@/components/AccountProvider";
 import { fetchWithTimeout, parseJsonResponse, withNetworkRetry } from "@/lib/fetchJson";
 import { getCachedEntry, setCachedEntry, formatAge } from "@/lib/clientCache";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
+import { ownerKey, useRuleCacheOwner } from "@/lib/rules/ruleCacheOwner";
 import { readView, saveView } from "@/lib/userViews";
 import { loadCreativePool, prefetchPushData, setCreativePoolUser } from "@/lib/rules/creativePool";
 import styles from "@/styles/Home.module.css";
@@ -28,7 +29,7 @@ import styles from "@/styles/Home.module.css";
 // A finished check is saved in the browser for 30 minutes (shared cache, survives reloads), so
 // coming back or switching accounts doesn't re-run a heavy check; "Hard refresh" re-runs it now.
 const CACHE_MS = 30 * 60 * 1000;
-const cacheKey = (accountId) => `rules-check:${accountId}`;
+const cacheKey = (owner, accountId) => `rules-check:${owner}${accountId}`;
 // Ad creative thumbnails already fetched, by ad id (null = the ad has none).
 const thumbCache = new Map();
 
@@ -44,6 +45,7 @@ const FILTERS = [
   { key: "DECREASE_BUDGET", label: "Decrease budget", color: "var(--amber)" },
   { key: "PAUSE_AD", label: "Pause ads", color: "var(--red)" },
   { key: "ADD_CREATIVE", label: "Add a creative", color: "var(--blue)" },
+  { key: "NOTE", label: "From your rules", color: "var(--blue)" },
 ];
 
 // ₹27.8L, ₹1.02Cr — short money for phone tiles.
@@ -179,6 +181,7 @@ function RecommendationTabs() {
 }
 
 function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: setSelectedAccountId, onLoadingChange }) {
+  const { known: sessionKnown, owner } = useRuleCacheOwner(); // saved check results are scoped to the signed-in person
   const { adAccounts, accountsLoading } = useAccounts();
   const [result, setResult] = useState(null);
   // Ad sets that just got new ads from a pause card: their "Add a creative" card is hidden until the next fresh read
@@ -221,7 +224,9 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
 
   async function run(accountId, force = false) {
     if (!accountId) return;
-    const cached = force ? null : getCachedEntry(cacheKey(accountId), CACHE_MS);
+    // Captured now: if the signed-in person changes while this check runs, its answer is dropped, not saved under the new person.
+    const runOwner = owner;
+    const cached = force ? null : getCachedEntry(cacheKey(runOwner, accountId), CACHE_MS);
     if (cached) {
       setResult(cached.data);
       setSavedNote(formatAge(Date.now() - cached.fetchedAt));
@@ -237,7 +242,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
     setError(null);
     setResult(null);
     setHiddenAdsets(new Set());
-    const stale = () => accountRef.current !== accountId; // the tab has since moved to another account
+    const stale = () => accountRef.current !== accountId || ownerKey() !== runOwner; // the tab moved to another account, or another person signed in
     try {
       setRetryNote(null);
       // The check streams for up to a minute, so the connection can drop mid-way; that is retried a couple
@@ -283,7 +288,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
         { retries: 2, onRetry: (n) => setRetryNote(`Connection dropped — retrying (${n}/2)…`) }
       );
       // A result missing its 48-hour cool-down check isn't worth keeping for half an hour.
-      if (json.heldChecked) setCachedEntry(cacheKey(accountId), json, { prefix: "rules-check:", maxEntriesForPrefix: 15 });
+      if (json.heldChecked && ownerKey() === runOwner) setCachedEntry(cacheKey(runOwner, accountId), json, { prefix: "rules-check:", maxEntriesForPrefix: 15 });
       if (stale()) return; // still cached for that account above, just not shown here
       setApplied({});
       setSelected(new Set());
@@ -301,9 +306,9 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the check for the picked account
-    run(selectedAccountId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs only when the account changes
-  }, [selectedAccountId]);
+    if (sessionKnown) run(selectedAccountId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs when the account changes, the session becomes known or the signed-in person changes
+  }, [selectedAccountId, sessionKnown, owner]);
 
   // Ad previews load after the flags are already on screen: each ad card shows a small spinner
   // until its creative arrives (or settles on a blank tile when it has none / the lookup fails).
@@ -362,7 +367,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
 
   const visibleFlags = useMemo(() => (result?.flags || []).filter((f) => !(f.action === "ADD_CREATIVE" && hiddenAdsets.has(f.entityId))), [result, hiddenAdsets]);
   const counts = useMemo(() => {
-    const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0 };
+    const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0, NOTE: 0 };
     for (const f of visibleFlags) {
       c.all++;
       c[f.action]++;

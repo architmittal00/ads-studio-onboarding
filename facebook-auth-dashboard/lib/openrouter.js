@@ -132,3 +132,50 @@ export async function getInterestSuggestions({ promptContext }) {
 
   return { suggestions, raw: content, warnings };
 }
+
+// A single JSON-returning chat call (used by the custom-rules translator). Temperature 0 by default so the same sentence
+// gives the same answer. Logged like every other call; the key only ever sits in the Authorization header.
+export async function chatJson({ system, user, model = DEFAULT_MODEL, temperature = 0, maxTokens = 1500, label = "chat" }) {
+  if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
+  const start = Date.now();
+  let status = null;
+  let json = null;
+  let errorMessage = null;
+  try {
+    const res = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature,
+        max_tokens: maxTokens,
+        response_format: { type: "json_object" },
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    status = res.status;
+    json = await res.json();
+    if (json?.error) errorMessage = json.error.message || JSON.stringify(json.error);
+  } catch (err) {
+    errorMessage = err.message;
+  }
+  logApiCall({
+    method: "POST",
+    path: `openrouter:${label}`,
+    url: OPENROUTER_URL,
+    status,
+    durationMs: Date.now() - start,
+    error: errorMessage,
+    responsePreview: json ? JSON.stringify(json).slice(0, 1000) : null,
+  });
+  if (errorMessage) throw new Error(`OpenRouter request failed: ${errorMessage}`);
+  const content = json?.choices?.[0]?.message?.content;
+  if (!content) throw new Error("OpenRouter returned no content");
+  return { content, model: json.model || model };
+}
+
+export const RULES_MODEL = process.env.OPENROUTER_RULES_MODEL || DEFAULT_MODEL;

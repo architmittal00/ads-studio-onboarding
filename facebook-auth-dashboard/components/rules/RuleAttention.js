@@ -3,13 +3,14 @@ import { createPortal } from "react-dom";
 import { CloseIcon } from "@/components/icons";
 import PushAds from "@/components/rules/PushAds";
 import FlagWhy from "@/components/rules/FlagWhy";
-import RuleActionModal, { STEP_PCT } from "@/components/rules/RuleActionModal";
+import RuleActionModal from "@/components/rules/RuleActionModal";
+import { pauseLabel, stepPctOf } from "@/lib/rules/labels";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
 import styles from "@/styles/Home.module.css";
 
-const ACTION_TEXT = { INCREASE_BUDGET: "Budget could go up", DECREASE_BUDGET: "Budget could come down", PAUSE_AD: "Consider pausing", ADD_CREATIVE: "Room for a new creative" };
-const ACTION_LABEL = { INCREASE_BUDGET: "Increase budget", DECREASE_BUDGET: "Decrease budget", PAUSE_AD: "Pause ad", ADD_CREATIVE: "Add a creative" };
-const TONE = { INCREASE_BUDGET: ["var(--green)", "var(--green-rgb)"], DECREASE_BUDGET: ["var(--amber)", "var(--amber-rgb)"], PAUSE_AD: ["var(--red)", "var(--red-rgb)"], ADD_CREATIVE: ["var(--blue)", "var(--blue-rgb)"] };
+const ACTION_TEXT = { INCREASE_BUDGET: "Budget could go up", DECREASE_BUDGET: "Budget could come down", PAUSE_AD: "Consider pausing", ADD_CREATIVE: "Room for a new creative", NOTE: "Flagged by your rule" };
+const ACTION_LABEL = { INCREASE_BUDGET: "Increase budget", DECREASE_BUDGET: "Decrease budget", PAUSE_AD: "Pause ad", ADD_CREATIVE: "Add a creative", NOTE: "Flagged" };
+const TONE = { INCREASE_BUDGET: ["var(--green)", "var(--green-rgb)"], DECREASE_BUDGET: ["var(--amber)", "var(--amber-rgb)"], PAUSE_AD: ["var(--red)", "var(--red-rgb)"], ADD_CREATIVE: ["var(--blue)", "var(--blue-rgb)"], NOTE: ["var(--blue)", "var(--blue-rgb)"] };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 
 const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`;
@@ -52,7 +53,7 @@ export function AttentionMark({ flag, onOpen }) {
 }
 
 const LEVEL_TITLE = { adset: "Ad sets", ad: "Ads" };
-const ROLLUP_TEXT = { INCREASE_BUDGET: "Increase budget", DECREASE_BUDGET: "Decrease budget", PAUSE_AD: "Pause", ADD_CREATIVE: "Add a creative" };
+const ROLLUP_TEXT = { INCREASE_BUDGET: "Increase budget", DECREASE_BUDGET: "Decrease budget", PAUSE_AD: "Pause", ADD_CREATIVE: "Add a creative", NOTE: "Flagged by your rules" };
 const ROLLUP_ORDER = Object.keys(ROLLUP_TEXT);
 const CARD_W = 248;
 
@@ -213,7 +214,7 @@ export function AttentionPopover({ flag, currency, tz, onClose, onApplied }) {
   const [tone, rgb] = TONE[flag.action] || TONE.DECREASE_BUDGET;
   const t = flag.budgetTarget;
   const actionable = flag.action === "PAUSE_AD" || !!t;
-  const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
+  const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (stepPctOf(flag) / 100)))) : null;
 
   useEffect(() => {
     function onKey(e) {
@@ -274,7 +275,7 @@ export function AttentionPopover({ flag, currency, tz, onClose, onApplied }) {
               <div style={{ fontWeight: 700, color: tone }}>{ACTION_TEXT[flag.action]}</div>
               {t && (
                 <div className={styles.sub}>
-                  {money(t.current, symbol)} → <strong style={{ color: "var(--t1)" }}>{money(next, symbol)}</strong>/{t.type === "lifetime" ? "life" : "day"} ({STEP_PCT}%)
+                  {money(t.current, symbol)} → <strong style={{ color: "var(--t1)" }}>{money(next, symbol)}</strong>/{t.type === "lifetime" ? "life" : "day"} ({stepPctOf(flag)}%)
                   {t.level === "campaign" && flag.entityType !== "campaign" ? " on the campaign" : ""}
                 </div>
               )}
@@ -296,7 +297,7 @@ export function AttentionPopover({ flag, currency, tz, onClose, onApplied }) {
                 onClick={() => setActing(true)}
                 style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", color: tone, background: `rgba(${rgb}, 0.14)`, border: `1px solid rgba(${rgb}, 0.4)` }}
               >
-                {t ? `${ACTION_LABEL[flag.action]} ${STEP_PCT}%` : ACTION_LABEL[flag.action]}
+                {t ? `${ACTION_LABEL[flag.action]} ${stepPctOf(flag)}%` : flag.action === "PAUSE_AD" ? pauseLabel(flag.entityType) : ACTION_LABEL[flag.action]}
               </button>
             )}
           </div>

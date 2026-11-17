@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { checkAccount, RULE_LEVELS } from "@/lib/rules/checkAccount";
+import { activeRulesForAccount } from "@/lib/customRulesDb";
 
 // GET /api/fb/rules/check?accountId=act_123 — validates one ad account against the rules
 // (lib/rules/checkAccount.js does the work; this is only the HTTP wrapper).
@@ -23,8 +24,17 @@ export default async function handler(req, res) {
   };
   const levels = typeof req.query.levels === "string" ? req.query.levels.split(",").filter((l) => RULE_LEVELS.includes(l)) : null;
 
+  // The person's own rules for this account (personal, by Google email). If the database can't be reached the built-in
+  // rules still run exactly as before.
+  let customRules = [];
+  if (session.googleEmail) {
+    try {
+      customRules = ((await activeRulesForAccount(String(session.googleEmail).toLowerCase(), accountId)) || []).map((r) => ({ id: r.id, name: r.name, spec: r.spec }));
+    } catch {}
+  }
+
   try {
-    const body = await checkAccount({ accountId, token: session.accessToken, tz: req.query.tz, emit, lean: req.query.lean === "1", levels });
+    const body = await checkAccount({ accountId, token: session.accessToken, tz: req.query.tz, emit, lean: req.query.lean === "1", levels, customRules });
     if (stream) {
       emit({ type: "result", data: body });
       res.end();
