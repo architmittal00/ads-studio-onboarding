@@ -16,6 +16,7 @@ export function trackRecommendationApplied(flag, extra = {}) {
     entity_type: flag.entityType,
     entity_id: flag.entityType === "ad" || flag.action === "PAUSE_AD" ? flag.entityId : flag.budgetTarget?.id || flag.entityId,
     rule_id: flag.matchedRules?.[0]?.id,
+    custom_rule: !!flag.matchedRules?.some((r) => r.custom),
     ...extra,
   });
 }

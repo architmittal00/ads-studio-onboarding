@@ -15,9 +15,9 @@ const toMajor = (v) => (v ? parseFloat(v) / 100 : null);
 // `insightLevels`: the row level each window was read at ("ad" | "adset"); a custom rule only trusts a window at a fine
 // enough level. Defaults to what checkAccount reads for the built-in rules.
 const LEGACY_INSIGHT_LEVELS = { 3: "ad", 7: "ad", 14: "adset", 30: "adset" };
-const isPauseAction = (a) => a === "PAUSE_AD" || a === "PAUSE_ENTITY";
+const isPauseAction = (a) => a === "PAUSE_AD";
 // When several of a person's own rules disagree on one item, the cautious one wins: pause, then decrease, then increase.
-const CUSTOM_PRECEDENCE = ["PAUSE_AD", "PAUSE_ENTITY", "DECREASE_BUDGET", "INCREASE_BUDGET"];
+const CUSTOM_PRECEDENCE = ["PAUSE_AD", "DECREASE_BUDGET", "INCREASE_BUDGET"];
 
 export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges, extraNames = {}, levels = null, customRules = [], insightLevels = null }) {
   const recentChanged = recentBudgetChanges?.changed || {};
@@ -210,7 +210,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     // The person's own rules always beat the built-in ones: when any of theirs matched, only theirs are considered and
     // the built-in matches are listed as hidden. Among their own, the cautious action wins (CUSTOM_PRECEDENCE).
     const customHits = hits.filter((h) => h.rule.custom);
-    const dirs = { INCREASE_BUDGET: [], DECREASE_BUDGET: [], PAUSE_AD: [], PAUSE_ENTITY: [] };
+    const dirs = { INCREASE_BUDGET: [], DECREASE_BUDGET: [], PAUSE_AD: [] };
     let winnerAction;
     let hidden = [];
     if (customHits.length) {

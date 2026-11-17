@@ -74,10 +74,15 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | `explore_adset_edited` | `/explore` (details drawer) | ad set edit saved | `fields` |
 | `explore_campaign_edited` | `/explore` (details drawer) | campaign edit saved | `fields` |
 | `campaign_budget_mode_switched` | `/explore` (campaign details drawer) | campaign switched between campaign budget and ad set budgets | `to` (`adset` / `campaign`) |
-| `recommendation_applied_ad_paused` / `recommendation_applied_budget_increased` / `recommendation_applied_budget_decreased` | `/recommendations`, `/explore` (the "!" quick-action window) | one fires per recommendation that was actually applied (after the write succeeded) | `screen`, `entity_type`, `entity_id`, `rule_id`, `bulk`, `change_pct` (budgets) |
+| `recommendation_applied_ad_paused` / `recommendation_applied_budget_increased` / `recommendation_applied_budget_decreased` | `/recommendations`, `/explore` (the "!" quick-action window) | one fires per recommendation that was actually applied (after the write succeeded) | `screen`, `entity_type`, `entity_id`, `rule_id`, `custom_rule` (true when a person's own rule matched), `bulk`, `change_pct` (budgets) |
 | `recommendation_bulk_applied` | `/recommendations` | a multi-select apply finished | `action` (`ad_paused` / `budget_increased` / `budget_decreased`), `total`, `applied`, `failed`, `change_pct` |
 | `recommendation_applied_ad_added` | `/recommendations` (ads pushed into an ad set from "Add a creative") | one fires per ad successfully added | `screen`, `entity_type`, `entity_id` (source ad), `creative_id`, `destination_adset_id`, `rule_id`, `score`, `status` (PAUSED / ACTIVE as chosen), `source` (`add_creative` or `pause_card`), `bulk` |
 | `recommendation_ads_pushed` | `/recommendations` | "Add n ads to this ad set" finished (creatives copied in, as the paused/active choice) | `rule_id`, `selected`, `added`, `failed`, `status` (PAUSED / ACTIVE as chosen), `source` (`add_creative` or `pause_card`) |
+| `custom_rule_translated` | `/custom-rules` | "Check my rule" answered | `status` (`ok` / `clarify` / `unsupported` / `error`) |
+| `custom_rule_tested` | `/custom-rules` | "Test on this account" finished | `matches` |
+| `custom_rule_saved` | `/custom-rules` | a rule was saved | `level`, `action`, `conditions`, `all_accounts` |
+| `custom_rule_toggled` | `/custom-rules` | a rule switched on / off | `enabled` |
+| `custom_rule_deleted` | `/custom-rules` | a rule deleted | none |
 | `recommendation_applied_ad_paused` (`source: starved_ads`) | `/recommendations` (starved-ads list) | also fires once per starved ad paused, same event as the Pause-ad recommendation | `source`, `entity_id`, `rule_id`, `bulk` |
 | `recommendation_starved_ads_paused` | `/recommendations` | "Pause n ads" in the starved-ads list finished | `rule_id`, `selected`, `paused`, `failed` |
 | `partnership_tab_opened` | `/partnership-ads` | tab switched | `tab` |
@@ -126,6 +131,7 @@ The endpoint lists come from a grep of the code and are a guide, not a guarantee
 
 ## Changelog
 
+- **2026-11-17** — Added `custom_rule_translated`, `custom_rule_tested`, `custom_rule_saved`, `custom_rule_toggled`, `custom_rule_deleted` (Custom Rules page) and the `custom_rule` property on `recommendation_applied_*`.
 - **2026-11-12** — Added `recommendation_applied_ad_added` (per ad pushed into an ad set) and per-ad `recommendation_applied_ad_paused` for the starved-ads list, alongside the existing summary events `recommendation_ads_pushed` / `recommendation_starved_ads_paused`.
 - **2026-11-11** — Added `recommendation_ads_pushed` and `recommendation_starved_ads_paused` (ad-push suggestions on "Add a creative" recommendations); new endpoint `rules/creative-pool` behind the card's reasoning panel.
 - **2026-11-11** — Added `recommendation_applied_ad_paused`, `recommendation_applied_budget_increased`, `recommendation_applied_budget_decreased` (single and bulk applies, from Recommendations and Custom Views) and `recommendation_bulk_applied`.

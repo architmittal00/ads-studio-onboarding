@@ -44,6 +44,7 @@ const FILTERS = [
   { key: "DECREASE_BUDGET", label: "Decrease budget", color: "var(--amber)" },
   { key: "PAUSE_AD", label: "Pause ads", color: "var(--red)" },
   { key: "ADD_CREATIVE", label: "Add a creative", color: "var(--blue)" },
+  { key: "NOTE", label: "From your rules", color: "var(--blue)" },
 ];
 
 // ₹27.8L, ₹1.02Cr — short money for phone tiles.
@@ -362,7 +363,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
 
   const visibleFlags = useMemo(() => (result?.flags || []).filter((f) => !(f.action === "ADD_CREATIVE" && hiddenAdsets.has(f.entityId))), [result, hiddenAdsets]);
   const counts = useMemo(() => {
-    const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0 };
+    const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0, NOTE: 0 };
     for (const f of visibleFlags) {
       c.all++;
       c[f.action]++;

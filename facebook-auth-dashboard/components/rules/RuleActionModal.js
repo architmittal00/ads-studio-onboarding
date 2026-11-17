@@ -3,6 +3,7 @@ import { parseJsonResponse } from "@/lib/fetchJson";
 import { invalidateCachedGets } from "@/lib/cachedGet";
 import { CloseIcon } from "@/components/icons";
 import { trackRecommendationApplied } from "@/lib/rules/trackApplied";
+import { entityNoun, pauseLabel, stepPctOf } from "@/lib/rules/labels";
 import styles from "@/styles/Home.module.css";
 
 export const STEP_PCT = 10;
@@ -17,7 +18,7 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
   const isPause = flag.action === "PAUSE_AD";
   const sign = flag.action === "DECREASE_BUDGET" ? -1 : 1;
   const target = flag.budgetTarget;
-  const [pct, setPct] = useState(STEP_PCT);
+  const [pct, setPct] = useState(stepPctOf(flag));
   const [mode, setMode] = useState("pct"); // pct | amount
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
@@ -79,7 +80,7 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
           <div style={{ minWidth: 0 }}>
             <h2 className={styles.h2} style={{ marginBottom: 2 }}>
-              {isPause ? "Pause this ad?" : flag.action === "INCREASE_BUDGET" ? "Increase budget" : "Decrease budget"}
+              {isPause ? `Pause this ${entityNoun(flag.entityType)}?` : flag.action === "INCREASE_BUDGET" ? "Increase budget" : "Decrease budget"}
             </h2>
             <p className={styles.sub} style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
               {isPause ? flag.name : target?.name}
@@ -91,7 +92,7 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
         </div>
 
         {isPause ? (
-          <p className={styles.sub}>The ad will be paused on Meta right away. You can turn it back on from Custom Views or Ads Manager.</p>
+          <p className={styles.sub}>The {entityNoun(flag.entityType)} will be paused on Meta right away. You can turn it back on from Custom Views or Ads Manager.</p>
         ) : (
           <>
             <p className={styles.sub} style={{ marginBottom: 12 }}>
@@ -152,7 +153,7 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
             Cancel
           </button>
           <button type="button" className={styles.btnPrimary} onClick={apply} disabled={busy || (!isPause && newBudget == null)}>
-            {busy ? "Applying…" : isPause ? "Pause ad" : "Apply"}
+            {busy ? "Applying…" : isPause ? pauseLabel(flag.entityType) : "Apply"}
           </button>
         </div>
       </div>

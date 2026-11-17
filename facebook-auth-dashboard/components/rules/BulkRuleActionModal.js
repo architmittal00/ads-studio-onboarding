@@ -31,7 +31,8 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
   const pctNum = parseFloat(pct);
   const validPct = isPause || (Number.isFinite(pctNum) && pctNum > 0 && pctNum < 100 * (sign === 1 ? 10 : 1));
   const newBudget = (f) => Math.max(1, Math.round(f.budgetTarget.current * (1 + (sign * pctNum) / 100)));
-  const noun = isPause ? (flags.length === 1 ? "ad" : "ads") : flags.length === 1 ? "budget" : "budgets";
+  const allAds = flags.every((f) => f.entityType === "ad");
+  const noun = isPause ? (allAds ? (flags.length === 1 ? "ad" : "ads") : flags.length === 1 ? "item" : "items") : flags.length === 1 ? "budget" : "budgets";
   const title = isPause ? `Pause ${flags.length} ${noun}?` : `${sign === 1 ? "Increase" : "Decrease"} ${flags.length} ${noun}`;
 
   // One event per recommendation that really went through, plus one summary for the run.

@@ -30,12 +30,14 @@ import {
   RulesIcon,
   EyeIcon,
   PixelIcon,
+  SlidersIcon,
 } from "./icons";
 
 const LINKS = [
   { href: "/report", label: "Audit Report", icon: FileTextIcon },
   { href: "/explore", label: "Custom Views", icon: ChartIcon },
   { href: "/recommendations", label: "Recommendations", icon: RulesIcon },
+  { href: "/custom-rules", label: "Custom Rules", icon: SlidersIcon },
   { href: "/monitor", label: "Monitor", icon: EyeIcon },
   { href: "/recent-changes", label: "Recent Changes", icon: HistoryIcon },
   { href: "/copy-ads", label: "Copy Ads", icon: CopyIcon },

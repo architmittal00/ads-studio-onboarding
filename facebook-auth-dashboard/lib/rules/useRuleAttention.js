@@ -29,6 +29,17 @@ export function clearRuleCaches(accountId) {
   }
 }
 
+// Drops every account's saved checks. Called when a person adds, switches, edits or deletes one of their own rules, so the
+// next check (Recommendations, Custom Views' "!" marks, Monitor) runs with the rules as they are now.
+export function clearAllRuleCaches() {
+  memory.clear();
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("fb-dashboard:cache:rules-check:") || key.startsWith("fb-dashboard:cache:rules-attn2:")) localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
 export const attentionKey = (accountId, entityType, entityId) => `${accountId}:${entityType}:${entityId}`;
 
 // A result the Rules page already saved (full variant) answers this without any request.

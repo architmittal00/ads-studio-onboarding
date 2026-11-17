@@ -1,9 +1,9 @@
 import { graphGet, graphGetAllPages, graphGetInsights } from "@/lib/facebookGraph";
 import { todayInTimeZone } from "@/lib/dateRanges";
 import { lastNDaysRange, chunk } from "@/lib/adCreativeDetails";
-import { WINDOWS } from "@/lib/rules/metrics";
 import { fetchActivities } from "@/lib/activityLog";
 import { evaluateAccount } from "@/lib/rules/engine";
+import { compileCustomRule, extraFetches } from "@/lib/rules/customRule";
 import { toLeanFlag, currencySymbolOf } from "@/lib/rules/leanFlag";
 import { ADSET_OPTIMIZATION_FIELDS, ADSET_LEARNING_FIELDS } from "@/lib/rules/optimization";
 
@@ -99,11 +99,20 @@ const ACTIVE_FILTER = [{ field: "effective_status", operator: "IN", value: ["ACT
 export const RULE_LEVELS = ["campaign", "adset", "ad"];
 
 // `emit(obj)` receives { type: "step", id, detail } as each piece finishes (the Rules page's live loader).
-export async function checkAccount({ accountId, token, tz, emit = () => {}, lean = false, levels = null }) {
+// `customRules`: the person's own rules that apply to this account, [{ id, name, spec }] (lib/rules/customRule.js). They add
+// whatever extra insight reads they need on top of the built-in four (other time frames, per-ad figures for 14 / 30 days).
+export async function checkAccount({ accountId, token, tz, emit = () => {}, lean = false, levels = null, customRules = [] }) {
   const wanted = levels && levels.length ? RULE_LEVELS.filter((l) => levels.includes(l)) : null;
   // Ad rows and the ad list only matter to ad set / ad rules; with just campaigns on screen every window
   // is pulled per ad set instead.
   const needAds = !wanted || wanted.includes("adset") || wanted.includes("ad");
+  const rulesInScope = customRules.filter((r) => !wanted || wanted.includes(r.spec.level));
+  // Which row level each time frame is read at: the built-in four, then whatever the person's rules need on top.
+  const levelByWindow = { 3: needAds ? "ad" : "adset", 7: needAds ? "ad" : "adset", 14: "adset", 30: "adset" };
+  for (const { window, rowLevel } of extraFetches(rulesInScope.map((r) => r.spec))) {
+    if (!levelByWindow[window] || rowLevel === "ad") levelByWindow[window] = rowLevel;
+  }
+  const allWindows = Object.keys(levelByWindow).map(Number);
   const step = (id, promise, detail) =>
     promise.then((v) => {
       emit({ type: "step", id, detail: detail ? detail(v) : "" });
@@ -129,9 +138,9 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
 
   const insightsFor = (days) => {
     const range = lastNDaysRange(days, today);
-    // Only ad-level rules need ad rows, and they only look at 3 and 7 days; the 14 and 30-day figures feed
-    // ad set / campaign / account totals, so those are pulled per ad set — far fewer rows.
-    const level = needAds && days <= 7 ? "ad" : "adset";
+    // Only ad-level rules need ad rows, and the built-in ones only look at 3 and 7 days; the 14 and 30-day figures feed
+    // ad set / campaign / account totals, so those are pulled per ad set — far fewer rows (unless a custom rule needs per-ad).
+    const level = levelByWindow[days];
     return step(
       `insights${days}`,
       graphGetInsights(
@@ -153,10 +162,11 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
   // after everything else is done). A full check doesn't wait for it: the rules run without the cool-down first and
   // that result is sent straight away ("partial"), then re-run once the log arrives. The light Custom Views check
   // has no screen to show a partial result on, so it still waits.
-  const [account, [campaigns, adsets, ads], earlyChanges, extraNames, ...windowRows] = await Promise.all([accountP, listsP, lean ? changesP : Promise.resolve(null), namesP, ...WINDOWS.map(insightsFor)]);
-  const insightsByWindow = Object.fromEntries(WINDOWS.map((w, i) => [w, windowRows[i]]));
+  const [account, [campaigns, adsets, ads], earlyChanges, extraNames, ...windowRows] = await Promise.all([accountP, listsP, lean ? changesP : Promise.resolve(null), namesP, ...allWindows.map(insightsFor)]);
+  const insightsByWindow = Object.fromEntries(allWindows.map((w, i) => [w, windowRows[i]]));
 
   const currencySymbol = currencySymbolOf(account.currency);
+  const compiledRules = rulesInScope.map((r) => compileCustomRule(r, { currencySymbol }));
 
   emit({ type: "step", id: "rules", pending: true });
   const evaluate = (recentBudgetChanges) =>
@@ -168,6 +178,8 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
       recentBudgetChanges,
       extraNames,
       levels: wanted,
+      customRules: compiledRules,
+      insightLevels: levelByWindow,
     });
   const fullBody = (result) => ({
     accountId,

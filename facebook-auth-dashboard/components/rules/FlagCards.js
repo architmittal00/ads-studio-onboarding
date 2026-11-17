@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import Thumb from "@/components/Thumb";
 import BottomSheet from "@/components/BottomSheet";
 import FlagWhy from "@/components/rules/FlagWhy";
-import { STEP_PCT } from "@/components/rules/RuleActionModal";
+import { pauseLabel, stepPctOf } from "@/lib/rules/labels";
 import { ChevronIcon, SearchIcon, SortIcon } from "@/components/icons";
 import styles from "@/styles/Home.module.css";
 
@@ -11,6 +11,7 @@ const ACTION_META = {
   DECREASE_BUDGET: { label: "Decrease budget", badge: styles.badgeWarn, color: "var(--amber)", rgb: "var(--amber-rgb)" },
   PAUSE_AD: { label: "Pause ad", badge: styles.badgeDanger, color: "var(--red)", rgb: "var(--red-rgb)" },
   ADD_CREATIVE: { label: "Add a creative", badge: styles.badgeInfo, color: "var(--blue)", rgb: "var(--blue-rgb)" },
+  NOTE: { label: "Flagged", badge: styles.badgeInfo, color: "var(--blue)", rgb: "var(--blue-rgb)" },
 };
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 const SORTS = [
@@ -74,9 +75,11 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, account
         <div className={styles.cardList}>
           {shown.slice(0, limit).map((f) => {
             const meta = ACTION_META[f.action];
+            const label = f.action === "PAUSE_AD" ? pauseLabel(f.entityType) : meta.label;
+            const stepPct = stepPctOf(f);
             const t = f.budgetTarget;
             const actionable = f.action === "PAUSE_AD" || !!t;
-            const next = t ? Math.max(1, Math.round(t.current * (1 + (f.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
+            const next = t ? Math.max(1, Math.round(t.current * (1 + (f.action === "INCREASE_BUDGET" ? 1 : -1) * (stepPct / 100)))) : null;
             const thumb = f.entityType === "ad" ? thumbs[f.entityId] : undefined;
             const where = [f.campaignName, f.adsetName].filter(Boolean).join(" › ");
             const cppDelta = f.stats.cpp7 != null && accountCpp7 ? (f.stats.cpp7 / accountCpp7 - 1) * 100 : null;
@@ -148,7 +151,7 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, account
                       disabled={holdBudget && !!t}
                       style={{ opacity: holdBudget && t ? 0.5 : 1, width: "100%", minHeight: 40, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", color: meta.color, background: `rgba(${meta.rgb}, 0.12)`, border: `1px solid rgba(${meta.rgb}, 0.35)` }}
                     >
-                      {t ? `${meta.label} ${STEP_PCT}%` : meta.label}
+                      {t ? `${label} ${stepPct}%` : label}
                     </button>
                     {t && (
                       <div className={styles.rowCardSub} style={{ justifyContent: "center", marginTop: 4 }}>
@@ -158,7 +161,7 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, account
                   </div>
                 ) : (
                   <div>
-                    <span className={meta.badge}>{meta.label} suggested</span>
+                    <span className={meta.badge}>{f.action === "NOTE" ? "Flagged by your rule" : `${label} suggested`}</span>
                     {f.budgetNote && <div className={styles.rowCardSub} style={{ overflowWrap: "anywhere" }}>{f.budgetNote}</div>}
                     {f.action === "ADD_CREATIVE" && <div className={styles.rowCardSub}>Upload a fresh ad to this ad set.</div>}
                   </div>

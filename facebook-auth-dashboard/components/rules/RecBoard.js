@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Thumb from "@/components/Thumb";
 import { CloseIcon } from "@/components/icons";
-import { STEP_PCT } from "@/components/rules/RuleActionModal";
+import { pauseLabel, stepPctOf } from "@/lib/rules/labels";
 import { WhyChecks } from "@/components/rules/FlagWhy";
 import PushAds from "@/components/rules/PushAds";
 import { useMonitor } from "@/lib/monitorStore";
@@ -17,6 +17,7 @@ const SECTIONS = [
   { action: "INCREASE_BUDGET", title: "Scale up", blurb: "Beating the account on ROAS — there's room to spend more.", color: "var(--green)", rgb: "var(--green-rgb)", verb: "Increase budget" },
   { action: "DECREASE_BUDGET", title: "Reduce budget", blurb: "Spending ahead of the results it's getting.", color: "var(--amber)", rgb: "var(--amber-rgb)", verb: "Decrease budget" },
   { action: "ADD_CREATIVE", title: "Add a creative", blurb: "Spend is stacked on too few ads — a fresh creative gives the ad set room.", color: "var(--blue)", rgb: "var(--blue-rgb)", verb: "Add a creative" },
+  { action: "NOTE", title: "From your rules", blurb: "Flagged by a rule you wrote. Nothing to apply here.", color: "var(--blue)", rgb: "var(--blue-rgb)", verb: "Flagged" },
 ];
 const TYPE_LABEL = { campaign: "Campaign", adset: "Ad set", ad: "Ad" };
 const SORTS = [
@@ -39,6 +40,12 @@ function reasonFor(f, bench, symbol) {
   const cppD = delta(f.stats.cpp7, bench.cpp);
   const roas = f.stats.roas7 != null ? f.stats.roas7.toFixed(2) : null;
   const rule = f.matchedRules[0];
+  // A person's own rule explains itself in their terms: what it checks and what each figure is now.
+  const own = f.matchedRules.find((r) => r.custom);
+  if (own) {
+    const bits = own.conditions.flatMap((c) => (c.either ? c.either.filter((o) => o.ok) : [c])).map((c) => `${c.label} (now ${c.actual})`);
+    return `Your rule "${own.name}": ${bits.join("; ")}.`;
+  }
   const cond = (i) => rule?.conditions?.[i];
   if (f.action === "ADD_CREATIVE") {
     const slip = rule?.conditions
@@ -83,7 +90,7 @@ function Metric({ label, children, delta: d, lowerIsBetter }) {
 
 function Context({ flag, symbol }) {
   const t = flag.budgetTarget;
-  const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
+  const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (stepPctOf(flag) / 100)))) : null;
   const share = (v) => (v != null ? `${v.toFixed(1)}%` : "—");
   const rows = [];
   if (flag.adContext) {
@@ -95,7 +102,7 @@ function Context({ flag, symbol }) {
   if (flag.stats.roas7 != null) rows.push(["ROAS, last 7 days", flag.stats.roas7.toFixed(2)]);
   if (t) {
     rows.push([`${t.type === "lifetime" ? "Lifetime" : "Daily"} budget now`, money(t.current, symbol)]);
-    rows.push([`Suggested (${STEP_PCT}% ${flag.action === "INCREASE_BUDGET" ? "up" : "down"})`, money(next, symbol)]);
+    rows.push([`Suggested (${stepPctOf(flag)}% ${flag.action === "INCREASE_BUDGET" ? "up" : "down"})`, money(next, symbol)]);
   }
   return (
     <div>
@@ -150,7 +157,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
   const popupAdsetId = addCreative ? flag.entityId : flag.adsetId;
   const popupAdsetName = addCreative ? flag.name : flag.adsetName;
   const waiting = holdBudget && !!flag.budgetTarget; // budget change: wait for the 48-hour cool-down read
-  const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (STEP_PCT / 100)))) : null;
+  const next = t ? Math.max(1, Math.round(t.current * (1 + (flag.action === "INCREASE_BUDGET" ? 1 : -1) * (stepPctOf(flag) / 100)))) : null;
   return (
     <article className={open ? `${styles.recCard} ${styles.recCardOpen}` : styles.recCard} style={{ "--rec-rgb": section.rgb }}>
       <div className={styles.recRow} onClick={() => setOpen((o) => !o)}>
@@ -204,7 +211,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
                 style={{ opacity: waiting ? 0.5 : 1, color: section.color, background: `rgba(${section.rgb}, 0.12)`, border: `1px solid rgba(${section.rgb}, 0.35)` }}
                 className={styles.recActBtn}
               >
-                {t ? `${section.verb} ${STEP_PCT}%` : section.verb}
+                {t ? `${section.verb} ${stepPctOf(flag)}%` : flag.action === "PAUSE_AD" ? pauseLabel(flag.entityType) : section.verb}
               </button>
               {dominant && (
                 <button type="button" onClick={() => setPushModal(true)} className={styles.recActBtn} style={{ color: "var(--blue)", background: "rgba(var(--blue-rgb), 0.12)", border: "1px solid rgba(var(--blue-rgb), 0.35)" }}>
@@ -226,7 +233,7 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
               <span className={styles.recActSub}>Pick ads to push, or pause the weakest</span>
             </>
           ) : (
-            <span className={styles.recActSub}>Add one in Ads Manager</span>
+            <span className={styles.recActSub}>{flag.action === "ADD_CREATIVE" ? "Add one in Ads Manager" : flag.action === "NOTE" ? "Nothing to apply" : flag.budgetNote || "Change it in Ads Manager"}</span>
           )}
           {accountId && (
             <button type="button" className={styles.recWhyBtn} onClick={toggleMonitor} title={monitored ? "Remove from the Monitor list" : "Keep an eye on this without acting yet — it goes to the Monitor page"}>
@@ -352,7 +359,7 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
   const shareOf = (f) => f.adContext?.spendShare?.[7] ?? null;
   // The share filter only means something where Pause cards are listed: the Everything and Pause views.
   const showShareFilter = (filter === "all" || filter === "PAUSE_AD") && flags.some((f) => f.action === "PAUSE_AD");
-  const passesShare = (f) => minShareCap == null || !showShareFilter || f.action !== "PAUSE_AD" || (shareOf(f) != null && shareOf(f) >= minShareCap);
+  const passesShare = (f) => minShareCap == null || !showShareFilter || f.action !== "PAUSE_AD" || f.entityType !== "ad" || (shareOf(f) != null && shareOf(f) >= minShareCap);
   const bench = { roas: baseline?.roas ?? null, cpp: baseline?.cpr ?? null };
   const sort = SORTS.find((s) => s.key === sortKey);
   // Ads a Pause rule flagged: their creatives are never suggested for pushing into another ad set.
