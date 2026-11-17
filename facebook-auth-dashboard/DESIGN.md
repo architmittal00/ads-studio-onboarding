@@ -27,8 +27,6 @@ The source of truth for how screens in this app look. Read this before building 
 
 Note the brand color is *coral in light, purple in dark* — never hardcode either.
 
-**Trial palette (Custom Rules only)** — `.rulesTheme` in `styles/Home.module.css` wraps `pages/custom-rules.js` and, in the light theme only, re-points the tokens to a cooler look: background `#f4f5fa`, white cards, ink `#15152a`, violet brand `#7c3aed` / `--grad` violet (the dark theme's purple, slightly deeper for contrast on white). Components are untouched (they still read `var(--purple)` etc.); the font stays Plus Jakarta Sans. If the team adopts it, move these values into `:root` in `styles/globals.css` and delete the block.
-
 ## Typography
 
 Font: Plus Jakarta Sans via `--font-studio` (set on `<body>`; inherit it, don't redeclare). Base 14px.
