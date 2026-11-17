@@ -227,6 +227,11 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
             )}
         </>
       )}
+      {/* At the top of the page, not inside the table: a sticky cell is its own stacking context, so a dialog drawn in it
+          sat under the table's sticky header and frozen columns and was clipped. */}
+      {(pendingAction || duplicating) &&
+        createPortal(
+          <>
       {pendingAction && (
         <ActionConfirmModal
           row={row}
@@ -250,6 +255,9 @@ export default function RowActions({ row, level, currency, onActionApplied, onVi
       )}
       {duplicating && level === "adset" && <DuplicateEntityModal row={row} currency={currency} onClose={() => setDuplicating(false)} />}
       {duplicating && level === "campaign" && <DuplicateCampaignModal row={row} onClose={() => setDuplicating(false)} />}
+          </>,
+          document.body
+        )}
     </div>
   );
 }
