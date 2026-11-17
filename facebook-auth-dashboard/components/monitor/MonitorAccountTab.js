@@ -15,7 +15,7 @@ import { computeRange } from "@/lib/dateRanges";
 import { getCustomMetrics } from "@/lib/clientStorage";
 import { fetchCustomEvents } from "@/lib/customEvents";
 import { readExploreInsightsStream } from "@/lib/exploreStream";
-import { getCachedEntry, setCachedEntry, clearCachedEntry } from "@/lib/clientCache";
+import { DEFAULT_CACHE_TTL_MS } from "@/lib/clientCache";
 import { track } from "@/lib/analytics";
 import styles from "@/styles/Home.module.css";
 
@@ -28,10 +28,24 @@ const DEFAULT_METRICS = [...DEFAULT_COMPARISON_METRIC_KEYS, "ctr", "cpc"];
 const ID_CHUNK = 50; // the data route takes at most 50 ids per request
 const MAX_RANGE_DAYS = 365;
 
-// One cached row per monitored item (30 minutes, like the rest of the app), valid for the date range and metrics it was read
-// for. Per item rather than per request, so removing an item needs no read at all and adding one reads only the new item.
-const ROW_CACHE_PREFIX = "monitor-row:";
-const rowCacheKey = (accountId, level, entityId) => `${ROW_CACHE_PREFIX}${accountId}:${level}:${entityId}`;
+// One cached row per monitored item, kept 30 minutes (like the rest of the app) and valid for the date range and metrics it
+// was read for. Per item rather than per request, so removing an item needs no read at all and adding one reads only the
+// new item. Held in memory only: these rows are a person's ad names, budgets and performance, so nothing is written to the
+// browser's storage, and a reload or sign-out starts clean.
+const rowCache = new Map(); // `${accountId}:${level}:${entityId}` -> { shape, row, fetchedAt }
+const rowCacheKey = (accountId, level, entityId) => `${accountId}:${level}:${entityId}`;
+const getCachedRow = (key) => {
+  const hit = rowCache.get(key);
+  if (hit && Date.now() - hit.fetchedAt > DEFAULT_CACHE_TTL_MS) {
+    rowCache.delete(key);
+    return null;
+  }
+  return hit || null;
+};
+const setCachedRow = (key, value) => {
+  rowCache.set(key, { ...value, fetchedAt: Date.now() });
+  if (rowCache.size > 700) rowCache.delete(rowCache.keys().next().value); // oldest first
+};
 
 const levelOfId = (items, entityId) => items.find((i) => String(i.entityId) === String(entityId))?.level;
 
@@ -92,9 +106,9 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
     for (const { level, idField } of LEVELS) {
       const missing = [];
       for (const item of items.filter((i) => i.level === level)) {
-        const hit = force ? null : getCachedEntry(rowCacheKey(accountId, level, item.entityId));
-        if (hit && hit.data?.shape === shape) {
-          cachedRows[String(item.entityId)] = hit.data.row;
+        const hit = force ? null : getCachedRow(rowCacheKey(accountId, level, item.entityId));
+        if (hit && hit.shape === shape) {
+          cachedRows[String(item.entityId)] = hit.row;
           oldest = Math.min(oldest, hit.fetchedAt);
         } else {
           missing.push(item.entityId);
@@ -146,7 +160,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
           for (const row of r.value) {
             if (!row.entityId) continue;
             rows[String(row.entityId)] = row;
-            setCachedEntry(rowCacheKey(accountId, levelOfId(items, row.entityId), row.entityId), { shape, row }, { prefix: ROW_CACHE_PREFIX, maxEntriesForPrefix: 700 });
+            setCachedRow(rowCacheKey(accountId, levelOfId(items, row.entityId), row.entityId), { shape, row });
           }
         } else {
           failed = r.reason?.message || "Request failed";
@@ -242,7 +256,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
             currency={currency}
             onActionApplied={(entityId, patch) => {
               clearRuleCaches(accountId);
-              clearCachedEntry(rowCacheKey(accountId, level, entityId));
+              rowCache.delete(rowCacheKey(accountId, level, entityId));
               setPatches((prev) => ({ ...prev, [entityId]: { ...(prev[entityId] || {}), ...patch } }));
             }}
             onViewDetails={setDetailEntity}
@@ -353,7 +367,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
           onApplied={(entityId, patch) => {
             setAttentionOpen(null);
             clearRuleCaches(accountId);
-            for (const lv of LEVELS) clearCachedEntry(rowCacheKey(accountId, lv.level, entityId));
+            for (const lv of LEVELS) rowCache.delete(rowCacheKey(accountId, lv.level, entityId));
             setPatches((prev) => ({ ...prev, [entityId]: { ...(prev[entityId] || {}), ...patch } }));
           }}
         />
