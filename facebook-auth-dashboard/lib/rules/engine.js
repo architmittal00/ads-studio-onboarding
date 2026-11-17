@@ -10,9 +10,25 @@ const toMajor = (v) => (v ? parseFloat(v) / 100 : null);
 // structure: { campaigns, adsets, ads } of ACTIVE entities, as listed by Graph.
 // insightsByWindow: { 3: rows[], 7: rows[], 14: rows[], 30: rows[] } — ad-level rows with ad_id/adset_id/campaign_id.
 // Returns { baseline, flags, rulesChecked }.
-export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges, extraNames = {}, levels = null }) {
+// `customRules`: the person's own rules for this account, already compiled (lib/rules/customRule.js compileCustomRule).
+// They are judged under the same guardrails as the built-in ones, and win a conflict (see below).
+// `insightLevels`: the row level each window was read at ("ad" | "adset"); a custom rule only trusts a window at a fine
+// enough level. Defaults to what checkAccount reads for the built-in rules.
+const LEGACY_INSIGHT_LEVELS = { 3: "ad", 7: "ad", 14: "adset", 30: "adset" };
+const isPauseAction = (a) => a === "PAUSE_AD" || a === "PAUSE_ENTITY";
+// When several of a person's own rules disagree on one item, the cautious one wins: pause, then decrease, then increase.
+const CUSTOM_PRECEDENCE = ["PAUSE_AD", "PAUSE_ENTITY", "DECREASE_BUDGET", "INCREASE_BUDGET"];
+
+export function evaluateAccount({ structure, insightsByWindow, currency, currencySymbol, recentBudgetChanges, extraNames = {}, levels = null, customRules = [], insightLevels = null }) {
   const recentChanged = recentBudgetChanges?.changed || {};
   // Aggregate every window's ad-level rows up the tree. Account totals include inactive ads too.
+  // The built-in four windows plus any a custom rule asked for.
+  const ALL_WINDOWS = [...new Set([...WINDOWS, ...Object.keys(insightsByWindow).map(Number)])];
+  const dataLevel = {};
+  for (const w of ALL_WINDOWS) {
+    if (insightsByWindow[w] == null) continue;
+    dataLevel[w] = (insightLevels || LEGACY_INSIGHT_LEVELS)[w] || (insightsByWindow[w].some((r) => r.ad_id) ? "ad" : "adset");
+  }
   const accAgg = {};
   const adAgg = new Map();
   const adsetAgg = new Map();
@@ -24,7 +40,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     byWindow[w] ||= emptyAgg();
     addInsightsRow(byWindow[w], row);
   };
-  for (const w of WINDOWS) {
+  for (const w of ALL_WINDOWS) {
     accAgg[w] = emptyAgg();
     for (const row of insightsByWindow[w] || []) {
       addInsightsRow(accAgg[w], row);
@@ -36,12 +52,12 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
   const metricsOf = (map, id) => {
     const byWindow = map.get(id) || {};
     const m = {};
-    for (const w of WINDOWS) m[w] = derive(byWindow[w] || emptyAgg());
+    for (const w of ALL_WINDOWS) m[w] = derive(byWindow[w] || emptyAgg());
     return m;
   };
 
   const acc = {};
-  for (const w of WINDOWS) acc[w] = derive(accAgg[w]);
+  for (const w of ALL_WINDOWS) acc[w] = derive(accAgg[w]);
 
   const campaigns = structure.campaigns.map((c) => {
     const cbo = !!(parseFloat(c.daily_budget) > 0 || parseFloat(c.lifetime_budget) > 0);
@@ -105,6 +121,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     currency,
     currencySymbol,
     now: Date.now(),
+    dataLevel,
     // Rankings ("top 30% by spend") compare like with like: only purchase-optimized ad sets.
     activeAdsets: eligibleAdsets,
     adsetsOfCampaign: (id) => adsetsByCampaign.get(id) || [],
@@ -116,7 +133,7 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
 
   const subjectsByLevel = { campaign: campaigns, adset: adsets, ad: ads };
   const byEntity = new Map(); // "type:id" -> { subject, hits: [] }
-  for (const rule of RULES) {
+  for (const rule of [...RULES, ...customRules]) {
     // `levels` (Custom Views) narrows the run to the entity types on screen.
     if (levels && !levels.includes(rule.level)) continue;
     for (const subject of subjectsByLevel[rule.level]) {
@@ -164,7 +181,8 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
       action,
       budgetTarget,
       budgetNote,
-      matchedRules: winners.map((h) => ({ id: h.rule.id, name: h.rule.name, text: h.rule.text, conditions: h.conditions })),
+      matchedRules: winners.map((h) => ({ id: h.rule.id, name: h.rule.name, text: h.rule.text, conditions: h.conditions, ...(h.rule.custom ? { custom: true } : {}) })),
+      suggestedStepPct: winners.find((h) => h.rule.custom && h.rule.stepPct)?.rule.stepPct ?? null,
       hiddenConflicts: hidden,
       stats: {
         spend7: subject.m[7].spend,
@@ -178,41 +196,52 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
 
   const held = []; // budget suggestions skipped because that budget was edited in the last 48h
   for (const { subject, hits: allHits } of byEntity.values()) {
-    // "Add a creative" is a different kind of suggestion from the budget / pause ones: it never competes with
-    // them, and a flag that has only this is informational (nothing to apply with one click).
-    const creativeHits = allHits.filter((h) => h.rule.action === "ADD_CREATIVE");
-    const hits = allHits.filter((h) => h.rule.action !== "ADD_CREATIVE");
+    // "Add a creative" and a custom "flag it" are a different kind of suggestion from the budget / pause ones: they never
+    // compete with them, and a flag that has only these is informational (nothing to apply with one click).
+    const infoHits = allHits.filter((h) => h.rule.action === "ADD_CREATIVE" || h.rule.action === "NOTE");
+    const infoAction = infoHits.some((h) => h.rule.action === "ADD_CREATIVE") ? "ADD_CREATIVE" : "NOTE";
+    const hits = allHits.filter((h) => h.rule.action !== "ADD_CREATIVE" && h.rule.action !== "NOTE");
     if (hits.length === 0) {
-      pushFlag(subject, "ADD_CREATIVE", creativeHits, null, null, []);
+      pushFlag(subject, infoAction, infoHits, null, null, []);
       continue;
     }
-    // Opposite budget directions on one entity: the direction backed by the rule with
+    // Built-in rules: opposite budget directions on one entity: the direction backed by the rule with
     // more conditions wins; a tie goes to the cautious (decrease) side. The loser is listed, not shown as a flag.
-    const dirs = { INCREASE_BUDGET: [], DECREASE_BUDGET: [], PAUSE_AD: [] };
-    for (const h of hits) dirs[h.rule.action].push(h);
-    const strength = (list) => list.reduce((best, h) => Math.max(best, h.conditions.length), 0);
-    let winnerAction = hits[0].rule.action;
+    // The person's own rules always beat the built-in ones: when any of theirs matched, only theirs are considered and
+    // the built-in matches are listed as hidden. Among their own, the cautious action wins (CUSTOM_PRECEDENCE).
+    const customHits = hits.filter((h) => h.rule.custom);
+    const dirs = { INCREASE_BUDGET: [], DECREASE_BUDGET: [], PAUSE_AD: [], PAUSE_ENTITY: [] };
+    let winnerAction;
     let hidden = [];
-    if (dirs.INCREASE_BUDGET.length && dirs.DECREASE_BUDGET.length) {
-      const inc = strength(dirs.INCREASE_BUDGET);
-      const dec = strength(dirs.DECREASE_BUDGET);
-      winnerAction = inc > dec ? "INCREASE_BUDGET" : "DECREASE_BUDGET";
-      hidden = (winnerAction === "INCREASE_BUDGET" ? dirs.DECREASE_BUDGET : dirs.INCREASE_BUDGET).map((h) => h.rule.name);
+    if (customHits.length) {
+      for (const h of customHits) dirs[h.rule.action].push(h);
+      winnerAction = CUSTOM_PRECEDENCE.find((a) => dirs[a].length);
+      hidden = [...hits.filter((h) => !h.rule.custom).map((h) => h.rule.name), ...customHits.filter((h) => h.rule.action !== winnerAction).map((h) => h.rule.name)];
+    } else {
+      for (const h of hits) dirs[h.rule.action].push(h);
+      const strength = (list) => list.reduce((best, h) => Math.max(best, h.conditions.length), 0);
+      winnerAction = hits[0].rule.action;
+      if (dirs.INCREASE_BUDGET.length && dirs.DECREASE_BUDGET.length) {
+        const inc = strength(dirs.INCREASE_BUDGET);
+        const dec = strength(dirs.DECREASE_BUDGET);
+        winnerAction = inc > dec ? "INCREASE_BUDGET" : "DECREASE_BUDGET";
+        hidden = (winnerAction === "INCREASE_BUDGET" ? dirs.DECREASE_BUDGET : dirs.INCREASE_BUDGET).map((h) => h.rule.name);
+      }
     }
     const winners = dirs[winnerAction];
 
     // Which object a budget change would be applied to.
     let budgetTarget = null;
     let budgetNote = null;
-    if (winnerAction !== "PAUSE_AD") {
+    if (!isPauseAction(winnerAction)) {
       if (subject.type === "campaign" && subject.cbo) budgetTarget = { id: subject.id, level: "campaign", type: subject.budgetType, current: subject.budget, name: subject.name };
       else if (subject.type === "adset" && subject.abo) budgetTarget = { id: subject.id, level: "adset", type: subject.budgetType, current: subject.budget, name: subject.name };
       else if (subject.type === "adset") budgetNote = "This ad set has no budget of its own — it's set on the campaign (CBO).";
     }
     // Cool-down: don't suggest another budget move on something whose budget was just changed — the
     // ad set / campaign itself, the object the change would hit, or (for an ad set funded by its
-    // campaign) that campaign.
-    if (winnerAction !== "PAUSE_AD") {
+    // campaign) that campaign. Applies to the person's own rules too.
+    if (!isPauseAction(winnerAction)) {
       const ids = [subject.id, budgetTarget?.id, subject.type === "adset" && !subject.abo ? subject.campaignId : null].filter(Boolean);
       const changedId = ids.find((id) => recentChanged[id]);
       if (changedId) {
@@ -225,11 +254,11 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
           changedWhat: changedId === subject.id ? subject.type : "campaign",
           ruleNames: winners.map((h) => h.rule.name),
         });
-        if (creativeHits.length) pushFlag(subject, "ADD_CREATIVE", creativeHits, null, null, []);
+        if (infoHits.length) pushFlag(subject, infoAction, infoHits, null, null, []);
         continue;
       }
     }
-    pushFlag(subject, winnerAction, [...winners, ...creativeHits], budgetTarget, budgetNote, hidden);
+    pushFlag(subject, winnerAction, [...winners, ...infoHits], budgetTarget, budgetNote, hidden);
   }
   flags.sort((a, b) => b.stats.spend7 - a.stats.spend7);
 
@@ -247,6 +276,6 @@ export function evaluateAccount({ structure, insightsByWindow, currency, currenc
     flags,
     held,
     heldChecked: recentBudgetChanges ? recentBudgetChanges.ok : false,
-    rulesChecked: RULES.map((r) => ({ id: r.id, name: r.name, level: r.level, action: r.action, text: r.text })),
+    rulesChecked: [...RULES, ...customRules].map((r) => ({ id: r.id, name: r.name, level: r.level, action: r.action, text: r.text, ...(r.custom ? { custom: true } : {}) })),
   };
 }
