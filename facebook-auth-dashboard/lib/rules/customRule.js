@@ -31,7 +31,7 @@ export const DEFAULT_STEP_PCT = 10;
 export const MAX_CONDITIONS = 8;
 export const OPS = ["gt", "gte", "lt", "lte"];
 export const ACTION_TYPES = ["PAUSE", "INCREASE_BUDGET", "DECREASE_BUDGET", "FLAG"];
-export const ASSUMPTION_CODES = ["window", "level", "cost_per_result", "currency", "step", "match"];
+export const ASSUMPTION_CODES = ["window", "level", "cost_per_result", "currency", "step", "match", "action"];
 
 // What a rule can talk about. `engine` is the key in the engine's per-window metrics; `unit` picks how a figure is shown;
 // `account`: the account's own figure exists, so "× the account's" works; `windowed: false` metrics describe the item right now.
@@ -60,9 +60,25 @@ const OP_SIGN = { gt: "gt", gte: "gte", lt: "lt", lte: "lte" };
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 const isWindow = (w) => WINDOW_OPTIONS.includes(w);
 
+// What a rule can do at each level (the person picks one; see pages/custom-rules.js). Ad sets and campaigns can have their
+// budget raised or lowered or be paused; an ad can only be paused. "Only flag it" is always there.
+export function actionChoices(level) {
+  const noun = level === "campaign" ? "campaign" : level === "ad" ? "ad" : "ad set";
+  const choices = [];
+  if (level !== "ad") {
+    choices.push({ type: "INCREASE_BUDGET", label: `Increase the ${noun}'s budget` });
+    choices.push({ type: "DECREASE_BUDGET", label: `Decrease the ${noun}'s budget` });
+  }
+  choices.push({ type: "PAUSE", label: `Pause the ${noun}` });
+  choices.push({ type: "FLAG", label: "Only flag it (nothing to apply)" });
+  return choices;
+}
+
 // Returns { ok, errors, spec, assumptions }. `spec` is the cleaned copy (unknown keys dropped, defaults filled in) and is
 // what gets saved; `assumptions` lists what was filled in or assumed so the confirm screen can say so.
-export function validateSpec(raw) {
+// `draft`: a rule that doesn't say what to do yet is accepted with `action: null` (the translator uses this, and the screen then
+// asks the person to choose from actionChoices(level)); anything saved or run is validated without it, so it always has one.
+export function validateSpec(raw, { draft = false } = {}) {
   const errors = [];
   const assumptions = new Set();
   const fail = (msg) => errors.push(msg);
@@ -120,7 +136,9 @@ export function validateSpec(raw) {
 
   const a = raw.action;
   let action = null;
-  if (!a || !ACTION_TYPES.includes(a.type)) fail("The rule must say what to suggest: pause, increase budget, decrease budget or flag.");
+  if (draft && (a == null || a.type == null)) {
+    assumptions.add("action");
+  } else if (!a || !ACTION_TYPES.includes(a.type)) fail("The rule must say what to suggest: pause, increase budget, decrease budget or flag.");
   else {
     action = { type: a.type };
     const budgetAction = a.type === "INCREASE_BUDGET" || a.type === "DECREASE_BUDGET";
@@ -174,6 +192,7 @@ export function describeCondition(c, symbol = "₹") {
   return `${metricPhrase(c)} is ${OP_WORD[c.op]} ${valuePhrase(c, symbol)}`;
 }
 export function describeAction(action) {
+  if (!action) return "choose what it should do";
   switch (action.type) {
     case "PAUSE":
       return "suggest pausing it";
@@ -198,6 +217,7 @@ const ASSUMPTION_TEXT = {
   currency: "Amounts are in the ad account's own currency.",
   step: `No amount was given for the budget change, so ${DEFAULT_STEP_PCT}% is used (it can be edited before applying).`,
   match: "All conditions must hold.",
+  action: "It wasn't said what should happen when the rule matches: choose below.",
 };
 export const describeAssumptions = (codes) => (codes || []).filter((c) => ASSUMPTION_TEXT[c]).map((c) => ASSUMPTION_TEXT[c]);
 

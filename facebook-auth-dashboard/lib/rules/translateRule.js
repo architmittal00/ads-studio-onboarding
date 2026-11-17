@@ -28,7 +28,7 @@ RULE SHAPE
   "level": "campaign" | "adset" | "ad",
   "match": "all" | "any",
   "conditions": [ { "metric": <key>, "window": <days>, "op": "gt"|"gte"|"lt"|"lte", "value": <value> } ],
-  "action": { "type": "PAUSE" | "INCREASE_BUDGET" | "DECREASE_BUDGET" | "FLAG", "stepPct": <1-50, budget actions only> },
+  "action": { "type": "PAUSE" | "INCREASE_BUDGET" | "DECREASE_BUDGET" | "FLAG", "stepPct": <1-50, budget actions only> } | null,   // null when the marketer did not say what to do
   "assumed": [ <codes of anything you had to assume, see ASSUMPTIONS> ]
 }
 "value" is one of
@@ -53,7 +53,7 @@ PERFORMANCE MARKETING VOCABULARY (map the marketer's words to metrics; they may 
 - "number of ads" / "active ads" / "ad count" -> "active_ads" (ad sets only).
 - Levels: campaign (also CBO, ASC, Advantage+ campaign) -> "campaign"; ad set (also adset, ad group, audience, targeting) -> "adset"; ad (also creative, video, image, reel) -> "ad".
 - NOT AVAILABLE, reply unsupported and name it: frequency, reach, hook rate, hold rate, thumb-stop, video views / watch time, leads / CPL, add-to-cart, landing page views, quality or engagement ranking, AOV (average order value), MER, LTV, margin or profit, anything about audiences, placements, countries, ages or days of the week, and anything that is not a rule on campaigns / ad sets / ads.
-- ACTIONS: pause / stop / turn off / switch off / kill / shut -> PAUSE. increase / raise / scale / scale up / boost / bump up / up the budget -> INCREASE_BUDGET. decrease / reduce / cut / lower / trim / scale down / down the budget -> DECREASE_BUDGET. alert / flag / notify / mark / highlight / warn / watch / tell me / "let me know" -> FLAG. A percentage with a budget action ("increase budget by 20%") is "stepPct": 20. No action named: reply clarify and ask what should happen.
+- ACTIONS: pause / stop / turn off / switch off / kill / shut -> PAUSE. increase / raise / scale / scale up / boost / bump up / up the budget -> INCREASE_BUDGET. decrease / reduce / cut / lower / trim / scale down / down the budget -> DECREASE_BUDGET. alert / flag / notify / mark / highlight / warn / watch / tell me / "let me know" -> FLAG. A percentage with a budget action ("increase budget by 20%") is "stepPct": 20. No action named: do NOT ask a question. Return the rule with "action": null and add "action" to assumed (the app then lets the person choose from the actions that fit the level).
 - COMPARISONS: greater than / more than / over / above / exceeds / higher than / > -> "gt". at least / minimum / not less than / >= -> "gte". less than / under / below / lower than / fewer than / < -> "lt". at most / up to / maximum / not more than / <= -> "lte". "equal to" is not supported: clarify.
 - NUMBERS: ignore currency symbols and words (Rs, INR, rupees, $, dollars). "3k" = 3000, "1.5k" = 1500, "2 lakh" or "2L" = 200000, "1 crore" or "1cr" = 10000000, "1M" = 1000000. Remove thousands commas. The currency is always the ad account's own: never convert. Percent values for ctr / cvr are plain numbers (20% -> 20).
 - RELATIVE TO THE ACCOUNT: "20% below the account's ROAS" -> {"kind":"account","multiplier":0.8}; "30% higher than account CPA" -> multiplier 1.3; "half the account's CTR" -> 0.5; "2x the account CPR" -> 2; "better than account ROAS" -> multiplier 1 with op "gt"; "worse than account ROAS" -> multiplier 1 with op "lt". For cost metrics (cpr, cpm, cpc) "better" means lower.
@@ -65,7 +65,7 @@ DEFAULTS (so every user gets the same result) and ASSUMED codes
 - Several conditions joined by "and" / commas / "also" -> "match":"all". Joined by "or" -> "any". If the sentence mixes "and" and "or", reply clarify. One condition: "match":"all".
 - Budget action without an amount -> leave stepPct out (the app uses 10%) and add "step" to assumed.
 - Add "currency" to assumed when an amount was given without saying which currency (always, for amounts).
-- Never invent a threshold, an action or a metric. If a number is missing ("when ROAS is low"), reply clarify and ask for the number.
+- Never invent a threshold or a metric. If a number is missing ("when ROAS is low"), reply clarify and ask for the number. A missing action is NOT a reason to clarify: leave "action": null.
 - A pause or flag can apply to any level. A budget action can only apply to "adset" or "campaign": if the marketer asks to change the budget of ads, reply clarify (offer ad sets).
 
 EXAMPLES
@@ -75,6 +75,8 @@ Input: {"text":"ads where 3 day ROAS is 30% below account and spent more than 1.
 Output: {"status":"ok","rule":{"version":1,"name":"Pause weak ads","level":"ad","match":"all","conditions":[{"metric":"roas","window":3,"op":"lt","value":{"kind":"account","multiplier":0.7}},{"metric":"spend","window":7,"op":"gt","value":{"kind":"number","value":1500}}],"action":{"type":"PAUSE"},"assumed":["currency"]},"needs":[{"metric":"roas","window":3},{"metric":"spend","window":7},{"metric":"roas","window":3}]}
 Input: {"text":"increase budget by 20% for campaigns with ROAS over 4 for the last 14 days","currency":"USD"}
 Output: {"status":"ok","rule":{"version":1,"name":"Scale strong campaigns","level":"campaign","match":"all","conditions":[{"metric":"roas","window":14,"op":"gt","value":{"kind":"number","value":4}}],"action":{"type":"INCREASE_BUDGET","stepPct":20},"assumed":[]},"needs":[{"metric":"roas","window":14}]}
+Input: {"text":"when budget is greater than 2000","currency":"INR"}
+Output: {"status":"ok","rule":{"version":1,"name":"High budget","level":"adset","match":"all","conditions":[{"metric":"budget","op":"gt","value":{"kind":"number","value":2000}}],"action":null,"assumed":["level","currency","action"]},"needs":[{"metric":"budget","window":null}]}
 Input: {"text":"alert me when ROAS drops","currency":"INR"}
 Output: {"status":"clarify","question":"Drops below what? Give a ROAS number (for example 2) or a comparison such as 20% lower than its 7-day ROAS."}
 Input: {"text":"pause ad sets with frequency above 3","currency":"INR"}
@@ -112,7 +114,7 @@ export function interpretReply(content, { symbol }) {
   if (reply.status === "clarify") return typeof reply.question === "string" && reply.question.trim() ? { kind: "clarify", message: reply.question.trim().slice(0, 400) } : { kind: "retry", problems: ["A clarify reply needs a question."] };
   if (reply.status === "unsupported") return { kind: "unsupported", message: (typeof reply.reason === "string" && reply.reason.trim() ? reply.reason.trim() : "That isn't something rules can do yet.").slice(0, 400) };
   if (reply.status !== "ok") return { kind: "retry", problems: ['"status" must be "ok", "clarify" or "unsupported".'] };
-  const checked = validateSpec(reply.rule);
+  const checked = validateSpec(reply.rule, { draft: true }); // no action yet is fine: the screen asks the person to choose one
   if (!checked.ok) return { kind: "retry", problems: checked.errors };
   const derived = dataPoints(checked.spec);
   const declared = declaredPoints(reply.needs);

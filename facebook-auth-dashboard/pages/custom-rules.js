@@ -9,7 +9,7 @@ import PinLock from "@/components/PinLock";
 import Loader from "@/components/Loader";
 import { useAccounts } from "@/components/AccountProvider";
 import { parseJsonResponse } from "@/lib/fetchJson";
-import { describeRule, validateSpec, requiredData, extraFetches, RULE_METRICS } from "@/lib/rules/customRule";
+import { describeRule, validateSpec, requiredData, extraFetches, actionChoices, RULE_METRICS } from "@/lib/rules/customRule";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
 import { clearAllRuleCaches } from "@/lib/rules/useRuleAttention";
 import { track } from "@/lib/analytics";
@@ -239,7 +239,7 @@ function CustomRulesContent() {
   const [test, setTest] = useState(null);
   const [scope, setScope] = useState(""); // "" until the person chooses: "pick" | "all"
   const [level, setLevel] = useState("adset");
-  const [actionType, setActionType] = useState("PAUSE");
+  const [actionType, setActionType] = useState(""); // "" until the person chooses
   const [stepPct, setStepPct] = useState("10");
   const [sel, setSel] = useState(() => new Set());
   const [saving, setSaving] = useState(false);
@@ -270,8 +270,8 @@ function CustomRulesContent() {
       if (out.status === "ok") {
         // The reading of the sentence is the starting point; the person confirms or changes it below.
         setLevel(out.spec.level);
-        setActionType(out.spec.action.type);
-        setStepPct(String(out.spec.action.stepPct || 10));
+        setActionType(out.spec.action?.type || "");
+        setStepPct(String(out.spec.action?.stepPct || 10));
         setScope("");
         setSel(new Set());
       }
@@ -288,7 +288,7 @@ function CustomRulesContent() {
   const edited = useMemo(() => {
     if (tr?.status !== "ok") return null;
     const step = Number(stepPct);
-    return validateSpec({ ...tr.spec, level, action: budgetAction ? { type: actionType, stepPct: Number.isFinite(step) && step > 0 ? step : undefined } : { type: actionType } });
+    return validateSpec({ ...tr.spec, level, action: !actionType ? undefined : budgetAction ? { type: actionType, stepPct: Number.isFinite(step) && step > 0 ? step : undefined } : { type: actionType } });
   }, [tr, level, actionType, stepPct, budgetAction]);
   // What the rule reads follows the choices made below (an ad-level rule reads per ad, for example), not the first reading.
   const reads = edited?.ok ? requiredData(edited.spec) : tr?.reads || [];
@@ -315,7 +315,7 @@ function CustomRulesContent() {
       const out = await post("/api/fb/custom-rules", { text, spec: edited.spec, allAccounts: scope === "all", accountIds: scope === "all" ? [] : [...sel], model: tr.model, promptVersion: tr.promptVersion });
       if (out.error) throw new Error(out.error);
       clearAllRuleCaches();
-      track("custom_rule_saved", { level: edited.spec.level, action: edited.spec.action.type, conditions: edited.spec.conditions.length, all_accounts: scope === "all", changed_level: edited.spec.level !== tr.spec.level, changed_action: edited.spec.action.type !== tr.spec.action.type });
+      track("custom_rule_saved", { level: edited.spec.level, action: edited.spec.action.type, conditions: edited.spec.conditions.length, all_accounts: scope === "all", changed_level: edited.spec.level !== tr.spec.level, changed_action: edited.spec.action.type !== tr.spec.action?.type });
       setRules((prev) => [...(prev || []), out.rule]);
       setText("");
       setTr(null);
@@ -394,7 +394,7 @@ function CustomRulesContent() {
                 <div className={styles.card} style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, borderColor: "var(--green)" }}>
                   <div>
                     <p className={styles.muted} style={{ margin: "0 0 4px" }}>Is this what you meant?</p>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{edited?.ok ? describeRule(edited.spec, symbol) : tr.sentence}</p>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{edited?.ok ? describeRule(edited.spec, symbol) : describeRule({ ...tr.spec, level, action: actionType ? { type: actionType, stepPct: Number(stepPct) || 10 } : null }, symbol)}</p>
                   </div>
                   {tr.assumptions.length > 0 && (
                     <div>
@@ -422,33 +422,45 @@ function CustomRulesContent() {
 
                   <div>
                     <p className={styles.muted} style={{ margin: "0 0 6px" }}>What should this rule do? Check, or change, how it was understood</p>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-                      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5, maxWidth: 260 }}>
                         It looks at
-                        <select className={styles.select} value={level} onChange={(e) => setLevel(e.target.value)}>
+                        <select
+                          className={styles.select}
+                          value={level}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setLevel(next);
+                            // An action that doesn't exist for the new level (a budget change on ads) has to be chosen again.
+                            if (actionType && !actionChoices(next).some((c) => c.type === actionType)) setActionType("");
+                          }}
+                        >
                           <option value="campaign">Campaigns</option>
                           <option value="adset">Ad sets</option>
                           <option value="ad">Ads</option>
                         </select>
                         {tr.spec.assumed?.includes("level") && <span className={styles.muted}>Not in your sentence: please confirm</span>}
                       </label>
-                      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
-                        When it matches
-                        <select className={styles.select} value={actionType} onChange={(e) => setActionType(e.target.value)}>
-                          <option value="PAUSE">Suggest pausing it</option>
-                          <option value="INCREASE_BUDGET" disabled={level === "ad"}>Suggest raising its budget</option>
-                          <option value="DECREASE_BUDGET" disabled={level === "ad"}>Suggest lowering its budget</option>
-                          <option value="FLAG">Only flag it (nothing to apply)</option>
-                        </select>
-                      </label>
+                      <div role="radiogroup" aria-label="What should happen when the rule matches" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <span style={{ fontSize: 12.5 }}>
+                          When it matches, what should it do?
+                          {!actionType && <span className={styles.muted}> Choose one{tr.spec.assumed?.includes("action") ? ": your sentence didn't say" : ""}</span>}
+                        </span>
+                        {actionChoices(level).map((c) => (
+                          <label key={c.type} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                            <input type="radio" name="rule-action" checked={actionType === c.type} onChange={() => setActionType(c.type)} />
+                            {c.label}
+                          </label>
+                        ))}
+                      </div>
                       {budgetAction && (
                         <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
-                          Budget change (%)
+                          By how much (%)
                           <input className={styles.select} type="number" min="1" max="50" style={{ width: 90 }} value={stepPct} onChange={(e) => setStepPct(e.target.value)} />
                         </label>
                       )}
                     </div>
-                    {edited && !edited.ok && <div className={styles.error} style={{ marginTop: 8 }}>{edited.errors[0]}</div>}
+                    {actionType && edited && !edited.ok && <div className={styles.error} style={{ marginTop: 8 }}>{edited.errors[0]}</div>}
                     <p className={styles.sub} style={{ margin: "6px 0 0" }}>Wrong? Change these choices or your sentence above. Nothing is saved until you click Save, and nothing is changed on Meta without you clicking apply later.</p>
                   </div>
 
@@ -472,7 +484,7 @@ function CustomRulesContent() {
                       {saving ? "Saving…" : "Save rule"}
                     </button>
                   </div>
-                  {!scope ? <p className={styles.sub} style={{ margin: 0 }}>Choose where the rule applies to save it.</p> : scope === "pick" && sel.size === 0 ? <p className={styles.sub} style={{ margin: 0 }}>Pick at least one ad account to save it.</p> : null}
+                  {!actionType ? <p className={styles.sub} style={{ margin: 0 }}>Choose what the rule should do to save it.</p> : !scope ? <p className={styles.sub} style={{ margin: 0 }}>Choose where the rule applies to save it.</p> : scope === "pick" && sel.size === 0 ? <p className={styles.sub} style={{ margin: 0 }}>Pick at least one ad account to save it.</p> : null}
                   {saveError && <div className={styles.error}>{saveError}</div>}
                   {test && <TestResults test={test} symbol={symbol} />}
                 </div>
