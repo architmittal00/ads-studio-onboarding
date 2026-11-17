@@ -68,6 +68,8 @@ DEFAULTS (so every user gets the same result) and ASSUMED codes
 - Never invent a threshold or a metric. If a number is missing ("when ROAS is low"), reply clarify and ask for the number. A missing action is NOT a reason to clarify: leave "action": null.
 - A pause or flag can apply to any level. A budget action can only apply to "adset" or "campaign": if the marketer asks to change the budget of ads, reply clarify (offer ad sets).
 
+FIXED CHOICES: when the user message also has "level" and/or "action", the marketer picked them on a form and they are FINAL. Put them in the rule exactly as given, never change them, never ask about them and never list them as assumed. "text" then holds ONLY the conditions: ignore any words about the level or the action inside it, and translate just the conditions.
+
 EXAMPLES
 Input: {"text":"budget is greater than 3000 and cost per result is less than 200 then pause","currency":"INR"}
 Output: {"status":"ok","rule":{"version":1,"name":"Pause cheap results","level":"adset","match":"all","conditions":[{"metric":"budget","op":"gt","value":{"kind":"number","value":3000}},{"metric":"cpr","window":7,"op":"lt","value":{"kind":"number","value":200}}],"action":{"type":"PAUSE"},"assumed":["level","window","cost_per_result","currency"]},"needs":[{"metric":"budget","window":null},{"metric":"cpr","window":7}]}
@@ -81,6 +83,10 @@ Input: {"text":"alert me when ROAS drops","currency":"INR"}
 Output: {"status":"clarify","question":"Drops below what? Give a ROAS number (for example 2) or a comparison such as 20% lower than its 7-day ROAS."}
 Input: {"text":"pause ad sets with frequency above 3","currency":"INR"}
 Output: {"status":"unsupported","reason":"Frequency isn't available yet. You can use spend, ROAS, cost per purchase, CPM, CTR, CPC, conversion rate, purchases, budget and a few more."}
+Input: {"text":"budget is greater than 20000 and last 7 days ROAS is below 2","currency":"INR","level":"adset","action":{"type":"DECREASE_BUDGET","stepPct":20}}
+Output: {"status":"ok","rule":{"version":1,"name":"Trim high budgets","level":"adset","match":"all","conditions":[{"metric":"budget","op":"gt","value":{"kind":"number","value":20000}},{"metric":"roas","window":7,"op":"lt","value":{"kind":"number","value":2}}],"action":{"type":"DECREASE_BUDGET","stepPct":20},"assumed":["currency"]},"needs":[{"metric":"budget","window":null},{"metric":"roas","window":7}]}
+Input: {"text":"last 3 days CPA is more than 30% above the account's","currency":"INR","level":"ad","action":{"type":"PAUSE"}}
+Output: {"status":"ok","rule":{"version":1,"name":"Pause costly ads","level":"ad","match":"all","conditions":[{"metric":"cpr","window":3,"op":"gt","value":{"kind":"account","multiplier":1.3}}],"action":{"type":"PAUSE"},"assumed":["cost_per_result"]},"needs":[{"metric":"cpr","window":3}]}
 Input: {"text":"agar aaj ka CPA 500 se zyada ho to pause karo","currency":"INR"}
 Output: {"status":"unsupported","reason":"Aaj (today) ka data abhi poora nahi hota. Kal (yesterday) ya pichhle 3 din use karein."}
 
@@ -108,14 +114,26 @@ const sameSet = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
 const declaredPoints = (needs) => (Array.isArray(needs) ? [...new Set(needs.map((n) => `${n?.metric}:${n?.window ?? "-"}`))].sort() : null);
 
 // Checks one model reply. Returns { kind: "ok", spec, ... } | { kind: "clarify" | "unsupported", message } | { kind: "retry", problems }.
-export function interpretReply(content, { symbol }) {
+// `fixed`: { level, action } the person chose on the form. They are applied by CODE after the model answers (whatever the model put
+// there is replaced), so the saved rule always has exactly the level and action that were chosen.
+export function interpretReply(content, { symbol, fixed = null }) {
   const reply = parseJson(content);
   if (!reply || typeof reply !== "object") return { kind: "retry", problems: ["The reply was not a JSON object."] };
   if (reply.status === "clarify") return typeof reply.question === "string" && reply.question.trim() ? { kind: "clarify", message: reply.question.trim().slice(0, 400) } : { kind: "retry", problems: ["A clarify reply needs a question."] };
   if (reply.status === "unsupported") return { kind: "unsupported", message: (typeof reply.reason === "string" && reply.reason.trim() ? reply.reason.trim() : "That isn't something rules can do yet.").slice(0, 400) };
   if (reply.status !== "ok") return { kind: "retry", problems: ['"status" must be "ok", "clarify" or "unsupported".'] };
-  const checked = validateSpec(reply.rule, { draft: true }); // no action yet is fine: the screen asks the person to choose one
-  if (!checked.ok) return { kind: "retry", problems: checked.errors };
+  let rule = reply.rule;
+  if (fixed && rule && typeof rule === "object") {
+    const assumed = Array.isArray(rule.assumed) ? rule.assumed.filter((c) => !["level", "action", "step"].includes(c)) : [];
+    rule = { ...rule, level: fixed.level, action: fixed.action, assumed };
+  }
+  // Without form choices a missing action is fine for now: the screen asks the person to choose one.
+  const checked = validateSpec(rule, { draft: !fixed });
+  if (!checked.ok) {
+    // A condition that can't exist at the chosen level (budget on ads) is not something a second try can fix: tell the person.
+    if (fixed && checked.errors.some((e) => /can't be used for|can't be compared|no budget of its own/.test(e))) return { kind: "conflict", message: checked.errors[0] };
+    return { kind: "retry", problems: checked.errors };
+  }
   const derived = dataPoints(checked.spec);
   const declared = declaredPoints(reply.needs);
   if (!declared || !sameSet(declared, derived)) {
@@ -125,11 +143,11 @@ export function interpretReply(content, { symbol }) {
 }
 
 // Full translation: one call, and one repair call that shows the model what was wrong. Never throws for a bad reply.
-export async function translateRule({ text, currency, symbol }) {
+export async function translateRule({ text, currency, symbol, fixed = null }) {
   const trimmed = String(text || "").trim();
   if (!trimmed) return { status: "error", message: "Type a rule first." };
   if (trimmed.length > MAX_TEXT_CHARS) return { status: "error", message: `Keep the rule under ${MAX_TEXT_CHARS} characters.` };
-  const user = JSON.stringify({ text: trimmed, currency: currency || "INR" });
+  const user = JSON.stringify({ text: trimmed, currency: currency || "INR", ...(fixed ? { level: fixed.level, action: fixed.action } : {}) });
   let model = RULES_MODEL;
   let last = null;
   let followUp = null;
@@ -137,14 +155,15 @@ export async function translateRule({ text, currency, symbol }) {
     const prompt = followUp ? `${user}\n\nYour previous reply was rejected: ${followUp.join(" ")} Reply again with a corrected JSON object.` : user;
     const out = await chatJson({ system: SYSTEM_PROMPT, user: prompt, model: RULES_MODEL, temperature: 0, label: "custom-rule" });
     model = out.model;
-    last = interpretReply(out.content, { symbol });
+    last = interpretReply(out.content, { symbol, fixed });
     if (last.kind !== "retry") break;
     followUp = last.problems;
   }
   const base = { model, promptVersion: PROMPT_VERSION };
   if (last.kind === "clarify") return { status: "clarify", message: last.message, ...base };
+  if (last.kind === "conflict") return { status: "conflict", message: `${last.message} Change "Applies to" or the conditions.`, ...base };
   if (last.kind === "unsupported") return { status: "unsupported", message: last.message, ...base };
-  if (last.kind === "retry") return { status: "error", message: "That one couldn't be turned into a rule reliably. Try rephrasing it with the metric, the number, the time frame and what to do.", ...base };
+  if (last.kind === "retry") return { status: "error", message: "That one couldn't be turned into a rule reliably. Try rephrasing the conditions with the metric, the number and the time frame.", ...base };
   return {
     status: "ok",
     spec: last.spec,

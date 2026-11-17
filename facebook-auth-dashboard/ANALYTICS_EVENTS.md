@@ -80,7 +80,7 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | `recommendation_ads_pushed` | `/recommendations` | "Add n ads to this ad set" finished (creatives copied in, as the paused/active choice) | `rule_id`, `selected`, `added`, `failed`, `status` (PAUSED / ACTIVE as chosen), `source` (`add_creative` or `pause_card`) |
 | `custom_rule_translated` | `/custom-rules` | "Check my rule" answered | `status` (`ok` / `clarify` / `unsupported` / `error`) |
 | `custom_rule_tested` | `/custom-rules` | "Test on this account" finished | `matches` |
-| `custom_rule_saved` | `/custom-rules` | a rule was saved | `level`, `action`, `conditions`, `all_accounts`, `changed_level`, `changed_action` (the person changed what the model understood) |
+| `custom_rule_saved` | `/custom-rules` | a rule was saved | `level`, `action`, `conditions`, `all_accounts`, `named` (a rule name was typed) |
 | `custom_rule_toggled` | `/custom-rules` | a rule switched on / off | `enabled` |
 | `custom_rule_deleted` | `/custom-rules` | a rule deleted | none |
 | `recommendation_applied_ad_paused` (`source: starved_ads`) | `/recommendations` (starved-ads list) | also fires once per starved ad paused, same event as the Pause-ad recommendation | `source`, `entity_id`, `rule_id`, `bulk` |
