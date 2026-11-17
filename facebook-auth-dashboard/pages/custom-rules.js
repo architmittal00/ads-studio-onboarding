@@ -38,9 +38,11 @@ export default function CustomRules() {
       <Head>
         <title>Custom Rules · Facebook Auth Dashboard</title>
       </Head>
-      <PinLock label="Custom Rules">
-        <CustomRulesContent />
-      </PinLock>
+      <div className={styles.rulesTheme}>
+        <PinLock label="Custom Rules">
+          <CustomRulesContent />
+        </PinLock>
+      </div>
     </Layout>
   );
 }
