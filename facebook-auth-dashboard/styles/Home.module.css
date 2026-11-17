@@ -3536,3 +3536,132 @@ button.stat:hover {
   }
 }
 
+
+
+/* ── Custom Rules: list of a person's rules (see pages/custom-rules.js) ── */
+/* On / off switch: a button with role="switch"; the knob is the ::after. Brand fill when on. */
+.switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: rgba(var(--surface-tint-rgb), 0.1);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--t2);
+  transition: transform 0.15s, background 0.15s;
+}
+.switchOn {
+  background: var(--purple);
+  border-color: var(--purple);
+}
+.switchOn::after {
+  transform: translateX(16px);
+  background: #fff;
+}
+.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Small count chip inside a .tab */
+.tabCount {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(var(--surface-tint-rgb), 0.08);
+  color: var(--t2);
+}
+.tabActive .tabCount {
+  background: rgba(var(--purple-rgb), 0.18);
+  color: var(--purple);
+}
+.ruleGroupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(var(--surface-tint-rgb), 0.04);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+.ruleItem {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  min-width: 0;
+}
+.ruleItemOpen {
+  border-color: rgba(var(--purple-rgb), 0.35);
+}
+.ruleItemHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+.ruleItemTitle {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ruleItemBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 16px;
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+@media (max-width: 720px) {
+  .ruleItemBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ruleCond {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--t1);
+}
+.ruleCondDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--purple);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.ruleThen {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(var(--surface-tint-rgb), 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
