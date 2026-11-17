@@ -248,6 +248,7 @@ function CustomRulesContent() {
   const [tr, setTr] = useState(null); // the last translation answer
   const [testId, setTestId] = useState("");
   const [test, setTest] = useState(null);
+  const [testOpen, setTestOpen] = useState(false); // the test controls stay hidden until "Test this rule" is clicked
   const [scope, setScope] = useState(""); // "" until the person chooses: "pick" | "all"
   const [ids, setIds] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -264,7 +265,9 @@ function CustomRulesContent() {
     };
   }, [googleEmail]);
 
-  const testAccount = useMemo(() => adAccounts.find((a) => a.id === (testId || selectedAccountId)) || adAccounts[0] || null, [adAccounts, testId, selectedAccountId]);
+  // The account a test runs on: the one picked in the test panel, else the first ad account chosen for the rule, else the one open elsewhere.
+  const firstPicked = scope === "pick" ? ids[0] : null;
+  const testAccount = useMemo(() => adAccounts.find((a) => a.id === (testId || firstPicked || selectedAccountId)) || adAccounts[0] || null, [adAccounts, testId, firstPicked, selectedAccountId]);
   const symbol = currencySymbolOf(testAccount?.currency);
 
   // The form's choices; changing any of them makes an earlier reading of the conditions stale.
@@ -274,12 +277,14 @@ function CustomRulesContent() {
   const stale = () => {
     setTr(null);
     setTest(null);
+    setTestOpen(false);
   };
 
   const translate = useCallback(async () => {
     setTranslating(true);
     setTr(null);
     setTest(null);
+    setTestOpen(false);
     setSaveError(null);
     try {
       const action = budgetAction ? { type: actionType, stepPct: Number(stepPct) } : { type: actionType };
@@ -333,6 +338,7 @@ function CustomRulesContent() {
       setStepPct("");
       setTr(null);
       setTest(null);
+      setTestOpen(false);
       setIds([]);
       setScope("");
     } catch (err) {
@@ -502,16 +508,8 @@ function CustomRulesContent() {
                   </LabeledPill>
 
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <AccountSelect
-                      accounts={adAccounts}
-                      value={testAccount?.id || ""}
-                      onChange={setTestId}
-                      placeholder="Ad account to test on…"
-                      loading={accountsLoading}
-                      style={{ width: 300, maxWidth: "100%" }}
-                    />
-                    <button type="button" className={styles.btnSecondary} onClick={runTest} disabled={!testAccount || !edited?.ok || test?.loading}>
-                      Test on this account
+                    <button type="button" className={styles.btnSecondary} onClick={() => setTestOpen((o) => !o)} disabled={!edited?.ok} aria-expanded={testOpen}>
+                      {testOpen ? "Hide test" : "Test this rule"}
                     </button>
                     <button type="button" className={styles.btnPrimary} onClick={save} disabled={!canSave}>
                       {saving ? "Saving…" : "Save rule"}
@@ -519,7 +517,23 @@ function CustomRulesContent() {
                   </div>
                   {!scope ? <p className={styles.sub} style={{ margin: 0 }}>Choose where the rule applies to save it.</p> : scope === "pick" && ids.length === 0 ? <p className={styles.sub} style={{ margin: 0 }}>Pick at least one ad account to save it.</p> : null}
                   {saveError && <div className={styles.error}>{saveError}</div>}
-                  {test && <TestResults test={test} symbol={symbol} />}
+                  {testOpen && (
+                    <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div>
+                        <p className={styles.h2} style={{ margin: 0 }}>Test this rule</p>
+                        <p className={styles.sub} style={{ margin: "2px 0 0" }}>See what it would flag on one ad account right now. Nothing is saved or changed.</p>
+                      </div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+                        <LabeledPill label="Test on">
+                          <AccountSelect accounts={adAccounts} value={testAccount?.id || ""} onChange={setTestId} placeholder="Choose an ad account…" loading={accountsLoading} style={{ width: 300, maxWidth: "100%" }} />
+                        </LabeledPill>
+                        <button type="button" className={styles.btnPrimary} onClick={runTest} disabled={!testAccount || !edited?.ok || test?.loading}>
+                          {test?.loading ? "Testing…" : "Run test"}
+                        </button>
+                      </div>
+                      {test && <TestResults test={test} symbol={symbol} />}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
