@@ -8,6 +8,7 @@ import { buildEffectiveCatalog, humanizeStatus } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { getCustomMetrics } from "@/lib/clientStorage";
 import { fetchCustomEvents } from "@/lib/customEvents";
+import { useMonitor, monitorKey } from "@/lib/monitorStore";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
@@ -31,6 +32,14 @@ const localDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.ge
 // Any moment inside a calendar day resolves to the same day on the server; noon UTC avoids every midnight edge.
 const dayAnchorEventTime = (dateStr) => `${dateStr}T12:00:00.000Z`;
 
+// The calendar day (YYYY-MM-DD) a moment falls on, in the ad account's time zone when it is known, else the browser's.
+function dayOf(ms, timeZone) {
+  try {
+    if (timeZone) return new Date(ms).toLocaleDateString("en-CA", { timeZone });
+  } catch {}
+  return localDate(new Date(ms));
+}
+
 function formatDayLabel(dateStr) {
   return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
@@ -38,9 +47,17 @@ function formatDayLabel(dateStr) {
 // Custom Views' "Investigate": the Recent Changes investigation for any campaign or ad set, with the day picked by the
 // user instead of being the day a change happened. Everything below the date — the metric picker, the before/after
 // comparison windows, and the drill-down into the ads inside — is the same as there.
+// An item on the Monitor list opens on the day it was added to Monitor (from the database); any other row starts empty.
 // entity: { level: "campaign" | "adset", entityId, entityName, accountId, status }
-export default function EntityInvestigateDrawer({ entity, onClose, currency }) {
-  const [date, setDate] = useState("");
+export default function EntityInvestigateDrawer({ entity, onClose, currency, timeZone }) {
+  const monitor = useMonitor();
+  const addedAt = entity ? monitor.items.find((i) => i.key === monitorKey(entity.level, entity.entityId))?.addedAt : null;
+  const today = localDate(new Date());
+  const addedDate = addedAt ? dayOf(addedAt, timeZone) : "";
+  // What the person picked in this drawer; until they pick, the day it was added to Monitor (if it was) is used.
+  const [picked, setPicked] = useState(null);
+  const date = picked ?? (addedDate && addedDate <= today ? addedDate : "");
+  const setDate = setPicked;
   const [selectedKeys, setSelectedKeys] = useState(DEFAULT_COMPARISON_METRIC_KEYS);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -63,7 +80,7 @@ export default function EntityInvestigateDrawer({ entity, onClose, currency }) {
   // A different row opened: start again from an empty date.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the drawer's own state when the entity prop changes
-    setDate("");
+    setPicked(null);
     setData(null);
     setError(null);
   }, [entity?.level, entity?.entityId]);
@@ -117,7 +134,6 @@ export default function EntityInvestigateDrawer({ entity, onClose, currency }) {
   if (!entity) return null;
 
   const toggleMetric = (key) => setSelectedKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-  const today = localDate(new Date());
 
   return (
     <div className={styles.drawerOverlay} onClick={onClose}>
@@ -157,7 +173,10 @@ export default function EntityInvestigateDrawer({ entity, onClose, currency }) {
               })}
             </div>
             <p className={styles.sub} style={{ margin: 0 }}>
-              Pick the day something changed. The 1, 3 and 7 days before it are compared with what came after.
+              {addedDate && date === addedDate
+                ? "Set to the day this was added to Monitor. "
+                : "Pick the day something changed. "}
+              The 1, 3 and 7 days before it are compared with what came after.
             </p>
           </div>
 

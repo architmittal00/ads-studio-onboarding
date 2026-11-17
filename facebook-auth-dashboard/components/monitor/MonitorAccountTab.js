@@ -317,7 +317,7 @@ export default function MonitorAccountTab({ accountId, account, accountsLoading,
         />
       )}
       <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} onNavigate={setDetailEntity} onSaved={() => setReload((n) => n + 1)} />
-      <EntityInvestigateDrawer entity={investigateEntity} onClose={() => setInvestigateEntity(null)} currency={currency} />
+      <EntityInvestigateDrawer entity={investigateEntity} onClose={() => setInvestigateEntity(null)} currency={currency} timeZone={timeZone} />
       <EntityHistoryDrawer entity={historyEntity} onClose={() => setHistoryEntity(null)} />
     </div>
   );
