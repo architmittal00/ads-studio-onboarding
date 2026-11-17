@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
-import { checkAccount, RULE_LEVELS } from "@/lib/rules/checkAccount";
+import { checkAccount, RULE_LEVELS, friendlyCheckError } from "@/lib/rules/checkAccount";
 import { activeRulesForAccount } from "@/lib/customRulesDb";
 
 // GET /api/fb/rules/check?accountId=act_123 — validates one ad account against the rules
@@ -43,10 +43,10 @@ export default async function handler(req, res) {
     }
   } catch (err) {
     if (stream) {
-      emit({ type: "error", error: err.message || "Request failed" });
+      emit({ type: "error", error: friendlyCheckError(err.message) });
       res.end();
     } else {
-      res.status(err.graphResponse ? 400 : 500).json({ error: err.message || "Request failed" });
+      res.status(err.graphResponse ? 400 : 500).json({ error: friendlyCheckError(err.message) });
     }
   }
 }

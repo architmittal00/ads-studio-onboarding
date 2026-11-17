@@ -93,6 +93,39 @@ async function fetchMissingNames(token, campaigns, adsets, ads) {
   return names;
 }
 
+// Meta refuses some insights reads outright ("Please reduce the amount of data you're asking for", code 1): a long window at ad
+// level on a big account. That error is permanent, so repeating the same request never helps. The window is split in half
+// and each half read on its own (recursively, with smaller pages), and the rows are simply put together: the engine adds
+// up every row of the same item (addInsightsRow), so two half-windows give the same totals as one whole window.
+const TOO_MUCH_DATA = /reduce the amount of data/i;
+const MAX_SPLIT_DEPTH = 4;
+const DAY_MS = 86400000;
+const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+const dayCount = (range) => Math.round((Date.parse(`${range.until}T00:00:00Z`) - Date.parse(`${range.since}T00:00:00Z`)) / DAY_MS) + 1;
+
+// What to show when Meta still refuses after the window was split as far as it goes: plain words, not Meta's error text.
+export function friendlyCheckError(message) {
+  return TOO_MUCH_DATA.test(message || "")
+    ? "Meta says this check asks for too much data on this ad account, even in smaller pieces. If a rule of yours uses a long time frame (30, 60 or 90 days) at ad level, try a shorter one (7 or 14 days) or apply it to ad sets; otherwise try again in a few minutes."
+    : message || "Request failed";
+}
+
+export async function readInsightsRows(read, range, depth = 0) {
+  try {
+    return await read(range, depth === 0 ? 500 : 200);
+  } catch (err) {
+    if (!TOO_MUCH_DATA.test(err?.message || "") || dayCount(range) <= 1 || depth >= MAX_SPLIT_DEPTH) throw err;
+    const sinceMs = Date.parse(`${range.since}T00:00:00Z`);
+    const midMs = sinceMs + Math.floor((dayCount(range) - 1) / 2) * DAY_MS;
+    const halves = [
+      { since: range.since, until: isoDay(midMs) },
+      { since: isoDay(midMs + DAY_MS), until: range.until },
+    ];
+    const parts = await Promise.all(halves.map((h) => readInsightsRows(read, h, depth + 1)));
+    return parts.flat();
+  }
+}
+
 const ACTIVE_FILTER = [{ field: "effective_status", operator: "IN", value: ["ACTIVE", "IN_PROCESS"] }];
 
 
@@ -143,17 +176,21 @@ export async function checkAccount({ accountId, token, tz, emit = () => {}, lean
     const level = levelByWindow[days];
     return step(
       `insights${days}`,
-      graphGetInsights(
-        `/${accountId}/insights`,
-        token,
-        {
-          level,
-          fields: `${level === "ad" ? "ad_id," : ""}adset_id,campaign_id,spend,impressions,inline_link_clicks,actions,action_values`,
-          time_range: { since: range.since, until: range.until },
-          limit: 500,
-        },
-        { timeoutMs: 60000 }
-      ).then((r) => r.data || []),
+      readInsightsRows(
+        (r, limit) =>
+          graphGetInsights(
+            `/${accountId}/insights`,
+            token,
+            {
+              level,
+              fields: `${level === "ad" ? "ad_id," : ""}adset_id,campaign_id,spend,impressions,inline_link_clicks,actions,action_values`,
+              time_range: { since: r.since, until: r.until },
+              limit,
+            },
+            { timeoutMs: 60000 }
+          ).then((res) => res.data || []),
+        { since: range.since, until: range.until }
+      ),
       (rows) => `${rows.length.toLocaleString("en-IN")} ${level === "ad" ? "ad" : "ad set"} rows`
     );
   };

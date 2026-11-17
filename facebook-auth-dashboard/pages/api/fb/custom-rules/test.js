@@ -1,5 +1,5 @@
 import { requireRuleOwner, VALID_ACCOUNT_ID } from "@/lib/customRulesAuth";
-import { checkAccount } from "@/lib/rules/checkAccount";
+import { checkAccount, friendlyCheckError } from "@/lib/rules/checkAccount";
 import { validateSpec } from "@/lib/rules/customRule";
 
 // POST /api/fb/custom-rules/test { spec, accountId, tz } -> { accountName, matches: [...], checked }
@@ -20,6 +20,6 @@ export default async function handler(req, res) {
       .map((f) => ({ key: f.key, entityType: f.entityType, name: f.name, action: f.action, spend7: f.stats.spend7, roas7: f.stats.roas7, conditions: f.matchedRules.find((m) => m.custom).conditions }));
     return res.status(200).json({ matches, total: result.flags.filter((f) => f.matchedRules.some((m) => m.custom)).length, heldChecked: result.heldChecked });
   } catch (err) {
-    return res.status(err.graphResponse ? 400 : 500).json({ error: err.message || "Request failed" });
+    return res.status(err.graphResponse ? 400 : 500).json({ error: friendlyCheckError(err.message) });
   }
 }
