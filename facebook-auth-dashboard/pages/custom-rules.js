@@ -9,7 +9,7 @@ import PinLock from "@/components/PinLock";
 import Loader from "@/components/Loader";
 import { useAccounts } from "@/components/AccountProvider";
 import { parseJsonResponse } from "@/lib/fetchJson";
-import { describeRule } from "@/lib/rules/customRule";
+import { describeRule, validateSpec, requiredData, extraFetches, RULE_METRICS } from "@/lib/rules/customRule";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
 import { clearAllRuleCaches } from "@/lib/rules/useRuleAttention";
 import { track } from "@/lib/analytics";
@@ -45,17 +45,22 @@ export default function CustomRules() {
 const readsText = (reads) => reads.map((r) => `${r.window === 1 ? "yesterday" : `${r.window}-day`} ${LEVEL_FOR_READS[r.rowLevel]}`).join(", ");
 const extraText = (extra) => extra.map((r) => `${r.window === 1 ? "yesterday" : `${r.window}-day`} figures ${LEVEL_FOR_READS[r.rowLevel]}`).join(", ");
 
-function AccountPicker({ accounts, allAccounts, onAll, selected, onToggle }) {
+// Where a rule applies. Nothing is pre-selected on a new rule: the person must choose. "all" is looked at every time an ad
+// account is checked, so an ad account connected later is covered automatically.
+function ScopePicker({ accounts, scope, onScope, selected, onToggle }) {
   const [q, setQ] = useState("");
   const shown = accounts.filter((a) => !q.trim() || `${a.name} ${a.id}`.toLowerCase().includes(q.trim().toLowerCase()));
   return (
-    <div>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 8 }}>
-        <input type="checkbox" checked={allAccounts} onChange={(e) => onAll(e.target.checked)} />
-        All my ad accounts
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13 }}>
+        <input type="radio" name="rule-scope" checked={scope === "pick"} onChange={() => onScope("pick")} style={{ marginTop: 3 }} />
+        <span>
+          <strong>Only the ad accounts I pick</strong>
+          <span className={styles.muted} style={{ display: "block" }}>A new ad account is not included unless you add it here later.</span>
+        </span>
       </label>
-      {!allAccounts && (
-        <>
+      {scope === "pick" && (
+        <div style={{ marginLeft: 24 }}>
           {accounts.length > 8 && <input className={styles.select} style={{ width: "100%", marginBottom: 6 }} placeholder="Search ad accounts…" value={q} onChange={(e) => setQ(e.target.value)} />}
           <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, padding: 6 }}>
             {shown.map((a) => (
@@ -67,8 +72,16 @@ function AccountPicker({ accounts, allAccounts, onAll, selected, onToggle }) {
             ))}
             {shown.length === 0 && <p className={styles.sub} style={{ margin: 4 }}>No ad accounts match.</p>}
           </div>
-        </>
+          <p className={styles.muted} style={{ margin: "4px 0 0" }}>{selected.size} selected</p>
+        </div>
       )}
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13 }}>
+        <input type="radio" name="rule-scope" checked={scope === "all"} onChange={() => onScope("all")} style={{ marginTop: 3 }} />
+        <span>
+          <strong>All my ad accounts, including any I connect later</strong>
+          <span className={styles.muted} style={{ display: "block" }}>The rule runs on every ad account you can check ({accounts.length} now), and automatically on new ones.</span>
+        </span>
+      </label>
     </div>
   );
 }
@@ -120,7 +133,7 @@ function RuleRow({ rule, accounts, symbol, onChanged }) {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [all, setAll] = useState(rule.allAccounts);
+  const [scope, setScope] = useState(rule.allAccounts ? "all" : "pick");
   const [sel, setSel] = useState(() => new Set(rule.accountIds));
   const nameOf = (id) => accounts.find((a) => a.id === id)?.name || id;
 
@@ -169,14 +182,14 @@ function RuleRow({ rule, accounts, symbol, onChanged }) {
         You wrote: &ldquo;{rule.originalText}&rdquo;
       </p>
       <p className={styles.muted} style={{ margin: "6px 0 0" }}>
-        {rule.allAccounts ? "Applies to all your ad accounts" : `Applies to ${rule.accountIds.length} ad account${rule.accountIds.length === 1 ? "" : "s"}: ${rule.accountIds.slice(0, 3).map(nameOf).join(", ")}${rule.accountIds.length > 3 ? ` +${rule.accountIds.length - 3}` : ""}`}
+        {rule.allAccounts ? "Applies to all your ad accounts, including any you connect later" : `Applies to ${rule.accountIds.length} ad account${rule.accountIds.length === 1 ? "" : "s"}: ${rule.accountIds.slice(0, 3).map(nameOf).join(", ")}${rule.accountIds.length > 3 ? ` +${rule.accountIds.length - 3}` : ""}`}
         {" · "}added {new Date(rule.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
       </p>
       {editing && (
         <div style={{ marginTop: 10 }}>
-          <AccountPicker accounts={accounts} allAccounts={all} onAll={setAll} selected={sel} onToggle={(id) => setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; })} />
+          <ScopePicker accounts={accounts} scope={scope} onScope={setScope} selected={sel} onToggle={(id) => setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; })} />
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button type="button" className={styles.btnPrimary} disabled={busy || (!all && sel.size === 0)} onClick={() => patch({ allAccounts: all, accountIds: all ? [] : [...sel] })}>
+            <button type="button" className={styles.btnPrimary} disabled={busy || (scope === "pick" && sel.size === 0)} onClick={() => patch({ allAccounts: scope === "all", accountIds: scope === "all" ? [] : [...sel] })}>
               Save accounts
             </button>
             <button type="button" className={styles.btnSecondary} onClick={() => setEditing(false)} disabled={busy}>
@@ -224,7 +237,10 @@ function CustomRulesContent() {
   const [tr, setTr] = useState(null); // the last translation answer
   const [testId, setTestId] = useState("");
   const [test, setTest] = useState(null);
-  const [allAccounts, setAllAccounts] = useState(false);
+  const [scope, setScope] = useState(""); // "" until the person chooses: "pick" | "all"
+  const [level, setLevel] = useState("adset");
+  const [actionType, setActionType] = useState("PAUSE");
+  const [stepPct, setStepPct] = useState("10");
   const [sel, setSel] = useState(() => new Set());
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -251,6 +267,14 @@ function CustomRulesContent() {
     try {
       const out = await post("/api/fb/custom-rules/translate", { text, currency: testAccount?.currency });
       setTr(out);
+      if (out.status === "ok") {
+        // The reading of the sentence is the starting point; the person confirms or changes it below.
+        setLevel(out.spec.level);
+        setActionType(out.spec.action.type);
+        setStepPct(String(out.spec.action.stepPct || 10));
+        setScope("");
+        setSel(new Set());
+      }
       track("custom_rule_translated", { status: out.status });
     } catch (err) {
       setTr({ status: "error", message: err.message });
@@ -259,11 +283,23 @@ function CustomRulesContent() {
     }
   }, [text, testAccount]);
 
+  // What the person has confirmed: the reading of their sentence with the level and action they chose below.
+  const budgetAction = actionType === "INCREASE_BUDGET" || actionType === "DECREASE_BUDGET";
+  const edited = useMemo(() => {
+    if (tr?.status !== "ok") return null;
+    const step = Number(stepPct);
+    return validateSpec({ ...tr.spec, level, action: budgetAction ? { type: actionType, stepPct: Number.isFinite(step) && step > 0 ? step : undefined } : { type: actionType } });
+  }, [tr, level, actionType, stepPct, budgetAction]);
+  // What the rule reads follows the choices made below (an ad-level rule reads per ad, for example), not the first reading.
+  const reads = edited?.ok ? requiredData(edited.spec) : tr?.reads || [];
+  const extra = edited?.ok ? extraFetches([edited.spec]) : tr?.extra || [];
+  const settingMetrics = tr?.status === "ok" ? [...new Set(tr.spec.conditions.filter((c) => !RULE_METRICS[c.metric].windowed).map((c) => RULE_METRICS[c.metric].label))] : [];
+
   async function runTest() {
-    if (!testAccount || tr?.status !== "ok") return;
+    if (!testAccount || !edited?.ok) return;
     setTest({ loading: true });
     try {
-      const out = await post("/api/fb/custom-rules/test", { spec: tr.spec, accountId: testAccount.id, tz: testAccount.timezone_name });
+      const out = await post("/api/fb/custom-rules/test", { spec: edited.spec, accountId: testAccount.id, tz: testAccount.timezone_name });
       if (out.error) throw new Error(out.error);
       setTest(out);
       track("custom_rule_tested", { matches: out.total });
@@ -276,16 +312,16 @@ function CustomRulesContent() {
     setSaving(true);
     setSaveError(null);
     try {
-      const out = await post("/api/fb/custom-rules", { text, spec: tr.spec, allAccounts, accountIds: [...sel], model: tr.model, promptVersion: tr.promptVersion });
+      const out = await post("/api/fb/custom-rules", { text, spec: edited.spec, allAccounts: scope === "all", accountIds: scope === "all" ? [] : [...sel], model: tr.model, promptVersion: tr.promptVersion });
       if (out.error) throw new Error(out.error);
       clearAllRuleCaches();
-      track("custom_rule_saved", { level: tr.spec.level, action: tr.spec.action.type, conditions: tr.spec.conditions.length, all_accounts: allAccounts });
+      track("custom_rule_saved", { level: edited.spec.level, action: edited.spec.action.type, conditions: edited.spec.conditions.length, all_accounts: scope === "all", changed_level: edited.spec.level !== tr.spec.level, changed_action: edited.spec.action.type !== tr.spec.action.type });
       setRules((prev) => [...(prev || []), out.rule]);
       setText("");
       setTr(null);
       setTest(null);
       setSel(new Set());
-      setAllAccounts(false);
+      setScope("");
     } catch (err) {
       setSaveError(err.message);
     } finally {
@@ -300,7 +336,7 @@ function CustomRulesContent() {
       else n.add(id);
       return n;
     });
-  const canSave = tr?.status === "ok" && (allAccounts || sel.size > 0) && !saving;
+  const canSave = !!edited?.ok && (scope === "all" || (scope === "pick" && sel.size > 0)) && !saving;
 
   return (
     <div className={styles.page}>
@@ -358,7 +394,7 @@ function CustomRulesContent() {
                 <div className={styles.card} style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, borderColor: "var(--green)" }}>
                   <div>
                     <p className={styles.muted} style={{ margin: "0 0 4px" }}>Is this what you meant?</p>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{tr.sentence}</p>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{edited?.ok ? describeRule(edited.spec, symbol) : tr.sentence}</p>
                   </div>
                   {tr.assumptions.length > 0 && (
                     <div>
@@ -370,15 +406,55 @@ function CustomRulesContent() {
                       </ul>
                     </div>
                   )}
-                  <p className={styles.sub} style={{ margin: 0 }}>
-                    Reads: {readsText(tr.reads) || "the item's current settings"}.
-                    {tr.extra.length > 0 && <> This rule needs extra data the standard check doesn&apos;t read ({extraText(tr.extra)}), so checks on your accounts take a little longer.</>}
-                  </p>
-                  <p className={styles.sub} style={{ margin: 0 }}>Wrong? Change your sentence above and check it again. Nothing is saved until you click Save.</p>
+                  <div>
+                    <p className={styles.muted} style={{ margin: "0 0 4px" }}>How it is judged</p>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                      <li>
+                        Data read: {readsText(reads.some((r) => r.window === 7) ? reads : [...reads, { window: 7, rowLevel: level === "ad" ? "ad" : "adset" }])}
+                        {settingMetrics.length > 0 ? `, and the item's current ${settingMetrics.join(" and ")}` : ""}.
+                      </li>
+                      <li>Only items that spent in the last 7 days (up to yesterday) are checked, so paused or idle ones are skipped. This applies to every rule.</li>
+                      <li>Only items optimised for purchases or purchase value are checked, and items still in Meta&apos;s learning phase are skipped.</li>
+                      {budgetAction && <li>A budget change is not suggested for 48 hours after that budget was edited.</li>}
+                      {extra.length > 0 && <li>Needs extra data the standard check doesn&apos;t read ({extraText(extra)}), so checks on your accounts take a little longer.</li>}
+                    </ul>
+                  </div>
 
                   <div>
-                    <p className={styles.muted} style={{ margin: "0 0 6px" }}>Apply it to</p>
-                    <AccountPicker accounts={adAccounts} allAccounts={allAccounts} onAll={setAllAccounts} selected={sel} onToggle={toggleSel} />
+                    <p className={styles.muted} style={{ margin: "0 0 6px" }}>What should this rule do? Check, or change, how it was understood</p>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
+                        It looks at
+                        <select className={styles.select} value={level} onChange={(e) => setLevel(e.target.value)}>
+                          <option value="campaign">Campaigns</option>
+                          <option value="adset">Ad sets</option>
+                          <option value="ad">Ads</option>
+                        </select>
+                        {tr.spec.assumed?.includes("level") && <span className={styles.muted}>Not in your sentence: please confirm</span>}
+                      </label>
+                      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
+                        When it matches
+                        <select className={styles.select} value={actionType} onChange={(e) => setActionType(e.target.value)}>
+                          <option value="PAUSE">Suggest pausing it</option>
+                          <option value="INCREASE_BUDGET" disabled={level === "ad"}>Suggest raising its budget</option>
+                          <option value="DECREASE_BUDGET" disabled={level === "ad"}>Suggest lowering its budget</option>
+                          <option value="FLAG">Only flag it (nothing to apply)</option>
+                        </select>
+                      </label>
+                      {budgetAction && (
+                        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
+                          Budget change (%)
+                          <input className={styles.select} type="number" min="1" max="50" style={{ width: 90 }} value={stepPct} onChange={(e) => setStepPct(e.target.value)} />
+                        </label>
+                      )}
+                    </div>
+                    {edited && !edited.ok && <div className={styles.error} style={{ marginTop: 8 }}>{edited.errors[0]}</div>}
+                    <p className={styles.sub} style={{ margin: "6px 0 0" }}>Wrong? Change these choices or your sentence above. Nothing is saved until you click Save, and nothing is changed on Meta without you clicking apply later.</p>
+                  </div>
+
+                  <div>
+                    <p className={styles.muted} style={{ margin: "0 0 6px" }}>Where should it apply? Choose one</p>
+                    <ScopePicker accounts={adAccounts} scope={scope} onScope={setScope} selected={sel} onToggle={toggleSel} />
                   </div>
 
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -389,14 +465,14 @@ function CustomRulesContent() {
                         </option>
                       ))}
                     </select>
-                    <button type="button" className={styles.btnSecondary} onClick={runTest} disabled={!testAccount || test?.loading}>
+                    <button type="button" className={styles.btnSecondary} onClick={runTest} disabled={!testAccount || !edited?.ok || test?.loading}>
                       Test on this account
                     </button>
                     <button type="button" className={styles.btnPrimary} onClick={save} disabled={!canSave}>
                       {saving ? "Saving…" : "Save rule"}
                     </button>
                   </div>
-                  {!allAccounts && sel.size === 0 && <p className={styles.sub} style={{ margin: 0 }}>Pick at least one ad account to save it.</p>}
+                  {!scope ? <p className={styles.sub} style={{ margin: 0 }}>Choose where the rule applies to save it.</p> : scope === "pick" && sel.size === 0 ? <p className={styles.sub} style={{ margin: 0 }}>Pick at least one ad account to save it.</p> : null}
                   {saveError && <div className={styles.error}>{saveError}</div>}
                   {test && <TestResults test={test} symbol={symbol} />}
                 </div>
