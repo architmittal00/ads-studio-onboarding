@@ -215,7 +215,7 @@ function RuleItem({ rule, accounts, accountsLoading, symbol, open, onToggleOpen,
             {conds.length} condition{conds.length === 1 ? "" : "s"} · {rule.allAccounts ? "all ad accounts" : `${rule.accountIds.length} ad account${rule.accountIds.length === 1 ? "" : "s"}`}
           </span>
         </div>
-        <span className={badge}>{badgeText}</span>
+        <span className={`${badge} ${styles.ruleItemBadge}`}>{badgeText}</span>
         <button
           type="button"
           className={styles.btnSecondary}
@@ -712,7 +712,7 @@ function CustomRulesContent() {
                       </div>
                       <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
                         <LabeledPill label="Test on">
-                          <AccountSelect accounts={adAccounts} value={testAccount?.id || ""} onChange={setTestId} placeholder="Choose an ad account…" loading={accountsLoading} style={{ width: 300, maxWidth: "100%" }} />
+                          <AccountSelect accounts={adAccounts} value={testAccount?.id || ""} onChange={setTestId} placeholder="Choose an ad account…" loading={accountsLoading} style={{ width: "min(300px, calc(100vw - 130px))" }} />
                         </LabeledPill>
                         <button type="button" className={styles.btnPrimary} onClick={runTest} disabled={!testAccount || !edited?.ok || test?.loading}>
                           {test?.loading ? "Testing…" : "Run test"}
