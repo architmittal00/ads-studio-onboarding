@@ -1,11 +1,13 @@
 import Head from "next/head";
 import { getServerSession } from "next-auth/next";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
 import Loader from "@/components/Loader";
+import BottomSheet from "@/components/BottomSheet";
+import { useIsMobile } from "@/lib/useIsMobile";
 import LabeledPill from "@/components/LabeledPill";
 import AccountSelect from "@/components/AccountSelect";
 import { useAccounts } from "@/components/AccountProvider";
@@ -56,9 +58,11 @@ const actionOptions = (level) =>
   }));
 
 // The app's segmented choice (same markup as Custom Views' "Compare" switch): `.tabGroup` of `.tab` radios.
-function Segmented({ label, value, onChange, options }) {
+// `layout`: "row" (default; equal-width segments on a phone), "grid" (two columns on a phone) or "stack" (one per line on a phone).
+const SEG_LAYOUT = { row: styles.ruleSeg, grid: `${styles.ruleSeg} ${styles.ruleSegGrid}`, stack: `${styles.ruleSeg} ${styles.ruleSegStack}` };
+function Segmented({ label, value, onChange, options, layout = "row" }) {
   return (
-    <div className={styles.tabGroup} role="radiogroup" aria-label={label}>
+    <div className={`${styles.tabGroup} ${SEG_LAYOUT[layout]}`} role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={value === o.value ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => onChange(o.value)}>
           {o.label}
@@ -71,9 +75,11 @@ function Segmented({ label, value, onChange, options }) {
 // Where a rule applies. Nothing is pre-selected on a new rule: the person must choose. "all" is looked at every time an ad
 // account is checked, so an ad account connected later is covered automatically.
 function ScopeChoice({ accounts, loading, scope, onScope, ids, onIds }) {
+  const isMobile = useIsMobile();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <Segmented
+        layout="stack"
         label="Where the rule applies"
         value={scope}
         onChange={onScope}
@@ -82,7 +88,7 @@ function ScopeChoice({ accounts, loading, scope, onScope, ids, onIds }) {
           { value: "all", label: "All my ad accounts" },
         ]}
       />
-      {scope === "pick" && <AccountSelect accounts={accounts} multiple values={ids} onChange={onIds} placeholder="Search and add ad accounts…" loading={loading} style={{ width: "100%", maxWidth: 520 }} />}
+      {scope === "pick" && <AccountSelect accounts={accounts} multiple values={ids} onChange={onIds} placeholder="Search and add ad accounts…" loading={loading} usePortal={isMobile} zIndex={950} style={{ width: "100%", maxWidth: 520 }} />}
       <p className={styles.sub} style={{ margin: 0 }}>
         {scope === "all"
           ? `Runs on every ad account you can check (${accounts.length} now), including any you connect later.`
@@ -335,7 +341,7 @@ function RulesList({ rules, accounts, accountsLoading, symbol, onChanged }) {
   const groups = LEVEL_ORDER.filter((l) => (tab === "all" || tab === l) && counts[l] > 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div className={styles.tabGroup} role="tablist" aria-label="Filter rules by level">
+      <div className={`${styles.tabGroup} ${styles.ruleLevelTabs}`} role="tablist" aria-label="Filter rules by level">
         {[["all", "All"], ...LEVEL_ORDER.map((l) => [l, LEVEL_TAB[l]])].map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? `${styles.tab} ${styles.tabActive}` : styles.tab} onClick={() => setTab(key)}>
             {label}
@@ -388,11 +394,13 @@ function CustomRulesContent() {
   const [text, setText] = useState("");
   const [translating, setTranslating] = useState(false);
   const [tr, setTr] = useState(null); // the last translation answer
+  const confirmRef = useRef(null);
   const [testId, setTestId] = useState("");
   const [test, setTest] = useState(null);
   const [testOpen, setTestOpen] = useState(false); // the test controls stay hidden until "Test this rule" is clicked
   const [scope, setScope] = useState(""); // "" until the person chooses: "pick" | "all"
   const [ids, setIds] = useState([]);
+  const isMobile = useIsMobile();
   const [creating, setCreating] = useState(false); // the create form is hidden until "New rule" is clicked
   const [howOpen, setHowOpen] = useState(false); // "How rules are judged"
   const [saving, setSaving] = useState(false);
@@ -447,6 +455,15 @@ function CustomRulesContent() {
   }, [text, testAccount, level, actionType, stepPct, budgetAction]);
 
   // The checked rule: the conditions as understood, with exactly the level and action chosen on the form.
+  // On a phone the reading appears below a long form: bring it into view when it arrives.
+  useEffect(() => {
+    const el = confirmRef.current;
+    if (!isMobile || !el) return;
+    // Scroll only the sheet's own scroller (scrollIntoView would also move the page behind it).
+    let box = el.parentElement;
+    while (box && getComputedStyle(box).overflowY !== "auto") box = box.parentElement;
+    if (box) box.scrollTo({ top: el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 8, behavior: "smooth" });
+  }, [isMobile, tr]);
   const edited = useMemo(() => (tr?.status === "ok" ? validateSpec(tr.spec) : null), [tr]);
   const reads = edited?.ok ? requiredData(edited.spec) : tr?.reads || [];
   const extra = edited?.ok ? extraFetches([edited.spec]) : tr?.extra || [];
@@ -495,47 +512,10 @@ function CustomRulesContent() {
 
   const canSave = !!edited?.ok && (scope === "all" || (scope === "pick" && ids.length > 0)) && !saving;
 
-  return (
-    <div className={styles.page}>
-      <main className={styles.main} style={{ maxWidth: 900, margin: "0 auto", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 360px", minWidth: 0 }}>
-            <h1 className={styles.h1}>Custom Rules</h1>
-            <p className={styles.sub}>Write your own recommendation rules in plain language. They run with the built-in ones on the ad accounts you choose, and yours win when they disagree.</p>
-            <button type="button" className={styles.btnSecondary} style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6 }} aria-expanded={howOpen} onClick={() => setHowOpen((o) => !o)}>
-              How rules are judged
-              <ChevronIcon direction={howOpen ? "up" : "down"} size={12} />
-            </button>
-          </div>
-          {googleEmail && (
-            <button type="button" className={creating ? styles.btnSecondary : styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setCreating((c) => !c)}>
-              {creating ? <CloseIcon size={13} /> : <PlusIcon size={14} />}
-              {creating ? "Close" : "New rule"}
-            </button>
-          )}
-        </div>
-        {howOpen && (
-          <div className={styles.card}>
-            <ul className={styles.sub} style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
-              <li>Only items optimised for purchases or purchase value are judged, and items still in Meta&apos;s learning phase are skipped.</li>
-              <li>Only items that spent in the last 7 days (up to yesterday) are checked, so paused or idle ones are left alone.</li>
-              <li>A budget change is not suggested for 48 hours after that budget was edited.</li>
-              <li>When one of your rules and a built-in rule both match an item, yours is shown.</li>
-              <li>Nothing is ever changed on Meta until you click apply.</li>
-            </ul>
-          </div>
-        )}
-
-        {status !== "loading" && !googleEmail ? (
-          <div className={styles.card}>
-            <p className={styles.sub} style={{ margin: 0 }}>Sign in with Google to write your own rules. They are saved to your Google account.</p>
-          </div>
-        ) : (
-          <>
-            {creating && (
-            <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+  const createForm = (
+    <>
               <div>
-                <h2 className={styles.h2} style={{ margin: 0 }}>Create a rule</h2>
+                {!isMobile && <h2 className={styles.h2} style={{ margin: 0 }}>Create a rule</h2>}
                 <p className={styles.sub} style={{ margin: "2px 0 0" }}>Choose what it applies to and what it does, then describe the conditions in plain language.</p>
               </div>
 
@@ -561,10 +541,11 @@ function CustomRulesContent() {
                 />
               </LabeledPill>
 
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div className={styles.ruleThenRow}>
                 <LabeledPill label="Then">
                   {level ? (
                     <Segmented
+                      layout="grid"
                       label="What the rule does"
                       value={actionType}
                       onChange={(next) => {
@@ -609,13 +590,13 @@ function CustomRulesContent() {
                     stale();
                   }}
                 />
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+                <div className={styles.ruleChipRow}>
                   <span className={styles.muted}>Try:</span>
                   {CONDITION_EXAMPLES.map((ex) => (
                     <button
                       key={ex}
                       type="button"
-                      className={styles.btnSecondary}
+                      className={`${styles.btnSecondary} ${styles.ruleChip}`}
                       style={{ padding: "4px 10px", fontSize: 11.5 }}
                       onClick={() => {
                         setText((prev) => {
@@ -631,7 +612,7 @@ function CustomRulesContent() {
                 </div>
               </LabeledPill>
 
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div className={styles.ruleFormActions}>
                 <button type="button" className={styles.btnPrimary} onClick={translate} disabled={translating || !formReady || accountsLoading}>
                   {translating ? "Reading your conditions…" : "Continue"}
                 </button>
@@ -661,7 +642,7 @@ function CustomRulesContent() {
               {tr?.status === "error" && <div className={styles.error}>{tr.message}</div>}
 
               {tr?.status === "ok" && (
-                <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 14, borderColor: "var(--green)" }}>
+                <div ref={confirmRef} className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 14, borderColor: "var(--green)" }}>
                   <div>
                     <p className={styles.muted} style={{ margin: "0 0 4px" }}>Is this what you meant? Change the form above if not.</p>
                     <p className={styles.h2} style={{ margin: 0 }}>{edited?.ok ? describeRule(edited.spec, symbol) : tr.sentence}</p>
@@ -694,7 +675,7 @@ function CustomRulesContent() {
                     <ScopeChoice accounts={adAccounts} loading={accountsLoading} scope={scope} onScope={setScope} ids={ids} onIds={setIds} />
                   </LabeledPill>
 
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <div className={styles.ruleBtnRow}>
                     <button type="button" className={styles.btnSecondary} onClick={() => setTestOpen((o) => !o)} disabled={!edited?.ok} aria-expanded={testOpen}>
                       {testOpen ? "Hide test" : "Test this rule"}
                     </button>
@@ -712,7 +693,7 @@ function CustomRulesContent() {
                       </div>
                       <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
                         <LabeledPill label="Test on">
-                          <AccountSelect accounts={adAccounts} value={testAccount?.id || ""} onChange={setTestId} placeholder="Choose an ad account…" loading={accountsLoading} style={{ width: "min(300px, calc(100vw - 130px))" }} />
+                          <AccountSelect accounts={adAccounts} value={testAccount?.id || ""} onChange={setTestId} placeholder="Choose an ad account…" loading={accountsLoading} usePortal={isMobile} zIndex={950} style={{ width: "min(300px, calc(100vw - 130px))" }} />
                         </LabeledPill>
                         <button type="button" className={styles.btnPrimary} onClick={runTest} disabled={!testAccount || !edited?.ok || test?.loading}>
                           {test?.loading ? "Testing…" : "Run test"}
@@ -723,7 +704,70 @@ function CustomRulesContent() {
                   )}
                 </div>
               )}
+    </>
+  );
+
+  return (
+    <div className={styles.page}>
+      <main className={styles.main} style={{ maxWidth: 900, margin: "0 auto", minWidth: 0 }}>
+        {isMobile ? (
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button type="button" className={styles.btnSecondary} style={{ flex: "1 1 0", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }} aria-expanded={howOpen} onClick={() => setHowOpen((o) => !o)}>
+              How rules are judged
+              <ChevronIcon direction={howOpen ? "up" : "down"} size={12} />
+            </button>
+            {googleEmail && (
+              <button type="button" className={styles.btnPrimary} style={{ flex: "1 1 0", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => setCreating(true)}>
+                <PlusIcon size={14} />
+                New rule
+              </button>
+            )}
+          </div>
+        ) : (
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+              <h1 className={styles.h1}>Custom Rules</h1>
+              <p className={styles.sub}>Write your own recommendation rules in plain language. They run with the built-in ones on the ad accounts you choose, and yours win when they disagree.</p>
+              <button type="button" className={styles.btnSecondary} style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6 }} aria-expanded={howOpen} onClick={() => setHowOpen((o) => !o)}>
+                How rules are judged
+                <ChevronIcon direction={howOpen ? "up" : "down"} size={12} />
+              </button>
             </div>
+            {googleEmail && (
+              <button type="button" className={creating ? styles.btnSecondary : styles.btnPrimary} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setCreating((c) => !c)}>
+                {creating ? <CloseIcon size={13} /> : <PlusIcon size={14} />}
+                {creating ? "Close" : "New rule"}
+              </button>
+            )}
+          </div>
+        )}
+        {howOpen && (
+          <div className={styles.card}>
+            <ul className={styles.sub} style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+              <li>Only items optimised for purchases or purchase value are judged, and items still in Meta&apos;s learning phase are skipped.</li>
+              <li>Only items that spent in the last 7 days (up to yesterday) are checked, so paused or idle ones are left alone.</li>
+              <li>A budget change is not suggested for 48 hours after that budget was edited.</li>
+              <li>When one of your rules and a built-in rule both match an item, yours is shown.</li>
+              <li>Nothing is ever changed on Meta until you click apply.</li>
+            </ul>
+          </div>
+        )}
+
+        {status !== "loading" && !googleEmail ? (
+          <div className={styles.card}>
+            <p className={styles.sub} style={{ margin: 0 }}>Sign in with Google to write your own rules. They are saved to your Google account.</p>
+          </div>
+        ) : (
+          <>
+            {creating && !isMobile && (
+              <div className={styles.card} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {createForm}
+              </div>
+            )}
+            {isMobile && (
+              <BottomSheet open={creating} title="New rule" onClose={() => setCreating(false)}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingTop: 6 }}>{createForm}</div>
+              </BottomSheet>
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
