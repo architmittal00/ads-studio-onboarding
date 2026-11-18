@@ -75,6 +75,12 @@
     "pages/api/fb/entity-history.js": {
       "maxDuration": 60
     },
+    "pages/api/fb/custom-rules/translate.js": {
+      "maxDuration": 60
+    },
+    "pages/api/fb/custom-rules/test.js": {
+      "maxDuration": 120
+    },
     "pages/api/fb/rules/check.js": {
       "maxDuration": 120
     },

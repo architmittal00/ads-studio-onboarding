@@ -34,6 +34,19 @@ function readChoices(body) {
   return { fixed: { level: body.level, action: { type } } };
 }
 
+// What the person sees for each way the model call can fail (the raw provider message only goes to the server log).
+const FAILURE_TEXT = {
+  not_configured: "Reading rules isn't switched on yet: the translation key is missing on the server. Please tell the admin.",
+  auth: "The translation service refused our key. Please tell the admin.",
+  credits: "The translation service has run out of credit. Please tell the admin.",
+  model: "The translation model isn't available right now. Please tell the admin.",
+  timeout: "The translation service took too long. Try again in a moment.",
+  busy: "The translation service is busy. Try again in a minute.",
+  upstream: "The translation service had a hiccup. Try again in a moment.",
+  empty: "The translation service sent back an empty answer. Try again, or rephrase the conditions a little.",
+  other: "The translation service didn't answer. Try again in a moment.",
+};
+
 // POST /api/fb/custom-rules/translate { text, currency, level?, action? } -> { status: "ok" | "clarify" | "conflict" | "unsupported" | "error", ... }
 // `text` holds the conditions in plain language; `level` / `action` are the form's choices and are used exactly as chosen.
 // Turns it into a checked rule plus the plain-English sentence to confirm. Saves nothing.
@@ -48,7 +61,7 @@ export default async function handler(req, res) {
   try {
     return res.status(200).json(await translateRule({ text: req.body?.text, currency, symbol: currencySymbolOf(currency), fixed: choices.fixed }));
   } catch (err) {
-    console.error("custom-rules translate failed:", err?.message);
-    return res.status(502).json({ status: "error", message: "The translation service didn't answer. Try again in a moment." });
+    console.error("custom-rules translate failed:", err?.kind || "", err?.message);
+    return res.status(502).json({ status: "error", message: FAILURE_TEXT[err?.kind] || FAILURE_TEXT.other });
   }
 }

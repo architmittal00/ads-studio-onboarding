@@ -153,7 +153,7 @@ export async function translateRule({ text, currency, symbol, fixed = null }) {
   let followUp = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     const prompt = followUp ? `${user}\n\nYour previous reply was rejected: ${followUp.join(" ")} Reply again with a corrected JSON object.` : user;
-    const out = await chatJson({ system: SYSTEM_PROMPT, user: prompt, model: RULES_MODEL, temperature: 0, label: "custom-rule" });
+    const out = await chatJson({ system: SYSTEM_PROMPT, user: prompt, model: RULES_MODEL, temperature: 0, maxTokens: 4000, retries: 1, label: "custom-rule" });
     model = out.model;
     last = interpretReply(out.content, { symbol, fixed });
     if (last.kind !== "retry") break;
