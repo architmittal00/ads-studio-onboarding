@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
-import PinLock from "@/components/PinLock";
 import Loader from "@/components/Loader";
 import LabeledPill from "@/components/LabeledPill";
 import AccountSelect from "@/components/AccountSelect";
@@ -40,9 +39,7 @@ export default function CustomRules() {
       <Head>
         <title>Custom Rules · Facebook Auth Dashboard</title>
       </Head>
-      <PinLock label="Custom Rules">
-        <CustomRulesContent />
-      </PinLock>
+      <CustomRulesContent />
     </Layout>
   );
 }
