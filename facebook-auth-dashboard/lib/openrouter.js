@@ -135,8 +135,41 @@ export async function getInterestSuggestions({ promptContext }) {
 
 // A single JSON-returning chat call (used by the custom-rules translator). Temperature 0 by default so the same sentence
 // gives the same answer. Logged like every other call; the key only ever sits in the Authorization header.
-export async function chatJson({ system, user, model = DEFAULT_MODEL, temperature = 0, maxTokens = 1500, label = "chat" }) {
-  if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
+export async function chatJson({ system, user, model = DEFAULT_MODEL, temperature = 0, maxTokens = 1500, label = "chat", retries = 0 }) {
+  if (!process.env.OPENROUTER_API_KEY) throw openRouterError("not_configured", "OPENROUTER_API_KEY is not configured");
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 800));
+    try {
+      return await chatJsonOnce({ system, user, model, temperature, maxTokens, label });
+    } catch (err) {
+      lastErr = err;
+      // Only a hiccup is worth another go: a timeout, a rate limit, a server error or an empty answer.
+      if (!["timeout", "busy", "upstream", "empty"].includes(err.kind)) break;
+    }
+  }
+  throw lastErr;
+}
+
+// Errors carry a `kind` so the caller can tell the person what actually went wrong without leaking provider detail.
+function openRouterError(kind, message) {
+  const err = new Error(message);
+  err.kind = kind;
+  return err;
+}
+
+function kindOf(status, message) {
+  const text = String(message || "");
+  if (/abort|timeout|timed out/i.test(text)) return "timeout";
+  if (status === 401 || status === 403 || /invalid.*key|no auth|unauthorized/i.test(text)) return "auth";
+  if (status === 402 || /credit|insufficient|billing|quota/i.test(text)) return "credits";
+  if (status === 429 || /rate.?limit|too many/i.test(text)) return "busy";
+  if (status === 404 || /no endpoints|not a valid model|model.*not found/i.test(text)) return "model";
+  if (status >= 500 || /provider returned error|overloaded|unavailable/i.test(text)) return "upstream";
+  return "other";
+}
+
+async function chatJsonOnce({ system, user, model, temperature, maxTokens, label }) {
   const start = Date.now();
   let status = null;
   let json = null;
@@ -160,6 +193,7 @@ export async function chatJson({ system, user, model = DEFAULT_MODEL, temperatur
     status = res.status;
     json = await res.json();
     if (json?.error) errorMessage = json.error.message || JSON.stringify(json.error);
+    else if (!res.ok) errorMessage = `HTTP ${res.status}`;
   } catch (err) {
     errorMessage = err.message;
   }
@@ -172,9 +206,9 @@ export async function chatJson({ system, user, model = DEFAULT_MODEL, temperatur
     error: errorMessage,
     responsePreview: json ? JSON.stringify(json).slice(0, 1000) : null,
   });
-  if (errorMessage) throw new Error(`OpenRouter request failed: ${errorMessage}`);
+  if (errorMessage) throw openRouterError(kindOf(status, errorMessage), `OpenRouter request failed: ${errorMessage}`);
   const content = json?.choices?.[0]?.message?.content;
-  if (!content) throw new Error("OpenRouter returned no content");
+  if (!content) throw openRouterError("empty", `OpenRouter returned no content (finish: ${json?.choices?.[0]?.finish_reason || "unknown"})`);
   return { content, model: json.model || model };
 }
 
