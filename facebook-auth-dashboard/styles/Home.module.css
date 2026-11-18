@@ -3628,6 +3628,31 @@ button.stat:hover {
   flex-direction: column;
   gap: 2px;
 }
+.ruleChipRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 6px;
+}
+.ruleBtnRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ruleThenRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.ruleFormActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 /* Phone: the name takes its own line; action badge on the left, edit / switch / expand on the right, in every row. */
 @media (max-width: 768px) {
   .ruleItemTitle {
@@ -3636,6 +3661,67 @@ button.stat:hover {
   }
   .ruleItemBadge {
     margin-right: auto;
+  }
+  /* Create-rule sheet: full-width segmented choices, one scrolling row of examples, a full-width Continue. */
+  .ruleBtnRow > button {
+    flex: 1 1 0;
+  }
+  /* The All / Campaign / Ad set / Ad filter fits one line: equal widths, tighter padding. */
+  .ruleLevelTabs {
+    display: flex;
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+  .ruleLevelTabs .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 4px;
+    text-align: center;
+  }
+  .ruleLevelTabs .tabCount {
+    margin-left: 4px;
+    padding: 1px 5px;
+  }
+  .ruleThenRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ruleSeg {
+    display: flex;
+    width: 100%;
+  }
+  .ruleSeg .tab {
+    flex: 1 1 0;
+    text-align: center;
+    padding: 11px 8px;
+    font-size: 13px;
+  }
+  .ruleSegGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .ruleSegStack {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .ruleChipRow {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 8px -18px 0;
+    padding: 0 18px 4px;
+    scrollbar-width: none;
+  }
+  .ruleChipRow::-webkit-scrollbar {
+    display: none;
+  }
+  .ruleChipRow > * {
+    flex: none;
+    white-space: nowrap;
+  }
+  .ruleFormActions > .btnPrimary {
+    flex: 1 1 100%;
+    padding-top: 12px;
+    padding-bottom: 12px;
   }
 }
 .ruleItemBody {
