@@ -3628,6 +3628,16 @@ button.stat:hover {
   flex-direction: column;
   gap: 2px;
 }
+/* Phone: the name takes its own line; action badge on the left, edit / switch / expand on the right, in every row. */
+@media (max-width: 768px) {
+  .ruleItemTitle {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .ruleItemBadge {
+    margin-right: auto;
+  }
+}
 .ruleItemBody {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
