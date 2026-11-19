@@ -17,7 +17,7 @@ import { derive, emptyAgg } from "./metrics";
 // candidate's name has one; every other candidate uses the first set. A different language just loses its points.
 // Landing page, creative type and language are all "the share of the TARGET ad set's 14-day spend that goes to the
 // candidate's page / type / language, relative to the ad set's top one, cubed" — so the top one counts far more.
-// Language is read from the ad name: the text between ces…cee or les…lee (the last such pair), any token, digits dropped.
+// Language is read from the ad name: the text between lgs…lge (or les…lee) if it has that pair, else ces…cee (the last such pair), any token, digits dropped.
 // Creative type is one of Partnership / Catalog / Carousel / Video / Image (lib/adCreativeDetails.js deriveCreativeKind).
 
 export const MAX_PUSH_OPTIONS = 20;
@@ -32,15 +32,23 @@ const MIN_PURCHASES = 10;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const DAY_MS = 86400000;
 
-// The language in an ad's name: the text between ces…cee or les…lee (markers may carry digits, e.g. ces1…cee1), the
-// LAST such pair when there are several. Any token counts; trailing digits and symbols are dropped (malayalam1 →
-// malayalam). Returns lower case, or null.
+// The language in an ad's name: the text between lgs…lge (or les…lee) when the name has one, otherwise between ces…cee.
+// Markers may carry digits (lgs1…lge1), the LAST such pair wins when there are several, and any token counts; trailing
+// digits and symbols are dropped (malayalam1 → malayalam). A name with a language pair never falls back to ces…cee, so
+// the creative text sitting between those is not read as a language. Returns lower case, or null.
+const LANGUAGE_PAIR = /(?:^|[_\s-])(?:lgs|les)\d*[_\s-]+(.+?)[_\s-]+(?:lge|lee)\d*(?=[_\s-]|$)/gi;
+const CREATIVE_PAIR = /(?:^|[_\s-])ces\d*[_\s-]+(.+?)[_\s-]+cee\d*(?=[_\s-]|$)/gi;
 export function languageFromName(name) {
   if (!name) return null;
-  let last = null;
-  for (const m of String(name).matchAll(/(?:^|[_\s-])(?:ces|les)\d*[_\s-]+(.+?)[_\s-]+(?:cee|lee)\d*(?=[_\s-]|$)/gi)) last = m[1];
-  if (!last) return null;
-  const token = last.replace(/\d+$/, "").replace(/[^\p{L}]+/gu, " ").trim().toLowerCase();
+  const text = String(name);
+  const lastOf = (re) => {
+    let last = null;
+    for (const m of text.matchAll(re)) last = m[1];
+    return last;
+  };
+  const found = lastOf(LANGUAGE_PAIR) ?? lastOf(CREATIVE_PAIR);
+  if (!found) return null;
+  const token = found.replace(/\d+$/, "").replace(/[^\p{L}]+/gu, " ").trim().toLowerCase();
   // A language is one word: a multi-word or very long token (e.g. a creative title that happens to sit between the
   // markers) is not read as one.
   return token && !/\s/.test(token) && token.length <= 20 ? token : null;
