@@ -28,7 +28,7 @@ const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`
 // toolbar + search + sort sheet, rowCard head / metric grid / drill button): one card per flagged item with
 // its name, where it lives, spend / ROAS / purchases, then one action button. "Why was this flagged?"
 // opens inline. 30 at a time so 100+ flags stay light.
-export default function FlagCards({ flags, currencySymbol, accountRoas7, accountCpp7, holdBudget, applied, thumbs, onAct, onOpenThumb }) {
+export default function FlagCards({ flags, currencySymbol, accountRoas7, accountCpp7, holdBudget, applied, thumbs, onAct, onOpenThumb, onInvestigate }) {
   const [open, setOpen] = useState({});
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
@@ -167,6 +167,12 @@ export default function FlagCards({ flags, currencySymbol, accountRoas7, account
                   </div>
                 )}
 
+                {onInvestigate && (
+                  <button type="button" className={styles.cardDrillBtn} onClick={() => onInvestigate(f)}>
+                    Investigate
+                    <ChevronIcon direction="right" size={13} />
+                  </button>
+                )}
                 <button type="button" className={styles.cardDrillBtn} onClick={() => setOpen((o) => ({ ...o, [f.key]: !o[f.key] }))} aria-expanded={!!open[f.key]}>
                   {open[f.key] ? "Hide why" : "Why was this flagged?"}
                   <ChevronIcon direction={open[f.key] ? "up" : "down"} size={13} />

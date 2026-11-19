@@ -7,7 +7,7 @@ import { humanizeStatus } from "@/lib/insightsMetrics";
 import { useMonitor, monitorKey } from "@/lib/monitorStore";
 import styles from "@/styles/Home.module.css";
 
-const LEVEL_LABEL = { campaign: "Campaign", adset: "Ad Set" };
+const LEVEL_LABEL = { campaign: "Campaign", adset: "Ad Set", ad: "Ad" };
 
 const QUICK_DAYS = [
   { days: 1, label: "Yesterday" },

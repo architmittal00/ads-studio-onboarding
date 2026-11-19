@@ -128,7 +128,7 @@ function Context({ flag, symbol }) {
 // A pause suggestion for an ad that takes more than this share of its ad set's 7-day spend also offers new ads to push.
 export const DOMINANT_SHARE = 40;
 
-function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, accountId, tz, pausedAdIds, holdBudget, onAdsPushed }) {
+function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onToggle, onAct, onOpenThumb, onInvestigate, accountId, tz, pausedAdIds, holdBudget, onAdsPushed }) {
   const [open, setOpen] = useState(false);
   const monitor = useMonitor();
   const monitored = monitor.isMonitored(flag.entityType, flag.entityId);
@@ -234,6 +234,11 @@ function RecCard({ flag, section, bench, symbol, thumb, applied, selected, onTog
             </>
           ) : (
             <span className={styles.recActSub}>{flag.action === "ADD_CREATIVE" ? "Add one in Ads Manager" : flag.action === "NOTE" ? "Nothing to apply" : flag.budgetNote || "Change it in Ads Manager"}</span>
+          )}
+          {onInvestigate && (
+            <button type="button" className={styles.recWhyBtn} onClick={() => onInvestigate(flag)} title="See how this performed day by day, or before and after a date you pick">
+              Investigate
+            </button>
           )}
           {accountId && (
             <button type="button" className={styles.recWhyBtn} onClick={toggleMonitor} title={monitored ? "Remove from the Monitor list" : "Keep an eye on this without acting yet — it goes to the Monitor page"}>
@@ -349,7 +354,7 @@ export function RecSummary({ result, counts, flags, filter, setFilter, checkedTe
   );
 }
 
-export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb, accountId, tz, holdBudget, onAdsPushed }) {
+export default function RecBoard({ flags, filter, currencySymbol, baseline, applied, thumbs, selected, onToggle, onToggleAll, onAct, onOpenThumb, onInvestigate, accountId, tz, holdBudget, onAdsPushed }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState("spend7");
   const [expanded, setExpanded] = useState({}); // action -> shown beyond the first page
@@ -452,6 +457,7 @@ export default function RecBoard({ flags, filter, currencySymbol, baseline, appl
                   onToggle={() => onToggle(f.key)}
                   onAct={onAct}
                   onOpenThumb={onOpenThumb}
+                  onInvestigate={onInvestigate}
                   accountId={accountId}
                   tz={tz}
                   pausedAdIds={pausedAdIds}

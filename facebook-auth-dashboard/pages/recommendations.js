@@ -15,6 +15,7 @@ import BulkRuleActionModal from "@/components/rules/BulkRuleActionModal";
 import LabeledPill from "@/components/LabeledPill";
 import RuleActionModal from "@/components/rules/RuleActionModal";
 import CreativeLightbox from "@/components/CreativeLightbox";
+import EntityInvestigateDrawer from "@/components/EntityInvestigateDrawer";
 import RuleCheckProgress from "@/components/rules/RuleCheckProgress";
 import { RefreshIcon } from "@/components/icons";
 import { useAccounts } from "@/components/AccountProvider";
@@ -365,6 +366,13 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
     if (adsetIds.length > 0) prefetchPushData(selectedAccountId, tz, adsetIds);
   }, [result, selectedAccountId, tz, isMobile]);
 
+  // Any flagged campaign, ad set or ad can be investigated, in the same drawer as Custom Views and Monitor.
+  const [investigateEntity, setInvestigateEntity] = useState(null);
+  const investigate = useCallback(
+    (flag) => setInvestigateEntity({ level: flag.entityType, entityId: flag.entityId, entityName: flag.name, accountId: selectedAccountId, status: "ACTIVE", currency: result?.currency }),
+    [selectedAccountId, result?.currency]
+  );
+
   const visibleFlags = useMemo(() => (result?.flags || []).filter((f) => !(f.action === "ADD_CREATIVE" && hiddenAdsets.has(f.entityId))), [result, hiddenAdsets]);
   const counts = useMemo(() => {
     const c = { all: 0, INCREASE_BUDGET: 0, DECREASE_BUDGET: 0, PAUSE_AD: 0, ADD_CREATIVE: 0, NOTE: 0 };
@@ -508,6 +516,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
                 thumbs={thumbs}
                 onAct={setActing}
                 onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
+                onInvestigate={investigate}
               />
             ) : (
             <RecBoard
@@ -542,6 +551,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
                 })
               }
               onOpenThumb={(flag, t) => setLightboxItem({ id: flag.entityId, name: flag.name, thumbnailUrl: t?.thumbnailUrl, isVideo: t?.isVideo })}
+              onInvestigate={investigate}
             />
             )
           )}
@@ -600,6 +610,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
         </>
       )}
       <CreativeLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      <EntityInvestigateDrawer entity={investigateEntity} onClose={() => setInvestigateEntity(null)} currency={investigateEntity?.currency} />
       {bulk && (
         <BulkRuleActionModal
           action={bulk.action}
