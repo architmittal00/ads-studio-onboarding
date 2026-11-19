@@ -23,13 +23,21 @@ const VIEWS = [
 // Any moment inside a calendar day resolves to the same day on the server; noon UTC avoids every midnight edge.
 export const dayAnchorEventTime = (dateStr) => `${dateStr}T12:00:00.000Z`;
 
+const remembered = { view: "windows", keys: DEFAULT_COMPARISON_METRIC_KEYS };
+
 // Everything every Investigate screen shows below its own date control: the Before / After vs Day by day switch, the metric
 // picker, the entity's table, and the drill-down into the ad sets / ads inside it. Mount it with a key scoped to the
 // entity and day so a different one starts fresh.
 // entity: { level, entityId, entityName, accountId }; date: YYYY-MM-DD
 export default function InvestigateResults({ entity, date, currency, launchedAdIds, pausedAdIds }) {
-  const [view, setView] = useState("windows");
-  const [selectedKeys, setSelectedKeys] = useState(DEFAULT_COMPARISON_METRIC_KEYS);
+  // Remembered across dates, entities and screens: picking another date remounts this, and it shouldn't snap back to
+  // Before / After or drop the metrics the person chose.
+  const [view, setView] = useState(remembered.view);
+  const [selectedKeys, setSelectedKeys] = useState(remembered.keys);
+  useEffect(() => {
+    remembered.view = view;
+    remembered.keys = selectedKeys;
+  }, [view, selectedKeys]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
