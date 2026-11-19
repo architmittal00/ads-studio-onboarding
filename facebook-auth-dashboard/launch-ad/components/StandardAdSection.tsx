@@ -45,10 +45,12 @@ function pageWebsite(p?: Page): string {
 }
 
 /** Normal (non-catalog) ad: upload an image or video, or promote an existing Facebook / Instagram post. */
-export default function StandardAdSection({ form, setAd, accountId }: {
+export default function StandardAdSection({ form, setAd, accountId, openDrive = 0 }: {
   form: FormState;
   setAd: (p: Partial<FormState['ad']>) => void;
   accountId: string;
+  /** Changes each time the "From Google Drive" card is clicked: opens Drive's picker */
+  openDrive?: number;
 }) {
   const ad = form.ad;
   const pages = useAsync<Page[]>('pages', () => apiGet('pages'));
@@ -195,6 +197,14 @@ export default function StandardAdSection({ form, setAd, accountId }: {
     }
   };
 
+
+  // The "From Google Drive" card opens the picker as soon as it is chosen.
+  const openDriveRef = useRef(0);
+  useEffect(() => {
+    if (openDrive > openDriveRef.current && driveConfigured()) onDrive();
+    openDriveRef.current = openDrive;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDrive]);
 
   return (
     <div className="card">

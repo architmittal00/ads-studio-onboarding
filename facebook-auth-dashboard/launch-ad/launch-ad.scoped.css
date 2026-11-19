@@ -269,6 +269,7 @@
 .la-root .ws-head p { margin: 0; font-size: 13px; color: var(--la-ink-2); max-width: 640px; line-height: 1.5; }
 .la-root .ws-section { font-size: 14px; font-weight: 700; color: var(--la-ink); margin: 26px 0 10px; }
 .la-root .type-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.la-root .type-cards.four { grid-template-columns: repeat(4, 1fr); }
 .la-root .type-card { text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; border: 1px solid var(--la-card-line); background: var(--la-card); color: var(--la-ink); }
 .la-root .type-card:hover { border-color: var(--la-input-line); }
 .la-root .type-card.on { border-color: var(--la-coral); box-shadow: 0 0 0 2px var(--la-seg-on-line); background: var(--la-seg-on); }
@@ -300,11 +301,12 @@
 @media (max-width: 1180px) {
 .la-root .ws { grid-template-columns: minmax(0, 1fr) 340px; }
 .la-root .ws-step { min-width: 170px; }
+.la-root .type-cards.four { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 860px) {
 .la-root .ws { grid-template-columns: 1fr; }
 .la-root .ws-side { position: static; max-height: none; }
-.la-root .type-cards { grid-template-columns: 1fr; }
+.la-root .type-cards, .la-root .type-cards.four { grid-template-columns: 1fr; }
 }
 .la-root .content.wide { max-width: none; padding: 24px 32px 120px; }
 .la-root .page-top.compact { margin-bottom: 14px; align-items: center; }
