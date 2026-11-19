@@ -9,6 +9,10 @@ import { resolveGraphFields, deriveRowMetrics } from "@/lib/insightsMetrics";
 // VALID_LEVELS' original two entries.
 const VALID_LEVELS = ["campaign", "adset", "ad"];
 
+// The "Day by day" view's span around the investigated day.
+const DAILY_DAYS_BEFORE = 7;
+const DAILY_DAYS_AFTER = 7;
+
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -129,6 +133,29 @@ export default async function handler(req, res) {
 
   const token = session.accessToken;
   const fields = resolveGraphFields(metricKeys, [], level, customMetrics, customEvents).join(",");
+
+  if (req.query.mode === "daily") {
+    // One row per calendar day, a week either side of the investigated day (capped at today), for the same metric
+    // selection — the "Day by day" view next to the before/after windows below.
+    const changeDay = isoDate(new Date(eventTime));
+    const today = isoDate(new Date());
+    const since = addDaysUTC(changeDay, -DAILY_DAYS_BEFORE);
+    const afterEnd = addDaysUTC(changeDay, DAILY_DAYS_AFTER);
+    const until = afterEnd > today ? today : afterEnd;
+    try {
+      const result = await graphGetInsights(`/${objectId}/insights`, token, { time_range: { since, until }, time_increment: 1, fields: `${fields},date_start`, limit: 500 });
+      const byDay = new Map((result.data || []).map((row) => [row.date_start, row]));
+      const days = [];
+      for (let d = since; d <= until; d = addDaysUTC(d, 1)) {
+        // A day with no delivery has no row — a real zero, same convention as the windows.
+        days.push({ date: d, metrics: deriveRowMetrics(byDay.get(d) || {}, metricKeys, [], customMetrics, customEvents) });
+      }
+      return res.status(200).json({ days, changeDay, today, metricKeys });
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || "Request failed" });
+    }
+  }
+
   const windows = buildWindows(eventTime);
 
   const windowNames = Object.keys(windows).filter((name) => windows[name] !== null);

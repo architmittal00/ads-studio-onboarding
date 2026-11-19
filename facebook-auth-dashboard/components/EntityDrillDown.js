@@ -7,12 +7,14 @@ import EntityDetailDrawer from "./EntityDetailDrawer";
 import CopyIdButton from "./CopyIdButton";
 import { ChevronIcon } from "./icons";
 import WindowComparisonTable from "./WindowComparisonTable";
+import DailyBreakdownTable from "./DailyBreakdownTable";
 import { formatMetricValue, humanizeStatus } from "@/lib/insightsMetrics";
 import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
 import { parseJsonResponse, fetchWithTimeout, responseError } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
 
 const DRILLDOWN_CACHE_PREFIX = "recent-changes-drilldown-investigate:";
+const DRILLDOWN_DAILY_CACHE_PREFIX = "recent-changes-drilldown-investigate-daily:";
 // Keep in sync with lib/clientCache.js's KNOWN_CACHE_FAMILIES entry for this
 // same prefix — that registry is what a one-time sweep on app load enforces,
 // this is what keeps it bounded between sweeps within one long session.
@@ -151,12 +153,14 @@ async function fetchChildren({ accountId, level, idField, parentId, eventTime })
 // and vice versa). Cached client-side the same way, keyed by entity +
 // eventTime + the exact metric selection (sorted, so selection order
 // doesn't matter).
-async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customMetrics, customEvents }) {
+async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customMetrics, customEvents, view }) {
   const sortedKeys = [...metricKeys].sort();
-  const cacheKey = `${DRILLDOWN_CACHE_PREFIX}${entityId}:${eventTime}:${sortedKeys.join(",")}`;
+  const prefix = view === "daily" ? DRILLDOWN_DAILY_CACHE_PREFIX : DRILLDOWN_CACHE_PREFIX;
+  const cacheKey = `${prefix}${entityId}:${eventTime}:${sortedKeys.join(",")}`;
   const cached = getCachedEntry(cacheKey);
-  if (cached) return cached.data.windows;
+  if (cached) return cached.data;
   const params = new URLSearchParams({ objectId: entityId, level, eventTime, metricKeys: sortedKeys.join(",") });
+  if (view === "daily") params.set("mode", "daily");
   const selectedCustomMetrics = customMetrics
     .filter((cm) => sortedKeys.includes(cm.id))
     .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey }));
@@ -168,8 +172,8 @@ async function fetchRowWindows({ entityId, level, eventTime, metricKeys, customM
   const res = await fetchWithTimeout(`/api/fb/recent-changes/investigate?${params.toString()}`);
   const json = await parseJsonResponse(res);
   if (json.error) throw new Error(json.error);
-  setCachedEntry(cacheKey, json, { prefix: DRILLDOWN_CACHE_PREFIX, maxEntriesForPrefix: DRILLDOWN_CACHE_MAX_ENTRIES });
-  return json.windows;
+  setCachedEntry(cacheKey, json, { prefix, maxEntriesForPrefix: DRILLDOWN_CACHE_MAX_ENTRIES });
+  return json;
 }
 
 // A breadcrumb trail of "children of X" cards — the caller mounts this with
@@ -198,6 +202,7 @@ export default function EntityDrillDown({
   catalog,
   customMetrics,
   customEvents,
+  view = "windows",
   launchedAdIds = [],
   pausedAdIds = [],
 }) {
@@ -232,7 +237,7 @@ export default function EntityDrillDown({
               rowWindows: {
                 ...e.rowWindows,
                 ...Object.fromEntries(
-                  pending.filter((r) => !e.rowWindows[r.entityId]).map((r) => [r.entityId, { loading: true, error: null, windows: null }])
+                  pending.filter((r) => !e.rowWindows[r.entityId]).map((r) => [r.entityId, { loading: true, error: null, windows: null, days: null }])
                 ),
               },
             }
@@ -240,11 +245,11 @@ export default function EntityDrillDown({
       )
     );
     for (const row of pending) {
-      fetchRowWindows({ entityId: row.entityId, level, eventTime, metricKeys, customMetrics, customEvents })
-        .then((windows) => {
+      fetchRowWindows({ entityId: row.entityId, level, eventTime, metricKeys, customMetrics, customEvents, view })
+        .then(({ windows, days }) => {
           setStack((prev) =>
             prev.map((e, i) =>
-              i === prev.length - 1 ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: null, windows } } } : e
+              i === prev.length - 1 ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: null, windows, days } } } : e
             )
           );
         })
@@ -252,7 +257,7 @@ export default function EntityDrillDown({
           setStack((prev) =>
             prev.map((e, i) =>
               i === prev.length - 1
-                ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: err.message, windows: null } } }
+                ? { ...e, rowWindows: { ...e.rowWindows, [row.entityId]: { loading: false, error: err.message, windows: null, days: null } } }
                 : e
             )
           );
@@ -266,7 +271,8 @@ export default function EntityDrillDown({
   // every row's already-fetched comparison was computed for the old metric
   // set and needs to be thrown away and re-fetched for the currently
   // visible, non-collapsed rows under the new one.
-  const metricKeysSignature = [...metricKeys].sort().join(",");
+  // The before/after vs day-by-day switch invalidates them the same way.
+  const metricKeysSignature = `${[...metricKeys].sort().join(",")}|${view}`;
   const prevMetricKeysSignatureRef = useRef(metricKeysSignature);
   useEffect(() => {
     if (prevMetricKeysSignatureRef.current === metricKeysSignature) return;
@@ -551,9 +557,20 @@ export default function EntityDrillDown({
                   </div>
                   {isExpanded && metricKeys.length > 0 && (
                     <div>
-                      {rowWindowState?.loading && <Loader label="Loading before/after comparison…" />}
+                      {rowWindowState?.loading && <Loader label={view === "daily" ? "Loading daily numbers…" : "Loading before/after comparison…"} />}
                       {rowWindowState?.error && <div className={styles.error}>{rowWindowState.error}</div>}
-                      {rowWindowState && !rowWindowState.loading && !rowWindowState.error && (
+                      {rowWindowState && !rowWindowState.loading && !rowWindowState.error && view === "daily" && (
+                        <DailyBreakdownTable
+                          days={rowWindowState.days}
+                          changeDay={eventTime.slice(0, 10)}
+                          today={new Date().toISOString().slice(0, 10)}
+                          metricKeys={metricKeys}
+                          catalog={catalog}
+                          loading={false}
+                          currency={currency}
+                        />
+                      )}
+                      {rowWindowState && !rowWindowState.loading && !rowWindowState.error && view !== "daily" && (
                         <WindowComparisonTable
                           windows={rowWindowState.windows}
                           metricKeys={metricKeys}
