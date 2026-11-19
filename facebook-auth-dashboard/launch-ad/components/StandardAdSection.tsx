@@ -1,10 +1,11 @@
 'use client';
-import { ImagePlus, Play } from 'lucide-react';
+import { FolderOpen, ImagePlus, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost, apiPostBytes, errorText } from '@/launch-ad/lib/client-api';
 import { CTAS } from '@/launch-ad/lib/constants';
 import { useAiStatus } from '@/launch-ad/lib/ai-client';
 import { useAsync } from '@/launch-ad/lib/hooks';
+import { driveConfigured, pickFromDrive } from '@/launch-ad/lib/google-drive';
 import type { FormState, PostMedia } from '@/launch-ad/lib/types';
 import { startProxy } from '@/launch-ad/lib/video-proxy';
 import AiCopy from './AiCopy';
@@ -157,6 +158,24 @@ export default function StandardAdSection({ form, setAd, accountId }: {
     }
   };
 
+  // Picks a file from Google Drive and sends it through the same checks and upload as a file from the computer.
+  const [drivePct, setDrivePct] = useState<number | null>(null);
+  const onDrive = async () => {
+    setUploadError('');
+    setDrivePct(0);
+    try {
+      const file = await pickFromDrive('image/jpeg,image/png,video/mp4,video/quicktime', (d) => {
+        if (/^video\//.test(d.mimeType)) return d.sizeBytes > MAX_VIDEO ? 'Video must be under 1 GB.' : null;
+        return d.sizeBytes > MAX_BYTES ? 'Image must be under 3 MB.' : null;
+      }, setDrivePct);
+      setDrivePct(null);
+      await onFile(file || undefined);
+    } catch (e) {
+      setDrivePct(null);
+      setUploadError(errorText(e));
+    }
+  };
+
   const onFile = async (file?: File) => {
     if (!file) return;
     setUploadError('');
@@ -219,6 +238,14 @@ export default function StandardAdSection({ form, setAd, accountId }: {
                   : 'Choose an image or video'}
               </span>
             </label>
+            {driveConfigured() ? (
+              <div style={{ marginTop: 8 }}>
+                <button type="button" className="btn-ghost" onClick={onDrive} disabled={drivePct !== null || uploading || ad.videoStatus === 'uploading'}>
+                  <FolderOpen size={14} strokeWidth={1.8} />
+                  {drivePct !== null ? `Fetching from Google Drive… ${Math.round(drivePct * 100)}%` : 'Choose from Google Drive'}
+                </button>
+              </div>
+            ) : null}
             {ad.videoStatus === 'uploading' ? <div className="progress" aria-label="Upload progress"><i style={{ width: `${Math.round(progress * 100)}%` }} /></div> : null}
             {ad.videoStatus === 'processing' ? (
               <div className="hint">

@@ -93,3 +93,15 @@ Note: `pages_show_list` and `ads_read` require App Review / Advanced Access for 
 ## Deploy
 
 This project is deployed via Vercel, connected to this GitHub repo/branch. Pushing to the branch triggers a new deployment automatically.
+
+## Google Drive upload (Launch Ad)
+
+On Launch Ad → Upload, **Choose from Google Drive** lets someone pick an image or video from their Drive instead of their computer. It all happens in the browser (`launch-ad/lib/google-drive.ts`): Google's sign-in popup asks for access to only the file they pick (`drive.file`), the Google Picker shows their Drive, the file is downloaded with that short-lived token, and it then goes through the same checks and Meta upload as a computer file (JPG/PNG under 3 MB, MP4/MOV up to 1 GB). Nothing is stored; the token is never sent to this app's server.
+
+Setup (Google Cloud project that already holds the sign-in client):
+1. Enable the **Google Picker API** and **Google Drive API**.
+2. On the OAuth client, add this site's origin (e.g. `https://ads-studio-onboarding.vercel.app`, `http://localhost:3000`) under **Authorized JavaScript origins**.
+3. Create an **API key**, restricted to the Picker API and this site's origin.
+4. Set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (the same client id as `GOOGLE_CLIENT_ID`), `NEXT_PUBLIC_GOOGLE_API_KEY`, and optionally `NEXT_PUBLIC_GOOGLE_APP_ID` (the project number) in Vercel, then redeploy (they are baked in at build time).
+
+Without the first two the button is simply not shown.
