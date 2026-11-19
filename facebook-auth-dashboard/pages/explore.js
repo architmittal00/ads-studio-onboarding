@@ -460,11 +460,16 @@ function buildQuerySpecFromView(view, customMetrics, adAccounts) {
     // this feature produces the exact same cache key / request body as
     // before it existed, same reasoning as previousSince/previousUntil below.
     // Omitted when off so existing views keep their cache key.
-    includeZeroSpend: view.includeZeroSpend ? true : undefined,
+    // Not offered with date grouping, so a totals-only query for one must not start listing zero-spend entities.
+    includeZeroSpend: view.includeZeroSpend && !isLazyDatesView(view) ? true : undefined,
     idFilter: view.idFilter?.value?.trim() ? { field: view.idFilter.field, value: view.idFilter.value.trim() } : undefined,
     since: range?.since,
     until: range?.until,
-    timeIncrement: view.timeIncrement || null,
+    // Daily / weekly / monthly grouping on campaigns, ad sets or ads is shown as one row per entity with the dates folded
+    // underneath (see `timePivotEnabled`), so the query asks only for the per-entity totals; one entity's dates are fetched
+    // when it is opened. The chart needs every date up front, so it (and a CSV/Excel export) asks for them all.
+    timeIncrement: isLazyDatesView(view) ? null : view.timeIncrement || null,
+    lazyDates: isLazyDatesView(view) ? view.timeIncrement : undefined,
     compareToPrevious: view.timeIncrement ? false : view.compareToPrevious,
     // Omitted (not `null`) when there's no custom start date, so
     // JSON.stringify drops the keys entirely — a view that's never touched
@@ -474,6 +479,17 @@ function buildQuerySpecFromView(view, customMetrics, adAccounts) {
     previousSince: customPrevious?.since,
     previousUntil: customPrevious?.until,
   };
+}
+
+function isLazyDatesView(view) {
+  return !!view.timeIncrement && view.breakdownGroup === "none" && view.level !== "account" && view.viewMode !== "chart";
+}
+
+// A query's result as the table wants it: when only the totals were asked for, the date grouping is still recorded on the
+// result so the table folds each entity's dates underneath it and loads them on open.
+function withLazyDatesMeta(json, spec) {
+  if (!spec.lazyDates) return json;
+  return { ...json, meta: { ...json.meta, timeIncrement: spec.lazyDates, lazyDates: true } };
 }
 
 function isViewRunnable(view, catalog, adAccounts) {
@@ -1360,7 +1376,8 @@ export default function Explore() {
       if (startedAt == null) startedAt = Date.now();
       if (Date.now() - startedAt >= CONTEXTUAL_LOADER_DELAY_MS) updateView(view.id, { progressMessage: message });
     })
-      .then((json) => {
+      .then((raw) => {
+        const json = withLazyDatesMeta(raw, spec);
         updateView(view.id, {
           result: json,
           resultFetchedAt: Date.now(),
@@ -1747,6 +1764,12 @@ export default function Explore() {
     }));
   }, [result, filteredRows, adAccounts]);
 
+  // The chart plots every date, so a date-grouped result that only holds per-entity totals is re-run with all of them.
+  function switchViewMode(mode) {
+    updateActive({ viewMode: mode });
+    if (mode === "chart" && result?.meta.lazyDates) runQueryForView({ ...activeView, viewMode: "chart" }, false);
+  }
+
   // The download name: view title, then the date range.
   function exportFileBase() {
     const viewIndex = views.findIndex((v) => v.id === activeView.id);
@@ -1757,20 +1780,39 @@ export default function Explore() {
     return `explore-${slug || "report"}-${result.meta.since}-to-${result.meta.until}`;
   }
 
-  function handleExportCsv() {
+  // What an export contains. A date-grouped result that only holds per-entity totals so far (see `isLazyDatesView`) fetches
+  // every date row first, so the file has the same rows it always did.
+  async function loadExportData() {
+    if (!result.meta.lazyDates) return { rows: filteredRows, meta: result.meta };
+    const spec = buildQuerySpecFromView({ ...activeView, viewMode: "chart" }, customMetrics, adAccounts);
+    const full = await fetchExploreInsights(spec);
+    return { rows: applyResultFilters(full.rows, activeView.resultFilters, full.meta.metricKeys, !!full.meta.statusAvailable, null), meta: full.meta };
+  }
+
+  async function handleExportCsv() {
     if (!result) return;
-    track("explore_export_csv", { row_count: filteredRows.length });
-    const csv = toCsvString(buildCsvTable(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog));
-    downloadCsv(`${exportFileBase()}.csv`, csv);
+    try {
+      const data = await loadExportData();
+      track("explore_export_csv", { row_count: data.rows.length });
+      const csv = toCsvString(buildCsvTable(data.rows, data.meta, adAccounts, currencyByAccountId, effectiveCatalog));
+      downloadCsv(`${exportFileBase()}.csv`, csv);
+    } catch (err) {
+      updateActive({ error: err.message });
+    }
   }
 
   // Excel keeps what a CSV cannot: numbers as numbers with their formats, and the colour scales set on the table.
-  function handleExportXlsx() {
+  async function handleExportXlsx() {
     if (!result) return;
-    const scales = activeView.tableColorScales || {};
-    track("explore_export_xlsx", { row_count: filteredRows.length, color_scales: Object.keys(scales).length });
-    const sheet = buildXlsxSheet(filteredRows, result.meta, adAccounts, currencyByAccountId, effectiveCatalog, scales);
-    downloadXlsx(`${exportFileBase()}.xlsx`, buildXlsx({ sheetName: "Custom Views", ...sheet }));
+    try {
+      const data = await loadExportData();
+      const scales = activeView.tableColorScales || {};
+      track("explore_export_xlsx", { row_count: data.rows.length, color_scales: Object.keys(scales).length });
+      const sheet = buildXlsxSheet(data.rows, data.meta, adAccounts, currencyByAccountId, effectiveCatalog, scales);
+      downloadXlsx(`${exportFileBase()}.xlsx`, buildXlsx({ sheetName: "Custom Views", ...sheet }));
+    } catch (err) {
+      updateActive({ error: err.message });
+    }
   }
 
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
@@ -2052,13 +2094,13 @@ export default function Explore() {
           <div className={styles.tabGroup}>
             <button
               className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-              onClick={() => updateActive({ viewMode: "table" })}
+              onClick={() => switchViewMode("table")}
             >
               List
             </button>
             <button
               className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-              onClick={() => updateActive({ viewMode: "chart" })}
+              onClick={() => switchViewMode("chart")}
             >
               Chart
             </button>
@@ -2299,13 +2341,13 @@ export default function Explore() {
               <div className={styles.tabGroup}>
                 <button
                   className={activeView.viewMode === "table" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => updateActive({ viewMode: "table" })}
+                  onClick={() => switchViewMode("table")}
                 >
                   Table
                 </button>
                 <button
                   className={activeView.viewMode === "chart" ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-                  onClick={() => updateActive({ viewMode: "chart" })}
+                  onClick={() => switchViewMode("chart")}
                 >
                   Chart
                 </button>
@@ -2483,6 +2525,8 @@ export default function Explore() {
               tableColorScales={activeView.tableColorScales}
               onTableViewChange={updateActive}
             />
+          ) : result.meta.lazyDates ? (
+            <Loader label="Loading every date for the chart…" />
           ) : activeView.chartMetricKey ? (
             <ExploreChart
               rows={chartRows}
@@ -3607,13 +3651,22 @@ function ExploreResultsTable({
   // row already IS one date with nothing above it to pivot into).
   const timePivotEnabled = !!meta.timeIncrement && meta.breakdownGroup === "none" && meta.level !== "account";
   const [pivotOpenIds, setPivotOpenIds] = useState(() => new Set());
+  // When the query asked only for per-entity totals (`meta.lazyDates`), an entity's date rows are fetched the first time it is
+  // opened: `{ [queryKey:entityId]: { status: "loading" | "loaded" | "error", rows, error } }`. The query is part of the key,
+  // so another range or metric set never shows an earlier query's dates.
+  const lazyDates = !!meta.lazyDates;
+  const [dateRowsState, setDateRowsState] = useState({});
+  const dateQueryKey = [meta.level, meta.since, meta.until, meta.timeIncrement, [...meta.metricKeys].sort().join(","), meta.includeZeroSpendRequested ? 1 : 0].join("|");
+  const dateStateKey = (entityId) => `${dateQueryKey}:${entityId}`;
   function togglePivotOpen(entityId) {
+    const opening = !pivotOpenIds.has(entityId);
     setPivotOpenIds((prev) => {
       const next = new Set(prev);
       if (next.has(entityId)) next.delete(entityId);
       else next.add(entityId);
       return next;
     });
+    if (opening && lazyDates && dateRowsState[dateStateKey(entityId)]?.status !== "loaded") loadDateRows(entityId);
   }
 
   // Mirrors SortableTable's own (otherwise fully internal) sort/search state
@@ -3705,6 +3758,30 @@ function ExploreResultsTable({
       .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
   }, [meta.metricKeys, meta.accountIds]);
 
+  function loadDateRows(entityId) {
+    const row = rows.find((r) => r.entityId === entityId);
+    const field = ID_FILTER_FIELDS.find((f) => f.level === meta.level)?.field;
+    if (!row || !field) return;
+    const key = dateStateKey(entityId);
+    setDateRowsState((prev) => ({ ...prev, [key]: { status: "loading", rows: [], error: null } }));
+    fetchExploreInsights({
+      accountIds: [row.accountId],
+      level: meta.level,
+      breakdownGroup: "none",
+      metricKeys: meta.metricKeys,
+      customMetrics: childMetricDefs,
+      customEvents: childCustomEvents,
+      idFilter: { field, value: entityId },
+      includeZeroSpend: meta.includeZeroSpendRequested ? true : undefined,
+      since: meta.since,
+      until: meta.until,
+      timeIncrement: meta.timeIncrement,
+      compareToPrevious: false,
+    })
+      .then((json) => setDateRowsState((prev) => ({ ...prev, [key]: { status: "loaded", rows: json.rows || [], error: null } })))
+      .catch((err) => setDateRowsState((prev) => ({ ...prev, [key]: { status: "error", rows: [], error: err.message } })));
+  }
+
   // `pivotParentRows` (one aggregated row per entity) comes straight from
   // the backend's own `meta.pivotRows` — computed server-side via the same
   // `aggregateRowMetrics` the Total row uses, which needs Facebook's raw
@@ -3720,17 +3797,27 @@ function ExploreResultsTable({
   const pivotChildrenByEntity = useMemo(() => {
     if (!timePivotEnabled) return null;
     const byEntity = new Map();
+    if (lazyDates) {
+      for (const [key, state] of Object.entries(dateRowsState)) {
+        if (state.status !== "loaded" || !key.startsWith(`${dateQueryKey}:`)) continue;
+        byEntity.set(key.slice(dateQueryKey.length + 1), state.rows);
+      }
+      return byEntity;
+    }
     for (const row of rows) {
       if (!row.entityId) continue;
       if (!byEntity.has(row.entityId)) byEntity.set(row.entityId, []);
       byEntity.get(row.entityId).push(row);
     }
     return byEntity;
-  }, [timePivotEnabled, rows]);
+  }, [timePivotEnabled, rows, lazyDates, dateRowsState, dateQueryKey]);
   // The parents come from the server unfiltered, while the date rows (`rows`) already obey the result filters (status, needs
   // attention, metric conditions). With a filter on, only parents that still have a date row are listed; otherwise every
   // parent whose dates were filtered away showed an empty "No dates match the current filters." line.
-  const pivotParentRows = timePivotEnabled
+  // With only totals fetched, `rows` already is one filtered row per entity.
+  const pivotParentRows = timePivotEnabled && lazyDates
+    ? rows
+    : timePivotEnabled
     ? (meta.pivotRows || []).filter((p) => rows.length === meta.rowCount || pivotChildrenByEntity?.has(p.entityId))
     : null;
 
@@ -4333,6 +4420,32 @@ function ExploreResultsTable({
   function renderRowExtra(row) {
     if (timePivotEnabled) {
       if (!row.entityId || !pivotOpenIds.has(row.entityId)) return null;
+      const dateState = lazyDates ? dateRowsState[dateStateKey(row.entityId)] : null;
+      if (lazyDates && (!dateState || dateState.status === "loading")) {
+        return (
+          <tr key={`${row.entityId}-pivot-loading`}>
+            <td colSpan={columns.length}>
+              <span style={{ paddingLeft: 20 }}>
+                <Loader inline /> <span className={styles.muted}>Loading daily numbers…</span>
+              </span>
+            </td>
+          </tr>
+        );
+      }
+      if (dateState?.status === "error") {
+        return (
+          <tr key={`${row.entityId}-pivot-error`}>
+            <td colSpan={columns.length}>
+              <span className={styles.error} style={{ marginLeft: 20 }}>
+                {dateState.error}
+              </span>{" "}
+              <button type="button" className={styles.btnSecondary} style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => loadDateRows(row.entityId)}>
+                Retry
+              </button>
+            </td>
+          </tr>
+        );
+      }
       const dateRows = pivotChildrenByEntity.get(row.entityId) || [];
       const ordered = applyChildRowOrdering(dateRows);
       if (ordered.length === 0) {
@@ -4472,6 +4585,8 @@ function ExploreResultsTable({
             onTopApplied: onActionApplied,
             pivotOpenIds,
             pivotChildren: pivotChildrenByEntity || new Map(),
+            pivotStatus: (id) => (lazyDates ? dateRowsState[dateStateKey(id)] || { status: "loading" } : null),
+            onRetryPivot: loadDateRows,
             onTogglePivot: togglePivotOpen,
             pivotDateLabel: (iso) => formatPivotDateLabel(iso, meta.timeIncrement),
           }}

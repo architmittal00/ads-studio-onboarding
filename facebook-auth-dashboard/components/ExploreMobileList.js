@@ -282,6 +282,15 @@ export default function ExploreMobileList({
         </div>
         {open && (
           <div className={styles.cardChildWrap}>
+            {drill.pivotStatus?.(id)?.status === "loading" && <Loader label="Loading daily numbers…" />}
+            {drill.pivotStatus?.(id)?.status === "error" && (
+              <div className={styles.error}>
+                {drill.pivotStatus(id).error}{" "}
+                <button type="button" className={styles.btnSecondary} onClick={() => drill.onRetryPivot(id)}>
+                  Retry
+                </button>
+              </div>
+            )}
             {drill.orderChildren(drill.pivotChildren.get(id) || []).map((d) => (
               <div key={d.date} className={styles.rowCard}>
                 <div className={styles.rowCardTitle} style={{ marginBottom: 8 }}>
