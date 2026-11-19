@@ -41,8 +41,8 @@ const BUDGET_PRESETS = [-50, -20, -10, 10, 20, 50];
 //    row can always use.
 function determineActions(row, level, canInvestigate, canShowHistory, monitor) {
   const actions = [{ key: "details", kind: "details", label: "View Details" }];
-  // Campaigns and ad sets only (what the investigation compares), and only where the screen can open it.
-  if (canInvestigate && (level === "campaign" || level === "adset")) actions.push({ key: "investigate", kind: "investigate", label: "Investigate" });
+  // Campaigns, ad sets and ads, and only where the screen can open it.
+  if (canInvestigate && (level === "campaign" || level === "adset" || level === "ad")) actions.push({ key: "investigate", kind: "investigate", label: "Investigate" });
   // Add to / remove from the Monitor watchlist (the screen passes `monitor` = { isMonitored, onToggle }).
   if (monitor && (level === "campaign" || level === "adset" || level === "ad")) actions.push({ key: "monitor", kind: "monitor", label: monitor.isMonitored ? "Remove from monitor" : "Add to monitor" });
   // Last 72 hours of changes to this campaign / ad set / ad and what is below it.
