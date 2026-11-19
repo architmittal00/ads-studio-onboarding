@@ -9,9 +9,8 @@ import { resolveGraphFields, deriveRowMetrics } from "@/lib/insightsMetrics";
 // VALID_LEVELS' original two entries.
 const VALID_LEVELS = ["campaign", "adset", "ad"];
 
-// The "Day by day" view's span around the investigated day.
-const DAILY_DAYS_BEFORE = 7;
-const DAILY_DAYS_AFTER = 7;
+// The "Day by day" view starts on the investigated day and runs through today, capped at this many days after it.
+const DAILY_DAYS_AFTER = 30;
 
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
@@ -135,11 +134,11 @@ export default async function handler(req, res) {
   const fields = resolveGraphFields(metricKeys, [], level, customMetrics, customEvents).join(",");
 
   if (req.query.mode === "daily") {
-    // One row per calendar day, a week either side of the investigated day (capped at today), for the same metric
+    // One row per calendar day from the investigated day onward (through today, capped), for the same metric
     // selection — the "Day by day" view next to the before/after windows below.
     const changeDay = isoDate(new Date(eventTime));
     const today = isoDate(new Date());
-    const since = addDaysUTC(changeDay, -DAILY_DAYS_BEFORE);
+    const since = changeDay;
     const afterEnd = addDaysUTC(changeDay, DAILY_DAYS_AFTER);
     const until = afterEnd > today ? today : afterEnd;
     try {
