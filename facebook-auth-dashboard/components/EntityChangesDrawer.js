@@ -1,24 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import EntityDrillDown from "./EntityDrillDown";
-import WindowComparisonTable, { DEFAULT_COMPARISON_METRIC_KEYS } from "./WindowComparisonTable";
+import { useEffect, useState } from "react";
+import InvestigateResults from "./InvestigateResults";
 import Thumb from "./Thumb";
 import CreativeLightbox from "./CreativeLightbox";
 import CopyIdButton from "./CopyIdButton";
 import { CloseIcon, ChevronIcon } from "./icons";
-import { buildEffectiveCatalog, humanizeStatus } from "@/lib/insightsMetrics";
+import { humanizeStatus } from "@/lib/insightsMetrics";
 import { describeChangeDetail } from "@/lib/activityChangeDetail";
-import { getCachedEntry, setCachedEntry } from "@/lib/clientCache";
-import { getCustomMetrics } from "@/lib/clientStorage";
-import { fetchCustomEvents } from "@/lib/customEvents";
-import { parseJsonResponse } from "@/lib/fetchJson";
 import styles from "@/styles/Home.module.css";
-
-// Calls /api/fb/recent-changes/investigate, anchored at a day (see
-// dayAnchorEventTime below) rather than one change's own precise timestamp.
-const CACHE_PREFIX = "recent-changes-investigate:";
-const CACHE_MAX_ENTRIES = 40;
-
-const DEFAULT_METRIC_KEYS = DEFAULT_COMPARISON_METRIC_KEYS;
 
 const LEVEL_LABEL = { campaign: "Campaign", adset: "Ad Set" };
 
@@ -46,15 +34,6 @@ const AD_LEVEL_ACTIONS = new Set(["ad_launched", "ad_paused"]);
 
 function isoDateOf(iso) {
   return iso ? iso.slice(0, 10) : null;
-}
-
-// Any timestamp within a given calendar day resolves to the same
-// "changeDay" in /api/fb/recent-changes/investigate.js's own buildWindows()
-// (it truncates via isoDate()) — constructing a clean noon-UTC anchor here
-// (rather than reusing one specific change's real timestamp) sidesteps any
-// near-midnight edge case entirely.
-function dayAnchorEventTime(dateStr) {
-  return `${dateStr}T12:00:00.000Z`;
 }
 
 // Groups one entity's full change list (already fetched, see
@@ -207,29 +186,6 @@ function DayChangesList({ changes, thumbnails, onOpenThumb }) {
 // anchored at that whole day rather than one precise change time.
 export default function EntityChangesDrawer({ entity, onClose, currency }) {
   const [investigatingDay, setInvestigatingDay] = useState(null);
-  const [selectedKeys, setSelectedKeys] = useState(DEFAULT_METRIC_KEYS);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const [customMetrics] = useState(() => getCustomMetrics());
-  const [customEvents, setCustomEvents] = useState([]);
-  useEffect(() => {
-    if (!entity?.accountId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing stale events from a previously-opened entity's account, not derivable from props/state
-      setCustomEvents([]);
-      return;
-    }
-    let cancelled = false;
-    fetchCustomEvents([entity.accountId]).then((events) => {
-      if (!cancelled) setCustomEvents(events);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [entity?.accountId]);
-  const effectiveCatalog = useMemo(() => buildEffectiveCatalog(customMetrics, customEvents), [customMetrics, customEvents]);
-
   // Thumbnails for every ad-level change's own ad, fetched once per entity —
   // same /api/fb/ad-thumbnails endpoint components/EntityDrillDown.js and
   // pages/explore.js both already use. Keyed by level+id (not the whole
@@ -299,59 +255,7 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
     setInvestigatingDay(null);
   }, [entity?.level, entity?.entityId]);
 
-  useEffect(() => {
-    // `entity` can go null (the drawer closing) in the same render where
-    // `investigatingDay` is still the old truthy value from before the
-    // sibling reset effect above clears it — that reset is itself only
-    // scheduled, not yet applied, when this effect runs in the same commit,
-    // so both conditions need checking here independently.
-    if (!investigatingDay || !entity) return;
-    const eventTime = dayAnchorEventTime(investigatingDay.date);
-    const sortedKeys = [...selectedKeys].sort();
-    const cacheKey = `${CACHE_PREFIX}${entity.entityId}:${eventTime}:${sortedKeys.join(",")}`;
-    const cached = getCachedEntry(cacheKey);
-    if (cached) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- a cache hit resolving synchronously is still a genuine reaction to investigatingDay/selectedKeys changing, not derivable from render
-      setData(cached.data);
-      setError(null);
-      return;
-    }
-    setData(null);
-    setLoading(true);
-    setError(null);
-    const params = new URLSearchParams({
-      objectId: entity.entityId,
-      level: entity.level,
-      eventTime,
-      metricKeys: sortedKeys.join(","),
-    });
-    const selectedCustomMetrics = customMetrics
-      .filter((cm) => sortedKeys.includes(cm.id))
-      .map((cm) => ({ id: cm.id, numeratorKey: cm.numeratorKey, denominatorKey: cm.denominatorKey }));
-    if (selectedCustomMetrics.length > 0) params.set("customMetrics", JSON.stringify(selectedCustomMetrics));
-    const selectedCustomEvents = customEvents
-      .filter((ce) => sortedKeys.includes(ce.id))
-      .map((ce) => ({ id: ce.id, accountId: ce.accountId, actionType: ce.actionType }));
-    if (selectedCustomEvents.length > 0) params.set("customEvents", JSON.stringify(selectedCustomEvents));
-    fetch(`/api/fb/recent-changes/investigate?${params.toString()}`)
-      .then(parseJsonResponse)
-      .then((json) => {
-        if (json.error) {
-          setError(json.error);
-          return;
-        }
-        setData(json);
-        setCachedEntry(cacheKey, json, { prefix: CACHE_PREFIX, maxEntriesForPrefix: CACHE_MAX_ENTRIES });
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [investigatingDay, entity, selectedKeys, customMetrics, customEvents]);
-
   if (!entity) return null;
-
-  function toggleMetric(key) {
-    setSelectedKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-  }
 
   const levelLabel = LEVEL_LABEL[entity.level] || "Entity";
   const dayGroups = groupByDay(entity.changes);
@@ -434,69 +338,11 @@ export default function EntityChangesDrawer({ entity, onClose, currency }) {
                 <DayChangesList changes={investigatingDay.changes} thumbnails={thumbnails} onOpenThumb={openAdLightbox} />
               </div>
 
-              <div style={{ marginTop: 24 }}>
-                <p className={styles.muted} style={{ marginBottom: 6 }}>
-                  Metrics
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {effectiveCatalog.map((m) => {
-                    const selected = selectedKeys.includes(m.key);
-                    return (
-                      <button
-                        key={m.key}
-                        type="button"
-                        onClick={() => toggleMetric(m.key)}
-                        className={selected ? styles.badgeInfo : styles.pill}
-                        style={{
-                          cursor: "pointer",
-                          background: selected ? undefined : "transparent",
-                          border: selected ? undefined : "1px dashed var(--border)",
-                          color: selected ? undefined : "var(--t2)",
-                        }}
-                      >
-                        {m.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {error && (
-                <div className={styles.error} style={{ marginTop: 16 }}>
-                  {error}
-                </div>
-              )}
-
-              {selectedKeys.length === 0 && (
-                <p className={styles.sub} style={{ marginTop: 16 }}>
-                  Pick at least one metric above.
-                </p>
-              )}
-
-              {!error && selectedKeys.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <WindowComparisonTable
-                    windows={data?.windows}
-                    metricKeys={selectedKeys}
-                    catalog={effectiveCatalog}
-                    loading={loading}
-                    currency={currency}
-                  />
-                </div>
-              )}
-
-              <EntityDrillDown
+              <InvestigateResults
                 key={`${entity.entityId}:${investigatingDay.date}`}
-                accountId={entity.accountId}
+                entity={entity}
+                date={investigatingDay.date}
                 currency={currency}
-                parentLevel={entity.level}
-                parentObjectId={entity.entityId}
-                parentLabel={entity.entityName || entity.entityId}
-                eventTime={dayAnchorEventTime(investigatingDay.date)}
-                metricKeys={selectedKeys}
-                catalog={effectiveCatalog}
-                customMetrics={customMetrics}
-                customEvents={customEvents}
                 launchedAdIds={launchedAdIds}
                 pausedAdIds={pausedAdIds}
               />

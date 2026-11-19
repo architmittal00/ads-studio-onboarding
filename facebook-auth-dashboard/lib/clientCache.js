@@ -141,6 +141,8 @@ const KNOWN_CACHE_FAMILIES = [
   { prefix: "explore-custom-conversions:", maxEntries: 20 },
   { prefix: "recent-changes-investigate:", maxEntries: 40 },
   { prefix: "recent-changes-drilldown-investigate:", maxEntries: 40 },
+  { prefix: "recent-changes-investigate-daily:", maxEntries: 40 },
+  { prefix: "recent-changes-drilldown-investigate-daily:", maxEntries: 40 },
   { prefix: "new-recent-changes:", maxEntries: 50 },
   { prefix: "recent-changes-v2:", maxEntries: 50 },
   { prefix: "partnership-perf:", maxEntries: 20 },
