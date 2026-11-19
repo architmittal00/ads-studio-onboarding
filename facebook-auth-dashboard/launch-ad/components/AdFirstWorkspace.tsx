@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ArrowRight, Check, Eye, ImageIcon, LayoutGrid, Newspaper } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Eye, FolderOpen, ImageIcon, LayoutGrid, Newspaper } from 'lucide-react';
 import BottomSheetJs from '@/components/BottomSheet';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -7,6 +7,7 @@ import { apiGet } from '@/launch-ad/lib/client-api';
 import { CATALOG_AD_TEXT, buildContext, validateAd } from '@/launch-ad/lib/form';
 import { currencySymbol, goalsFor, objectiveLabel } from '@/launch-ad/lib/constants';
 import { useAsync } from '@/launch-ad/lib/hooks';
+import { driveConfigured } from '@/launch-ad/lib/google-drive';
 import type { AdAccount, FormState, LaunchResult, Mode } from '@/launch-ad/lib/types';
 import AdPreview from './AdPreview';
 import AdSection from './AdSection';
@@ -52,6 +53,9 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
   const [step, setStep] = useState<Step>(repeatOf ? 'DEST' : 'AD');
   // An ad that arrives with content (repeat, or kept across an ad account switch) keeps its type.
   const [type, setType] = useState<AdType | null>(catalogOnly ? 'CATALOG' : repeatOf || form.ad.name ? (form.ad.kind === 'CATALOG' || form.ad.kind === 'POST' ? form.ad.kind : 'UPLOAD') : null);
+  // The "Google Drive" card is the image/video ad with Drive's picker opened straight away; `driveSignal` counts its clicks.
+  const [viaDrive, setViaDrive] = useState(false);
+  const [driveSignal, setDriveSignal] = useState(0);
   const [dest, setDest] = useState<Destination | null>(null);
   const [settingsMissing, setSettingsMissing] = useState<Missing[]>([{ key: 'settings', label: 'Ad set settings' }]);
   const [catalogReady, setCatalogReady] = useState(false);
@@ -111,8 +115,10 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCatalog, form.campaign.catalogId]);
 
-  const chooseType = (t: AdType) => {
+  const chooseType = (t: AdType, drive = false) => {
     setType(t);
+    setViaDrive(drive && t === 'UPLOAD');
+    if (drive) setDriveSignal((n) => n + 1);
     setForm((f) => {
       const wasCatalog = f.ad.kind === 'CATALOG';
       const toCatalog = t === 'CATALOG';
@@ -260,14 +266,24 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
               title={catalogOnly ? 'Create your catalog ad' : 'Create your ad'}
               sub={catalogOnly ? 'Pick the catalog and product set, then add the ad\u2019s text. ' + (isMobile ? 'Tap the eye to preview it with real products.' : 'The preview on the right shows real products.') : 'Pick the kind of ad, then add its creative and text. ' + (isMobile ? 'Tap the eye to preview it.' : 'The preview on the right updates as you type.')}
             />
-            {!catalogOnly ? <div className="type-cards" role="radiogroup" aria-label="Ad type">
-              {AD_TYPES.map((t) => (
-                <button key={t.key} type="button" role="radio" aria-checked={type === t.key} className={`type-card ${type === t.key ? 'on' : ''}`} onClick={() => chooseType(t.key)}>
-                  <span className="ic">{t.icon}</span>
-                  <span className="tt">{t.title}</span>
-                  <span className="tx">{t.text}</span>
+            {!catalogOnly ? <div className={`type-cards ${driveConfigured() ? 'four' : ''}`} role="radiogroup" aria-label="Ad type">
+              {AD_TYPES.map((t) => {
+                const on = type === t.key && !(t.key === 'UPLOAD' && viaDrive);
+                return (
+                  <button key={t.key} type="button" role="radio" aria-checked={on} className={`type-card ${on ? 'on' : ''}`} onClick={() => chooseType(t.key)}>
+                    <span className="ic">{t.icon}</span>
+                    <span className="tt">{t.title}</span>
+                    <span className="tx">{t.text}</span>
+                  </button>
+                );
+              })}
+              {driveConfigured() ? (
+                <button type="button" role="radio" aria-checked={type === 'UPLOAD' && viaDrive} className={`type-card ${type === 'UPLOAD' && viaDrive ? 'on' : ''}`} onClick={() => chooseType('UPLOAD', true)}>
+                  <span className="ic"><FolderOpen size={18} /></span>
+                  <span className="tt">From Google Drive</span>
+                  <span className="tx">Pick an image or video from your Drive, then add the text, link and button.</span>
                 </button>
-              ))}
+              ) : null}
             </div> : null}
             {type === 'CATALOG' ? (
               <>
@@ -294,7 +310,7 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
             ) : type ? (
               <>
                 <SectionTitle>Ad details</SectionTitle>
-                <StandardAdSection key={type} form={form} setAd={setAd} accountId={account.id} />
+                <StandardAdSection key={type} form={form} setAd={setAd} accountId={account.id} openDrive={driveSignal} />
                 <SectionTitle>Tracking</SectionTitle>
                 <div className="card">
                   <Field label="Dataset (pixel)" hint={form.adset.pixelId ? 'Website events from this ad (purchases, add to cart) are tracked with this dataset.' : 'Recommended: without it, Ads Manager won\u2019t track website events for this ad.'}>
