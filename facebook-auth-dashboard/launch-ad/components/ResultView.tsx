@@ -23,6 +23,7 @@ export default function ResultView({ result, account, onAgain, onRepeat }: { res
         <p className="note" style={{ marginTop: 10 }}>
           {result.activated ? 'Your ads start delivering once Meta approves them.' : 'Everything is paused. Turn it on in Ads Manager when you are ready.'}
         </p>
+        {result.warning ? <div className="notice warn" style={{ marginTop: 10 }}>{result.warning}</div> : null}
         <dl className="kv">
           {c.campaign ? <><dt>Campaign</dt><dd>{c.campaign.name} · {c.campaign.id}</dd></> : null}
           {c.adset ? <><dt>Ad set</dt><dd>{c.adset.name} · {c.adset.id}</dd></> : null}

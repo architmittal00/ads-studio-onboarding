@@ -116,6 +116,13 @@ export interface FormState {
     videoId: string;
     videoStatus: '' | 'uploading' | 'processing' | 'ready' | 'error';
     videoUrl: string;
+    /** Optional separate image or video for Stories and Reels (9:16); same fields as the main media. Empty = main media everywhere */
+    storyImageHash: string;
+    storyImageUrl: string;
+    storyImageName: string;
+    storyVideoId: string;
+    storyVideoStatus: '' | 'uploading' | 'processing' | 'ready' | 'error';
+    storyVideoUrl: string;
     postSource: 'FACEBOOK' | 'INSTAGRAM';
     postId: string;
     postPreview: string;
@@ -179,6 +186,8 @@ export interface LaunchResult {
   ok: boolean;
   created: { campaign?: { id: string; name: string }; adset?: { id: string; name: string }; creative?: { id: string }; ads: { id: string; name: string }[] };
   activated: boolean;
+  /** Something was left out but the launch went through (e.g. the separate Stories / Reels media) */
+  warning?: string;
   error?: MetaError;
   step?: string;
 }

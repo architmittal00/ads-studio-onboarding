@@ -228,6 +228,73 @@ export function standardCreativeParams(form: FormState) {
   return { name, object_story_spec: story, ...(urlTags ? { url_tags: urlTags } : {}) };
 }
 
+/** The ad has its own image or video for Stories and Reels (on top of the main one). */
+export function hasStoryMedia(ad: FormState['ad']): boolean {
+  return ad.kind === 'UPLOAD' && (!!ad.storyVideoId || !!ad.storyImageHash);
+}
+
+/**
+ * Image / video ad with separate media for Stories and Reels (Meta's "placement asset customization"): the page and
+ * all the copy go in asset_feed_spec, each media carries a label, and one rule sends the Stories / Reels media to
+ * those placements while a second, lower-priority rule shows the main media everywhere else.
+ */
+export function placementCreativeParams(form: FormState) {
+  const ad = form.ad;
+  const urlTags = buildUrlTags(ad.urlTags || {});
+  const MAIN = 'main_media';
+  const STORY = 'stories_reels_media';
+  const images: any[] = [];
+  const videos: any[] = [];
+  const addMedia = (video: string, hash: string, label: string) => {
+    if (video) videos.push({ video_id: video, thumbnail_hash: hash, adlabels: [{ name: label }] });
+    else images.push({ hash, adlabels: [{ name: label }] });
+  };
+  addMedia(ad.videoId, ad.imageHash, MAIN);
+  addMedia(ad.storyVideoId, ad.storyImageHash, STORY);
+  const labelOf = (video: string, name: string) => (video ? { video_label: { name } } : { image_label: { name } });
+
+  const a = form.adset;
+  const platforms = a.placement === 'MANUAL' && a.platforms.length ? a.platforms : ['facebook', 'instagram', 'audience_network', 'messenger'];
+  const storySpec: any = { publisher_platforms: platforms.filter((p) => p === 'facebook' || p === 'instagram') };
+  if (storySpec.publisher_platforms.includes('facebook')) storySpec.facebook_positions = ['story', 'facebook_reels'];
+  if (storySpec.publisher_platforms.includes('instagram')) storySpec.instagram_positions = ['story', 'reels'];
+
+  const feed: any = {
+    ...(images.length ? { images } : {}),
+    ...(videos.length ? { videos } : {}),
+    bodies: [{ text: ad.message }],
+    link_urls: [{ website_url: ad.link.trim() }],
+    call_to_action_types: [ad.cta],
+    ad_formats: [images.length && videos.length ? 'AUTOMATIC_FORMAT' : videos.length ? 'SINGLE_VIDEO' : 'SINGLE_IMAGE'],
+    asset_customization_rules: [
+      { customization_spec: storySpec, ...labelOf(ad.storyVideoId, STORY), priority: 1 },
+      { customization_spec: { publisher_platforms: platforms }, ...labelOf(ad.videoId, MAIN), priority: 2 },
+    ],
+  };
+  if (ad.headline.trim()) feed.titles = [{ text: ad.headline }];
+  if (ad.description.trim()) feed.descriptions = [{ text: ad.description }];
+  const story: any = { page_id: ad.pageId };
+  if (ad.instagramUserId) story.instagram_user_id = ad.instagramUserId;
+  const name = `${ad.name.trim() || form.adset.name.trim()} - Creative`;
+  return { name, object_story_spec: story, asset_feed_spec: feed, ...(urlTags ? { url_tags: urlTags } : {}) };
+}
+
+/**
+ * Creates the image / video / post creative. With separate Stories / Reels media it first tries the per-placement
+ * creative; if Meta rejects that, the ad is still created from the main media alone and the result says so.
+ */
+async function createStandardCreative(act: string, token: string, form: FormState, result: LaunchResult): Promise<{ id: string }> {
+  if (hasStoryMedia(form.ad)) {
+    try {
+      return await graph.post<{ id: string }>(`${act}/adcreatives`, token, placementCreativeParams(form));
+    } catch (e) {
+      const why = e instanceof GraphError ? e.meta.message : (e as Error).message;
+      result.warning = `Meta didn't accept separate media for Stories and Reels (${String(why).slice(0, 200)}), so this ad uses your main image or video in every placement. You can add the Stories / Reels version in Ads Manager.`;
+    }
+  }
+  return graph.post<{ id: string }>(`${act}/adcreatives`, token, standardCreativeParams(form));
+}
+
 /** Ad-level website-event tracking (Ads Manager: Tracking → Website events) for the dataset (pixel). */
 function tracking(pixelId?: string) {
   return pixelId ? { tracking_specs: [{ 'action.type': ['offsite_conversion'], fb_pixel: [pixelId] }] } : {};
@@ -249,10 +316,9 @@ export async function launch(req: LaunchRequest, token: string): Promise<LaunchR
       const isCatalogAd = form.ad.kind === 'CATALOG';
       step = 'creative';
       // Catalog ad: the ad set's product set if it has one, else the product set chosen for the ad.
-      const params = isCatalogAd
-        ? creativeParams({ ...form, adset: { ...form.adset, productSetId: targetSet || form.adset.productSetId } })
-        : standardCreativeParams(form);
-      const creative = await graph.post<{ id: string }>(`${act}/adcreatives`, token, params);
+      const creative = isCatalogAd
+        ? await graph.post<{ id: string }>(`${act}/adcreatives`, token, creativeParams({ ...form, adset: { ...form.adset, productSetId: targetSet || form.adset.productSetId } }))
+        : await createStandardCreative(act, token, form, result);
       result.created.creative = { id: creative.id };
       step = 'ad';
       const adName = form.ad.name.trim() || `${target.name} - ${isCatalogAd ? 'Catalog ad' : 'Ad'}`;
@@ -297,7 +363,7 @@ export async function launch(req: LaunchRequest, token: string): Promise<LaunchR
     // 3. The ad: a catalog template, or a normal ad from an uploaded image / video or an existing post
     if (ctx.needsAd || ctx.needsStandardAd) {
       step = 'creative';
-      const creative = await graph.post<{ id: string }>(`${act}/adcreatives`, token, ctx.needsAd ? creativeParams(form) : standardCreativeParams(form));
+      const creative = ctx.needsAd ? await graph.post<{ id: string }>(`${act}/adcreatives`, token, creativeParams(form)) : await createStandardCreative(act, token, form, result);
       result.created.creative = { id: creative.id };
       step = 'ad';
       const adName = form.ad.name.trim() || `${form.adset.name.trim()} - ${ctx.needsAd ? 'Catalog ad' : 'Ad'}`;

@@ -66,6 +66,12 @@ export function defaultForm(catalog = false): FormState {
       videoId: '',
       videoStatus: '',
       videoUrl: '',
+      storyImageHash: '',
+      storyImageUrl: '',
+      storyImageName: '',
+      storyVideoId: '',
+      storyVideoStatus: '',
+      storyVideoUrl: '',
       postSource: 'FACEBOOK',
       postId: '',
       postPreview: '',
@@ -104,7 +110,7 @@ export function clearAccountBound(f: FormState): FormState {
     ...f,
     campaign: { ...f.campaign, catalogId: '' },
     adset: { ...f.adset, productSetId: '', crossSellSourceSetId: '', pixelId: '', savedAudienceId: '', customAudiences: [], excludedAudiences: [], audienceType: f.adset.audienceType === 'SAVED' ? 'ADVANTAGE' : f.adset.audienceType },
-    ad: { ...f.ad, imageHash: '', imageUrl: '', imageName: '', videoId: '', videoStatus: '', videoUrl: '' },
+    ad: { ...f.ad, imageHash: '', imageUrl: '', imageName: '', videoId: '', videoStatus: '', videoUrl: '', storyImageHash: '', storyImageUrl: '', storyImageName: '', storyVideoId: '', storyVideoStatus: '', storyVideoUrl: '' },
   };
 }
 
@@ -233,6 +239,12 @@ export function validateAd(form: FormState, isCatalog: boolean, withCatalog = fa
       else if (ad.videoStatus === 'error') m.push({ key: 'ad.video', label: 'Video failed on Meta: upload another' });
       if (!ad.imageHash) m.push({ key: 'ad.imageHash', label: 'Video thumbnail' });
     } else if (!ad.imageHash) m.push({ key: 'ad.imageHash', label: 'Image or video' });
+    if (ad.storyVideoId || ad.storyVideoStatus) {
+      if (ad.storyVideoStatus === 'uploading') m.push({ key: 'ad.storyVideo', label: 'Stories / Reels video still uploading' });
+      else if (ad.storyVideoStatus === 'processing') m.push({ key: 'ad.storyVideo', label: 'Stories / Reels video still processing on Meta' });
+      else if (ad.storyVideoStatus === 'error') m.push({ key: 'ad.storyVideo', label: 'Stories / Reels video failed on Meta: upload another' });
+      if (!ad.storyImageHash) m.push({ key: 'ad.storyImageHash', label: 'Stories / Reels video thumbnail' });
+    }
     if (!ad.message.trim()) m.push({ key: 'ad.message', label: 'Primary text' });
     if (!validUrl) m.push({ key: 'ad.link', label: 'Website URL' });
   }
