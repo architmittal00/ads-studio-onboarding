@@ -158,7 +158,9 @@ function fitLine(points) {
  * The assumptions for a plan month, with what led to them.
  *   months:  the recent month rows of raw totals (oldest first, each with `month: "2026-08"`)
  *   planKey: the month being planned, "2026-12"
- *   method:  "avg" (all months added up), "trend" (the month-by-month movement carried forward to the plan month) or
+ *   method:  "avg" (all months added up), "trend" (the month-by-month movement carried forward to the plan month),
+ *            "current" (this month so far, the one row with `partial`, taken as it is: next month is predicted to run the
+ *            same; Checkout -> Purchase and any rate it lacks use the average) or
  *            "lastYear" (the rates of the same month last year, `lastYearTotals`; any rate it lacks falls back to the average)
  * Returns { values, notes }: values are the seven assumptions; notes[key] = { series: [{ month, value }], avg,
  * direction: "up" | "down" | "flat" | null, changePerMonth (fraction), projected, used: "avg" | "trend" | "lastYear" }.
@@ -198,8 +200,10 @@ export function buildAssumptions({ months, planKey, method = "avg", lastYearTota
     let used = "avg";
     if (method === "trend" && projected != null) { value = projected; used = "trend"; }
     if (method === "lastYear" && lastYear?.[key] != null) { value = lastYear[key]; used = "lastYear"; }
+    const cur = perMonth.find((m) => m.partial);
+    if (method === "current" && cur && cur.a[key] != null && !LAGGING.has(key)) { value = cur.a[key]; used = "current"; }
     values[key] = value;
-    notes[key] = { series, avg: avg[key], direction, changePerMonth: rel, projected, raw, capped, points: points.length, lastYear: lastYear?.[key] ?? null, used };
+    notes[key] = { series, avg: avg[key], direction, changePerMonth: rel, projected, raw, capped, points: points.length, lastYear: lastYear?.[key] ?? null, current: cur ? cur.a[key] : null, currentMonth: cur?.month || null, used };
   }
   return { values, notes };
 }
@@ -237,7 +241,7 @@ export const GOOD_WHEN = {
 export function explainAssumption(note, opts) {
   const text = explainCore(note, opts);
   const left = (note.series || []).filter((x) => x.left && x.value != null);
-  return left.length ? `${text} (${left.map((x) => opts.monthName(x.month).split(" ")[0]).join(", ")} so far is left out of this one: purchases are still arriving for the last few days, so it would read too low.)` : text;
+  return left.length && opts.method !== "current" ? `${text} (${left.map((x) => opts.monthName(x.month).split(" ")[0]).join(", ")} so far is left out of this one: purchases are still arriving for the last few days, so it would read too low.)` : text;
 }
 
 function explainCore(note, { method, planKey, fmt, monthName }) {
@@ -245,6 +249,17 @@ function explainCore(note, { method, planKey, fmt, monthName }) {
   const path = series.map((x) => `${monthName(x.month).split(" ")[0]}${x.partial ? " so far" : ""} ${fmt(x.value)}`).join(" → ");
   const plan = monthName(planKey);
   if (note.avg == null) return "No data for this in the months looked at. Type a value to plan with.";
+  if (method === "current") {
+    if (!note.currentMonth) return `There is no data for this month yet, so the average is used: ${fmt(note.avg)}.`;
+    const mn = monthName(note.currentMonth).split(" ")[0];
+    if (note.used === "current") {
+      const vs = note.avg ? ` (${note.current >= note.avg ? "+" : ""}${((note.current / note.avg - 1) * 100).toFixed(1)}% on the average of ${fmt(note.avg)})` : "";
+      return `${mn} so far runs at ${fmt(note.current)}${vs}. Next month is predicted to run at the same rate.`;
+    }
+    return note.current == null
+      ? `${mn} has no figure for this yet, so the average is used: ${fmt(note.avg)}.`
+      : `Purchases are still arriving for ${mn}, so its rate would read too low. The average of the full months is used instead: ${fmt(note.avg)}.`;
+  }
   if (method === "lastYear") {
     return note.used === "lastYear"
       ? `Taken from ${monthName(planKey.replace(/^\d{4}/, (y) => String(Number(y) - 1)))}, the same month last year: ${fmt(note.lastYear)}.`
