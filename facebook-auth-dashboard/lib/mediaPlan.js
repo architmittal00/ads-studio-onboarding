@@ -96,11 +96,30 @@ export function lastFullMonths(now = new Date(), count = 3) {
   return out;
 }
 
+/**
+ * The months a plan is built from: the last `count` full calendar months, then the current month so far (up to
+ * yesterday, because today is not over). Oldest first; the current month carries `partial: true` and `through`.
+ * Left out on the 1st, when the month has no complete day yet.
+ */
+export function recentMonths(now = new Date(), count = 3) {
+  const out = lastFullMonths(now, count);
+  if (now.getUTCDate() >= 2) {
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const yesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1));
+    out.push({ key: iso(yesterday).slice(0, 7), since: `${iso(yesterday).slice(0, 7)}-01`, until: iso(yesterday), partial: true, through: iso(yesterday) });
+  }
+  return out;
+}
+
 // ── Trends, projection and last year ──
+
+// Rates that look too low in a month that is still running: purchases keep arriving for days after the click, so a
+// month-to-date figure undercounts them. These ignore the current month so it cannot fake a downward trend.
+const LAGGING = new Set(["icToPur"]);
 
 const KEYS = ASSUMPTION_KEYS;
 const FLAT = 0.02; // a month-on-month change smaller than this is "flat"
-const CLAMP = 0.3; // a projection never moves more than 30% away from the 3-month average
+const CLAMP = 0.3; // a projection never moves more than 30% away from the average
 
 /** Months from "2026-08" to "2026-12" (4). */
 export function monthDiff(fromKey, toKey) {
@@ -145,8 +164,11 @@ function fitLine(points) {
  * direction: "up" | "down" | "flat" | null, changePerMonth (fraction), projected, used: "avg" | "trend" | "lastYear" }.
  */
 export function buildAssumptions({ months, planKey, method = "avg", lastYearTotals = null }) {
-  const avg = assumptionsFromTotals(sumMonths(months));
-  const perMonth = (months || []).map((m) => ({ month: m.month, spend: Number(m.spend) || 0, a: assumptionsFromTotals(m) }));
+  const avgAll = assumptionsFromTotals(sumMonths(months));
+  const avgFull = assumptionsFromTotals(sumMonths((months || []).filter((m) => !m.partial)));
+  const avg = { ...avgAll };
+  for (const k of LAGGING) if ((months || []).some((m) => m.partial)) avg[k] = avgFull[k];
+  const perMonth = (months || []).map((m) => ({ month: m.month, partial: !!m.partial, spend: Number(m.spend) || 0, a: assumptionsFromTotals(m) }));
   const meanSpend = perMonth.length ? perMonth.reduce((s, m) => s + m.spend, 0) / perMonth.length : 0;
   const first = months?.[0]?.month;
   const tPlan = first ? monthDiff(first, planKey) : 0;
@@ -154,11 +176,11 @@ export function buildAssumptions({ months, planKey, method = "avg", lastYearTota
   const values = {};
   const notes = {};
   for (const key of KEYS) {
-    const series = perMonth.map((m) => ({ month: m.month, value: m.a[key] }));
+    const series = perMonth.map((m) => ({ month: m.month, value: m.a[key], partial: m.partial, left: LAGGING.has(key) && m.partial }));
     // Months with hardly any spend say little about a rate: leave them out of the trend.
     const points = perMonth
       .map((m, t) => ({ t, y: m.a[key], spend: m.spend }))
-      .filter((p) => p.y != null && p.spend > meanSpend * 0.1);
+      .filter((p) => p.y != null && p.spend > meanSpend * 0.1 && !(LAGGING.has(key) && perMonth[p.t].partial));
     const fit = fitLine(points);
     const rel = fit && fit.mean > 0 ? fit.slope / fit.mean : null;
     const direction = rel == null ? null : rel > FLAT ? "up" : rel < -FLAT ? "down" : "flat";
@@ -212,28 +234,34 @@ export const GOOD_WHEN = {
  * One sentence on why an assumption has the value it has, from its note (see buildAssumptions).
  * `fmt` writes a value the way the page shows it; `monthName` writes "2026-12" as "December 2026".
  */
-export function explainAssumption(note, { method, planKey, fmt, monthName }) {
-  const series = (note.series || []).filter((x) => x.value != null);
-  const path = series.map((x) => `${monthName(x.month).split(" ")[0]} ${fmt(x.value)}`).join(" → ");
+export function explainAssumption(note, opts) {
+  const text = explainCore(note, opts);
+  const left = (note.series || []).filter((x) => x.left && x.value != null);
+  return left.length ? `${text} (${left.map((x) => opts.monthName(x.month).split(" ")[0]).join(", ")} so far is left out of this one: purchases are still arriving for the last few days, so it would read too low.)` : text;
+}
+
+function explainCore(note, { method, planKey, fmt, monthName }) {
+  const series = (note.series || []).filter((x) => x.value != null && !x.left);
+  const path = series.map((x) => `${monthName(x.month).split(" ")[0]}${x.partial ? " so far" : ""} ${fmt(x.value)}`).join(" → ");
   const plan = monthName(planKey);
-  if (note.avg == null) return "No data for this in the last 3 months. Type a value to plan with.";
+  if (note.avg == null) return "No data for this in the months looked at. Type a value to plan with.";
   if (method === "lastYear") {
     return note.used === "lastYear"
       ? `Taken from ${monthName(planKey.replace(/^\d{4}/, (y) => String(Number(y) - 1)))}, the same month last year: ${fmt(note.lastYear)}.`
-      : `No figure for the same month last year, so the 3-month average is used: ${fmt(note.avg)}.`;
+      : `No figure for the same month last year, so the average is used: ${fmt(note.avg)}.`;
   }
   const trendNote = note.direction === "up" || note.direction === "down"
     ? `${note.direction === "up" ? "Rising" : "Falling"} about ${Math.abs(note.changePerMonth * 100).toFixed(1)}% a month (${path}).`
     : null;
   if (method === "avg") {
     return trendNote
-      ? `3-month average: ${fmt(note.avg)}. ${trendNote} Trend-adjusted would use ${fmt(note.projected)}.`
-      : `3-month average: ${fmt(note.avg)}${path ? ` (${path})` : ""}.`;
+      ? `Average: ${fmt(note.avg)}. ${trendNote} Trend-adjusted would use ${fmt(note.projected)}.`
+      : `Average: ${fmt(note.avg)}${path ? ` (${path})` : ""}.`;
   }
   if (note.direction == null) {
-    return `Only ${note.points} month${note.points === 1 ? "" : "s"} with enough spend, too few to see a trend, so the 3-month average is used: ${fmt(note.avg)}.`;
+    return `Only ${note.points} month${note.points === 1 ? "" : "s"} with enough spend, too few to see a trend, so the average is used: ${fmt(note.avg)}.`;
   }
-  if (note.direction === "flat") return `Hardly moving (${path}; under 2% a month), so there is no trend to carry forward: the 3-month average is used, ${fmt(note.avg)}.`;
+  if (note.direction === "flat") return `Hardly moving (${path}; under 2% a month), so there is no trend to carry forward: the average is used, ${fmt(note.avg)}.`;
   const cap = note.capped
     ? ` Carried forward to ${plan} the trend line reaches ${fmt(note.raw)}, which is more than 30% ${note.capped === "up" ? "above" : "below"} the average, so it is held at ${fmt(note.projected)}.`
     : ` Carried forward to ${plan} the trend line gives ${fmt(note.projected)} (average ${fmt(note.avg)}).`;
