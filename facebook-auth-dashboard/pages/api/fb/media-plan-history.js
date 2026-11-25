@@ -4,6 +4,12 @@ import { graphGetInsights } from "@/lib/facebookGraph";
 import { pickPurchaseCount, pickPurchaseValue } from "@/lib/metrics";
 import { ADD_TO_CART_TYPES, INITIATE_CHECKOUT_TYPES, pickAnyActionValue } from "@/lib/insightsMetrics";
 import { lastFullMonths } from "@/lib/mediaPlan";
+
+function monthRange(key) {
+  const first = new Date(`${key}-01T00:00:00Z`);
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0));
+  return { key, since: `${key}-01`, until: last.toISOString().slice(0, 10) };
+}
 import { mapWithConcurrency } from "@/lib/metaInterestSearch";
 
 const MAX_ACCOUNTS = 20;
@@ -22,7 +28,10 @@ export default async function handler(req, res) {
   if (ids.length > MAX_ACCOUNTS) return res.status(400).json({ error: `Pick at most ${MAX_ACCOUNTS} accounts.` });
   if (!ids.every((id) => VALID_ACCOUNT.test(id))) return res.status(400).json({ error: "accountIds must be ad account ids like act_123" });
 
-  const months = lastFullMonths(new Date(), 3);
+  // ?lastYear=2025-12: that one month's totals instead (the same month last year, to compare a plan with).
+  const lastYear = req.query.lastYear ? String(req.query.lastYear) : null;
+  if (lastYear && !/^\d{4}-(0[1-9]|1[0-2])$/.test(lastYear)) return res.status(400).json({ error: "lastYear must look like 2025-12" });
+  const months = lastYear ? [monthRange(lastYear)] : lastFullMonths(new Date(), 3);
   const range = { since: months[0].since, until: months[months.length - 1].until };
 
   const accounts = await mapWithConcurrency(ids, 3, async (accountId) => {

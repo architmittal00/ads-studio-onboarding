@@ -95,3 +95,111 @@ export function lastFullMonths(now = new Date(), count = 3) {
   }
   return out;
 }
+
+// ── Trends, projection and last year ──
+
+const KEYS = ASSUMPTION_KEYS;
+const FLAT = 0.02; // a month-on-month change smaller than this is "flat"
+const CLAMP = 0.3; // a projection never moves more than 30% away from the 3-month average
+
+/** Months from "2026-08" to "2026-12" (4). */
+export function monthDiff(fromKey, toKey) {
+  const [fy, fm] = fromKey.split("-").map(Number);
+  const [ty, tm] = toKey.split("-").map(Number);
+  return (ty - fy) * 12 + (tm - fm);
+}
+
+/** "2026-12" -> "2025-12" */
+export function sameMonthLastYear(key) {
+  return `${Number(key.slice(0, 4)) - 1}${key.slice(4)}`;
+}
+
+/** The next `count` months starting with next month (the default plan month), as [{ key, label }]. */
+export function planMonthOptions(now = new Date(), count = 6) {
+  const names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1 + i, 1));
+    return { key: d.toISOString().slice(0, 7), label: `${names[d.getUTCMonth()]} ${d.getUTCFullYear()}${i === 0 ? " (next month)" : ""}` };
+  });
+}
+
+/** Straight-line fit through [{t, y}] points; null with fewer than two. */
+function fitLine(points) {
+  const n = points.length;
+  if (n < 2) return null;
+  const mt = points.reduce((s, p) => s + p.t, 0) / n;
+  const my = points.reduce((s, p) => s + p.y, 0) / n;
+  const den = points.reduce((s, p) => s + (p.t - mt) ** 2, 0);
+  if (!den) return null;
+  const slope = points.reduce((s, p) => s + (p.t - mt) * (p.y - my), 0) / den;
+  return { slope, intercept: my - slope * mt, mean: my };
+}
+
+/**
+ * The assumptions for a plan month, with what led to them.
+ *   months:  the recent month rows of raw totals (oldest first, each with `month: "2026-08"`)
+ *   planKey: the month being planned, "2026-12"
+ *   method:  "avg" (all months added up), "trend" (the month-by-month movement carried forward to the plan month) or
+ *            "lastYear" (the rates of the same month last year, `lastYearTotals`; any rate it lacks falls back to the average)
+ * Returns { values, notes }: values are the seven assumptions; notes[key] = { series: [{ month, value }], avg,
+ * direction: "up" | "down" | "flat" | null, changePerMonth (fraction), projected, used: "avg" | "trend" | "lastYear" }.
+ */
+export function buildAssumptions({ months, planKey, method = "avg", lastYearTotals = null }) {
+  const avg = assumptionsFromTotals(sumMonths(months));
+  const perMonth = (months || []).map((m) => ({ month: m.month, spend: Number(m.spend) || 0, a: assumptionsFromTotals(m) }));
+  const meanSpend = perMonth.length ? perMonth.reduce((s, m) => s + m.spend, 0) / perMonth.length : 0;
+  const first = months?.[0]?.month;
+  const tPlan = first ? monthDiff(first, planKey) : 0;
+  const lastYear = lastYearTotals && lastYearTotals.spend > 0 ? assumptionsFromTotals(lastYearTotals) : null;
+  const values = {};
+  const notes = {};
+  for (const key of KEYS) {
+    const series = perMonth.map((m) => ({ month: m.month, value: m.a[key] }));
+    // Months with hardly any spend say little about a rate: leave them out of the trend.
+    const points = perMonth
+      .map((m, t) => ({ t, y: m.a[key], spend: m.spend }))
+      .filter((p) => p.y != null && p.spend > meanSpend * 0.1);
+    const fit = fitLine(points);
+    const rel = fit && fit.mean > 0 ? fit.slope / fit.mean : null;
+    const direction = rel == null ? null : rel > FLAT ? "up" : rel < -FLAT ? "down" : "flat";
+    let projected = null;
+    if (fit && avg[key] != null) {
+      const raw = fit.intercept + fit.slope * tPlan;
+      projected = Math.min(avg[key] * (1 + CLAMP), Math.max(avg[key] * (1 - CLAMP), raw));
+      if (direction === "flat") projected = avg[key];
+    }
+    let value = avg[key];
+    let used = "avg";
+    if (method === "trend" && projected != null) { value = projected; used = "trend"; }
+    if (method === "lastYear" && lastYear?.[key] != null) { value = lastYear[key]; used = "lastYear"; }
+    values[key] = value;
+    notes[key] = { series, avg: avg[key], direction, changePerMonth: rel, projected, used };
+  }
+  return { values, notes };
+}
+
+/** Sentences about what is moving (for the page): only the rates that matter most and are clearly rising or falling. */
+export function describeTrends(notes, { good }) {
+  const names = { ctr: "CTR", cpc: "CPC", clickToLpv: "Click → LPV", clickToAtc: "Click → ATC", atcToIc: "ATC → Checkout", icToPur: "Checkout → Purchase", aov: "AOV" };
+  const order = ["cpc", "ctr", "icToPur", "clickToAtc", "aov", "clickToLpv", "atcToIc"];
+  const out = [];
+  for (const key of order) {
+    const n = notes[key];
+    if (!n || n.direction == null || n.direction === "flat") continue;
+    const pct = Math.abs(n.changePerMonth * 100);
+    const better = good[key](n.direction);
+    out.push({ key, name: names[key], direction: n.direction, pct, better });
+  }
+  return out;
+}
+
+/** Whether a rise (up) or fall (down) in each rate is good news. */
+export const GOOD_WHEN = {
+  ctr: (d) => d === "up",
+  cpc: (d) => d === "down",
+  clickToLpv: (d) => d === "up",
+  clickToAtc: (d) => d === "up",
+  atcToIc: (d) => d === "up",
+  icToPur: (d) => d === "up",
+  aov: (d) => d === "up",
+};
