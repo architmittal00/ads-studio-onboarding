@@ -19,7 +19,9 @@ export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session?.accessToken) return res.status(401).json({ error: "Not authenticated" });
   const adId = String(req.query.adId || "");
-  if (!/^\d+$/.test(adId)) return res.status(400).json({ error: "adId must be numeric" });
+  // An ad id, or (with `fields`) a Page post id like 123_456.
+  if (!/^\d+(_\d+)?$/.test(adId)) return res.status(400).json({ error: "adId must be numeric" });
+  if (adId.includes("_") && typeof req.query.fields !== "string") return res.status(400).json({ error: "a post id needs fields" });
   // `fields` lets a specific Graph field list be read on the ad (e.g. creative{object_story_spec{link_data{image_crops}}}).
   const custom = typeof req.query.fields === "string" && /^[A-Za-z0-9_,{}.]+$/.test(req.query.fields) ? req.query.fields : null;
   if (custom) {
