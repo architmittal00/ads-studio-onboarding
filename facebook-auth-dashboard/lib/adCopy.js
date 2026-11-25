@@ -726,6 +726,30 @@ export function buildCreativeExtras(creative, hashMap) {
   return Object.keys(out).length ? out : null;
 }
 
+// The ways to send a creative's extras, most to least, so one the destination refuses doesn't cost the others: all of
+// them, then without the site links, then without the Advantage+ settings, then the URL tags alone, then none. A refused
+// attempt creates nothing, so the first one Meta accepts is the only creative made.
+export function extrasVariants(extras) {
+  if (!extras) return [null];
+  const without = (...keys) => {
+    const copy = { ...extras };
+    for (const k of keys) delete copy[k];
+    return Object.keys(copy).length ? copy : null;
+  };
+  const seen = new Set();
+  const out = [];
+  for (const v of [extras, without("creative_sourcing_spec"), without("degrees_of_freedom_spec"), without("creative_sourcing_spec", "degrees_of_freedom_spec"), null]) {
+    const key = JSON.stringify(v);
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(v);
+    }
+  }
+  return out;
+}
+
+const EXTRA_LABEL = { url_tags: "URL tags", degrees_of_freedom_spec: "Advantage+ creative settings", creative_sourcing_spec: "site links" };
+
 export async function createCopiedCreative(token, destAccountId, { objectStorySpec, objectStoryId, assetFeedSpec, productSetId, extras } = {}) {
   const payload = objectStoryId ? { object_story_id: objectStoryId } : { object_story_spec: objectStorySpec };
   if (extras) Object.assign(payload, extras);
@@ -831,8 +855,9 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       const rebuiltFeed = hasAssetFeed && !reusePost ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
       // URL tags, Advantage+ settings and site links ride along; if Meta rejects the creative with them, it is built
       // again without them (and the result says so) rather than failing the copy.
-      let extras = reusePost ? null : buildCreativeExtras(ad.creative, hashMap);
-      let extrasDropped = false;
+      const allExtras = reusePost ? null : buildCreativeExtras(ad.creative, hashMap);
+      let extras = allExtras;
+      let extraRefusal = null; // Meta's reason, when some extras were left off
       const makeCreative = (feed) =>
         reusePost
           ? createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id })
@@ -901,18 +926,22 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       }
       };
       const postFallbackBefore = postFallback;
-      try {
-        await createCreative();
-      } catch (err) {
-        if (!extras) throw err;
-        extras = null;
-        extrasDropped = true;
-        creativeId = undefined;
-        feedDropped = false;
-        placementOk = false;
-        postFallback = postFallbackBefore;
-        await createCreative();
+      const variants = extrasVariants(allExtras);
+      for (let v = 0; v < variants.length; v++) {
+        extras = variants[v];
+        try {
+          await createCreative();
+          break;
+        } catch (err) {
+          if (v === variants.length - 1) throw err;
+          extraRefusal = extraRefusal || err.message || "rejected";
+          creativeId = undefined;
+          feedDropped = false;
+          placementOk = false;
+          postFallback = postFallbackBefore;
+        }
       }
+      const droppedExtras = allExtras ? Object.keys(allExtras).filter((k) => !extras || !(k in extras)) : [];
 
       const newAdId = await withTransientRetry(() =>
         createCopiedAd(token, destAccountId, {
@@ -925,7 +954,7 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       const warning =
         [
           postFallback ? "Meta couldn't rebuild this creative (video file hidden, or carousel components mismatch), so this ad reuses the original Page post — same media, Page and caption." : null,
-          extrasDropped ? "Copied without its URL tags, Advantage+ creative settings and site links (Meta rejected them for this ad) — the media, copy and link are the same; add them in Ads Manager if needed." : null,
+          droppedExtras.length ? `Copied without its ${droppedExtras.map((k) => EXTRA_LABEL[k]).join(", ")} — Meta said: ${String(extraRefusal).slice(0, 220)} The media, copy and link are the same; add them in Ads Manager if needed.` : null,
           feedDropped ? "Copied without its extra text options (Meta rejected them for this carousel) — the cards, copy and links are the same." : null,
           placement && !placementOk ? "This ad shows different media per placement / aspect ratio, but Meta rejected rebuilding that, so only its main creative was copied — check the other aspect ratios." : null,
           placementAssetsOmitted ? "Couldn't read this ad's per-placement media (Meta refused the fields), so only its main creative was copied — check the other aspect ratios." : null,
