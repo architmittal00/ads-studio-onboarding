@@ -1,5 +1,5 @@
 'use client';
-import { Check, Languages, Pencil, RefreshCw, Sparkles, Undo2 } from 'lucide-react';
+import { Check, ClipboardPaste, Languages, Pencil, RefreshCw, Sparkles, Undo2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useAiStatus } from '@/launch-ad/lib/ai-client';
 import { type CopyLang, type CopyResult, type CopyText, type TranslateLanguage, type TranslateResult, TRANSLATE_LANGUAGES } from '@/launch-ad/lib/ai-types';
@@ -7,6 +7,7 @@ import { apiPost, errorText } from '@/launch-ad/lib/client-api';
 import { CTAS } from '@/launch-ad/lib/constants';
 import type { FormState } from '@/launch-ad/lib/types';
 import { useProxy } from '@/launch-ad/lib/video-proxy';
+import ImportCopy from './ImportCopy';
 import { Field, Segmented, TextInput } from './ui';
 
 type Ad = FormState['ad'];
@@ -41,6 +42,8 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
   const [translating, setTranslating] = useState<TranslateLanguage | null>(null);
   const [error, setError] = useState('');
   const [wrote, setWrote] = useState<{ r: CopyResult; before: CopyText } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState<{ before: CopyText; name: string } | null>(null);
   // A language chosen before the English was confirmed as final: asks first, translates on "yes".
   const [pending, setPending] = useState<TranslateLanguage | null>(null);
   const [notes, setNotes] = useState<Partial<Record<CopyLang, string[]>>>({});
@@ -89,7 +92,7 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
 
   const pick = (to: CopyLang) => {
     if (to === lang) return;
-    setError(''); setWrote(null); setPending(null);
+    setError(''); setWrote(null); setPending(null); setImported(null); setImporting(false);
     const versions = saved();
     if (to === 'EN') { setAd({ copyLang: 'EN', copyVersions: versions, ...(versions.EN || EMPTY) }); return; }
     const en = versions.EN || EMPTY;
@@ -141,11 +144,22 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
 
   const busyTranslating = translating === lang;
 
+  // Text taken from another ad goes into the language that is showing; nothing is written until it is confirmed.
+  const doImport = (t: CopyText, name: string) => {
+    setImported({ before: textOf(latest.current), name });
+    setWrote(null);
+    setImporting(false);
+    setAd({ ...t, copyVersions: { ...saved(), [lang]: t } });
+  };
+
   return (
     <div className="ai-box">
       <div className="ai-head">
         <Languages size={15} />
         <span className="strong">Ad text</span>
+        <button type="button" className="btn-ghost sm imp-btn" onClick={() => { setImporting(!importing); setImported(null); }} disabled={busyTranslating}>
+          <ClipboardPaste size={13} /> Import from another ad
+        </button>
         <span className="hint">
           {regional ? `${nameOf(lang)} version, translated from your English. The ad uses this text.` : canTranslate ? 'Write and check your English text, then pick a language above to translate it.' : 'Primary text, headline and description.'}
         </span>
@@ -183,6 +197,14 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
         </div>
       ) : null}
       {error ? <div className="notice bad" style={{ marginTop: 10 }}>{error}</div> : null}
+
+      {importing ? <ImportCopy accountId={accountId} into={nameOf(lang)} replaces={filled(textOf(ad))} onImport={doImport} onClose={() => setImporting(false)} /> : null}
+      {imported ? (
+        <div className="ai-used">
+          Text imported from <b>{imported.name}</b>.{' '}
+          <button type="button" className="btn-link" onClick={() => { setAd({ ...imported.before, copyVersions: { ...latest.current.copyVersions, [lang]: imported.before } }); setImported(null); }}><Undo2 size={12} style={{ verticalAlign: '-2px' }} /> Undo</button>
+        </div>
+      ) : null}
 
       {pending ? (
         <div className="notice warn" style={{ marginTop: 10 }}>

@@ -51,6 +51,35 @@ async function handleGet(action: string, q: URLSearchParams, token: string): Pro
       }, search ? 1 : 5);
     }
 
+    case 'ads': {
+      // The account's ads with the text they carry, for "import text from another ad". Only the text is returned.
+      const search = (q.get('search') || '').trim();
+      const filtering: any[] = [{ field: 'effective_status', operator: 'IN', value: [...LIVE, 'ARCHIVED'] }];
+      if (search) filtering.push({ field: 'name', operator: 'CONTAIN', value: search });
+      const rows = await graph.list<any>(`${act(q.get('account'))}/ads`, token, {
+        fields: 'id,name,status,effective_status,updated_time,creative{thumbnail_url,body,title,object_story_spec,asset_feed_spec{bodies{text},titles{text},descriptions{text}}}',
+        filtering,
+        limit: 50,
+      }, 1);
+      return (rows as any[]).map((ad) => {
+        const c = ad.creative || {};
+        const spec = c.object_story_spec || {};
+        const link = spec.link_data || {};
+        const video = spec.video_data || {};
+        const feed = c.asset_feed_spec || {};
+        const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+        return {
+          id: ad.id,
+          name: ad.name,
+          status: ad.effective_status || ad.status,
+          thumbnail: c.thumbnail_url || '',
+          message: text(c.body) || text(link.message) || text(video.message) || text(feed.bodies?.[0]?.text),
+          headline: text(c.title) || text(link.name) || text(video.title) || text(feed.titles?.[0]?.text),
+          description: text(link.description) || text(video.link_description) || text(feed.descriptions?.[0]?.text),
+        };
+      });
+    }
+
     case 'pixels':
       return graph.list(`${act(q.get('account'))}/adspixels`, token, { fields: 'id,name', limit: 100 });
 
