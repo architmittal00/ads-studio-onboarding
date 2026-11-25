@@ -78,7 +78,9 @@ function copyAdFields(withInstagram, withPlacementAssets = true) {
   return (
     "id,name,status,effective_status," +
     "adset{id,name},campaign{id,name}," +
-    "creative{id,object_type,product_set_id,thumbnail_url,effective_object_story_id," +
+    // url_tags, Advantage+ creative settings and site links: carried onto the copy (full variant only, like the placement
+    // fields below: the list and the ad editor read the lighter set).
+    `creative{id,object_type,${withPlacementAssets ? "url_tags,degrees_of_freedom_spec,creative_sourcing_spec{site_links_spec}," : ""}product_set_id,thumbnail_url,effective_object_story_id,` +
     "facebook_branded_content,instagram_branded_content,branded_content," +
     `object_story_spec{page_id${withInstagram ? ",instagram_user_id" : ""},` +
     "link_data{link,message,name,description,call_to_action,image_hash," +
@@ -389,6 +391,9 @@ export function collectImageHashes(creative) {
   for (const img of creative?.asset_feed_spec?.images || []) {
     if (img.hash) hashes.add(img.hash);
   }
+  for (const link of creative?.creative_sourcing_spec?.site_links_spec || []) {
+    if (link.site_link_image_hash) hashes.add(link.site_link_image_hash);
+  }
   return [...hashes];
 }
 
@@ -692,8 +697,38 @@ export function buildPlacementCreative(spec, feed) {
 // no spec at all. `productSetId` is the "catalog" kind's own extra field,
 // sent alongside the (still object_story_spec-based, just template_data
 // instead of link_data) rebuilt spec.
-export async function createCopiedCreative(token, destAccountId, { objectStorySpec, objectStoryId, assetFeedSpec, productSetId } = {}) {
+// What an ad's creative carries beside its media and text, and that a copy would otherwise lose: the URL tags (UTMs),
+// the Advantage+ creative settings that are switched ON (only those are sent: Meta defaults the rest to off, and sending
+// every OPT_OUT back includes settings it has since retired), and the site links (their images remapped to the
+// destination account's copies). Returns an object to merge into the creative payload, or null when there is nothing.
+export function buildCreativeExtras(creative, hashMap) {
+  const out = {};
+  if (creative?.url_tags) out.url_tags = creative.url_tags;
+  const features = creative?.degrees_of_freedom_spec?.creative_features_spec;
+  if (features) {
+    const on = {};
+    for (const [name, value] of Object.entries(features)) {
+      if (value?.enroll_status === "OPT_IN") on[name] = value;
+    }
+    if (Object.keys(on).length) out.degrees_of_freedom_spec = { creative_features_spec: on };
+  }
+  const links = creative?.creative_sourcing_spec?.site_links_spec;
+  if (links?.length) {
+    out.creative_sourcing_spec = {
+      site_links_spec: links.map((l) => {
+        const link = { site_link_title: l.site_link_title, site_link_url: l.site_link_url };
+        const hash = l.site_link_image_hash && (hashMap?.get(l.site_link_image_hash) || l.site_link_image_hash);
+        if (hash) link.site_link_image_hash = hash;
+        return link;
+      }),
+    };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+export async function createCopiedCreative(token, destAccountId, { objectStorySpec, objectStoryId, assetFeedSpec, productSetId, extras } = {}) {
   const payload = objectStoryId ? { object_story_id: objectStoryId } : { object_story_spec: objectStorySpec };
+  if (extras) Object.assign(payload, extras);
   if (assetFeedSpec) payload.asset_feed_spec = assetFeedSpec;
   if (productSetId) payload.product_set_id = productSetId;
   const json = await graphPost(`/${destAccountId}/adcreatives`, token, payload);
@@ -794,6 +829,10 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
 
       const rebuiltSpec = reusePost ? null : rebuildObjectStorySpec(spec, hashMap, videoIdMap);
       const rebuiltFeed = hasAssetFeed && !reusePost ? rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) : null;
+      // URL tags, Advantage+ settings and site links ride along; if Meta rejects the creative with them, it is built
+      // again without them (and the result says so) rather than failing the copy.
+      let extras = reusePost ? null : buildCreativeExtras(ad.creative, hashMap);
+      let extrasDropped = false;
       const makeCreative = (feed) =>
         reusePost
           ? createCopiedCreative(token, destAccountId, { objectStoryId: ad.creative.effective_object_story_id })
@@ -801,6 +840,7 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
               objectStorySpec: rebuiltSpec,
               assetFeedSpec: feed,
               productSetId: kind === "catalog" ? ad.creative.product_set_id : null,
+              extras,
             });
       let creativeId;
       let feedDropped = false;
@@ -808,9 +848,10 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       // (which keep the main creative but cannot keep the other placements, and say so).
       const placement = !reusePost && kind === "standard" ? buildPlacementCreative(rebuiltSpec, rebuiltFeed) : null;
       let placementOk = false;
+      const createCreative = async () => {
       if (placement) {
         try {
-          creativeId = await withTransientRetry(() => createCopiedCreative(token, destAccountId, placement));
+          creativeId = await withTransientRetry(() => createCopiedCreative(token, destAccountId, { ...placement, extras }));
           placementOk = true;
         } catch {
           // handled by the fallback below
@@ -858,6 +899,20 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
         creativeId = await withTransientRetry(() => makeCreative(hasAssetFeedContent(textOnly) ? textOnly : null));
         }
       }
+      };
+      const postFallbackBefore = postFallback;
+      try {
+        await createCreative();
+      } catch (err) {
+        if (!extras) throw err;
+        extras = null;
+        extrasDropped = true;
+        creativeId = undefined;
+        feedDropped = false;
+        placementOk = false;
+        postFallback = postFallbackBefore;
+        await createCreative();
+      }
 
       const newAdId = await withTransientRetry(() =>
         createCopiedAd(token, destAccountId, {
@@ -870,6 +925,7 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
       const warning =
         [
           postFallback ? "Meta couldn't rebuild this creative (video file hidden, or carousel components mismatch), so this ad reuses the original Page post — same media, Page and caption." : null,
+          extrasDropped ? "Copied without its URL tags, Advantage+ creative settings and site links (Meta rejected them for this ad) — the media, copy and link are the same; add them in Ads Manager if needed." : null,
           feedDropped ? "Copied without its extra text options (Meta rejected them for this carousel) — the cards, copy and links are the same." : null,
           placement && !placementOk ? "This ad shows different media per placement / aspect ratio, but Meta rejected rebuilding that, so only its main creative was copied — check the other aspect ratios." : null,
           placementAssetsOmitted ? "Couldn't read this ad's per-placement media (Meta refused the fields), so only its main creative was copied — check the other aspect ratios." : null,
