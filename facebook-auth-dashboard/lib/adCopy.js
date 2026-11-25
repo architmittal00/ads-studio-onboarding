@@ -701,6 +701,11 @@ export function buildPlacementCreative(spec, feed) {
 // the Advantage+ creative settings that are switched ON (only those are sent: Meta defaults the rest to off, and sending
 // every OPT_OUT back includes settings it has since retired), and the site links (their images remapped to the
 // destination account's copies). Returns an object to merge into the creative payload, or null when there is nothing.
+// "Standard enhancements" bundles: Meta now refuses a creative that sets any of them ("Including standard enhancements
+// field in creative has been deprecated. Please choose to set individual features instead"). The individual features the
+// bundle turned on are listed on their own in the source creative and are what is sent.
+const DEPRECATED_BUNDLE_FEATURES = new Set(["advantage_plus_creative", "standard_enhancements", "standard_enhancements_catalog"]);
+
 export function buildCreativeExtras(creative, hashMap) {
   const out = {};
   if (creative?.url_tags) out.url_tags = creative.url_tags;
@@ -708,7 +713,7 @@ export function buildCreativeExtras(creative, hashMap) {
   if (features) {
     const on = {};
     for (const [name, value] of Object.entries(features)) {
-      if (value?.enroll_status === "OPT_IN") on[name] = value;
+      if (value?.enroll_status === "OPT_IN" && !DEPRECATED_BUNDLE_FEATURES.has(name)) on[name] = value;
     }
     if (Object.keys(on).length) out.degrees_of_freedom_spec = { creative_features_spec: on };
   }
