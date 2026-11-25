@@ -84,6 +84,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Copy Ads: every copy is logged to the database (2026-11-25)
+Table `copy_log` (Neon, created on first use, `lib/copyLogDb.js`) gets **one row per campaign / ad set / ad copied across accounts**, written by `copy.js`, `copy-adset.js` and `copy-campaign.js` just before their final response. Columns: who (`google_email`, `fb_user_id`, `user_name`), `request_kind` (what was chosen: ad / adset / campaign), `level`, `status` (`success` / `failed` / `skipped`), `name`, `source_account_id` + `source_entity_id`, `dest_account_id` + `dest_entity_id`, `parent_source_id` / `parent_dest_id` (ad -> its ad set, ad set -> its campaign), `requested_status`, `activation` (`activated` / `failed` / `not_requested`), `warning`, `error` (Meta's message), `details` (creative id). Copying an ad set or campaign logs the ad set / campaign **and each ad inside it**; ads or ad sets never attempted because their parent failed are logged as `skipped`. `batch_id` ties the rows of one request together. Writes soft-fail (a database problem never fails a copy). Not verified against a real database from here. Query: `select * from copy_log order by created_at desc;`
+
 > 2026-11-03: the **Rules** tab / page was renamed **Recommendations** in the UI (sidebar, phone tab bar "Recommend", page title/heading, Custom Views filter label). The route is now `/recommendations` (`pages/recommendations.js`; `/rules` redirects to it permanently); `lib/rules/*` and `/api/fb/rules/check` keep their names.
 
 ### Custom Views: time-grouped rows no longer show empty "No dates match" parents (2026-11-16)
