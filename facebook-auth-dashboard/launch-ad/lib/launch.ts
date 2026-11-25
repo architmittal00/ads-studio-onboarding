@@ -305,38 +305,62 @@ export async function launch(req: LaunchRequest, token: string): Promise<LaunchR
   const act = accountId.startsWith('act_') ? accountId : `act_${accountId}`;
   const ctx = buildContext(mode, form, req.existingCampaign);
   const result: LaunchResult = { ok: false, created: { ads: [] }, activated: false };
-  let step = 'campaign';
 
-  // Reverse journey: add the ad built first to an existing ad set.
+  // Reverse journey: add the ad built first to one or several existing ad sets.
   if (mode === 'AD_ONLY') {
-    try {
-      const target = req.targetAdset;
-      if (!target) throw new GraphError({ message: 'No ad set selected.' });
-      const targetSet = target.promoted_object?.product_set_id;
-      const isCatalogAd = form.ad.kind === 'CATALOG';
-      step = 'creative';
-      // Catalog ad: the ad set's product set if it has one, else the product set chosen for the ad.
-      const creative = isCatalogAd
-        ? await graph.post<{ id: string }>(`${act}/adcreatives`, token, creativeParams({ ...form, adset: { ...form.adset, productSetId: targetSet || form.adset.productSetId } }))
-        : await createStandardCreative(act, token, form, result);
-      result.created.creative = { id: creative.id };
-      step = 'ad';
-      const adName = form.ad.name.trim() || `${target.name} - ${isCatalogAd ? 'Catalog ad' : 'Ad'}`;
-      const ad = await graph.post<{ id: string }>(`${act}/ads`, token, { name: adName, adset_id: target.id, creative: { creative_id: creative.id }, status: 'PAUSED', ...tracking(form.adset.pixelId || target.promoted_object?.pixel_id) });
-      result.created.ads.push({ id: ad.id, name: adName });
-      result.created.adset = { id: target.id, name: target.name };
-      if (req.status === 'ACTIVE') {
-        step = 'activate';
-        await graph.post(ad.id, token, { status: 'ACTIVE' });
-        result.activated = true;
+    const targets = req.targetAdsets?.length ? req.targetAdsets : req.targetAdset ? [req.targetAdset] : [];
+    const isCatalogAd = form.ad.kind === 'CATALOG';
+    if (!targets.length) {
+      result.step = 'creative';
+      result.error = { message: 'No ad set selected.' };
+      return result;
+    }
+    const failures: NonNullable<LaunchResult['failures']> = [];
+    const addedAdsets: { id: string; name: string }[] = [];
+    // A normal ad's creative doesn't depend on the ad set, so it is made once and shared; a catalog ad's depends on
+    // the ad set's product set, so it is made per ad set.
+    let sharedCreative: { id: string } | null = null;
+    for (const target of targets) {
+      let step = 'creative';
+      try {
+        let creative: { id: string };
+        if (isCatalogAd) {
+          const targetSet = target.promoted_object?.product_set_id;
+          creative = await graph.post<{ id: string }>(`${act}/adcreatives`, token, creativeParams({ ...form, adset: { ...form.adset, productSetId: targetSet || form.adset.productSetId } }));
+        } else {
+          sharedCreative ||= await createStandardCreative(act, token, form, result);
+          creative = sharedCreative;
+        }
+        result.created.creative ||= { id: creative.id };
+        step = 'ad';
+        const adName = form.ad.name.trim() || `${target.name} - ${isCatalogAd ? 'Catalog ad' : 'Ad'}`;
+        const ad = await graph.post<{ id: string }>(`${act}/ads`, token, { name: adName, adset_id: target.id, creative: { creative_id: creative.id }, status: 'PAUSED', ...tracking(form.adset.pixelId || target.promoted_object?.pixel_id) });
+        result.created.ads.push({ id: ad.id, name: adName });
+        addedAdsets.push({ id: target.id, name: target.name });
+        if (req.status === 'ACTIVE') {
+          step = 'activate';
+          await graph.post(ad.id, token, { status: 'ACTIVE' });
+          result.activated = true;
+        }
+      } catch (e) {
+        failures.push({ adset: target.name, step, error: e instanceof GraphError ? e.meta : { message: (e as Error).message } });
       }
-      result.ok = true;
-    } catch (e) {
-      result.step = step;
-      result.error = e instanceof GraphError ? e.meta : { message: (e as Error).message };
+    }
+    if (addedAdsets.length) {
+      result.created.adset = addedAdsets[0];
+      if (targets.length > 1) result.created.adsets = addedAdsets;
+    }
+    if (failures.length) result.failures = failures;
+    // Something was created: the launch went through (failures, if any, are listed). Nothing created: it failed.
+    result.ok = result.created.ads.length > 0;
+    if (!result.ok) {
+      result.step = failures[0]?.step;
+      result.error = failures[0]?.error;
     }
     return result;
   }
+
+  let step = 'campaign';
 
   try {
     // 1. Campaign (always created paused; activated at the end so nothing spends on a half-built launch)

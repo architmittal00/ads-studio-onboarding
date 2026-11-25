@@ -111,7 +111,10 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
 
   // Editing the ad can make the chosen ad set unsuitable; drop it.
   useEffect(() => {
-    if (dest?.kind === 'ADSET' && adsetFit(dest.adset, fit)) setDest(null);
+    if (dest?.kind === 'ADSET') {
+      const ok = dest.adsets.filter((a) => !adsetFit(a, fit));
+      if (ok.length !== dest.adsets.length) setDest(ok.length ? { kind: 'ADSET', adsets: ok } : null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCatalog, form.campaign.catalogId]);
 
@@ -131,8 +134,9 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
     });
   };
 
-  const chooseDest = (d: Destination) => {
+  const chooseDest = (d: Destination | null) => {
     setDest(d);
+    if (!d) return;
     if (d.kind !== 'ADSET') setSettingsMissing([{ key: 'settings', label: d.kind === 'NEW_CAMPAIGN' ? 'Campaign and ad set settings' : 'Ad set settings' }]);
     if (d.kind === 'NEW_ADSET') {
       const c = d.campaign;
@@ -200,10 +204,12 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
         <div className="ws-side-inner" ref={sideInner}>
         {type ? <AdPreview form={form} total={isCatalog ? setCount : undefined} /> : <div className="preview"><div className="preview-empty">Pick an ad type to see a preview.</div></div>}
         {dest ? (() => {
-          const campaignName = dest.kind === 'NEW_CAMPAIGN' ? form.campaign.name || 'New campaign' : dest.kind === 'NEW_ADSET' ? dest.campaign.name : dest.adset.campaign?.name || '–';
-          const adsetName = dest.kind === 'ADSET' ? dest.adset.name : form.adset.name || 'New ad set';
+          const many = dest.kind === 'ADSET' && dest.adsets.length > 1;
+          const one = dest.kind === 'ADSET' ? dest.adsets[0] : null;
+          const campaignName = dest.kind === 'NEW_CAMPAIGN' ? form.campaign.name || 'New campaign' : dest.kind === 'NEW_ADSET' ? dest.campaign.name : [...new Set(dest.adsets.map((a) => a.campaign?.name || '–'))].join(', ');
+          const adsetName = dest.kind === 'ADSET' ? (many ? `${dest.adsets.length} ad sets` : one!.name) : form.adset.name || 'New ad set';
           const budget = dest.kind === 'ADSET'
-            ? (dest.adset.daily_budget || dest.adset.lifetime_budget ? `${adsetBudget(dest.adset, account.currency)} ad set budget` : dest.adset.campaign ? `${budgetText(dest.adset.campaign, account.currency)} campaign budget` : '')
+            ? many ? 'Each ad set keeps its own budget' : (one!.daily_budget || one!.lifetime_budget ? `${adsetBudget(one!, account.currency)} ad set budget` : one!.campaign ? `${budgetText(one!.campaign, account.currency)} campaign budget` : '')
             : form.budget.amount ? `${currencySymbol(account.currency)}${Number(form.budget.amount).toLocaleString('en-IN')}${form.budget.type === 'DAILY' ? '/day' : ' lifetime'} ${form.budget.level === 'ADSET' ? 'ad set' : 'campaign'} budget` : '';
           return (
             <div className="card ws-dest">
@@ -211,7 +217,7 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
               <dl className="runs-in">
                 <dt>Campaign</dt><dd>{campaignName}{dest.kind === 'NEW_CAMPAIGN' ? <span className="tag">New</span> : null}</dd>
                 <dt>Ad set</dt><dd>{adsetName}{dest.kind !== 'ADSET' ? <span className="tag">New</span> : null}</dd>
-                <dt>Ad</dt><dd>{form.ad.name || '–'}<span className="tag">New</span></dd>
+                <dt>{dest.kind === 'ADSET' && dest.adsets.length > 1 ? 'Ads' : 'Ad'}</dt><dd>{form.ad.name || '–'}<span className="tag">New</span>{dest.kind === 'ADSET' && dest.adsets.length > 1 ? <span className="hint"> one in each ad set</span> : null}</dd>
               </dl>
               {budget ? <div className="hint budget-line">{budget}</div> : null}
               {step !== 'DEST' ? <button type="button" className="btn-link" style={{ marginTop: 8 }} onClick={() => go('DEST')}>Change</button> : null}
@@ -326,8 +332,11 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
             <DestinationTree account={account} fit={fit} value={dest} onChange={chooseDest} />
             {dest?.kind === 'ADSET' ? (
               <>
-                <SectionTitle>This ad set</SectionTitle>
-                <div className="card"><AdsetFacts adset={dest.adset} account={account} /><p className="hint" style={{ marginBottom: 0 }}>Your ad joins this ad set as it is: its budget, audience and schedule don&apos;t change.</p></div>
+                <SectionTitle>{dest.adsets.length === 1 ? 'This ad set' : `These ${dest.adsets.length} ad sets`}</SectionTitle>
+                {dest.adsets.map((a) => (
+                  <div className="card" key={a.id} style={{ marginBottom: 10 }}><AdsetFacts adset={a} account={account} /></div>
+                ))}
+                <p className="hint">Your ad joins {dest.adsets.length === 1 ? 'this ad set' : 'each of these ad sets'} as {dest.adsets.length === 1 ? 'it is' : 'they are'}: budget, audience and schedule don&apos;t change.</p>
               </>
             ) : null}
           </>
@@ -354,7 +363,7 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
             <StructureMap account={account} form={form} dest={dest} />
             <div className="card" style={{ marginTop: 14 }}>
               {dest.kind === 'ADSET' ? (
-                <AdOnlyPanel account={account} form={form} target={dest.adset} productSets={productSets.data || []} onDone={onDone} />
+                <AdOnlyPanel account={account} form={form} targets={dest.adsets} productSets={productSets.data || []} onDone={onDone} />
               ) : (
                 <ReviewPanel
                   mode={mode}
@@ -415,22 +424,24 @@ function SectionTitle({ children }: { children: ReactNode }) {
 function StructureMap({ account, form, dest }: { account: AdAccount; form: FormState; dest: Destination }) {
   const sym = currencySymbol(account.currency);
   const newBudget = form.budget.amount ? `${sym}${Number(form.budget.amount).toLocaleString('en-IN')}${form.budget.type === 'DAILY' ? '/day' : ' lifetime'}` : '';
-  const campaign = dest.kind === 'ADSET' ? dest.adset.campaign : dest.kind === 'NEW_ADSET' ? dest.campaign : undefined;
+  const adsets = dest.kind === 'ADSET' ? dest.adsets : [];
+  const campaigns = [...new Map(adsets.filter((a) => a.campaign).map((a) => [a.campaign!.id, a.campaign!])).values()];
+  const campaign = dest.kind === 'ADSET' ? campaigns[0] : dest.kind === 'NEW_ADSET' ? dest.campaign : undefined;
   const nodes: { level: string; isNew: boolean; name: string; meta: string }[] = [
     {
       level: 'Campaign',
       isNew: dest.kind === 'NEW_CAMPAIGN',
-      name: dest.kind === 'NEW_CAMPAIGN' ? form.campaign.name || 'New campaign' : campaign?.name || '',
+      name: dest.kind === 'NEW_CAMPAIGN' ? form.campaign.name || 'New campaign' : campaigns.length > 1 ? campaigns.map((c) => c.name).join(', ') : campaign?.name || '',
       meta: dest.kind === 'NEW_CAMPAIGN'
         ? [objectiveLabel(form.campaign.objective), form.budget.level === 'CAMPAIGN' && newBudget ? `${newBudget} campaign budget` : 'Ad set budget'].join(' · ')
-        : campaign ? [objectiveLabel(campaign.objective), budgetText(campaign, account.currency)].join(' · ') : '',
+        : campaigns.length > 1 ? `${campaigns.length} campaigns` : campaign ? [objectiveLabel(campaign.objective), budgetText(campaign, account.currency)].join(' · ') : '',
     },
     {
       level: 'Ad set',
       isNew: dest.kind !== 'ADSET',
-      name: dest.kind === 'ADSET' ? dest.adset.name : form.adset.name || 'New ad set',
+      name: dest.kind === 'ADSET' ? (adsets.length > 1 ? `${adsets.length} ad sets` : adsets[0].name) : form.adset.name || 'New ad set',
       meta: dest.kind === 'ADSET'
-        ? (dest.adset.daily_budget || dest.adset.lifetime_budget ? `${adsetBudget(dest.adset, account.currency)} ad set budget` : 'Uses the campaign budget')
+        ? (adsets.length > 1 ? adsets.map((a) => a.name).join(', ') : adsets[0].daily_budget || adsets[0].lifetime_budget ? `${adsetBudget(adsets[0], account.currency)} ad set budget` : 'Uses the campaign budget')
         : (form.budget.level === 'ADSET' && newBudget ? `${newBudget} ad set budget` : campaign && (campaign.daily_budget || campaign.lifetime_budget) ? 'Uses the campaign budget' : newBudget ? 'Uses the campaign budget' : ''),
     },
     {

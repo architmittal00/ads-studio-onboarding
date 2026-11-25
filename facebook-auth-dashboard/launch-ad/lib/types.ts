@@ -180,11 +180,15 @@ export interface LaunchRequest {
   existingCampaign?: CampaignLite;
   /** AD_ONLY: the existing ad set the ad is added to */
   targetAdset?: AdsetLite;
+  /** AD_ONLY with several ad sets: the ad is added to each (takes the place of targetAdset) */
+  targetAdsets?: AdsetLite[];
 }
 
 export interface LaunchResult {
   ok: boolean;
-  created: { campaign?: { id: string; name: string }; adset?: { id: string; name: string }; creative?: { id: string }; ads: { id: string; name: string }[] };
+  created: { campaign?: { id: string; name: string }; adset?: { id: string; name: string }; creative?: { id: string }; ads: { id: string; name: string }[]; /** AD_ONLY into several ad sets: every ad set that got the ad (`adset` is the first) */ adsets?: { id: string; name: string }[] };
+  /** AD_ONLY into several ad sets: the ones the ad could not be added to */
+  failures?: { adset: string; step: string; error: MetaError }[];
   activated: boolean;
   /** Something was left out but the launch went through (e.g. the separate Stories / Reels media) */
   warning?: string;
