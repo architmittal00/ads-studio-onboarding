@@ -3,6 +3,7 @@ import { authOptions } from "../../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
 import { createAssetCopyCoordinator, copyAdsIntoAdset, COPY_CONCURRENCY } from "@/lib/adCopy";
 import { mapWithConcurrency } from "@/lib/metaInterestSearch";
+import { recordCopyBatch } from "@/lib/copyLogDb";
 
 // Clones a batch of ads from one ad account's creative into an existing ad
 // set in a different ad account — the first place this app builds a
@@ -140,5 +141,6 @@ export default async function handler(req, res) {
     }
   }
 
+  await recordCopyBatch(session, { kind: "ad", sourceAccountId, destAccountId, finalStatus, steps });
   finish({ success: overallSuccess, createdAdIds, steps });
 }

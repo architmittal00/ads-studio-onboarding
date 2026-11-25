@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
 import { copyAdsetsIntoCampaign } from "@/lib/adCopy";
+import { recordCopyBatch } from "@/lib/copyLogDb";
 import { buildGenericCampaignPayload, toMinorUnits } from "@/lib/campaignLaunch";
 
 // Campaign-level cross-account copy: creates one new campaign, then
@@ -75,10 +76,9 @@ export default async function handler(req, res) {
     steps.push({ type: "campaign", label: "Campaign", name: campaignPayload.name, success: true, id: campaignId });
   } catch (err) {
     res.write(`${JSON.stringify({ type: "campaign_done", success: false, error: err.message })}\n`);
-    finish({
-      success: false,
-      steps: [...steps, { type: "campaign", label: "Campaign", name: campaignPayload.name, success: false, error: err.message }],
-    });
+    const failedSteps = [...steps, { type: "campaign", label: "Campaign", name: campaignPayload.name, success: false, error: err.message }];
+    await recordCopyBatch(session, { kind: "campaign", sourceAccountId, destAccountId, sourceCampaignId, finalStatus, steps: failedSteps, adsets });
+    finish({ success: false, steps: failedSteps });
     return;
   }
 
@@ -123,6 +123,7 @@ export default async function handler(req, res) {
     }
   }
 
+  await recordCopyBatch(session, { kind: "campaign", sourceAccountId, destAccountId, sourceCampaignId, finalStatus, steps, adsets });
   finish({
     success: overallSuccess,
     createdCampaignId: campaignId,
