@@ -12,7 +12,7 @@ import { DownloadIcon } from "@/components/icons";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { track } from "@/lib/analytics";
 import { currencySymbolOf } from "@/lib/rules/leanFlag";
-import { assumptionsFromTotals, buildAssumptions, computePlan, describeTrends, GOOD_WHEN, planMonthOptions, sameMonthLastYear, splitBudget, sumMonths, totalPlan } from "@/lib/mediaPlan";
+import { assumptionsFromTotals, buildAssumptions, computePlan, describeTrends, explainAssumption, GOOD_WHEN, planMonthOptions, sameMonthLastYear, splitBudget, sumMonths, totalPlan } from "@/lib/mediaPlan";
 import { buildXlsx, downloadXlsx } from "@/lib/xlsxWriter";
 import styles from "@/styles/Home.module.css";
 
@@ -25,6 +25,12 @@ import styles from "@/styles/Home.module.css";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const monthLabel = (key) => `${MONTH_NAMES[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
+// "August, September and October 2026" (a year is repeated only where it changes)
+function monthsText(keys) {
+  if (!keys?.length) return "the last 3 full months";
+  const parts = keys.map((k, i) => (i === keys.length - 1 || keys[i + 1].slice(0, 4) !== k.slice(0, 4) ? monthLabel(k) : MONTH_NAMES[Number(k.slice(5, 7)) - 1]));
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
 const nf = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 const dash = "–";
 const fInt = (v) => (v == null ? dash : nf.format(Math.round(v)));
@@ -228,8 +234,19 @@ export default function MediaPlan() {
   const changeMethod = (m) => { setMethod(m); setEdits({}); };
 
   const monthName = (k) => monthLabel(k);
+  const usedMonths = picked.find((p) => p.months)?.months.map((m) => m.month) || [];
+  const usedText = monthsText(usedMonths);
   const ly = lastYearTotals ? { ...assumptionsFromTotals(lastYearTotals), spend: lastYearTotals.spend, impressions: lastYearTotals.impressions, clicks: lastYearTotals.linkClicks, purchases: lastYearTotals.purchases, revenue: lastYearTotals.revenue, lpv: lastYearTotals.lpv, atc: lastYearTotals.atc, ic: lastYearTotals.ic } : null;
   const lyRoas = ly && ly.spend > 0 ? ly.revenue / ly.spend : null;
+  // Last year's figures that look nothing like recent months usually mean a tracking change, not a real swing.
+  const recent = insight?.avg ? insight.avg.values : null;
+  const lastYearOdd = (() => {
+    if (!ly || !recent) return null;
+    const far = (a, b) => a != null && b != null && b > 0 && (a / b > 3 || a / b < 1 / 3);
+    if (far(ly.aov, recent.aov)) return `Last year's average order value (${fMoney(ly.aov, sym)}) is very different from recent months' (${fMoney(recent.aov, sym)}).`;
+    if (lyRoas != null && grand?.roas != null && far(lyRoas, grand.roas)) return `Last year's ROAS (${fX(lyRoas)}) is very different from this plan's (${fX(grand.roas)}).`;
+    return null;
+  })();
   const lyCpp = ly && ly.purchases > 0 ? ly.spend / ly.purchases : null;
   const lyCpm = ly && ly.impressions > 0 ? (ly.spend / ly.impressions) * 1000 : null;
   const lyCvr = ly && ly.clicks > 0 ? ly.purchases / ly.clicks : null;
@@ -264,14 +281,16 @@ export default function MediaPlan() {
     const bold = (c) => (c && typeof c === "object" ? { ...c, bold: true } : c === "" || c == null ? c : { v: c, bold: true });
     const sheetRows = [[{ v: `Meta media plan: ${monthName(month)}`, bold: true }], [`Assumptions: ${METHODS.find((m) => m.key === method).label}${range ? `, from ${range.since} to ${range.until}` : ""}`], [], head.map((h) => ({ v: h, bold: true })), ...rows.map(({ p, plan }) => line(p.name, plan))];
     if (totals) sheetRows.push(line("Total", totals).map(bold));
-    // What each assumption was worked out from, per account.
-    sheetRows.push([], [{ v: "How the assumptions were worked out", bold: true }], ["Account", "Assumption", "3-month average", "Used in plan", "Trend"].map((h) => ({ v: h, bold: true })));
+    // What each assumption was worked out from, per account: the months it is based on, the average, what the plan uses and why.
+    const monthKeys = usedMonths;
+    sheetRows.push([], [{ v: `How the assumptions were worked out (${usedText})`, bold: true }], ["Account", "Assumption", ...monthKeys.map(monthLabel), "3-month average", "Used in plan", "Why"].map((h) => ({ v: h, bold: true })));
     for (const { p } of rows) {
       if (!p.built) continue;
       for (const spec of INPUTS) {
         const n = p.built.notes[spec.key];
-        const val = (x) => (x == null ? "" : spec.pct ? { v: x, fmt: "0.00%" } : { v: x, fmt: "#,##0.00" });
-        sheetRows.push([p.name, spec.label, val(n.avg), val(p.built.values[spec.key]), n.direction == null ? "not enough data" : n.direction === "flat" ? "flat" : `${n.direction === "up" ? "rising" : "falling"} about ${Math.abs(n.changePerMonth * 100).toFixed(1)}% a month`]);
+        const cell = (x) => (x == null ? "" : spec.pct ? { v: x, fmt: "0.00%" } : { v: x, fmt: "#,##0.00" });
+        const fmtV = (v) => (v == null ? dash : spec.pct ? fPct(v, spec.digits) : `${v.toFixed(spec.digits)}`);
+        sheetRows.push([p.name, spec.label, ...n.series.map((x) => cell(x.value)), cell(n.avg), cell(p.built.values[spec.key]), explainAssumption(n, { method, planKey: month, fmt: fmtV, monthName })]);
       }
     }
     if (compare) {
@@ -357,7 +376,7 @@ export default function MediaPlan() {
               {insight ? (
                 <section className={styles.card} style={{ marginBottom: 16 }}>
                   <h2 className={styles.h2} style={{ margin: "0 0 8px" }}>
-                    What the last 3 months say
+                    What the last 3 months say <span className={styles.muted} style={{ fontWeight: 500, fontSize: 13 }}>({usedText})</span>
                   </h2>
                   {insight.items.length === 0 ? (
                     <p className={styles.sub} style={{ margin: 0 }}>
@@ -378,6 +397,52 @@ export default function MediaPlan() {
                       })}
                     </ul>
                   )}
+                  <h3 style={{ margin: "16px 0 6px", fontSize: 14 }}>Why each number was chosen</h3>
+                  {picked.filter((p) => p.built).map((p) => (
+                    <div key={p.id} style={{ marginBottom: 12 }}>
+                      {picked.length > 1 ? <div style={{ fontWeight: 700, margin: "8px 0 4px" }}>{p.name}</div> : null}
+                      <div className={styles.tableScroll} style={{ maxHeight: "none" }}>
+                        <table className={styles.table}>
+                          <thead>
+                            <tr>
+                              <th style={{ textAlign: "left" }}>Assumption</th>
+                              {p.months.map((m) => (
+                                <th key={m.month} style={th}>{monthLabel(m.month)}</th>
+                              ))}
+                              <th style={th}>3-month avg</th>
+                              <th style={th}>Plan uses</th>
+                              <th style={{ textAlign: "left" }}>Why</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {INPUTS.map((spec) => {
+                              const n = p.built.notes[spec.key];
+                              const fmtV = (v) => (v == null ? dash : spec.pct ? fPct(v, spec.digits) : spec.money ? `${sym}${v.toFixed(spec.digits)}` : v.toFixed(spec.digits));
+                              const typed = edits[p.id]?.[spec.key];
+                              const moving = n.direction === "up" || n.direction === "down";
+                              return (
+                                <tr key={spec.key}>
+                                  <td>{spec.label}</td>
+                                  {n.series.map((x) => (
+                                    <td key={x.month} style={td}>{fmtV(x.value)}</td>
+                                  ))}
+                                  <td style={td}>{fmtV(n.avg)}</td>
+                                  <td style={{ ...td, fontWeight: 700 }}>
+                                    {moving && n.used === "trend" ? <span style={{ color: GOOD_WHEN[spec.key](n.direction) ? "var(--green)" : "var(--red)" }}>{ARROW[n.direction]} </span> : null}
+                                    {fmtV(p.built.values[spec.key])}
+                                  </td>
+                                  <td style={{ whiteSpace: "normal", minWidth: 340, maxWidth: 520, fontSize: 12 }}>
+                                    {typed != null ? <b>You changed this to {typed}. </b> : null}
+                                    {explainAssumption(n, { method, planKey: month, fmt: fmtV, monthName })}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
                   <p className={styles.muted} style={{ margin: "8px 0 0" }}>
                     Trend-adjusted carries each rate&apos;s month-by-month movement forward to {monthName(month)}, never more than 30% away from the average. {insight.items.length ? "Switch to the 3-month average above to ignore the trend." : ""}
                   </p>
@@ -389,7 +454,7 @@ export default function MediaPlan() {
                     Meta media plan · {monthName(month)}
                   </h2>
                   <span className={styles.muted}>
-                    Based on {range ? `${range.since} → ${range.until}` : "the last 3 full months"}{method === "trend" ? ", with rising or falling rates carried forward" : method === "lastYear" ? `, using ${monthName(lyKey)}'s rates where there are any` : ""}. Change any cell to try another scenario.
+                    {method === "avg" ? `Average of ${usedText}` : method === "trend" ? `Based on ${usedText}, with rising or falling rates carried forward` : `Using ${monthName(lyKey)}'s rates (${usedText} where it has none)`}. Change any cell to try another scenario.
                   </span>
                 </div>
                 <div className={styles.tableScroll} style={{ maxHeight: "none" }}>
@@ -541,6 +606,11 @@ export default function MediaPlan() {
                         </tbody>
                       </table>
                     </div>
+                    {lastYearOdd ? (
+                      <div className="notice warn" style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(var(--amber-rgb), 0.12)", color: "var(--amber)" }}>
+                        {lastYearOdd} Check the purchase tracking for that month before relying on last year&apos;s numbers (for example a different product, a pixel that counted something else, or test purchases).
+                      </div>
+                    ) : null}
                     <p className={styles.muted} style={{ marginTop: 8 }}>
                       Green is a change in your favour (more purchases or ROAS, lower CPC or cost per purchase). Want to plan on last year&apos;s rates? Choose <b>Same month last year</b> under Assumptions above.
                     </p>
