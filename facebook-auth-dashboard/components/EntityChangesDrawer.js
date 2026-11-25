@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import InvestigateResults from "./InvestigateResults";
 import Thumb from "./Thumb";
 import CreativeLightbox from "./CreativeLightbox";
