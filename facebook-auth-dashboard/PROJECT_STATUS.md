@@ -84,6 +84,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Launch Ad: full campaign / ad set names on hover (2026-11-25)
+In the Campaign & ad set picker (`DestinationTree.tsx`), long campaign and ad set names are cut off with an ellipsis; hovering the name now shows the full name, and hovering the grey details line shows all of it (budget, status, spend, audience).
+
 ### Launch Ad: redesigned image / video section (2026-11-25)
 The media part of the image/video ad form is now `launch-ad/components/AdMediaSection.tsx` (the upload logic moved out of `StandardAdSection.tsx`). **Choose the aspect ratio first** (Square 1:1, Portrait 4:5, Vertical 9:16, Landscape 16:9, each with a shape icon and where it shows), **then add the file** from your computer or Google Drive (drag and drop works too). After upload: thumbnail in the chosen shape, file name, status (uploading / Meta processing / ready), Replace / Google Drive buttons. The file's real size is read and, if it isn't the chosen ratio, a warning offers "Use X instead". **Second size**: "Add a vertical 9:16 for Stories and Reels" (or, when the first size is vertical, "Add a Feed size"); the vertical file is always the one sent to Stories and Reels (`placementCreativeParams` picks it by `ad.ratio` / `ad.storyRatio`), the other to every other placement. New fields `ad.ratio` (default 1:1) and `ad.storyRatio`; Review shows "Media sizes". Icons added through the section and the Ad text panel (Upload, Folder, Refresh, Trash, Plus, Check, Pencil, Undo). Checked in a browser at desktop and phone width with a mock page (not with real uploads to Meta).
 

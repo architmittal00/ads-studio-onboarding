@@ -62,12 +62,13 @@ function byActivity(x: { effective_status?: string; status?: string; updated_tim
 
 function AdsetRow({ a, why, selected, onPick, currency }: { a: AdsetLite; why: string; selected: boolean; onPick: () => void; currency: string }) {
   const n = a.ads?.summary?.total_count ?? 0;
+  const meta = [adsetBudget(a, currency), statusLabel(a.effective_status || a.status), perfText(perf(a.insights), currency), `${n} ${n === 1 ? 'ad' : 'ads'}`, audienceText(a.targeting), why].filter(Boolean).join(' · ');
   return (
     <button type="button" className={`tree-row ${selected ? 'on' : ''}`} disabled={!!why} title={why || undefined} onClick={onPick} aria-pressed={selected}>
       <span className="radio sq" aria-hidden />
-      <span className="t-name">{a.name}</span>
+      <span className="t-name" title={a.name}>{a.name}</span>
       {a.promoted_object?.product_set_id ? <span className="badge coral">Catalog</span> : null}
-      <span className="t-meta">{[adsetBudget(a, currency), statusLabel(a.effective_status || a.status), perfText(perf(a.insights), currency), `${n} ${n === 1 ? 'ad' : 'ads'}`, audienceText(a.targeting), why].filter(Boolean).join(' · ')}</span>
+      <span className="t-meta" title={meta}>{meta}</span>
     </button>
   );
 }
@@ -166,7 +167,7 @@ export default function DestinationTree({ account, fit, value, onChange }: {
           <div className="tree-row on" style={{ cursor: 'default' }}>
             <span className="radio" aria-hidden />
             <span className="t-name" title={sel.name}>{sel.name}</span>
-            <span className="t-meta">{sel.meta.filter(Boolean).join(' · ')}</span>
+            <span className="t-meta" title={sel.meta.filter(Boolean).join(' · ')}>{sel.meta.filter(Boolean).join(' · ')}</span>
             <button type="button" className="btn-link" onClick={() => setPicking(true)}>Change</button>
           </div>
         </div>
@@ -207,9 +208,9 @@ export default function DestinationTree({ account, fit, value, onChange }: {
             <div key={c.id} className={`tree-campaign ${blocked ? 'blocked' : ''}`}>
               <button type="button" className="tree-row camp" onClick={() => setOpen({ ...open, [c.id]: !expanded })} aria-expanded={expanded} title={blocked || undefined}>
                 {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span className="t-name">{c.name}</span>
+                <span className="t-name" title={c.name}>{c.name}</span>
                 <span className={`badge ${catalog ? 'coral' : 'grey'}`}>{catalog ? 'Catalog' : 'Normal'}</span>
-                <span className="t-meta">{[objectiveLabel(c.objective), budgetText(c, account.currency), statusLabel(c.effective_status || c.status), perfText(perf(c.insights), account.currency, false), count != null ? `${count} ${count === 1 ? 'ad set' : 'ad sets'}` : '', blocked].filter(Boolean).join(' · ')}</span>
+                <span className="t-meta" title={[objectiveLabel(c.objective), budgetText(c, account.currency), statusLabel(c.effective_status || c.status), perfText(perf(c.insights), account.currency, false), count != null ? `${count} ${count === 1 ? 'ad set' : 'ad sets'}` : '', blocked].filter(Boolean).join(' · ')}>{[objectiveLabel(c.objective), budgetText(c, account.currency), statusLabel(c.effective_status || c.status), perfText(perf(c.insights), account.currency, false), count != null ? `${count} ${count === 1 ? 'ad set' : 'ad sets'}` : '', blocked].filter(Boolean).join(' · ')}</span>
               </button>
               {expanded ? (
                 <CampaignChildren account={account} c={c} blocked={blocked} fit={fit} isSel={isSel} onChange={pick} onToggle={toggle} fitsOnly={fitsOnly} />
