@@ -51,6 +51,7 @@ export function AdOnlyPanel({ account, form, targets, onDone, productSets }: Pro
       : targetSet ? 'The ad set’s own product set' : 'The one chosen for this ad']);
     adRows.push(['Clicks go to', ad.destination === 'APP_WEB' ? 'App, website as backup' : 'Website']);
   }
+  if (ad.kind === 'UPLOAD' && ad.copyLang !== 'EN') adRows.push(['Ad text language', ad.copyLang === 'HINGLISH' ? 'Hinglish' : { HI: 'Hindi', TE: 'Telugu', TA: 'Tamil', ML: 'Malayalam', KN: 'Kannada' }[ad.copyLang]]);
   if (ad.kind === 'UPLOAD' && (ad.storyVideoId || ad.storyImageHash)) adRows.push(['Stories and Reels', `Own ${ad.storyVideoId ? 'video' : 'image'}${ad.storyImageName ? ` (${ad.storyImageName})` : ''}; other placements use the main media`]);
   if (isCatalog || ad.kind === 'UPLOAD') adRows.push([isCatalog ? 'See more URL' : 'Website', ad.link]);
 

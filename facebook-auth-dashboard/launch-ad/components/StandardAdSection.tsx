@@ -8,8 +8,7 @@ import { useAsync } from '@/launch-ad/lib/hooks';
 import { driveConfigured, pickFromDrive } from '@/launch-ad/lib/google-drive';
 import type { FormState, PostMedia } from '@/launch-ad/lib/types';
 import { startProxy } from '@/launch-ad/lib/video-proxy';
-import AiCopy from './AiCopy';
-import AiTranslate from './AiTranslate';
+import AdCopyEditor from './AdCopyEditor';
 import { MediaModal } from './PostMedia';
 import TrackingFields from './TrackingFields';
 import { Field, Loading, SearchSelect, Segmented, Select, TextInput, Toggle } from './ui';
@@ -326,15 +325,7 @@ export default function StandardAdSection({ form, setAd, accountId, openDrive = 
               </button>
             </div>
           )}
-          <AiCopy ad={ad} accountId={accountId} pageName={page?.name || ''} setAd={setAd} />
-          <Field label="Primary text">
-            <textarea className="input" value={ad.message} onChange={(e) => setAd({ message: e.target.value })} rows={3} placeholder="Tell people what your ad is about" />
-          </Field>
-          <div className="row field">
-            <Field label="Headline"><TextInput value={ad.headline} onChange={(e) => setAd({ headline: e.target.value })} placeholder="Write a short headline" /></Field>
-            <Field label="Description"><TextInput value={ad.description} onChange={(e) => setAd({ description: e.target.value })} placeholder="Optional" /></Field>
-          </div>
-          <AiTranslate ad={ad} setAd={setAd} />
+          <AdCopyEditor ad={ad} setAd={setAd} accountId={accountId} pageName={page?.name || ''} />
           <div className="row field">
             <Field label="Call to action"><Select value={ad.cta} onChange={(v) => setAd({ cta: v })} options={CTAS} /></Field>
             <Field label="Website URL" hint={page && !linkEdited ? (pageWebsite(page) ? 'From the Page’s website.' : 'This Page has no website listed; enter one.') : undefined}>
