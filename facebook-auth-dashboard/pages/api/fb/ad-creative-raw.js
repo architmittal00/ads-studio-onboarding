@@ -20,6 +20,15 @@ export default async function handler(req, res) {
   if (!session?.accessToken) return res.status(401).json({ error: "Not authenticated" });
   const adId = String(req.query.adId || "");
   if (!/^\d+$/.test(adId)) return res.status(400).json({ error: "adId must be numeric" });
+  // `fields` lets a specific Graph field list be read on the ad (e.g. creative{object_story_spec{link_data{image_crops}}}).
+  const custom = typeof req.query.fields === "string" && /^[A-Za-z0-9_,{}.]+$/.test(req.query.fields) ? req.query.fields : null;
+  if (custom) {
+    try {
+      return res.status(200).json(await graphGet(`/${adId}`, session.accessToken, { fields: custom }));
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  }
   const out = {};
   await Promise.all(
     Object.entries(FIELD_GROUPS).map(async ([name, fields]) => {
