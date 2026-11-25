@@ -84,6 +84,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Launch Ad: import text from another ad of the account (2026-11-25)
+In the Ad text panel, **"Import from another ad"** opens a list of the selected ad account's ads (search by name; 50 shown; live, paused and archived), each with its thumbnail, status and the start of its text; ads with no text (e.g. promoting an existing post) are greyed out. Picking one shows its primary text, headline and description with **"Import this text"** / **"Choose another ad"**; nothing changes until imported, a warning says when it will replace text already in the fields, and an **Undo** link follows. The text goes into whichever language tab is showing. Server: GET `ads` in `app/api/launch-ad/meta/[action]/route.ts` reads `/act_x/ads` with the creative and returns only id, name, status, thumbnail and the three text fields (taken from `body/title`, `object_story_spec` link/video data or `asset_feed_spec`). Only text is imported (not media, button or link). Checked in the browser with a mocked ads list; not against a real account.
+
 ### Launch Ad: full campaign / ad set names on hover (2026-11-25)
 In the Campaign & ad set picker (`DestinationTree.tsx`), long campaign and ad set names are cut off with an ellipsis; hovering the name now shows the full name, and hovering the grey details line shows all of it (budget, status, spend, audience).
 
