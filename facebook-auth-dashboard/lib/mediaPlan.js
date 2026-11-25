@@ -163,17 +163,21 @@ export function buildAssumptions({ months, planKey, method = "avg", lastYearTota
     const rel = fit && fit.mean > 0 ? fit.slope / fit.mean : null;
     const direction = rel == null ? null : rel > FLAT ? "up" : rel < -FLAT ? "down" : "flat";
     let projected = null;
+    let raw = null;
+    let capped = null; // "up" / "down": the line went past the 30% limit and was held at it
     if (fit && avg[key] != null) {
-      const raw = fit.intercept + fit.slope * tPlan;
+      raw = fit.intercept + fit.slope * tPlan;
       projected = Math.min(avg[key] * (1 + CLAMP), Math.max(avg[key] * (1 - CLAMP), raw));
-      if (direction === "flat") projected = avg[key];
+      if (raw > avg[key] * (1 + CLAMP)) capped = "up";
+      else if (raw < avg[key] * (1 - CLAMP)) capped = "down";
+      if (direction === "flat") { projected = avg[key]; capped = null; }
     }
     let value = avg[key];
     let used = "avg";
     if (method === "trend" && projected != null) { value = projected; used = "trend"; }
     if (method === "lastYear" && lastYear?.[key] != null) { value = lastYear[key]; used = "lastYear"; }
     values[key] = value;
-    notes[key] = { series, avg: avg[key], direction, changePerMonth: rel, projected, used };
+    notes[key] = { series, avg: avg[key], direction, changePerMonth: rel, projected, raw, capped, points: points.length, lastYear: lastYear?.[key] ?? null, used };
   }
   return { values, notes };
 }
@@ -203,3 +207,35 @@ export const GOOD_WHEN = {
   icToPur: (d) => d === "up",
   aov: (d) => d === "up",
 };
+
+/**
+ * One sentence on why an assumption has the value it has, from its note (see buildAssumptions).
+ * `fmt` writes a value the way the page shows it; `monthName` writes "2026-12" as "December 2026".
+ */
+export function explainAssumption(note, { method, planKey, fmt, monthName }) {
+  const series = (note.series || []).filter((x) => x.value != null);
+  const path = series.map((x) => `${monthName(x.month).split(" ")[0]} ${fmt(x.value)}`).join(" → ");
+  const plan = monthName(planKey);
+  if (note.avg == null) return "No data for this in the last 3 months. Type a value to plan with.";
+  if (method === "lastYear") {
+    return note.used === "lastYear"
+      ? `Taken from ${monthName(planKey.replace(/^\d{4}/, (y) => String(Number(y) - 1)))}, the same month last year: ${fmt(note.lastYear)}.`
+      : `No figure for the same month last year, so the 3-month average is used: ${fmt(note.avg)}.`;
+  }
+  const trendNote = note.direction === "up" || note.direction === "down"
+    ? `${note.direction === "up" ? "Rising" : "Falling"} about ${Math.abs(note.changePerMonth * 100).toFixed(1)}% a month (${path}).`
+    : null;
+  if (method === "avg") {
+    return trendNote
+      ? `3-month average: ${fmt(note.avg)}. ${trendNote} Trend-adjusted would use ${fmt(note.projected)}.`
+      : `3-month average: ${fmt(note.avg)}${path ? ` (${path})` : ""}.`;
+  }
+  if (note.direction == null) {
+    return `Only ${note.points} month${note.points === 1 ? "" : "s"} with enough spend, too few to see a trend, so the 3-month average is used: ${fmt(note.avg)}.`;
+  }
+  if (note.direction === "flat") return `Hardly moving (${path}; under 2% a month), so there is no trend to carry forward: the 3-month average is used, ${fmt(note.avg)}.`;
+  const cap = note.capped
+    ? ` Carried forward to ${plan} the trend line reaches ${fmt(note.raw)}, which is more than 30% ${note.capped === "up" ? "above" : "below"} the average, so it is held at ${fmt(note.projected)}.`
+    : ` Carried forward to ${plan} the trend line gives ${fmt(note.projected)} (average ${fmt(note.avg)}).`;
+  return `${trendNote}${cap}`;
+}
