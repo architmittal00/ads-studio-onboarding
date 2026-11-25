@@ -44,6 +44,7 @@ export function AdOnlyPanel({ account, form, target, onDone, productSets }: Prop
       : targetSet ? 'The ad set’s own product set' : 'The one chosen for this ad']);
     adRows.push(['Clicks go to', ad.destination === 'APP_WEB' ? 'App, website as backup' : 'Website']);
   }
+  if (ad.kind === 'UPLOAD' && (ad.storyVideoId || ad.storyImageHash)) adRows.push(['Stories and Reels', `Own ${ad.storyVideoId ? 'video' : 'image'}${ad.storyImageName ? ` (${ad.storyImageName})` : ''}; other placements use the main media`]);
   if (isCatalog || ad.kind === 'UPLOAD') adRows.push([isCatalog ? 'See more URL' : 'Website', ad.link]);
 
   // The ad tracks website events with the chosen dataset (pixel), else the ad set’s own.

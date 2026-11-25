@@ -103,6 +103,7 @@ export function ReviewPanel({ mode, account, form, ctx, campaign, productSets, p
     adRows.push(['Format', ad.kind === 'POST'
       ? `Existing ${ad.postSource === 'INSTAGRAM' ? 'Instagram' : 'Facebook'} post`
       : `New ${ad.videoId ? 'video' : 'image'} ad${ad.imageName ? ` (${ad.imageName})` : ''}, “${CTAS.find((x) => x.key === ad.cta)?.label}” button`]);
+    if (ad.kind === 'UPLOAD' && (ad.storyVideoId || ad.storyImageHash)) adRows.push(['Stories and Reels', `Own ${ad.storyVideoId ? 'video' : 'image'}${ad.storyImageName ? ` (${ad.storyImageName})` : ''}; other placements use the main media`]);
     if (ad.kind === 'UPLOAD') adRows.push(['Website', ad.link]);
     adRows.push(['URL parameters', buildUrlTags(ad.urlTags || {}) || 'None']);
   }
