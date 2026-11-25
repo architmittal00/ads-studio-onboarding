@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { CopyRequest } from '@/launch-ad/lib/ai-types';
+import type { CopyRequest, TranslateRequest } from '@/launch-ad/lib/ai-types';
 import { aiStatus, generateCopy } from '@/launch-ad/lib/ai-copy';
+import { translateCopy } from '@/launch-ad/lib/ai-translate';
 import { graph, graphLog, GraphError } from '@/launch-ad/lib/graph';
 import { buildTargeting, launch } from '@/launch-ad/lib/launch';
 import { getSession } from '@/launch-ad/lib/session';
@@ -307,6 +308,8 @@ async function handlePost(action: string, body: any, token: string): Promise<any
     }
     case 'ai-copy':
       return generateCopy(body as CopyRequest, token);
+    case 'ai-translate':
+      return translateCopy(body as TranslateRequest);
     case 'launch':
       return launch(body as LaunchRequest, token);
   }
