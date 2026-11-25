@@ -615,6 +615,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
         <BulkRuleActionModal
           action={bulk.action}
           flags={bulk.flags}
+          accountId={selectedAccountId}
           currencySymbol={result.currencySymbol}
           onClose={() => setBulk(null)}
           onDone={(results) => {
@@ -633,6 +634,7 @@ function RulesContent({ tabId, accountId: selectedAccountId, onAccountChange: se
       {acting && (
         <RuleActionModal
           flag={acting}
+          accountId={selectedAccountId}
           currencySymbol={result.currencySymbol}
           onClose={() => setActing(null)}
           onApplied={(text) => {

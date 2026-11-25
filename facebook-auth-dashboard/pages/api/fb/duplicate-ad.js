@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphGet, graphPost } from "@/lib/facebookGraph";
+import { cleanRec, recordRecActions } from "@/lib/recLogDb";
 
 // Same id-format guard as entity-action.js — both ids below land directly in
 // a Graph API URL path or POST body.
@@ -28,7 +29,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { accountId, sourceAdId, destinationAdsetId, name, status } = req.body || {};
+  // `rec` (optional): present when an ad is pushed from a recommendation — the push is then logged (lib/recLogDb.js).
+  const { accountId, sourceAdId, destinationAdsetId, name, status, rec } = req.body || {};
   // Paused unless the caller explicitly asks for ACTIVE (the UI's "Launch as" choice).
   const adStatus = status === "ACTIVE" ? "ACTIVE" : "PAUSED";
 
@@ -37,10 +39,31 @@ export default async function handler(req, res) {
   }
 
   const token = session.accessToken;
+  const logPush = async ({ newAdId, name: adName, error }) => {
+    if (!rec) return;
+    const r = cleanRec(rec) || {};
+    await recordRecActions(session, [
+      {
+        rec: r,
+        accountId: String(accountId),
+        entityType: "ad",
+        entityId: newAdId || String(sourceAdId),
+        entityName: adName || r.entityName,
+        action: "PUSH_AD",
+        field: "ad_added_to_adset",
+        oldValue: null,
+        newValue: adStatus,
+        success: !error,
+        error: error ? String(error).slice(0, 1000) : null,
+        details: { sourceAdId: String(sourceAdId), destinationAdsetId: String(destinationAdsetId), pushed: !error, requestedStatus: adStatus, score: rec?.score ?? null, creativeId: rec?.creativeId ?? null },
+      },
+    ]);
+  };
 
   try {
     const source = await graphGet(`/${sourceAdId}`, token, { fields: "name,creative{id}" });
     if (!source.creative?.id) {
+      await logPush({ error: "This ad has no creative to duplicate." });
       return res.status(400).json({ error: "This ad has no creative to duplicate." });
     }
     // Paused by default, same safety pattern as every other object this app
@@ -53,8 +76,10 @@ export default async function handler(req, res) {
       creative: { creative_id: source.creative.id },
       status: adStatus,
     });
+    await logPush({ newAdId: json.id, name: (name && name.trim()) || `${source.name} - Copy` });
     res.status(200).json({ success: true, id: json.id, status: adStatus });
   } catch (err) {
+    await logPush({ error: err.message || "Request failed" });
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message || "Request failed" });
   }
 }

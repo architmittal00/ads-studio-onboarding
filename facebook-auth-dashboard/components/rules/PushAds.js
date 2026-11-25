@@ -9,6 +9,7 @@ import { parseJsonResponse } from "@/lib/fetchJson";
 import { invalidateCachedGets } from "@/lib/cachedGet";
 import { clearRuleCaches } from "@/lib/rules/useRuleAttention";
 import { track } from "@/lib/analytics";
+import { recLogContext } from "@/lib/rules/trackApplied";
 import styles from "@/styles/Home.module.css";
 
 // Under an "Add a creative" recommendation: which existing creatives to push into this ad set (ranked by
@@ -145,7 +146,13 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
           const res = await fetch("/api/fb/duplicate-ad", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ accountId, sourceAdId: c.sourceAdId, destinationAdsetId: adsetId, status }),
+            body: JSON.stringify({
+              accountId,
+              sourceAdId: c.sourceAdId,
+              destinationAdsetId: adsetId,
+              status,
+              rec: { ...recLogContext(flag, { accountId, source, bulk: chosen.length > 1, entityType: "ad", entityName: c.name }), score: c.score, creativeId: c.creativeId },
+            }),
           });
           const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
           if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
@@ -178,7 +185,12 @@ export default function PushAds({ flag, accountId, tz, symbol, pausedAdIds, onOp
     const ids = [...pickedPause].filter((id) => !done[id]?.ok && visible.has(id));
     if (ids.length === 0) return;
     setBusy("pause");
-    const results = await pauseInBatches(ids);
+    const results = await pauseInBatches(
+      ids,
+      undefined,
+      recLogContext(flag, { accountId, source: "starved_ads", bulk: ids.length > 1, entityType: "ad" }),
+      Object.fromEntries(starved.map((a) => [a.adId, a.name]))
+    );
     const out = {};
     for (const id of ids) out[id] = results.get(id)?.ok ? { ok: true, text: "Paused" } : { ok: false, error: results.get(id)?.error || "Not paused" };
     setDone((d) => ({ ...d, ...out }));
