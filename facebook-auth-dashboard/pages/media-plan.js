@@ -87,6 +87,7 @@ function AssumptionInput({ spec, value, edited, note, onChange }) {
 
 const METHODS = [
   { key: "trend", label: "Trend-adjusted" },
+  { key: "current", label: "Based on this month" },
   { key: "avg", label: "Average of recent months" },
   { key: "lastYear", label: "Same month last year" },
 ];
@@ -216,8 +217,9 @@ export default function MediaPlan() {
     const lyTotals = withMonths.every((p) => p.ly) ? sumMonths(withMonths.map((p) => p.ly)) : null;
     const trend = buildAssumptions({ months, planKey: month, method: "trend" });
     const avg = buildAssumptions({ months, planKey: month, method: "avg" });
-    return { trend, avg, items: describeTrends(trend.notes, { good: GOOD_WHEN }), ly: lyTotals && lyTotals.spend > 0 ? lyTotals : null };
-  }, [picked, month]);
+    const chosen = buildAssumptions({ months, planKey: month, method, lastYearTotals: lyTotals && lyTotals.spend > 0 ? lyTotals : null });
+    return { trend, avg, chosen, items: describeTrends(trend.notes, { good: GOOD_WHEN }), ly: lyTotals && lyTotals.spend > 0 ? lyTotals : null };
+  }, [picked, month, method]);
 
   // Same month last year, all picked accounts together, next to the plan.
   const lastYearTotals = useMemo(() => {
@@ -241,6 +243,17 @@ export default function MediaPlan() {
   const monthName = (k) => monthLabel(k);
   const usedMonths = picked.find((p) => p.months)?.months || [];
   const usedText = monthsText(usedMonths);
+  // This month so far, all picked accounts together: how much has run, and at that pace where the month ends up.
+  const thisMonth = useMemo(() => {
+    const rowsNow = picked.filter((p) => p.months).map((p) => p.months.find((m) => m.partial)).filter(Boolean);
+    if (!rowsNow.length) return null;
+    const t = sumMonths(rowsNow);
+    const through = rowsNow[0].through;
+    const day = Number(through.slice(8, 10));
+    const monthKey = through.slice(0, 7);
+    const daysInMonth = new Date(Date.UTC(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)), 0)).getUTCDate();
+    return { monthKey, day, daysInMonth, spend: t.spend, pace: (t.spend / day) * daysInMonth, purchases: t.purchases, revenue: t.revenue, a: assumptionsFromTotals(t) };
+  }, [picked]);
   const ly = lastYearTotals ? { ...assumptionsFromTotals(lastYearTotals), spend: lastYearTotals.spend, impressions: lastYearTotals.impressions, clicks: lastYearTotals.linkClicks, purchases: lastYearTotals.purchases, revenue: lastYearTotals.revenue, lpv: lastYearTotals.lpv, atc: lastYearTotals.atc, ic: lastYearTotals.ic } : null;
   const lyRoas = ly && ly.spend > 0 ? ly.revenue / ly.spend : null;
   // Last year's figures that look nothing like recent months usually mean a tracking change, not a real swing.
@@ -359,7 +372,15 @@ export default function MediaPlan() {
             <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <span className={styles.muted} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}>Assumptions</span>
               {METHODS.map((m) => (
-                <button key={m.key} type="button" className={method === m.key ? styles.btnPrimary : styles.btnSecondary} style={{ padding: "6px 12px" }} onClick={() => changeMethod(m.key)}>
+                <button
+                  key={m.key}
+                  type="button"
+                  className={method === m.key ? styles.btnPrimary : styles.btnSecondary}
+                  style={{ padding: "6px 12px", opacity: m.key === "current" && !thisMonth ? 0.5 : 1 }}
+                  disabled={m.key === "current" && !thisMonth}
+                  title={m.key === "current" && !thisMonth ? "There is no data for this month yet (it is the 1st)." : m.key === "current" ? "Plans next month at the rates this month is running at so far" : undefined}
+                  onClick={() => changeMethod(m.key)}
+                >
                   {m.label}
                   {m.key === "trend" && insight?.items.length ? " · recommended" : ""}
                 </button>
@@ -396,12 +417,26 @@ export default function MediaPlan() {
                         return (
                           <li key={it.key} className={styles.sub}>
                             <b>{it.name}</b> is {it.direction === "up" ? "rising" : "falling"} about {it.pct.toFixed(1)}% a month ({it.better ? "good news" : "it costs more"}).{" "}
-                            {n.projected != null ? <>For {monthName(month)} the plan uses <b>{fmtV(method === "trend" ? n.projected : n.avg)}</b> ({method === "trend" ? `average ${fmtV(n.avg)}` : `trend-adjusted would be ${fmtV(n.projected)}`}).</> : null}
+                            {n.projected != null ? <>For {monthName(month)} the plan uses <b>{fmtV(insight.chosen.values[it.key])}</b> ({method === "trend" ? `average ${fmtV(n.avg)}` : `trend-adjusted would be ${fmtV(n.projected)}, average ${fmtV(n.avg)}`}).</> : null}
                           </li>
                         );
                       })}
                     </ul>
                   )}
+                  {thisMonth ? (
+                    <div style={{ marginTop: 12 }}>
+                      <p className={styles.sub} style={{ margin: 0 }}>
+                        <b>{monthLabel(thisMonth.monthKey)} so far</b> ({thisMonth.day} of {thisMonth.daysInMonth} days): {fMoney(thisMonth.spend, sym)} spent, {fInt(thisMonth.purchases)} purchases
+                        {thisMonth.spend > 0 && thisMonth.revenue > 0 ? `, ${fX(thisMonth.revenue / thisMonth.spend)} ROAS` : ""}. At this pace the month ends near <b>{fMoney(thisMonth.pace, sym)}</b> of spend.
+                        {method === "current" ? ` ${monthName(month)} is planned at the rates ${monthLabel(thisMonth.monthKey)} is running at so far.` : " Choose Based on this month to plan on these rates."}
+                      </p>
+                      {thisMonth.day < 7 ? (
+                        <p className={styles.muted} style={{ margin: "4px 0 0", color: "var(--amber)" }}>
+                          Only {thisMonth.day} day{thisMonth.day === 1 ? "" : "s"} of data so far, so this month&apos;s rates can swing a lot. Treat a prediction from it with care.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <h3 style={{ margin: "16px 0 6px", fontSize: 14 }}>Why each number was chosen</h3>
                   {picked.filter((p) => p.built).map((p) => (
                     <div key={p.id} style={{ marginBottom: 12 }}>
@@ -464,7 +499,7 @@ export default function MediaPlan() {
                     Meta media plan · {monthName(month)}
                   </h2>
                   <span className={styles.muted}>
-                    {method === "avg" ? `Average of ${usedText}` : method === "trend" ? `Based on ${usedText}, with rising or falling rates carried forward` : `Using ${monthName(lyKey)}'s rates (${usedText} where it has none)`}. Change any cell to try another scenario.
+                    {method === "avg" ? `Average of ${usedText}` : method === "trend" ? `Based on ${usedText}, with rising or falling rates carried forward` : method === "current" ? `Predicted from ${thisMonth ? `${monthLabel(thisMonth.monthKey)} so far (to ${thisMonth.day} ${MONTH_NAMES[Number(thisMonth.monthKey.slice(5, 7)) - 1]})` : "this month"}: next month runs at the same rates` : `Using ${monthName(lyKey)}'s rates (${usedText} where it has none)`}. Change any cell to try another scenario.
                   </span>
                 </div>
                 <div className={styles.tableScroll} style={{ maxHeight: "none" }}>

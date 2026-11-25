@@ -65,7 +65,7 @@ Labels are only taken from short, static-looking text, and never inside tables, 
 | `explore_query_run` | `/explore`, `/partnership-ads` (Explore tab) | a Custom View query runs | `level`, `metric_count`, `account_count`, `forced` |
 | `explore_export_csv` | `/explore`, `/partnership-ads` (Explore tab) | CSV export | `row_count` |
 | `explore_export_xlsx` | `/explore` (Export Excel clicked) | the Excel file is downloaded | `row_count`, `color_scales` (how many columns had a colour scale) |
-| `media_plan_built` | `/media-plan` | a plan is shown for the picked accounts (also when the accounts or the split change) | `accounts`, `budget`, `split` (spend / equal), `method` (trend / avg / lastYear), `month` (plan month, e.g. 2026-12) |
+| `media_plan_built` | `/media-plan` | a plan is shown for the picked accounts (also when the accounts or the split change) | `accounts`, `budget`, `split` (spend / equal), `method` (trend / current / avg / lastYear), `month` (plan month, e.g. 2026-12) |
 | `media_plan_exported` | `/media-plan` (Download Excel clicked) | the Excel file is downloaded | `accounts`, `method`, `month` |
 | `monitor_added` | `/explore`, `/recommendations` | an item is added to the Monitor list | `screen`, `level` (campaign / adset / ad), `action` (the recommendation, from Recommendations) |
 | `monitor_removed` | `/explore`, `/recommendations`, `/monitor` | an item is removed from the Monitor list | `screen`, `level` |
