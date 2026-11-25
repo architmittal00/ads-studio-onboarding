@@ -19,7 +19,7 @@ import { graph, GraphError } from './graph';
  *   AI_VIDEO_COPY                 "off" = don't use the browser's low-resolution copy (it has no audio)
  */
 
-const baseUrl = () => (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+export const baseUrl = () => (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
 const model = () => process.env.OPENROUTER_MODEL || 'qwen/qwen3.7-flash';
 const maxVideoSeconds = () => Number(process.env.AI_MAX_VIDEO_SECONDS) || 300;
 const TOTAL_MS = 55_000; // hosts commonly cap a request at 60 s
@@ -27,7 +27,7 @@ const TOTAL_MS = 55_000; // hosts commonly cap a request at 60 s
 const videoCopyOn = () => (process.env.AI_VIDEO_COPY || '').toLowerCase() !== 'off';
 
 export function aiStatus(): AiStatus {
-  return { enabled: !!process.env.OPENROUTER_API_KEY, model: model(), maxVideoSeconds: maxVideoSeconds(), videoCopy: videoCopyOn() };
+  return { enabled: !!process.env.OPENROUTER_API_KEY, translate: !!process.env.OPENROUTER_API_KEY, model: model(), maxVideoSeconds: maxVideoSeconds(), videoCopy: videoCopyOn() };
 }
 
 /* ── Reading the landing page, without letting anyone point this server at its own network ── */
@@ -212,7 +212,7 @@ export function parseCopy(raw: string, offerGiven: boolean): CopyOption {
 
 /* ── The call ── */
 
-class Upstream extends Error {
+export class Upstream extends Error {
   constructor(message: string, public status: number, public timedOut = false) { super(message); }
 }
 
@@ -261,7 +261,7 @@ async function ask(content: any[], ms: number): Promise<string> {
 /** An error here may be only about the video (link not reachable, format, size), so a cover image is worth trying. */
 const videoProblem = (e: unknown) => e instanceof Upstream && !e.timedOut && [400, 404, 413, 415, 422, 500, 502, 503].includes(e.status);
 
-function failure(e: unknown): never {
+export function failure(e: unknown): never {
   if (e instanceof Upstream) {
     // Never 401 to the browser: that status means "your Facebook login expired" there.
     if (e.status === 401 || e.status === 403) throw new GraphError({ message: 'The AI service rejected the key. Check OPENROUTER_API_KEY on the server.' }, 502);
