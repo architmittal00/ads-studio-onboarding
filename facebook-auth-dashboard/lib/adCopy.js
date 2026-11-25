@@ -74,7 +74,7 @@ export const DEFAULT_COPY_METRIC_KEYS = ["spend", "purchases", "revenue", "ctr",
 // list lib/partnershipDetection.js already proves safe to fetch on an
 // arbitrary ad. See classifyAd below for how both get turned into something
 // copyable instead of "not supported yet."
-function copyAdFields(withInstagram) {
+function copyAdFields(withInstagram, withPlacementAssets = true) {
   return (
     "id,name,status,effective_status," +
     "adset{id,name},campaign{id,name}," +
@@ -86,14 +86,29 @@ function copyAdFields(withInstagram) {
     "video_data{video_id,message,image_url,call_to_action}," +
     "template_data{link,message,name,description,call_to_action,image_hash," +
     "child_attachments{link,name,description,image_hash}}}," +
-    "asset_feed_spec{bodies{text},titles{text},descriptions{text}," +
-    "link_urls{website_url,display_url,deeplink_url},call_to_action_types," +
-    "images{hash},videos{video_id,thumbnail_url},ad_formats,optimization_type}}"
+    // adlabels + asset_customization_rules: an ad that shows different media / text per placement or aspect ratio
+    // (Ads Manager's "Customize assets by placement") tags each asset with a label and maps labels to placements here.
+    // Only copying reads them; editing (lib/adEdit.js) rebuilds the text lists and would orphan the labels.
+    (withPlacementAssets
+      ? "asset_feed_spec{bodies{text,adlabels{name}},titles{text,adlabels{name}},descriptions{text,adlabels{name}}," +
+        "link_urls{website_url,display_url,deeplink_url,adlabels{name}},call_to_action_types," +
+        "images{hash,adlabels{name}},videos{video_id,thumbnail_url,adlabels{name}},ad_formats,optimization_type," +
+        "asset_customization_rules{customization_spec,image_label{name},video_label{name},body_label{name},title_label{name}," +
+        "description_label{name},link_url_label{name},carousel_label{name},priority}}}"
+      : "asset_feed_spec{bodies{text},titles{text},descriptions{text}," +
+        "link_urls{website_url,display_url,deeplink_url},call_to_action_types," +
+        "images{hash},videos{video_id,thumbnail_url},ad_formats,optimization_type}}")
   );
 }
 
 export const COPY_AD_FIELDS = copyAdFields(true);
+// What the ad editor reads: the same, without placement labels / rules.
+export const COPY_AD_FIELDS_FOR_EDIT = copyAdFields(true, false);
 const COPY_AD_FIELDS_NO_INSTAGRAM = copyAdFields(false);
+// The ad list only needs to recognise and show ads, not carry every placement label (50 ads per request stays light).
+const LIST_AD_FIELDS = copyAdFields(true, false);
+const LIST_AD_FIELDS_NO_INSTAGRAM = copyAdFields(false, false);
+const isPlacementFieldError = (err) => err?.graphResponse?.error?.code === 100 && /adlabels|asset_customization_rules/.test(err?.message || "");
 
 // BUG FOUND POST-SHIP (first real cross-account copy): the copied ad's
 // Primary Text/Headline/Description came through blank even though the
@@ -131,11 +146,16 @@ function isOldInstagramIdError(err) {
 export async function fetchAdForCopy(token, adId) {
   try {
     const ad = await graphGet(`/${adId}`, token, { fields: COPY_AD_FIELDS });
-    return { ad, instagramOmitted: false };
+    return { ad, instagramOmitted: false, placementAssetsOmitted: false };
   } catch (err) {
+    // Meta refused the per-placement fields: copy with the plain fields instead of failing the copy.
+    if (isPlacementFieldError(err)) {
+      const ad = await graphGet(`/${adId}`, token, { fields: LIST_AD_FIELDS });
+      return { ad, instagramOmitted: false, placementAssetsOmitted: true };
+    }
     if (!isOldInstagramIdError(err)) throw err;
     const ad = await graphGet(`/${adId}`, token, { fields: COPY_AD_FIELDS_NO_INSTAGRAM });
-    return { ad, instagramOmitted: true };
+    return { ad, instagramOmitted: true, placementAssetsOmitted: false };
   }
 }
 
@@ -285,10 +305,10 @@ export async function fetchAdsInAdsetForCopy(token, adsetId, { onBatch } = {}) {
 // than trying to isolate which one id was the problem.
 async function fetchAdsBatchForListing(token, ids) {
   try {
-    return await graphGet("", token, { ids: ids.join(","), fields: COPY_AD_FIELDS });
+    return await graphGet("", token, { ids: ids.join(","), fields: LIST_AD_FIELDS });
   } catch (err) {
     if (!isOldInstagramIdError(err)) throw err;
-    return await graphGet("", token, { ids: ids.join(","), fields: COPY_AD_FIELDS_NO_INSTAGRAM });
+    return await graphGet("", token, { ids: ids.join(","), fields: LIST_AD_FIELDS_NO_INSTAGRAM });
   }
 }
 
@@ -594,6 +614,22 @@ export function rebuildObjectStorySpec(spec, hashMap, videoIdMap) {
 export function rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) {
   if (!assetFeedSpec) return null;
   const rebuilt = JSON.parse(JSON.stringify(assetFeedSpec));
+  // Labels travel by name only (their ids belong to the source account), and the placement rules that point at them are
+  // kept as they are.
+  const bareLabels = (labels) => (Array.isArray(labels) ? labels.filter((l) => l?.name).map((l) => ({ name: l.name })) : undefined);
+  for (const key of ["bodies", "titles", "descriptions", "link_urls", "images", "videos"]) {
+    for (const item of rebuilt[key] || []) {
+      const labels = bareLabels(item.adlabels);
+      if (labels?.length) item.adlabels = labels;
+      else delete item.adlabels;
+    }
+  }
+  for (const rule of rebuilt.asset_customization_rules || []) {
+    for (const key of Object.keys(rule)) {
+      if (key.endsWith("_label") && rule[key]) rule[key] = { name: rule[key].name };
+    }
+  }
+  if (!rebuilt.asset_customization_rules?.length) delete rebuilt.asset_customization_rules;
   for (const img of rebuilt.images || []) {
     if (img.hash) img.hash = hashMap.get(img.hash) || img.hash;
   }
@@ -612,13 +648,38 @@ export function rebuildAssetFeedSpec(assetFeedSpec, hashMap, videoIdMap) {
       return true;
     });
   };
-  if (rebuilt.images) rebuilt.images = uniqBy(rebuilt.images, (i) => i.hash);
-  if (rebuilt.videos) rebuilt.videos = uniqBy(rebuilt.videos, (v) => v.video_id);
+  // The same asset under different labels is a different placement's asset, so the label is part of what makes one unique.
+  const labelKey = (x) => (x.adlabels || []).map((l) => l.name).sort().join(",");
+  if (rebuilt.images) rebuilt.images = uniqBy(rebuilt.images, (i) => `${i.hash}|${labelKey(i)}`);
+  if (rebuilt.videos) rebuilt.videos = uniqBy(rebuilt.videos, (v) => `${v.video_id}|${labelKey(v)}`);
   for (const key of ["bodies", "titles", "descriptions"]) {
-    if (rebuilt[key]) rebuilt[key] = uniqBy(rebuilt[key], (t) => t.text);
+    if (rebuilt[key]) rebuilt[key] = uniqBy(rebuilt[key], (t) => `${t.text}|${labelKey(t)}`);
   }
-  if (rebuilt.link_urls) rebuilt.link_urls = uniqBy(rebuilt.link_urls, (l) => l.website_url);
+  if (rebuilt.link_urls) rebuilt.link_urls = uniqBy(rebuilt.link_urls, (l) => `${l.website_url}|${labelKey(l)}`);
   return rebuilt;
+}
+
+// An ad with different media per placement / aspect ratio ("Customize assets by placement") keeps ALL of its assets and
+// the rules that choose between them in the asset feed; the story spec only names the Page. Rebuilding it the way Meta
+// documents it (story spec = Page only, everything else in the feed) avoids repeating the first asset in both places,
+// which Meta rejects. Anything the feed doesn't carry yet (text, link, button) is filled in from the story spec first.
+// Returns `{ objectStorySpec, assetFeedSpec }`, or null when this isn't such an ad (no rules, or no Page to name).
+export function buildPlacementCreative(spec, feed) {
+  if (!spec?.page_id || !feed?.asset_customization_rules?.length) return null;
+  const out = JSON.parse(JSON.stringify(feed));
+  const link = spec.link_data || {};
+  const video = spec.video_data || {};
+  if (!out.bodies?.length && (link.message || video.message)) out.bodies = [{ text: link.message || video.message }];
+  if (!out.titles?.length && link.name) out.titles = [{ text: link.name }];
+  if (!out.descriptions?.length && link.description) out.descriptions = [{ text: link.description }];
+  const url = link.link || video.call_to_action?.value?.link;
+  if (!out.link_urls?.length && url) out.link_urls = [{ website_url: url }];
+  const cta = link.call_to_action?.type || video.call_to_action?.type;
+  if (!out.call_to_action_types?.length && cta) out.call_to_action_types = [cta];
+  if (!out.ad_formats?.length) out.ad_formats = [out.images?.length && out.videos?.length ? "AUTOMATIC_FORMAT" : out.videos?.length ? "SINGLE_VIDEO" : "SINGLE_IMAGE"];
+  const objectStorySpec = { page_id: spec.page_id };
+  if (spec.instagram_user_id) objectStorySpec.instagram_user_id = spec.instagram_user_id;
+  return { objectStorySpec, assetFeedSpec: out };
 }
 
 // assetFeedSpec is optional — only sent when the source ad actually used
@@ -682,6 +743,7 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
     // reasoning as partnership/launch.js's own re-verification step.
     let ad;
     let instagramOmitted = false;
+    let placementAssetsOmitted = false;
     try {
       // `adCache` (shared across a whole request) makes the same source ad be fetched
       // once even when it is copied into several ad sets.
@@ -690,7 +752,7 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
         pending = fetchAdForCopy(token, adId);
         adCache?.set(adId, pending);
       }
-      ({ ad, instagramOmitted } = await pending);
+      ({ ad, instagramOmitted, placementAssetsOmitted } = await pending);
     } catch (err) {
       overallSuccess = false;
       const error = `Could not re-fetch ad: ${err.message}`;
@@ -742,8 +804,20 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
             });
       let creativeId;
       let feedDropped = false;
+      // Per-placement media: try the documented shape first; if Meta rejects it, fall through to the usual attempts below
+      // (which keep the main creative but cannot keep the other placements, and say so).
+      const placement = !reusePost && kind === "standard" ? buildPlacementCreative(rebuiltSpec, rebuiltFeed) : null;
+      let placementOk = false;
+      if (placement) {
+        try {
+          creativeId = await withTransientRetry(() => createCopiedCreative(token, destAccountId, placement));
+          placementOk = true;
+        } catch {
+          // handled by the fallback below
+        }
+      }
       try {
-        creativeId = await withTransientRetry(() => makeCreative(rebuiltFeed));
+        if (!creativeId) creativeId = await withTransientRetry(() => makeCreative(rebuiltFeed));
       } catch (err) {
         if (postFallback) {
           throw new Error(`The video file can't be copied (Meta doesn't expose it) and reusing the original Page post was rejected: ${err.message} — re-upload the video to the destination account and attach it manually.`);
@@ -778,7 +852,9 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
         // Retry once with the pool's media dropped (text options stay).
         if (err.subcode !== 1815629 && !/Duplicates of ad asset values/.test(err.message || "")) throw err;
         if (!rebuiltFeed || (!rebuiltFeed.images && !rebuiltFeed.videos)) throw err;
-        const { images, videos, ...textOnly } = rebuiltFeed;
+        // The placement rules point at the media's labels, so they go with it.
+        const { images, videos, asset_customization_rules, ...textOnly } = rebuiltFeed;
+        for (const key of ["bodies", "titles", "descriptions", "link_urls"]) for (const item of textOnly[key] || []) delete item.adlabels;
         creativeId = await withTransientRetry(() => makeCreative(hasAssetFeedContent(textOnly) ? textOnly : null));
         }
       }
@@ -795,6 +871,8 @@ export async function copyAdsIntoAdset(token, { destAccountId, destAdsetId, item
         [
           postFallback ? "Meta couldn't rebuild this creative (video file hidden, or carousel components mismatch), so this ad reuses the original Page post — same media, Page and caption." : null,
           feedDropped ? "Copied without its extra text options (Meta rejected them for this carousel) — the cards, copy and links are the same." : null,
+          placement && !placementOk ? "This ad shows different media per placement / aspect ratio, but Meta rejected rebuilding that, so only its main creative was copied — check the other aspect ratios." : null,
+          placementAssetsOmitted ? "Couldn't read this ad's per-placement media (Meta refused the fields), so only its main creative was copied — check the other aspect ratios." : null,
           instagramOmitted ? "Copied without its Instagram account (old-format ID) — will use the destination Page's default." : null,
         ]
           .filter(Boolean)

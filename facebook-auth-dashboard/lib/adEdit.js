@@ -1,5 +1,5 @@
 import { graphGet, graphPost } from "./facebookGraph";
-import { COPY_AD_FIELDS, classifyAd, hasAssetFeedContent } from "./adCopy";
+import { COPY_AD_FIELDS_FOR_EDIT, classifyAd, hasAssetFeedContent } from "./adCopy";
 
 // Editing an ad from "View details" (pages/api/fb/ad-update.js).
 //
@@ -10,10 +10,10 @@ import { COPY_AD_FIELDS, classifyAd, hasAssetFeedContent } from "./adCopy";
 // text/CTA/link replaced) and is deliberately conservative about which ads it
 // will touch — see `describeEditability`.
 
-// COPY_AD_FIELDS (lib/adCopy.js) is the proven "read an ad's whole creative"
+// COPY_AD_FIELDS_FOR_EDIT (lib/adCopy.js) is the proven "read an ad's whole creative"
 // field list; editing additionally needs the video title/link description,
 // the ad's account, and the creative-level extras a rebuilt creative should keep.
-export const EDIT_AD_FIELDS = COPY_AD_FIELDS.replace(
+export const EDIT_AD_FIELDS = COPY_AD_FIELDS_FOR_EDIT.replace(
   "video_data{video_id,message,image_url,call_to_action}",
   "video_data{video_id,message,title,link_description,image_url,call_to_action}"
 )
