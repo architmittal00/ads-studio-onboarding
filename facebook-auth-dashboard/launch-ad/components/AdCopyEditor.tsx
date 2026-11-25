@@ -16,7 +16,8 @@ const textOf = (ad: Ad): CopyText => ({ message: ad.message, headline: ad.headli
 const same = (a?: CopyText, b?: CopyText) => !!a && !!b && a.message === b.message && a.headline === b.headline && a.description === b.description;
 const filled = (t?: CopyText) => !!t && !!(t.message.trim() || t.headline.trim() || t.description.trim());
 const nameOf = (k: CopyLang) => (k === 'EN' ? 'English' : TRANSLATE_LANGUAGES.find((l) => l.key === k)?.english || '');
-const TABS: { key: CopyLang; label: string; title: string }[] = [{ key: 'EN', label: 'English', title: 'English' }, ...TRANSLATE_LANGUAGES.map((l) => ({ key: l.key as CopyLang, label: l.label, title: l.english }))];
+// Names in English (the script each language is written in is the tooltip).
+const TABS: { key: CopyLang; label: string; title: string }[] = [{ key: 'EN', label: 'English', title: 'English' }, ...TRANSLATE_LANGUAGES.map((l) => ({ key: l.key as CopyLang, label: l.english, title: l.label }))];
 
 /**
  * The ad's text (primary text, headline, description) in one place. Write it in English, by hand or with the AI; for a
@@ -40,6 +41,8 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
   const [translating, setTranslating] = useState<TranslateLanguage | null>(null);
   const [error, setError] = useState('');
   const [wrote, setWrote] = useState<{ r: CopyResult; before: CopyText } | null>(null);
+  // A language chosen before the English was confirmed as final: asks first, translates on "yes".
+  const [pending, setPending] = useState<TranslateLanguage | null>(null);
   const [notes, setNotes] = useState<Partial<Record<CopyLang, string[]>>>({});
 
   const lang = ad.copyLang;
@@ -66,7 +69,7 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
       const cur = latest.current;
       const versions = { ...saved(), [to]: out };
       setNotes((n) => ({ ...n, [to]: c.warnings }));
-      setAd({ copyVersions: versions, copyFrom: { ...cur.copyFrom, [to]: from }, ...(cur.copyLang === to ? out : {}) });
+      setAd({ copyVersions: versions, copyFrom: { ...cur.copyFrom, [to]: from }, copyConfirmed: from, ...(cur.copyLang === to ? out : {}) });
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -74,17 +77,28 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
     }
   };
 
+  const go = (to: TranslateLanguage, confirmed: boolean) => {
+    const versions = saved();
+    const en = versions.EN || EMPTY;
+    const have = versions[to];
+    if (have) { setAd({ copyLang: to, copyVersions: versions, ...have, ...(confirmed ? { copyConfirmed: en } : {}) }); return; }
+    // First time in this language: show it empty and translate the confirmed English right away.
+    setAd({ copyLang: to, copyVersions: versions, ...EMPTY });
+    translate(to, en);
+  };
+
   const pick = (to: CopyLang) => {
     if (to === lang) return;
-    setError(''); setWrote(null);
+    setError(''); setWrote(null); setPending(null);
     const versions = saved();
     if (to === 'EN') { setAd({ copyLang: 'EN', copyVersions: versions, ...(versions.EN || EMPTY) }); return; }
-    const have = versions[to];
-    if (have) { setAd({ copyLang: to, copyVersions: versions, ...have }); return; }
-    // First time in this language: show it empty and translate the English right away.
-    setAd({ copyLang: to, copyVersions: versions, ...EMPTY });
     const en = versions.EN || EMPTY;
-    if (filled(en) && canTranslate) translate(to, en);
+    // Nothing to translate yet: stay where you are and say so.
+    if (!filled(en)) { setError('Write your English text first (or use Write with AI), then choose a language.'); return; }
+    // A saved translation can be opened as it is; a new one needs the English confirmed as final first.
+    if (versions[to] || same(ad.copyConfirmed || undefined, en)) { go(to, false); return; }
+    if (lang !== 'EN') { setAd({ copyLang: 'EN', copyVersions: versions, ...en }); }
+    setPending(to);
   };
 
   // ── AI writing (English) ──
@@ -133,7 +147,7 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
         <Sparkles size={15} />
         <span className="strong">Ad text</span>
         <span className="hint">
-          {regional ? `${nameOf(lang)} version, translated from your English. The ad uses this text.` : canTranslate ? 'Write it in English, then pick a language above to translate it.' : 'Primary text, headline and description.'}
+          {regional ? `${nameOf(lang)} version, translated from your English. The ad uses this text.` : canTranslate ? 'Write and check your English text, then pick a language above to translate it.' : 'Primary text, headline and description.'}
         </span>
       </div>
 
@@ -169,6 +183,16 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
         </div>
       ) : null}
       {error ? <div className="notice bad" style={{ marginTop: 10 }}>{error}</div> : null}
+
+      {pending ? (
+        <div className="notice warn" style={{ marginTop: 10 }}>
+          <b>Is this English text final?</b> It will be translated to {nameOf(pending)} exactly as written. Check the wording, offers and numbers below first.
+          <div className="ai-actions" style={{ marginTop: 8 }}>
+            <button type="button" className="btn-primary" onClick={() => { const to = pending; setPending(null); go(to, true); }}>Yes, translate to {nameOf(pending)}</button>
+            <button type="button" className="btn-ghost" onClick={() => setPending(null)}>Keep editing</button>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 12, opacity: busyTranslating ? 0.5 : 1 }}>
         <Field label="Primary text">

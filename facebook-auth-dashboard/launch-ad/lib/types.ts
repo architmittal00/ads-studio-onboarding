@@ -120,6 +120,8 @@ export interface FormState {
     /** Ad text in several languages: which one is showing (and used by the ad), each language's saved text, and the English each translation was made from */
     copyLang: 'EN' | 'HI' | 'TE' | 'TA' | 'ML' | 'KN' | 'HINGLISH';
     copyVersions: Partial<Record<'EN' | 'HI' | 'TE' | 'TA' | 'ML' | 'KN' | 'HINGLISH', { message: string; headline: string; description: string }>>;
+    /** The English text the person confirmed as final before it was translated (asked again only if the English changes) */
+    copyConfirmed: { message: string; headline: string; description: string } | null;
     copyFrom: Partial<Record<'HI' | 'TE' | 'TA' | 'ML' | 'KN' | 'HINGLISH', { message: string; headline: string; description: string }>>;
     storyImageHash: string;
     storyImageUrl: string;

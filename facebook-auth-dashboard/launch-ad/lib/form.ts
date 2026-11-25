@@ -69,6 +69,7 @@ export function defaultForm(catalog = false): FormState {
       copyLang: 'EN',
       copyVersions: {},
       copyFrom: {},
+      copyConfirmed: null,
       storyImageHash: '',
       storyImageUrl: '',
       storyImageName: '',
