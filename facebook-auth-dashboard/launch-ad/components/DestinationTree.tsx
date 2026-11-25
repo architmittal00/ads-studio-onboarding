@@ -11,7 +11,7 @@ import { Loading } from './ui';
 export type Destination =
   | { kind: 'NEW_CAMPAIGN' }
   | { kind: 'NEW_ADSET'; campaign: CampaignLite }
-  | { kind: 'ADSET'; adset: AdsetLite };
+  | { kind: 'ADSET'; adsets: AdsetLite[] };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function audienceText(t: any): string {
@@ -64,7 +64,7 @@ function AdsetRow({ a, why, selected, onPick, currency }: { a: AdsetLite; why: s
   const n = a.ads?.summary?.total_count ?? 0;
   return (
     <button type="button" className={`tree-row ${selected ? 'on' : ''}`} disabled={!!why} title={why || undefined} onClick={onPick} aria-pressed={selected}>
-      <span className="radio" aria-hidden />
+      <span className="radio sq" aria-hidden />
       <span className="t-name">{a.name}</span>
       {a.promoted_object?.product_set_id ? <span className="badge coral">Catalog</span> : null}
       <span className="t-meta">{[adsetBudget(a, currency), statusLabel(a.effective_status || a.status), perfText(perf(a.insights), currency), `${n} ${n === 1 ? 'ad' : 'ads'}`, audienceText(a.targeting), why].filter(Boolean).join(' · ')}</span>
@@ -73,9 +73,9 @@ function AdsetRow({ a, why, selected, onPick, currency }: { a: AdsetLite; why: s
 }
 
 /** A campaign's ad sets, fetched only when the campaign is expanded. */
-function CampaignChildren({ account, c, blocked, fit, isSel, onChange, fitsOnly }: {
+function CampaignChildren({ account, c, blocked, fit, isSel, onChange, onToggle, fitsOnly }: {
   account: AdAccount; c: CampaignLite; blocked: string; fit: AdFit;
-  isSel: (d: Destination) => boolean; onChange: (d: Destination) => void; fitsOnly: boolean;
+  isSel: (d: Destination) => boolean; onChange: (d: Destination) => void; onToggle: (a: AdsetLite) => void; fitsOnly: boolean;
 }) {
   const res = useAsync<AdsetLite[]>(`adsets-c-${c.id}`, () => apiGet('adsets', { account: account.id, campaign: c.id }));
   const all = [...(res.data || [])].sort(byActivity);
@@ -88,7 +88,7 @@ function CampaignChildren({ account, c, blocked, fit, isSel, onChange, fitsOnly 
       ) : !shown.length ? (
         <div className="hint" style={{ padding: '6px 11px' }}>None of this campaign&apos;s {all.length} ad sets can take this ad.</div>
       ) : shown.map((a) => (
-        <AdsetRow key={a.id} a={a} why={blocked || adsetFit(a, fit)} selected={isSel({ kind: 'ADSET', adset: a })} onPick={() => onChange({ kind: 'ADSET', adset: a })} currency={account.currency} />
+        <AdsetRow key={a.id} a={a} why={blocked || adsetFit(a, fit)} selected={isSel({ kind: 'ADSET', adsets: [a] })} onPick={() => onToggle(a)} currency={account.currency} />
       ))}
       <button type="button" className={`tree-row new ${isSel({ kind: 'NEW_ADSET', campaign: c }) ? 'on' : ''}`} disabled={!!blocked} title={blocked || undefined} onClick={() => onChange({ kind: 'NEW_ADSET', campaign: c })}>
         <span className="radio" aria-hidden />
@@ -109,7 +109,7 @@ export default function DestinationTree({ account, fit, value, onChange }: {
   account: AdAccount;
   fit: AdFit;
   value: Destination | null;
-  onChange: (d: Destination) => void;
+  onChange: (d: Destination | null) => void;
 }) {
   const campaigns = useAsync<CampaignLite[]>(`campaigns-${account.id}`, () => apiGet('campaigns', { account: account.id }));
   const [q, setQ] = useState('');
@@ -120,6 +120,12 @@ export default function DestinationTree({ account, fit, value, onChange }: {
   const [picking, setPicking] = useState(!value);
   useEffect(() => { if (!value) setPicking(true); }, [value]);
   const pick = (d: Destination) => { onChange(d); setPicking(false); };
+  // Ad sets are ticked one by one (several can get the same ad); a new campaign / ad set replaces any ticked ones.
+  const toggle = (a: AdsetLite) => {
+    const have = value?.kind === 'ADSET' ? value.adsets : [];
+    if (have.some((x) => x.id === a.id)) onChange(have.length > 1 ? { kind: 'ADSET', adsets: have.filter((x) => x.id !== a.id) } : null);
+    else onChange({ kind: 'ADSET', adsets: [...have, a] });
+  };
   useEffect(() => { const t = setTimeout(() => setDebounced(q.trim()), 350); return () => clearTimeout(t); }, [q]);
   const searching = debounced.length >= 2;
   const found = useAsync<AdsetLite[]>(searching ? `adsets-s-${account.id}-${debounced}` : null, () => apiGet('adsets', { account: account.id, search: debounced }));
@@ -143,11 +149,14 @@ export default function DestinationTree({ account, fit, value, onChange }: {
 
   const isSel = (d: Destination) => !!value && value.kind === d.kind
     && (d.kind !== 'NEW_ADSET' || (value.kind === 'NEW_ADSET' && value.campaign.id === d.campaign.id))
-    && (d.kind !== 'ADSET' || (value.kind === 'ADSET' && value.adset.id === d.adset.id));
+    && (d.kind !== 'ADSET' || (value.kind === 'ADSET' && d.adsets.every((a) => value.adsets.some((x) => x.id === a.id))));
 
   if (value && !picking) {
+    const first = value.kind === 'ADSET' ? value.adsets[0] : null;
     const sel = value.kind === 'ADSET'
-      ? { name: value.adset.name, meta: [value.adset.campaign?.name, adsetBudget(value.adset, account.currency), statusLabel(value.adset.effective_status || value.adset.status)] }
+      ? value.adsets.length > 1
+        ? { name: `${value.adsets.length} ad sets`, meta: [value.adsets.map((a) => a.name).join(', ')] }
+        : { name: first!.name, meta: [first!.campaign?.name, adsetBudget(first!, account.currency), statusLabel(first!.effective_status || first!.status)] }
       : value.kind === 'NEW_ADSET'
         ? { name: 'New ad set', meta: [`in ${value.campaign.name}`] }
         : { name: 'New campaign', meta: ['A new campaign and ad set for this ad'] };
@@ -190,7 +199,7 @@ export default function DestinationTree({ account, fit, value, onChange }: {
         {campaigns.loading ? <Loading /> : campaigns.error ? <div className="notice bad">{campaigns.error}</div> : searching && found.loading ? <Loading /> : !rows.length ? (
           <div className="note" style={{ padding: '10px 4px' }}>{searching ? `No campaigns or ad sets match “${debounced}”.` : 'No active or paused campaigns in this ad account. Create a new campaign above.'}</div>
         ) : rows.map(({ c, blocked, hits }) => {
-          const selectedInside = (value?.kind === 'ADSET' && value.adset.campaign?.id === c.id) || (value?.kind === 'NEW_ADSET' && value.campaign.id === c.id);
+          const selectedInside = (value?.kind === 'ADSET' && value.adsets.some((a) => a.campaign?.id === c.id)) || (value?.kind === 'NEW_ADSET' && value.campaign.id === c.id);
           const expanded = open[c.id] ?? selectedInside;
           const catalog = c.promoted_object?.product_catalog_id;
           const count = c.adsets?.summary?.total_count;
@@ -203,16 +212,22 @@ export default function DestinationTree({ account, fit, value, onChange }: {
                 <span className="t-meta">{[objectiveLabel(c.objective), budgetText(c, account.currency), statusLabel(c.effective_status || c.status), perfText(perf(c.insights), account.currency, false), count != null ? `${count} ${count === 1 ? 'ad set' : 'ad sets'}` : '', blocked].filter(Boolean).join(' · ')}</span>
               </button>
               {expanded ? (
-                <CampaignChildren account={account} c={c} blocked={blocked} fit={fit} isSel={isSel} onChange={pick} fitsOnly={fitsOnly} />
+                <CampaignChildren account={account} c={c} blocked={blocked} fit={fit} isSel={isSel} onChange={pick} onToggle={toggle} fitsOnly={fitsOnly} />
               ) : hits.length ? (
                 <div className="tree-children">
-                  {hits.map((a) => <AdsetRow key={a.id} a={a} why={blocked || adsetFit(a, fit)} selected={isSel({ kind: 'ADSET', adset: a })} onPick={() => pick({ kind: 'ADSET', adset: a })} currency={account.currency} />)}
+                  {hits.map((a) => <AdsetRow key={a.id} a={a} why={blocked || adsetFit(a, fit)} selected={isSel({ kind: 'ADSET', adsets: [a] })} onPick={() => toggle(a)} currency={account.currency} />)}
                 </div>
               ) : null}
             </div>
           );
         })}
       </div>
+      {value?.kind === 'ADSET' ? (
+        <div className="tree-filter" style={{ borderTop: '1px solid var(--la-line, rgba(128,128,128,.25))', paddingTop: 10 }}>
+          <span><b>{value.adsets.length}</b> {value.adsets.length === 1 ? 'ad set' : 'ad sets'} ticked · tick more to add the same ad to each</span>
+          <button type="button" className="btn-primary" onClick={() => setPicking(false)}>Done</button>
+        </div>
+      ) : null}
     </div>
   );
 }

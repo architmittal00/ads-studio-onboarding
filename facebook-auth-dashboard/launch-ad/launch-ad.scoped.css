@@ -227,6 +227,7 @@
 .la-root .tree-row .t-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
 .la-root .tree-row .t-meta { color: var(--la-muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .la-root .tree-row .radio { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--la-input-line); flex: none; background: var(--la-bg); }
+.la-root .tree-row .radio.sq { border-radius: 4px; }
 .la-root .tree-row.on .radio { border-color: var(--la-coral); box-shadow: inset 0 0 0 3px var(--la-bg); background: var(--la-coral); }
 .la-root .tree-row.new { color: var(--la-coral-ink); }
 .la-root .tree-row.new .t-name { font-weight: 600; }

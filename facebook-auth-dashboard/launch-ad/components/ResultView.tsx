@@ -23,10 +23,16 @@ export default function ResultView({ result, account, onAgain, onRepeat }: { res
         <p className="note" style={{ marginTop: 10 }}>
           {result.activated ? 'Your ads start delivering once Meta approves them.' : 'Everything is paused. Turn it on in Ads Manager when you are ready.'}
         </p>
+        {result.failures?.length ? (
+          <div className="notice bad" style={{ marginTop: 10 }}>
+            <b>Not added to {result.failures.length} {result.failures.length === 1 ? 'ad set' : 'ad sets'}:</b>
+            {result.failures.map((f) => <div key={f.adset}>{f.adset}: {f.error.userMessage || f.error.message}</div>)}
+          </div>
+        ) : null}
         {result.warning ? <div className="notice warn" style={{ marginTop: 10 }}>{result.warning}</div> : null}
         <dl className="kv">
           {c.campaign ? <><dt>Campaign</dt><dd>{c.campaign.name} · {c.campaign.id}</dd></> : null}
-          {c.adset ? <><dt>Ad set</dt><dd>{c.adset.name} · {c.adset.id}</dd></> : null}
+          {c.adsets && c.adsets.length > 1 ? <><dt>Ad sets ({c.adsets.length})</dt><dd>{c.adsets.map((a) => a.name).join(', ')}</dd></> : c.adset ? <><dt>Ad set</dt><dd>{c.adset.name} · {c.adset.id}</dd></> : null}
           {c.ads.length ? <><dt>{c.ads.length === 1 ? 'Ad' : `Ads (${c.ads.length})`}</dt><dd>{c.ads.map((a) => a.name).join(', ')}</dd></> : null}
         </dl>
         <div className="launch-bar">

@@ -60,7 +60,7 @@ export default function LaunchApp({ declined }: { declined: string[] }) {
   };
 
   const done = (result: LaunchResult) => {
-    setLastAd(result.ok ? { form, adsetName: result.created.adset?.name || '' } : null);
+    setLastAd(result.ok ? { form, adsetName: result.created.adsets && result.created.adsets.length > 1 ? `${result.created.adsets.length} ad sets` : result.created.adset?.name || '' } : null);
     setView({ kind: 'done', result });
     window.scrollTo({ top: 0 });
   };
