@@ -80,7 +80,6 @@ export function buildCampaignPayload({ funnel, strategyId, dailyBudgetMinorUnits
     objective: FUNNEL_CAMPAIGN_OBJECTIVE[funnel],
     status: "PAUSED", // always created paused — see lib/campaignLaunch.js callers for the activate-after step
     special_ad_categories: [],
-    bid_strategy: BID_STRATEGY,
   };
   if (isAbo) {
     // Meta now rejects a no-campaign-budget campaign unless this is set
@@ -91,6 +90,9 @@ export function buildCampaignPayload({ funnel, strategyId, dailyBudgetMinorUnits
     payload.is_adset_budget_sharing_enabled = false;
   } else {
     payload.daily_budget = dailyBudgetMinorUnits;
+    // The campaign-level bid strategy only exists alongside a campaign budget: without one Meta rejects it (code 100,
+    // subcode 1885737, "This campaign doesn't have a budget"). An ABO campaign's ad sets carry their own bid strategy.
+    payload.bid_strategy = BID_STRATEGY;
   }
   return payload;
 }
