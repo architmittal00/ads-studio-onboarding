@@ -118,6 +118,9 @@ export interface FormState {
     videoUrl: string;
     /** Optional separate image or video for Stories and Reels (9:16); same fields as the main media. Empty = main media everywhere */
     /** Ad text in several languages: which one is showing (and used by the ad), each language's saved text, and the English each translation was made from */
+    /** Aspect ratio the first image/video is for, and the one the optional second size is for (9:16 goes to Stories and Reels) */
+    ratio: '1:1' | '4:5' | '9:16' | '16:9';
+    storyRatio: '1:1' | '4:5' | '9:16' | '16:9';
     copyLang: 'EN' | 'HI' | 'TE' | 'TA' | 'ML' | 'KN' | 'HINGLISH';
     copyVersions: Partial<Record<'EN' | 'HI' | 'TE' | 'TA' | 'ML' | 'KN' | 'HINGLISH', { message: string; headline: string; description: string }>>;
     /** The English text the person confirmed as final before it was translated (asked again only if the English changes) */
