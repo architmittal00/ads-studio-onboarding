@@ -4,7 +4,7 @@ import { invalidateCachedGets } from "@/lib/cachedGet";
 import { pauseInBatches } from "@/lib/batchPause";
 import { CloseIcon } from "@/components/icons";
 import { STEP_PCT } from "@/components/rules/RuleActionModal";
-import { trackRecommendationApplied, trackRecommendationBulkApplied } from "@/lib/rules/trackApplied";
+import { trackRecommendationApplied, trackRecommendationBulkApplied, recLogContext } from "@/lib/rules/trackApplied";
 import styles from "@/styles/Home.module.css";
 
 const CONCURRENCY = 4;
@@ -12,7 +12,7 @@ const money = (v, symbol) => `${symbol}${Math.round(v).toLocaleString("en-IN")}`
 
 // Confirm-and-apply for several flags that share one action (pause ads, or raise / lower budgets by
 // one percentage). Same write route as a single apply (/api/fb/entity-action), a few at a time.
-export default function BulkRuleActionModal({ action, flags, currencySymbol, onClose, onDone }) {
+export default function BulkRuleActionModal({ action, flags, currencySymbol, accountId, onClose, onDone }) {
   const isPause = action === "PAUSE_AD";
   const sign = action === "DECREASE_BUDGET" ? -1 : 1;
   const [pct, setPct] = useState(STEP_PCT);
@@ -52,7 +52,9 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
     if (isPause) {
       const results = await pauseInBatches(
         flags.map((f) => f.entityId),
-        (done) => setProgress(done)
+        (done) => setProgress(done),
+        recLogContext(flags[0], { accountId, source: "recommendations", bulk: flags.length > 1 }),
+        Object.fromEntries(flags.map((f) => [f.entityId, { name: f.name, ruleId: f.matchedRules?.[0]?.id, ruleName: f.matchedRules?.[0]?.name, custom: !!f.matchedRules?.some((r) => r.custom) }]))
       );
       const outPause = flags.map((f) => {
         const r = results.get(f.entityId);
@@ -75,6 +77,7 @@ export default function BulkRuleActionModal({ action, flags, currencySymbol, onC
           const body = isPause
             ? { entityId: f.entityId, action: "pause" }
             : { entityId: f.budgetTarget.id, action: f.budgetTarget.type === "lifetime" ? "set_lifetime_budget" : "set_daily_budget", value: newBudget(f) };
+          body.rec = recLogContext(f, { accountId, source: "recommendations", bulk: flags.length > 1, changePct: pctNum });
           const res = await fetch("/api/fb/entity-action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
           const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
           if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);

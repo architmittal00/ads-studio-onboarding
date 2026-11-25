@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
+import { entityActionRow, recordRecActions } from "@/lib/recLogDb";
 
 const VALID_ENTITY_ID = /^\d+$/;
 // Meta's Batch API takes at most 50 operations per request.
@@ -15,7 +16,8 @@ export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session?.accessToken) return res.status(401).json({ error: "Not authenticated" });
 
-  const { entityIds, action } = req.body || {};
+  // `rec` (optional): present only for pauses that come from a recommendation; `names` maps id -> ad name for the log.
+  const { entityIds, action, rec, names } = req.body || {};
   if (action !== "pause") return res.status(400).json({ error: "action must be pause" });
   if (!Array.isArray(entityIds) || entityIds.length === 0 || entityIds.length > MAX_BATCH) {
     return res.status(400).json({ error: `entityIds must be a list of 1–${MAX_BATCH} ids` });
@@ -40,6 +42,17 @@ export default async function handler(req, res) {
       if (item.code === 200 && body && !body.error) return { id, ok: true };
       return { id, ok: false, error: body?.error?.error_user_msg || body?.error?.message || `Request failed (${item.code})` };
     });
+    if (rec) {
+      await recordRecActions(
+        session,
+        results.map((r) => {
+          // `names[id]` is the ad's name, or { name, ruleId, ruleName, custom } when ads in one batch come from different rules.
+          const n = names?.[r.id];
+          const own = n && typeof n === "object" ? { entityName: n.name, ruleId: n.ruleId, ruleName: n.ruleName, custom: n.custom } : { entityName: n };
+          return entityActionRow({ entityId: r.id, action: "pause", rec: { ...rec, entityType: "ad", ...Object.fromEntries(Object.entries(own).filter(([, v]) => v != null)) }, error: r.ok ? null : r.error });
+        })
+      );
+    }
     res.status(200).json({ results });
   } catch (err) {
     res.status(err.graphResponse ? 400 : 500).json({ error: err.message || "Request failed" });

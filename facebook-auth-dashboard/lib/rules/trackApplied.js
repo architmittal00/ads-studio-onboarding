@@ -21,6 +21,26 @@ export function trackRecommendationApplied(flag, extra = {}) {
   });
 }
 
+// What the server logs (lib/recLogDb.js) about the recommendation behind a write, sent along with the request as `rec`.
+// For a budget change the entity is the budget's own campaign / ad set; `oldBudget` is what it was before.
+export function recLogContext(flag, { accountId, source, bulk, changePct, entityType, entityName, extra } = {}) {
+  const isBudget = flag?.action === "INCREASE_BUDGET" || flag?.action === "DECREASE_BUDGET";
+  return {
+    accountId: accountId || flag?.accountId || undefined,
+    entityType: entityType || (isBudget ? flag.budgetTarget?.level : flag?.entityType),
+    entityName: entityName || (isBudget ? flag.budgetTarget?.name : flag?.name),
+    ruleId: flag?.matchedRules?.[0]?.id,
+    ruleName: flag?.matchedRules?.[0]?.name,
+    custom: !!flag?.matchedRules?.some((r) => r.custom),
+    source,
+    screen: typeof window !== "undefined" ? window.location.pathname : undefined,
+    bulk: !!bulk,
+    oldBudget: isBudget ? flag.budgetTarget?.current : undefined,
+    changePct,
+    ...extra,
+  };
+}
+
 // One summary event for a "select several → apply" run.
 export function trackRecommendationBulkApplied(action, { total, applied, pct }) {
   track("recommendation_bulk_applied", {

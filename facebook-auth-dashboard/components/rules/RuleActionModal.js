@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { parseJsonResponse } from "@/lib/fetchJson";
 import { invalidateCachedGets } from "@/lib/cachedGet";
 import { CloseIcon } from "@/components/icons";
-import { trackRecommendationApplied } from "@/lib/rules/trackApplied";
+import { trackRecommendationApplied, recLogContext } from "@/lib/rules/trackApplied";
 import { entityNoun, pauseLabel, stepPctOf } from "@/lib/rules/labels";
 import styles from "@/styles/Home.module.css";
 
@@ -14,7 +14,7 @@ function money(v, symbol) {
 
 // Confirm-and-apply for one flag: pause an ad, or change a budget by a suggested (editable) percentage.
 // Uses the same write route as Custom Views' row actions (/api/fb/entity-action).
-export default function RuleActionModal({ flag, currencySymbol, onClose, onApplied }) {
+export default function RuleActionModal({ flag, currencySymbol, accountId, onClose, onApplied }) {
   const isPause = flag.action === "PAUSE_AD";
   const sign = flag.action === "DECREASE_BUDGET" ? -1 : 1;
   const target = flag.budgetTarget;
@@ -55,6 +55,7 @@ export default function RuleActionModal({ flag, currencySymbol, onClose, onAppli
       const body = isPause
         ? { entityId: flag.entityId, action: "pause" }
         : { entityId: target.id, action: target.type === "lifetime" ? "set_lifetime_budget" : "set_daily_budget", value: newBudget };
+      body.rec = recLogContext(flag, { accountId, source: window.location.pathname === "/recommendations" ? "recommendations" : "custom_views", bulk: false, changePct: changePct != null ? Math.round(changePct * 10) / 10 : undefined });
       const res = await fetch("/api/fb/entity-action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const json = await parseJsonResponse(res).catch((e) => ({ error: e.message }));
       if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);

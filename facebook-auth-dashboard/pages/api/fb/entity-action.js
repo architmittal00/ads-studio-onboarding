@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { graphPost } from "@/lib/facebookGraph";
 import { toMinorUnits } from "@/lib/campaignLaunch";
+import { entityActionRow, recordRecActions } from "@/lib/recLogDb";
 
 // Facebook object ids are plain numeric strings — this is the one thing
 // standing between a user-supplied `entityId` and it landing directly in a
@@ -27,7 +28,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const { entityId, action, value } = req.body || {};
+  // `rec`: present only when the change comes from a recommendation — it is then logged (lib/recLogDb.js).
+  const { entityId, action, value, rec } = req.body || {};
 
   if (typeof entityId !== "string" || !VALID_ENTITY_ID.test(entityId)) {
     return res.status(400).json({ error: "entityId must be a numeric Facebook object id" });
@@ -55,8 +57,10 @@ export default async function handler(req, res) {
 
   try {
     await graphPost(`/${entityId}`, token, params);
+    if (rec) await recordRecActions(session, [entityActionRow({ entityId, action, value, rec })]);
     res.status(200).json({ success: true });
   } catch (err) {
+    if (rec) await recordRecActions(session, [entityActionRow({ entityId, action, value, rec, error: err.message || "Request failed" })]);
     // Same shape as every other write-failure response in this app (see
     // pages/api/fb/launch-strategy.js) — Facebook's own error message is
     // shown to the user verbatim, not replaced with a generic failure text.
