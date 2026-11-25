@@ -249,8 +249,15 @@ export function placementCreativeParams(form: FormState) {
     if (video) videos.push({ video_id: video, thumbnail_hash: hash, adlabels: [{ name: label }] });
     else images.push({ hash, adlabels: [{ name: label }] });
   };
-  addMedia(ad.videoId, ad.imageHash, MAIN);
-  addMedia(ad.storyVideoId, ad.storyImageHash, STORY);
+  // The vertical 9:16 media goes to Stories and Reels, the other one to every other placement. Normally the first
+  // size is the "everything else" one and the second is vertical; if the first is vertical it is the other way round.
+  const firstIsStory = ad.ratio === '9:16' && ad.storyRatio !== '9:16';
+  const first = { video: ad.videoId, hash: ad.imageHash };
+  const second = { video: ad.storyVideoId, hash: ad.storyImageHash };
+  const storyMedia = firstIsStory ? first : second;
+  const baseMedia = firstIsStory ? second : first;
+  addMedia(baseMedia.video, baseMedia.hash, MAIN);
+  addMedia(storyMedia.video, storyMedia.hash, STORY);
   const labelOf = (video: string, name: string) => (video ? { video_label: { name } } : { image_label: { name } });
 
   const a = form.adset;
@@ -267,8 +274,8 @@ export function placementCreativeParams(form: FormState) {
     call_to_action_types: [ad.cta],
     ad_formats: [images.length && videos.length ? 'AUTOMATIC_FORMAT' : videos.length ? 'SINGLE_VIDEO' : 'SINGLE_IMAGE'],
     asset_customization_rules: [
-      { customization_spec: storySpec, ...labelOf(ad.storyVideoId, STORY), priority: 1 },
-      { customization_spec: { publisher_platforms: platforms }, ...labelOf(ad.videoId, MAIN), priority: 2 },
+      { customization_spec: storySpec, ...labelOf(storyMedia.video, STORY), priority: 1 },
+      { customization_spec: { publisher_platforms: platforms }, ...labelOf(baseMedia.video, MAIN), priority: 2 },
     ],
   };
   if (ad.headline.trim()) feed.titles = [{ text: ad.headline }];

@@ -1,5 +1,5 @@
 'use client';
-import { Sparkles } from 'lucide-react';
+import { Check, Languages, Pencil, RefreshCw, Sparkles, Undo2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useAiStatus } from '@/launch-ad/lib/ai-client';
 import { type CopyLang, type CopyResult, type CopyText, type TranslateLanguage, type TranslateResult, TRANSLATE_LANGUAGES } from '@/launch-ad/lib/ai-types';
@@ -144,7 +144,7 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
   return (
     <div className="ai-box">
       <div className="ai-head">
-        <Sparkles size={15} />
+        <Languages size={15} />
         <span className="strong">Ad text</span>
         <span className="hint">
           {regional ? `${nameOf(lang)} version, translated from your English. The ad uses this text.` : canTranslate ? 'Write and check your English text, then pick a language above to translate it.' : 'Primary text, headline and description.'}
@@ -170,9 +170,9 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
       {regional ? (
         <div className="ai-actions" style={{ marginTop: 10 }}>
           <button type="button" className="btn-ghost" disabled={!filled(english) || !canTranslate || !!translating} onClick={() => translate(lang as TranslateLanguage, english)}>
-            {busyTranslating ? <><span className="spinner" />Translating to {nameOf(lang)}…</> : `Translate again from English`}
+            {busyTranslating ? <><span className="spinner" />Translating to {nameOf(lang)}…</> : <><RefreshCw size={13} /> Translate again from English</>}
           </button>
-          <button type="button" className="btn-link" onClick={() => pick('EN')}>Edit the English</button>
+          <button type="button" className="btn-link" onClick={() => pick('EN')}><Pencil size={12} style={{ verticalAlign: '-2px' }} /> Edit the English</button>
           {!filled(english) ? <span className="hint" style={{ margin: 0 }}>Write the English text first.</span> : null}
         </div>
       ) : null}
@@ -188,7 +188,7 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
         <div className="notice warn" style={{ marginTop: 10 }}>
           <b>Is this English text final?</b> It will be translated to {nameOf(pending)} exactly as written. Check the wording, offers and numbers below first.
           <div className="ai-actions" style={{ marginTop: 8 }}>
-            <button type="button" className="btn-primary" onClick={() => { const to = pending; setPending(null); go(to, true); }}>Yes, translate to {nameOf(pending)}</button>
+            <button type="button" className="btn-primary" onClick={() => { const to = pending; setPending(null); go(to, true); }}><Check size={14} /> Yes, translate to {nameOf(pending)}</button>
             <button type="button" className="btn-ghost" onClick={() => setPending(null)}>Keep editing</button>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function AdCopyEditor({ ad, setAd, accountId, pageName }: {
           {wrote.r.copy.warnings.map((w, k) => <div className="ai-warn" key={k}>{w}</div>)}
           <div className="ai-used">
             AI wrote this text.{' '}
-            <button type="button" className="btn-link" onClick={() => { setAd({ ...wrote.before, copyVersions: { ...latest.current.copyVersions, EN: wrote.before } }); setWrote(null); }}>Undo</button>
+            <button type="button" className="btn-link" onClick={() => { setAd({ ...wrote.before, copyVersions: { ...latest.current.copyVersions, EN: wrote.before } }); setWrote(null); }}><Undo2 size={12} style={{ verticalAlign: '-2px' }} /> Undo</button>
           </div>
           <div className="hint" style={{ marginTop: 6 }}>The creative and these details are sent to an AI service ({wrote.r.model}) to write the text. AI can get facts wrong: check every claim before you launch.</div>
         </>

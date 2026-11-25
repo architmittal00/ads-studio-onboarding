@@ -66,6 +66,8 @@ export function defaultForm(catalog = false): FormState {
       videoId: '',
       videoStatus: '',
       videoUrl: '',
+      ratio: '1:1',
+      storyRatio: '9:16',
       copyLang: 'EN',
       copyVersions: {},
       copyFrom: {},

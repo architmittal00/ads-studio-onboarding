@@ -104,7 +104,7 @@ export function ReviewPanel({ mode, account, form, ctx, campaign, productSets, p
       ? `Existing ${ad.postSource === 'INSTAGRAM' ? 'Instagram' : 'Facebook'} post`
       : `New ${ad.videoId ? 'video' : 'image'} ad${ad.imageName ? ` (${ad.imageName})` : ''}, “${CTAS.find((x) => x.key === ad.cta)?.label}” button`]);
     if (ad.kind === 'UPLOAD' && ad.copyLang !== 'EN') adRows.push(['Ad text language', ad.copyLang === 'HINGLISH' ? 'Hinglish' : { HI: 'Hindi', TE: 'Telugu', TA: 'Tamil', ML: 'Malayalam', KN: 'Kannada' }[ad.copyLang]]);
-    if (ad.kind === 'UPLOAD' && (ad.storyVideoId || ad.storyImageHash)) adRows.push(['Stories and Reels', `Own ${ad.storyVideoId ? 'video' : 'image'}${ad.storyImageName ? ` (${ad.storyImageName})` : ''}; other placements use the main media`]);
+    if (ad.kind === 'UPLOAD') adRows.push(['Media sizes', `${ad.ratio}${ad.storyVideoId || ad.storyImageHash ? ` and ${ad.storyRatio}: the vertical one is shown in Stories and Reels, the other everywhere else` : ''}`]);
     if (ad.kind === 'UPLOAD') adRows.push(['Website', ad.link]);
     adRows.push(['URL parameters', buildUrlTags(ad.urlTags || {}) || 'None']);
   }

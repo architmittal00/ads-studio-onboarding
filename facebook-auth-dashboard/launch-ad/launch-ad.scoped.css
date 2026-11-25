@@ -680,3 +680,41 @@
   .la-root .tree-row .t-meta { flex: 1 0 100%; white-space: normal; padding-left: 23px; }
   .la-root .tree-children { padding-left: 14px; }
 }
+
+/* Ad media: choose the aspect ratio, then add the file (computer or Google Drive) */
+.la-root .mslot { border: 1px solid var(--la-card-line); border-radius: 14px; padding: 14px 16px; background: var(--la-bg); }
+.la-root .mslot + .mslot { margin-top: 12px; }
+.la-root .mslot-head { position: relative; display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 10px; padding-right: 36px; }
+.la-root .mslot-title { font-size: 13px; font-weight: 700; color: var(--la-ink); }
+.la-root .mslot-head .icon-btn { position: absolute; top: -4px; right: 0; }
+.la-root .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--la-card-line); background: var(--la-card); color: var(--la-muted); cursor: pointer; }
+.la-root .icon-btn:hover { color: var(--la-bad); border-color: var(--la-bad); }
+.la-root .ratio-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.la-root .ratio-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 11px; border: 1px solid var(--la-input-line); background: var(--la-input); color: var(--la-ink); cursor: pointer; font-size: 12.5px; }
+.la-root .ratio-chip:hover { border-color: var(--la-coral); }
+.la-root .ratio-chip.on { border-color: var(--la-seg-on-line); background: var(--la-seg-on); box-shadow: 0 0 0 1px var(--la-seg-on-line); }
+.la-root .ratio-chip .rc-name { font-weight: 700; }
+.la-root .ratio-chip .rc-ratio { color: var(--la-muted); font-variant-numeric: tabular-nums; }
+.la-root .ratio-shape { display: inline-block; flex: none; border: 2px solid currentColor; border-radius: 3px; opacity: .75; }
+.la-root .ratio-chip.on .ratio-shape { color: var(--la-coral); opacity: 1; }
+.la-root .ratio-shows { margin: 8px 0 12px; }
+.la-root .mslot-drop { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 16px; border: 1.5px dashed var(--la-input-line); border-radius: 12px; background: var(--la-input); transition: border-color .15s, background .15s; }
+.la-root .mslot-drop.over { border-color: var(--la-coral); background: var(--la-seg-on); }
+.la-root .drop-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 50%; background: var(--la-seg-on); color: var(--la-coral); flex: none; }
+.la-root .drop-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; min-width: 0; font-size: 13px; color: var(--la-ink); }
+.la-root .drop-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.la-root .mslot-file { display: flex; gap: 14px; align-items: center; padding: 12px; border: 1px solid var(--la-input-line); border-radius: 12px; background: var(--la-input); }
+.la-root .mslot-thumb { flex: none; width: 76px; max-height: 136px; border-radius: 9px; background: var(--la-seg) center / cover no-repeat; display: inline-flex; align-items: center; justify-content: center; color: var(--la-muted); overflow: hidden; }
+.la-root .mslot-meta { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.la-root .mslot-name { font-size: 13px; font-weight: 600; color: var(--la-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.la-root .mslot-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.la-root .btn-ghost.sm { padding: 5px 10px; font-size: 12px; }
+.la-root .ok-line { display: inline-flex; align-items: center; gap: 5px; color: var(--la-ok); }
+.la-root .add-size { margin-top: 12px; }
+
+@media (max-width: 520px) {
+  .la-root .ratio-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .la-root .ratio-chip { min-width: 0; padding: 8px 8px; gap: 5px; font-size: 11.5px; }
+  .la-root .drop-actions { width: 100%; }
+  .la-root .drop-actions .btn-ghost { flex: 1 1 140px; justify-content: center; }
+}
