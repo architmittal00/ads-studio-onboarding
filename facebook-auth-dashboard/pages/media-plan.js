@@ -18,7 +18,7 @@ import styles from "@/styles/Home.module.css";
 
 // Media Plan: type a budget, pick the ad accounts, and get the plan the way the "Media Plan" sheet of the performance
 // report builds it. Every assumption (CTR, CPC, click -> landing page view -> add to cart -> checkout -> purchase, AOV) is
-// that account's average over the last three full months (or, if it is clearly rising or falling, carried forward to the
+// that account's average over the last three full months plus this month so far (or, if it is clearly rising or falling, carried forward to the
 // plan month; or last year's rates for the same month), and can be changed; everything else is worked out from them
 // (lib/mediaPlan.js has the formulae). The plan month is next month unless another is chosen, and the same month last
 // year is shown beside the plan.
@@ -26,11 +26,16 @@ import styles from "@/styles/Home.module.css";
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const monthLabel = (key) => `${MONTH_NAMES[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
 // "August, September and October 2026" (a year is repeated only where it changes)
-function monthsText(keys) {
-  if (!keys?.length) return "the last 3 full months";
-  const parts = keys.map((k, i) => (i === keys.length - 1 || keys[i + 1].slice(0, 4) !== k.slice(0, 4) ? monthLabel(k) : MONTH_NAMES[Number(k.slice(5, 7)) - 1]));
+function monthsText(rows) {
+  if (!rows?.length) return "the last 3 full months";
+  const parts = rows.map((m, i) => {
+    const k = m.month;
+    const name = i === rows.length - 1 || rows[i + 1].month.slice(0, 4) !== k.slice(0, 4) ? monthLabel(k) : MONTH_NAMES[Number(k.slice(5, 7)) - 1];
+    return m.partial ? `${name} so far (to ${Number(m.through.slice(8, 10))} ${MONTH_NAMES[Number(m.through.slice(5, 7)) - 1]})` : name;
+  });
   return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
+const monthHead = (m) => (m.partial ? `${monthLabel(m.month)} (so far)` : monthLabel(m.month));
 const nf = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 const dash = "–";
 const fInt = (v) => (v == null ? dash : nf.format(Math.round(v)));
@@ -82,7 +87,7 @@ function AssumptionInput({ spec, value, edited, note, onChange }) {
 
 const METHODS = [
   { key: "trend", label: "Trend-adjusted" },
-  { key: "avg", label: "3-month average" },
+  { key: "avg", label: "Average of recent months" },
   { key: "lastYear", label: "Same month last year" },
 ];
 
@@ -91,8 +96,8 @@ function combineMonths(lists) {
   const byMonth = new Map();
   for (const months of lists) {
     for (const m of months) {
-      const t = byMonth.get(m.month) || { month: m.month, spend: 0, impressions: 0, linkClicks: 0, lpv: 0, atc: 0, ic: 0, purchases: 0, revenue: 0 };
-      for (const k of Object.keys(t)) if (k !== "month") t[k] += Number(m[k]) || 0;
+      const t = byMonth.get(m.month) || { month: m.month, ...(m.partial ? { partial: true, through: m.through } : {}), spend: 0, impressions: 0, linkClicks: 0, lpv: 0, atc: 0, ic: 0, purchases: 0, revenue: 0 };
+      for (const k of Object.keys(t)) if (k !== "month" && k !== "partial" && k !== "through") t[k] += Number(m[k]) || 0;
       byMonth.set(m.month, t);
     }
   }
@@ -234,7 +239,7 @@ export default function MediaPlan() {
   const changeMethod = (m) => { setMethod(m); setEdits({}); };
 
   const monthName = (k) => monthLabel(k);
-  const usedMonths = picked.find((p) => p.months)?.months.map((m) => m.month) || [];
+  const usedMonths = picked.find((p) => p.months)?.months || [];
   const usedText = monthsText(usedMonths);
   const ly = lastYearTotals ? { ...assumptionsFromTotals(lastYearTotals), spend: lastYearTotals.spend, impressions: lastYearTotals.impressions, clicks: lastYearTotals.linkClicks, purchases: lastYearTotals.purchases, revenue: lastYearTotals.revenue, lpv: lastYearTotals.lpv, atc: lastYearTotals.atc, ic: lastYearTotals.ic } : null;
   const lyRoas = ly && ly.spend > 0 ? ly.revenue / ly.spend : null;
@@ -283,7 +288,7 @@ export default function MediaPlan() {
     if (totals) sheetRows.push(line("Total", totals).map(bold));
     // What each assumption was worked out from, per account: the months it is based on, the average, what the plan uses and why.
     const monthKeys = usedMonths;
-    sheetRows.push([], [{ v: `How the assumptions were worked out (${usedText})`, bold: true }], ["Account", "Assumption", ...monthKeys.map(monthLabel), "3-month average", "Used in plan", "Why"].map((h) => ({ v: h, bold: true })));
+    sheetRows.push([], [{ v: `How the assumptions were worked out (${usedText})`, bold: true }], ["Account", "Assumption", ...monthKeys.map(monthHead), "Average", "Used in plan", "Why"].map((h) => ({ v: h, bold: true })));
     for (const { p } of rows) {
       if (!p.built) continue;
       for (const spec of INPUTS) {
@@ -316,7 +321,7 @@ export default function MediaPlan() {
               Media Plan
             </h1>
             <p className={styles.sub} style={{ marginTop: 6 }}>
-              Enter a budget and pick your ad accounts. The plan is built from each account&apos;s averages over the last three full months, with the same formulae as the Media Plan sheet.
+              Enter a budget and pick your ad accounts. The plan is built from each account&apos;s averages over the last three full months plus this month so far, with the same formulae as the Media Plan sheet.
             </p>
           </div>
 
@@ -342,7 +347,7 @@ export default function MediaPlan() {
               {picked.length > 1 ? (
                 <LabeledPill label="Split the budget">
                   <select className={styles.select} value={split} onChange={(e) => setSplit(e.target.value)} aria-label="Split the budget">
-                    <option value="spend">By last 3 months&apos; spend</option>
+                    <option value="spend">By recent months&apos; spend</option>
                     <option value="equal">Equally</option>
                   </select>
                 </LabeledPill>
@@ -369,18 +374,18 @@ export default function MediaPlan() {
               <p className={styles.sub}>Pick at least one ad account to build a plan.</p>
             </section>
           ) : null}
-          {loading && <Loader label="Reading the last 3 months…" />}
+          {loading && <Loader label="Reading the recent months…" />}
 
           {ready && !mixedCurrency && rows.length > 0 && (
             <>
               {insight ? (
                 <section className={styles.card} style={{ marginBottom: 16 }}>
                   <h2 className={styles.h2} style={{ margin: "0 0 8px" }}>
-                    What the last 3 months say <span className={styles.muted} style={{ fontWeight: 500, fontSize: 13 }}>({usedText})</span>
+                    What the recent months say <span className={styles.muted} style={{ fontWeight: 500, fontSize: 13 }}>({usedText})</span>
                   </h2>
                   {insight.items.length === 0 ? (
                     <p className={styles.sub} style={{ margin: 0 }}>
-                      No clear rise or fall in CTR, CPC or the funnel rates month to month, so trend-adjusted and the 3-month average give the same plan.
+                      No clear rise or fall in CTR, CPC or the funnel rates month to month, so trend-adjusted and the average give the same plan.
                     </p>
                   ) : (
                     <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -391,7 +396,7 @@ export default function MediaPlan() {
                         return (
                           <li key={it.key} className={styles.sub}>
                             <b>{it.name}</b> is {it.direction === "up" ? "rising" : "falling"} about {it.pct.toFixed(1)}% a month ({it.better ? "good news" : "it costs more"}).{" "}
-                            {n.projected != null ? <>For {monthName(month)} the plan uses <b>{fmtV(method === "trend" ? n.projected : n.avg)}</b> ({method === "trend" ? `3-month average ${fmtV(n.avg)}` : `trend-adjusted would be ${fmtV(n.projected)}`}).</> : null}
+                            {n.projected != null ? <>For {monthName(month)} the plan uses <b>{fmtV(method === "trend" ? n.projected : n.avg)}</b> ({method === "trend" ? `average ${fmtV(n.avg)}` : `trend-adjusted would be ${fmtV(n.projected)}`}).</> : null}
                           </li>
                         );
                       })}
@@ -407,9 +412,9 @@ export default function MediaPlan() {
                             <tr>
                               <th style={{ textAlign: "left" }}>Assumption</th>
                               {p.months.map((m) => (
-                                <th key={m.month} style={th}>{monthLabel(m.month)}</th>
+                                <th key={m.month} style={th}>{monthHead(m)}</th>
                               ))}
-                              <th style={th}>3-month avg</th>
+                              <th style={th}>Average</th>
                               <th style={th}>Plan uses</th>
                               <th style={{ textAlign: "left" }}>Why</th>
                             </tr>
@@ -443,8 +448,13 @@ export default function MediaPlan() {
                       </div>
                     </div>
                   ))}
+                  {usedMonths.some((m) => m.partial) ? (
+                    <p className={styles.muted} style={{ margin: "8px 0 0" }}>
+                      {monthLabel(usedMonths.find((m) => m.partial).month)} is only part of a month (up to yesterday). It counts like any other month, except for Checkout → Purchase: purchases keep arriving for days after the click, so a month still running reads too low and is left out of that one.
+                    </p>
+                  ) : null}
                   <p className={styles.muted} style={{ margin: "8px 0 0" }}>
-                    Trend-adjusted carries each rate&apos;s month-by-month movement forward to {monthName(month)}, never more than 30% away from the average. {insight.items.length ? "Switch to the 3-month average above to ignore the trend." : ""}
+                    Trend-adjusted carries each rate&apos;s month-by-month movement forward to {monthName(month)}, never more than 30% away from the average. {insight.items.length ? "Switch to the average above to ignore the trend." : ""}
                   </p>
                 </section>
               ) : null}
@@ -555,7 +565,7 @@ export default function MediaPlan() {
                 </div>
                 {missingData.length ? (
                   <p className={styles.muted} style={{ marginTop: 10 }}>
-                    {missingData.map((r) => r.p.name).join(", ")} had no spend in the last 3 months, so there is nothing to average. Type your own assumptions in its row to plan for it.
+                    {missingData.map((r) => r.p.name).join(", ")} had no spend in these months, so there is nothing to average. Type your own assumptions in its row to plan for it.
                   </p>
                 ) : null}
                 {grand ? (
@@ -564,7 +574,7 @@ export default function MediaPlan() {
                   </p>
                 ) : null}
                 <p className={styles.muted} style={{ marginTop: 6 }}>
-                  The plan assumes results grow in step with spend. A much bigger budget than the last 3 months&apos; usually costs more per click, so treat a big jump as a best case and adjust CPC or CTR above.
+                  The plan assumes results grow in step with spend. A much bigger budget than recent months&apos; usually costs more per click, so treat a big jump as a best case and adjust CPC or CTR above.
                 </p>
               </section>
 
@@ -619,7 +629,7 @@ export default function MediaPlan() {
               </section>
 
               <details className={styles.card}>
-                <summary style={{ cursor: "pointer", fontWeight: 700 }}>What the assumptions are based on (last 3 full months)</summary>
+                <summary style={{ cursor: "pointer", fontWeight: 700 }}>What the assumptions are based on (last 3 full months and this month so far)</summary>
                 <div className={styles.tableScroll} style={{ maxHeight: "none", marginTop: 12 }}>
                   <table className={styles.table}>
                     <thead>
@@ -642,7 +652,7 @@ export default function MediaPlan() {
                         ...p.months.map((m, i) => (
                           <tr key={`${p.id}-${m.month}`}>
                             <td>{i === 0 ? p.name : ""}</td>
-                            <td>{monthLabel(m.month)}</td>
+                            <td>{monthHead(m)}</td>
                             <td style={td}>{fMoney(m.spend, sym)}</td>
                             <td style={td}>{fInt(m.impressions)}</td>
                             <td style={td}>{fInt(m.linkClicks)}</td>
@@ -656,7 +666,7 @@ export default function MediaPlan() {
                         )),
                         <tr key={`${p.id}-all`} style={{ fontWeight: 700 }}>
                           <td />
-                          <td>3 months</td>
+                          <td>All months</td>
                           <td style={td}>{fMoney(p.totals.spend, sym)}</td>
                           <td style={td}>{fInt(p.totals.impressions)}</td>
                           <td style={td}>{fInt(p.totals.linkClicks)}</td>

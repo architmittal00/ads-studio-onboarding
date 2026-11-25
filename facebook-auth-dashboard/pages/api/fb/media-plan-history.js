@@ -3,7 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import { graphGetInsights } from "@/lib/facebookGraph";
 import { pickPurchaseCount, pickPurchaseValue } from "@/lib/metrics";
 import { ADD_TO_CART_TYPES, INITIATE_CHECKOUT_TYPES, pickAnyActionValue } from "@/lib/insightsMetrics";
-import { lastFullMonths } from "@/lib/mediaPlan";
+import { recentMonths } from "@/lib/mediaPlan";
 
 function monthRange(key) {
   const first = new Date(`${key}-01T00:00:00Z`);
@@ -15,7 +15,7 @@ import { mapWithConcurrency } from "@/lib/metaInterestSearch";
 const MAX_ACCOUNTS = 20;
 const VALID_ACCOUNT = /^act_\d+$/;
 
-// What each account actually did in the last three full calendar months, month by month: the raw totals the Media Plan
+// What each account actually did in the last three full calendar months and this month so far (up to yesterday), month by month: the raw totals the Media Plan
 // page turns into its assumptions (CTR, CPC, click -> landing page view, -> add to cart, -> checkout, -> purchase, AOV).
 // Link clicks and landing page views are used, not "all clicks", so the funnel starts where the website visit starts.
 // Reading only; nothing is written to Meta.
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   // ?lastYear=2025-12: that one month's totals instead (the same month last year, to compare a plan with).
   const lastYear = req.query.lastYear ? String(req.query.lastYear) : null;
   if (lastYear && !/^\d{4}-(0[1-9]|1[0-2])$/.test(lastYear)) return res.status(400).json({ error: "lastYear must look like 2025-12" });
-  const months = lastYear ? [monthRange(lastYear)] : lastFullMonths(new Date(), 3);
+  const months = lastYear ? [monthRange(lastYear)] : recentMonths(new Date(), 3);
   const range = { since: months[0].since, until: months[months.length - 1].until };
 
   const accounts = await mapWithConcurrency(ids, 3, async (accountId) => {
@@ -48,6 +48,7 @@ export default async function handler(req, res) {
           const r = byMonth.get(m.key);
           return {
             month: m.key,
+            ...(m.partial ? { partial: true, through: m.through } : {}),
             spend: parseFloat(r?.spend || 0),
             impressions: parseFloat(r?.impressions || 0),
             linkClicks: parseFloat(r?.inline_link_clicks || 0),
