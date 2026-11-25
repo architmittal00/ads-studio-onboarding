@@ -125,7 +125,9 @@ export default function AdFirstWorkspace({ account, form, setForm, onDone, repea
     setForm((f) => {
       const wasCatalog = f.ad.kind === 'CATALOG';
       const toCatalog = t === 'CATALOG';
-      const text = toCatalog && !wasCatalog ? CATALOG_AD_TEXT : !toCatalog && wasCatalog ? { message: '', headline: '', description: '' } : {};
+      // The text is replaced, so any translations of the old text go too.
+      const fresh = { copyLang: 'EN' as const, copyVersions: {}, copyFrom: {} };
+      const text = toCatalog && !wasCatalog ? { ...CATALOG_AD_TEXT, ...fresh } : !toCatalog && wasCatalog ? { message: '', headline: '', description: '', ...fresh } : {};
       return {
         ...f,
         campaign: { ...f.campaign, catalogEnabled: toCatalog, objective: toCatalog ? 'OUTCOME_SALES' : f.campaign.objective },

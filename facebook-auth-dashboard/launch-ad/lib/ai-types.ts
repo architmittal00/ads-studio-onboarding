@@ -39,19 +39,24 @@ export interface CopyResult {
   model: string;
 }
 
-export interface AiStatus { enabled: boolean; /** Translating the ad text into regional languages (needs the same key) */ translate: boolean; model: string; maxVideoSeconds: number; /** The browser should make a low-resolution copy of videos */ videoCopy: boolean }
+export interface AiStatus { enabled: boolean; /** Translating the ad text into regional languages (needs the same key) */ translate: boolean; translateModel: string; model: string; maxVideoSeconds: number; /** The browser should make a low-resolution copy of videos */ videoCopy: boolean }
 
 export const COPY_LIMITS = { primary: 600, headline: 40, description: 250 };
 
 /** Regional languages the ad text can be translated into (from English). */
-export type TranslateLanguage = 'HI' | 'TE' | 'TA' | 'ML' | 'KN';
+export type TranslateLanguage = 'HI' | 'TE' | 'TA' | 'ML' | 'KN' | 'HINGLISH';
 export const TRANSLATE_LANGUAGES: { key: TranslateLanguage; label: string; english: string }[] = [
   { key: 'HI', label: 'हिन्दी', english: 'Hindi' },
   { key: 'TE', label: 'తెలుగు', english: 'Telugu' },
   { key: 'TA', label: 'தமிழ்', english: 'Tamil' },
   { key: 'ML', label: 'മലയാളം', english: 'Malayalam' },
   { key: 'KN', label: 'ಕನ್ನಡ', english: 'Kannada' },
+  { key: 'HINGLISH', label: 'Hinglish', english: 'Hinglish' },
 ];
+
+/** The text's language in the ad: English (as written) or one of the translations. */
+export type CopyLang = 'EN' | TranslateLanguage;
+export interface CopyText { message: string; headline: string; description: string }
 
 export interface TranslateRequest {
   language: TranslateLanguage;

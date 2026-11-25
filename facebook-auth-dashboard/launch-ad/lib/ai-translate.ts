@@ -26,6 +26,7 @@ const SCRIPT: Record<TranslateLanguage, RegExp> = {
   TA: /[஀-௿]/,
   ML: /[ഀ-ൿ]/,
   KN: /[ಀ-೿]/,
+  HINGLISH: /[A-Za-z]/, // Hindi in English letters: nothing to check beyond "has text"
 };
 
 const SYSTEM = [
@@ -39,7 +40,7 @@ const SYSTEM = [
   'Answer with ONLY a JSON object: {"primary_text": "...", "headline": "...", "description": "..."}.',
 ].join('\n');
 
-async function ask(user: string): Promise<string> {
+async function ask(user: string, thinkingOff = true): Promise<string> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   let res: Response;
@@ -59,6 +60,8 @@ async function ask(user: string): Promise<string> {
         temperature: 0.2,
         max_tokens: 3000,
         response_format: { type: 'json_object' },
+        // Translation doesn't need the model's long thinking mode: it only adds wait.
+        ...(thinkingOff ? { reasoning: { enabled: false } } : {}),
         ...(process.env.OPENROUTER_DATA_COLLECTION === 'deny' ? { provider: { data_collection: 'deny' } } : {}),
       }),
     });
@@ -70,6 +73,8 @@ async function ask(user: string): Promise<string> {
   let json: any; try { json = JSON.parse(text); } catch { json = null; }
   if (!res.ok || json?.error) {
     const status = res.ok ? Number(json?.error?.code) || 502 : res.status;
+    // Some models can't have thinking switched off: try again once without that setting.
+    if (thinkingOff && status === 400 && /reason|thinking/i.test(json?.error?.message || '')) return ask(user, false);
     throw new Upstream(json?.error?.message || `The AI service returned ${res.status}`, status);
   }
   const out = json?.choices?.[0]?.message?.content;
@@ -99,7 +104,8 @@ export async function translateCopy(req: TranslateRequest): Promise<TranslateRes
   };
   if (!draft.message.trim() && !draft.headline.trim() && !draft.description.trim()) throw new GraphError({ message: 'Write the English text first.' }, 400);
 
-  const user = `Translate this ad text from English into ${lang.english}.\n\n${JSON.stringify({ primary_text: draft.message, headline: draft.headline, description: draft.description })}`;
+  const target = lang.key === 'HINGLISH' ? 'Hinglish (Hindi written in English letters, the way people text each other in India; not Devanagari)' : lang.english;
+  const user = `Translate this ad text from English into ${target}.\n\n${JSON.stringify({ primary_text: draft.message, headline: draft.headline, description: draft.description })}`;
   let text: string;
   try { text = await ask(user); } catch (e) { return failure(e); }
   let out: ReturnType<typeof parseTranslation>;

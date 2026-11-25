@@ -27,7 +27,7 @@ const TOTAL_MS = 55_000; // hosts commonly cap a request at 60 s
 const videoCopyOn = () => (process.env.AI_VIDEO_COPY || '').toLowerCase() !== 'off';
 
 export function aiStatus(): AiStatus {
-  return { enabled: !!process.env.OPENROUTER_API_KEY, translate: !!process.env.OPENROUTER_API_KEY, model: model(), maxVideoSeconds: maxVideoSeconds(), videoCopy: videoCopyOn() };
+  return { enabled: !!process.env.OPENROUTER_API_KEY, translate: !!process.env.OPENROUTER_API_KEY, translateModel: process.env.OPENROUTER_TRANSLATE_MODEL || 'google/gemini-2.5-flash', model: model(), maxVideoSeconds: maxVideoSeconds(), videoCopy: videoCopyOn() };
 }
 
 /* ── Reading the landing page, without letting anyone point this server at its own network ── */
