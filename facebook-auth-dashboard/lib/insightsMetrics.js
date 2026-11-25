@@ -58,15 +58,15 @@ export function getBreakdownGroup(value) {
 // more than one naming convention over time) for the handful of other
 // conversion events exposed here, kept local to this catalog rather than
 // expanding lib/metrics.js's already-shipped, purchase-specific helpers.
-function pickAnyActionValue(entries, actionTypes) {
+export function pickAnyActionValue(entries, actionTypes) {
   if (!entries) return 0;
   const match = entries.find((entry) => actionTypes.includes(entry.action_type));
   return match ? parseFloat(match.value) : 0;
 }
 
-const ADD_TO_CART_TYPES = ["omni_add_to_cart", "add_to_cart", "offsite_conversion.fb_pixel_add_to_cart"];
+export const ADD_TO_CART_TYPES = ["omni_add_to_cart", "add_to_cart", "offsite_conversion.fb_pixel_add_to_cart"];
 const LEAD_TYPES = ["omni_lead", "lead", "offsite_conversion.fb_pixel_lead"];
-const INITIATE_CHECKOUT_TYPES = [
+export const INITIATE_CHECKOUT_TYPES = [
   "omni_initiated_checkout",
   "initiate_checkout",
   "offsite_conversion.fb_pixel_initiate_checkout",
