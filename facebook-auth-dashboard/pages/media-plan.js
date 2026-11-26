@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { authOptions } from "./api/auth/[...nextauth]";
 import { publicSession } from "@/lib/publicSession";
 import Layout from "@/components/Layout";
+import PinLock from "@/components/PinLock";
 import Loader from "@/components/Loader";
 import LabeledPill from "@/components/LabeledPill";
 import AccountSelect from "@/components/AccountSelect";
@@ -105,7 +106,8 @@ function combineMonths(lists) {
   return [...byMonth.values()].sort((x, y) => x.month.localeCompare(y.month));
 }
 
-export default function MediaPlan() {
+// The page itself. It is a separate component so that nothing is read from Meta until the PIN has been entered.
+function MediaPlanContent() {
   const { adAccounts, selectedAccountId, accountsLoading } = useAccounts();
   const [pickedIds, setIds] = useState(null); // null until the person changes it: then the account selected in the app is used
   const ids = useMemo(() => pickedIds ?? (selectedAccountId ? [selectedAccountId] : []), [pickedIds, selectedAccountId]);
@@ -323,10 +325,7 @@ export default function MediaPlan() {
   const missingData = rows.filter(({ p }) => p.totals && p.totals.spend <= 0);
 
   return (
-    <Layout>
-      <Head>
-        <title>Media Plan · Facebook Auth Dashboard</title>
-      </Head>
+    <>
       <div className={styles.page}>
         <main className={styles.main} style={{ maxWidth: 1400, margin: "0 auto" }}>
           <div style={{ marginBottom: 16 }}>
@@ -724,6 +723,21 @@ export default function MediaPlan() {
           )}
         </main>
       </div>
+    </>
+  );
+}
+
+// Locked behind the shared PIN (components/PinLock.js, the same one Partnership Ads and Copy Ads use; one entry unlocks
+// them all for the browser session). The lock is a screen lock, not server-side security.
+export default function MediaPlan() {
+  return (
+    <Layout>
+      <Head>
+        <title>Media Plan · Facebook Auth Dashboard</title>
+      </Head>
+      <PinLock label="Media Plan">
+        <MediaPlanContent />
+      </PinLock>
     </Layout>
   );
 }

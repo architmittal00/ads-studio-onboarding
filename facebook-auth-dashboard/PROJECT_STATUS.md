@@ -85,6 +85,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Media Plan is behind the PIN (2026-11-26)
+`/media-plan` is wrapped in `components/PinLock.js` (PIN 392164), the same lock Partnership Ads and Copy Ads use: one entry unlocks all locked tabs for the browser session (sessionStorage). The page content is a separate component (`MediaPlanContent`), so **nothing is read from Meta until the PIN is entered**. Like the other locks this is a screen lock, not server-side security: the PIN is in the client bundle and `/api/fb/media-plan-history` still only needs the normal login. Checked in a browser (locked on load, no data requests, wrong PIN rejected, right PIN opens it).
+
 ### Media Plan: "Based on this month" prediction (2026-11-25)
 A fourth **Assumptions** option, **Based on this month**: next month's rates are predicted to run at the rates **this month is running at so far** (the partial month), taken as they are (`method: "current"` in `buildAssumptions`, `lib/mediaPlan.js`). Checkout -> Purchase keeps using the average of the full months (a running month's purchases are still arriving, see the "this month so far" entry), as does any rate this month has no figure for; the button is disabled on the 1st (no data yet). The insight card gains a **"November so far"** line: days elapsed, spend, purchases, ROAS, and where the month ends at the current daily pace (spend so far / days x days in the month), plus a warning when fewer than 7 days of data exist. The reasoning table says per rate what this month runs at and how that compares with the average; the plan header and the "plan uses" figures in the bullets follow the chosen option. Not checked against a real account.
 
