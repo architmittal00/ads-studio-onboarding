@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { useEffect } from "react";
 import TwoStepSignIn from "@/components/onboarding/TwoStepSignIn";
 import styles from "@/styles/Home.module.css";
+import FastrrSentinelLogo from "@/components/FastrrSentinelLogo";
 
 export default function Home({ googleTest = false, testMode = false }) {
   const { data: session, status } = useSession();
@@ -43,7 +44,7 @@ export default function Home({ googleTest = false, testMode = false }) {
           className={styles.main}
           style={{ alignItems: "center", textAlign: "center", justifyContent: "center", margin: "auto" }}
         >
-          <div className={styles.logoMark}>f</div>
+          <FastrrSentinelLogo width={200} />
           <h1 className={styles.h1}>Facebook Auth Dashboard</h1>
           <p className={styles.sub} style={{ maxWidth: 360 }}>
             Sign in with Facebook to view your profile, Pages, and Ad Account performance.
