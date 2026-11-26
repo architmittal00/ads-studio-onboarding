@@ -166,7 +166,7 @@ export default function Sidebar() {
       onMouseLeave={() => setHovering(false)}
     >
       <div className={styles.appSidebarHeader}>
-        <FastrrSentinelLogo width={expanded ? 112 : 30} markOnly={!expanded} />
+        <FastrrSentinelLogo width={expanded ? 78 : 26} markOnly={!expanded} />
       </div>
 
       <button
