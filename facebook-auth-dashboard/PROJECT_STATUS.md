@@ -85,6 +85,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Fastrr Sentinel logo (2026-11-26)
+The coral "f" badge and the "Ads Dashboard" / "Facebook Auth Dashboard" text in the sidebar header, the phone top bar and both sign-in screens are replaced by the **Fastrr Sentinel** logo (`components/FastrrSentinelLogo.js`, assets in `public/brand/`): the supplied "fastrr Ads" artwork with "Sentinel" in place of "Ads". The wordmark is a mask painted in the theme's text colour so it also reads in dark mode; the purple mark keeps its colour; "Sentinel" is live text. Collapsed sidebar and phone top bar show the purple mark only. Details in DESIGN.md. Not changed: the browser-tab icon (`public/favicon.ico`) and the page titles, which still say "Facebook Auth Dashboard".
+
 ### Media Plan is behind the PIN (2026-11-26)
 `/media-plan` is wrapped in `components/PinLock.js` (PIN 392164), the same lock Partnership Ads and Copy Ads use: one entry unlocks all locked tabs for the browser session (sessionStorage). The page content is a separate component (`MediaPlanContent`), so **nothing is read from Meta until the PIN is entered**. Like the other locks this is a screen lock, not server-side security: the PIN is in the client bundle and `/api/fb/media-plan-history` still only needs the normal login. Checked in a browser (locked on load, no data requests, wrong PIN rejected, right PIN opens it).
 

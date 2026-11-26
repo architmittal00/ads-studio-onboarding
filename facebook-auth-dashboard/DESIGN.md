@@ -147,3 +147,7 @@ Same rules as Custom Views, applied to a six-tab screen (`pages/partnership-ads.
 2. Style with tokens + the classes in `Home.module.css`; add new classes there (CSS Modules), not inline colors.
 3. Verify in light **and** dark, and at ~800px width.
 4. Update this file in the same PR.
+
+## Brand: Fastrr Sentinel logo
+
+`components/FastrrSentinelLogo.js` is the app's logo: Fastrr's "fastrr" wordmark and purple mark with **Sentinel** set underneath (where Fastrr's own logo says "Ads"). Assets are `public/brand/fastrr-mark.png` (the purple mark, keeps its colour in both themes) and `public/brand/fastrr-word.png` (the wordmark as a black-on-transparent mask, painted with `var(--t1)` so it is black in light mode and white in dark). "Sentinel" is live text in the app font (Plus Jakarta Sans, 600) in `var(--t1)`. Positions are the original 437 x 239 artwork scaled to `width`. Used in: the sidebar header (full logo at 112px when expanded, mark only at 30px when collapsed), the phone top bar (mark only) and both sign-in screens (170-200px). The old coral "f" badge is no longer used in these places (`.logoMark` remains for the Copy Ads modal icon).

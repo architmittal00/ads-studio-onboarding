@@ -1,6 +1,7 @@
 import { signIn, signOut } from "next-auth/react";
 import { CheckIcon, LockIcon, GoogleLogo, FacebookLogo } from "@/components/icons";
 import styles from "@/styles/Onboarding.module.css";
+import FastrrSentinelLogo from "@/components/FastrrSentinelLogo";
 
 const DENIED_TEXT = {
   domain: "That Google account isn't on an allowed domain. Sign in with a company account, or ask for yours to be added.",
@@ -22,8 +23,7 @@ export default function TwoStepSignIn({ googleEmail, denied, deniedDomain, signe
       <div className={styles.layout}>
         <section className={styles.intro}>
           <div className={styles.logoRow}>
-            <div className={styles.logo}>f</div>
-            <span className={styles.brand}>Facebook Auth Dashboard</span>
+            <FastrrSentinelLogo width={170} />
           </div>
           <span className={styles.eyebrow}>Takes about a minute</span>
           <h1 className={styles.title}>Let&apos;s get you set up in two steps</h1>

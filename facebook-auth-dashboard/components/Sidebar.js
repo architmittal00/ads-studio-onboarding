@@ -8,6 +8,7 @@ import { clearCachedEntry } from "@/lib/clientCache";
 import { clearSavedCreativePools } from "@/lib/rules/creativePool";
 import { track } from "@/lib/analytics";
 import { useIsMobile } from "@/lib/useIsMobile";
+import FastrrSentinelLogo from "./FastrrSentinelLogo";
 import { clearLocalViews } from "@/lib/userViews";
 import { ACCOUNT_DATA_CACHE_KEY } from "./AccountProvider";
 import { mobileNavFor } from "./MobileTabBar";
@@ -141,9 +142,7 @@ export default function Sidebar() {
     // the rail; navigation between screens is the bottom tab bar.
     return (
       <nav className={styles.mobileTopBar}>
-        <div className={styles.logoMark} style={{ width: 30, height: 30, fontSize: 12 }}>
-          f
-        </div>
+        <FastrrSentinelLogo width={28} markOnly />
         <span className={styles.mobileTopBarTitle}>{mobileNavFor(router.pathname)?.title || "Ads Dashboard"}</span>
         <button
           type="button"
@@ -167,10 +166,7 @@ export default function Sidebar() {
       onMouseLeave={() => setHovering(false)}
     >
       <div className={styles.appSidebarHeader}>
-        <div className={styles.logoMark} style={{ width: 32, height: 32, fontSize: 13 }}>
-          f
-        </div>
-        {expanded && <span style={{ fontSize: 13, fontWeight: 800, color: "var(--t1)" }}>Ads Dashboard</span>}
+        <FastrrSentinelLogo width={expanded ? 112 : 30} markOnly={!expanded} />
       </div>
 
       <button
