@@ -85,6 +85,9 @@ No open PRs. Everything described below is merged and live.
 
 ## 5. Most recent work
 
+### Sidebar logo made smaller (2026-11-26)
+The expanded sidebar's Fastrr Sentinel logo was too big next to the menu; it is now 78px wide (was 112px) and the collapsed mark 26px (was 30px).
+
 ### Fastrr Sentinel logo (2026-11-26)
 The coral "f" badge and the "Ads Dashboard" / "Facebook Auth Dashboard" text in the sidebar header, the phone top bar and both sign-in screens are replaced by the **Fastrr Sentinel** logo (`components/FastrrSentinelLogo.js`, assets in `public/brand/`): the supplied "fastrr Ads" artwork with "Sentinel" in place of "Ads". The wordmark is a mask painted in the theme's text colour so it also reads in dark mode; the purple mark keeps its colour; "Sentinel" is live text. Collapsed sidebar and phone top bar show the purple mark only. Details in DESIGN.md. Not changed: the browser-tab icon (`public/favicon.ico`) and the page titles, which still say "Facebook Auth Dashboard".
 
